@@ -4,11 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import dynamic from 'next/dynamic'
-import 'emoji-mart/css/emoji-mart.css'               
-
-// динамический импорт Picker из emoji-mart v3 (чтобы не конфликтовал с SSR)
-const Picker: any = dynamic(() => import('emoji-mart').then(m => m.Picker), { ssr: false })
+import { Picker } from 'emoji-mart'
 
 type Message = {
   id: string
@@ -208,7 +204,7 @@ export default function MessagesPage() {
           >
             📎
           </button>
-        <input
+          <input
             id="file-upload"
             type="file"
             className="hidden"
@@ -233,9 +229,8 @@ export default function MessagesPage() {
         {showEmoji && (
           <div className="mb-2">
             <Picker
-              set="apple"
               theme="dark"
-              onSelect={(emoji: any) => setMessageText(prev => prev + (emoji?.native || ''))}
+              onEmojiSelect={(emoji: any) => setMessageText(prev => prev + (emoji?.native || ''))}
             />
           </div>
         )}
