@@ -1,0 +1,325 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  password         String
+  resetTokens      PasswordResetToken[]
+  role             Role      @default(user)   // 👈 enum вместо String
+  blocked          Boolean   @default(false)  // 👈 блокировка
+  fullName         String?
+  createdAt        DateTime  @default(now())
+
+  description      String?
+  avatarUrl        String?
+  location         String?
+  skills           String[]
+
+  tasks            Task[]    @relation("Customer")
+  executedTasks    Task[]    @relation("Executor")
+  responses        TaskResponse[]
+  reviewsAuthored  Review[]  @relation("FromUser")
+  reviewsReceived  Review[]  @relation("ToUser")
+  messages         Message[] @relation("MessageSender")
+  notifications    Notification[]
+
+  // сертификация
+  certificationAttempts CertificationAttempt[]
+  certifications        UserCertification[]
+  
+  levelId               String?  @map("level_id")
+  level                 UserLevel? @relation(fields: [levelId], references: [id])
+  xp                    Int      @default(0)
+  completedTasksCount   Int      @default(0)
+  avgRating             Float    @default(0)
+  badges UserBadge[]
+  hireRequestsSent     HireRequest[] @relation("HireCustomer")
+  hireRequestsReceived HireRequest[] @relation("HireExecutor")
+  privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
+  privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
+
+  balance        Int           @default(100)
+  transactions   Transaction[]
+  frozenBalance  Int           @default(0)
+}
+
+model Task {
+  id            String   @id @default(uuid())
+  title         String
+  description   String
+  price         Int?
+  deadline      DateTime?
+  status        String   @default("open")
+  escrowAmount  Int      @default(0)
+
+  customerId    String
+  customer      User     @relation("Customer", fields: [customerId], references: [id])
+
+  executorId    String?
+  executor      User?    @relation("Executor", fields: [executorId], references: [id])
+
+  subcategoryId String?
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  completedAt   DateTime?
+
+  responses     TaskResponse[]
+  review        Review?
+  messages      Message[]
+}
+
+model TaskResponse {
+  id        String   @id @default(uuid())
+  taskId    String
+  userId    String
+  message   String?
+  price     Int?
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([taskId, userId], name: "taskId_userId")
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+
+  fromUserId String?
+  toUserId   String?
+
+  taskId     String   @unique
+
+  fromUser   User?    @relation("FromUser", fields: [fromUserId], references: [id])
+  toUser     User?    @relation("ToUser", fields: [toUserId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  fileUrl   String?
+  createdAt DateTime @default(now())
+  taskId    String
+  senderId  String
+
+  task   Task @relation(fields: [taskId], references: [id])
+  sender User @relation("MessageSender", fields: [senderId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  User      User     @relation(fields: [userId], references: [id])
+}
+
+model Category {
+  id            String        @id @default(uuid())
+  name          String        @unique
+  subcategories Subcategory[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Subcategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  minPrice    Int      @default(500)
+
+  // сертификация
+  certificationTest   CertificationTest?
+  userCertifications  UserCertification[]   // ✅ обратная связь к UserCertification
+}
+
+/* =========================
+   СЕРТИФИКАЦИЯ (новые модели)
+   ========================= */
+
+model CertificationTest {
+  id            String          @id @default(uuid())
+  subcategoryId String          @unique
+  subcategory   Subcategory     @relation(fields: [subcategoryId], references: [id])
+
+  title         String
+  timeLimitSec  Int             // например, 420 (7 минут)
+  passScore     Int             // например, 80
+  questionCount Int             // сколько вопросов выдаём из пула
+
+  questions     CertificationQuestion[]
+  attempts      CertificationAttempt[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CertificationQuestion {
+  id        String   @id @default(uuid())
+  testId    String
+  test      CertificationTest @relation(fields: [testId], references: [id])
+
+  text      String
+  options   CertificationOption[]
+
+  createdAt DateTime @default(now())
+
+  @@index([testId])
+}
+
+model CertificationOption {
+  id         String   @id @default(uuid())
+  questionId String
+  question   CertificationQuestion @relation(fields: [questionId], references: [id])
+
+  text       String
+  isCorrect  Boolean @default(false)
+
+  @@index([questionId])
+}
+
+model CertificationAttempt {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+
+  testId        String
+  test          CertificationTest @relation(fields: [testId], references: [id])
+
+  startedAt     DateTime @default(now())
+  finishedAt    DateTime?
+  score         Int?     // 0..100
+  passed        Boolean?
+
+  @@index([userId])
+  @@index([testId])
+  @@index([userId, testId, startedAt])
+}
+
+model UserCertification {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+
+  subcategoryId String
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
+
+  level         String  @default("CERTIFIED")
+  grantedAt     DateTime @default(now())
+
+  @@unique([userId, subcategoryId], name: "userId_subcategoryId")
+  @@index([subcategoryId])
+}
+
+model UserLevel {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  name      String
+  description String
+  minScore  Int      // min-композитный балл для достижения уровня
+
+  users     User[]
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  icon        String   // путь к иконке, например: /badges/fast.png
+  condition   String   // условие (для админов/логики)
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  badge Badge @relation(fields: [badgeId], references: [id])
+}
+
+model HireRequest {
+  id          String   @id @default(uuid())
+  customerId  String
+  executorId  String
+  createdAt   DateTime @default(now())
+  paid        Boolean  @default(false)
+  status      String   @default("pending") // pending, accepted, rejected
+
+  customer    User     @relation("HireCustomer", fields: [customerId], references: [id])
+  executor    User     @relation("HireExecutor", fields: [executorId], references: [id])
+}
+
+model PrivateMessage {
+  id          String   @id @default(cuid())
+  senderId    String
+  recipientId String
+  content     String?
+  fileUrl     String?
+  mimeType    String?
+  fileName    String?
+  size        Int?
+  createdAt   DateTime @default(now())
+
+  sender      User     @relation("PrivateMessageSender", fields: [senderId], references: [id])
+  recipient   User     @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
+}
+
+model AdminInvite {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  usedBy    String?  @db.Uuid
+}
+
+enum Role {
+  user
+  executor
+  customer
+  admin
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Int
+  type      String   // earn | spend | bonus
+  reason    String
+  createdAt DateTime @default(now())
+}
+
