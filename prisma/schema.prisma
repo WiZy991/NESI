@@ -80,6 +80,9 @@ model Task {
   responses     TaskResponse[]
   review        Review?
   messages      Message[]
+
+  // 🔥 связь с файлами
+  files         File[]   @relation("TaskFiles")
 }
 
 model TaskResponse {
@@ -309,7 +312,7 @@ model PrivateMessage {
 }
 
 model AdminInvite {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   token     String   @unique
   createdAt DateTime @default(now())
   expiresAt DateTime
@@ -350,4 +353,8 @@ model File {
   userAvatar   User?            @relation("UserAvatar")
   messages     Message[]        @relation("MessageFile")
   privateMsgs  PrivateMessage[] @relation("PrivateMessageFile")
+
+  // 🔥 связь к задачам
+  task         Task?            @relation("TaskFiles", fields: [taskId], references: [id])
+  taskId       String?
 }
