@@ -101,7 +101,7 @@ export async function GET(req: Request) {
         id: true,
         fullName: true,
         email: true,
-        avatarUrl: true,
+        avatarFileId: true, // ✅ берём fileId
         location: true,
         skills: true,
         xp: true,
@@ -153,6 +153,7 @@ export async function GET(req: Request) {
 
       return {
         ...u,
+        avatarUrl: u.avatarFileId ? `/api/files/${u.avatarFileId}` : null, // ✅ генерируем URL
         xpComputed,
         lvl,
         progress,
