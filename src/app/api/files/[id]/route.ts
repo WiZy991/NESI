@@ -14,17 +14,20 @@ export async function GET(
       return new NextResponse("Файл не найден", { status: 404 });
     }
 
-    // Если бинарь хранится в базе
+    // Если бинарь хранится в базе (Buffer)
     if (file.data) {
-      return new NextResponse(file.data, {
+      const uint8 = new Uint8Array(file.data as Buffer); // ✅ преобразуем
+      return new NextResponse(uint8, {
         headers: {
-          "Content-Type": file.mimetype,
-          "Content-Disposition": `inline; filename="${file.filename}"`,
+          "Content-Type": file.mimetype || "application/octet-stream",
+          // inline → браузер попробует показать (картинки/pdf)
+          // attachment → скачивание
+          "Content-Disposition": `inline; filename="${encodeURIComponent(file.filename)}"`,
         },
       });
     }
 
-    // Если файл хранится только по ссылке (например, старые через url)
+    // Если файл хранится по внешней ссылке
     if (file.url) {
       return NextResponse.redirect(file.url);
     }
