@@ -46,13 +46,12 @@ export async function POST(req: NextRequest) {
     })
 
     if (existing) {
-      // не считаем это ошибкой для UX — фронт просто покажет «отправлен/принят»
       return NextResponse.json(
         {
           ok: true,
           already: true,
           hireId: existing.id,
-          status: existing.status, // 'pending' | 'accepted'
+          status: existing.status,
           message:
             existing.status === 'accepted'
               ? 'Запрос уже принят'
@@ -68,8 +67,15 @@ export async function POST(req: NextRequest) {
       select: { id: true, status: true, createdAt: true },
     })
 
-    // (опционально: создать уведомление исполнителю)
-    // await prisma.notification.create({ ... })
+    // 📩 создаём уведомление исполнителю
+    await prisma.notification.create({
+      data: {
+        userId: executorId,
+        type: 'hire_request',
+        message: `Заказчик ${me.fullName || me.email} хочет нанять вас`,
+        link: `/hire/${hire.id}`, // можно потом сделать страницу деталей
+      },
+    })
 
     return NextResponse.json(
       { ok: true, already: false, hireId: hire.id, status: hire.status },
