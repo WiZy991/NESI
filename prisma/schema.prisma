@@ -12,13 +12,15 @@ model User {
   email            String    @unique
   password         String
   resetTokens      PasswordResetToken[]
-  role             Role      @default(user)   // 👈 enum вместо String
-  blocked          Boolean   @default(false)  // 👈 блокировка
+  role             Role      @default(user)
+  blocked          Boolean   @default(false)
   fullName         String?
   createdAt        DateTime  @default(now())
 
   description      String?
-  avatarUrl        String?
+  avatarUrl        String?   @deprecated("заменим на relation с File")
+  avatarFile       File?     @relation("UserAvatar")
+
   location         String?
   skills           String[]
 
@@ -30,18 +32,19 @@ model User {
   messages         Message[] @relation("MessageSender")
   notifications    Notification[]
 
-  // сертификация
   certificationAttempts CertificationAttempt[]
   certifications        UserCertification[]
-  
+
   levelId               String?  @map("level_id")
   level                 UserLevel? @relation(fields: [levelId], references: [id])
   xp                    Int      @default(0)
   completedTasksCount   Int      @default(0)
   avgRating             Float    @default(0)
+
   badges UserBadge[]
   hireRequestsSent     HireRequest[] @relation("HireCustomer")
   hireRequestsReceived HireRequest[] @relation("HireExecutor")
+
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
 
@@ -110,13 +113,15 @@ model Review {
 model Message {
   id        String   @id @default(uuid())
   content   String
-  fileUrl   String?
+  fileUrl   String?  @deprecated("заменим на relation с File")
   createdAt DateTime @default(now())
   taskId    String
   senderId  String
 
   task   Task @relation(fields: [taskId], references: [id])
   sender User @relation("MessageSender", fields: [senderId], references: [id])
+
+  file   File? @relation("MessageFile")
 }
 
 model Notification {
@@ -158,9 +163,8 @@ model Subcategory {
 
   minPrice    Int      @default(500)
 
-  // сертификация
   certificationTest   CertificationTest?
-  userCertifications  UserCertification[]   // ✅ обратная связь к UserCertification
+  userCertifications  UserCertification[]
 }
 
 /* =========================
@@ -173,9 +177,9 @@ model CertificationTest {
   subcategory   Subcategory     @relation(fields: [subcategoryId], references: [id])
 
   title         String
-  timeLimitSec  Int             // например, 420 (7 минут)
-  passScore     Int             // например, 80
-  questionCount Int             // сколько вопросов выдаём из пула
+  timeLimitSec  Int
+  passScore     Int
+  questionCount Int
 
   questions     CertificationQuestion[]
   attempts      CertificationAttempt[]
@@ -218,7 +222,7 @@ model CertificationAttempt {
 
   startedAt     DateTime @default(now())
   finishedAt    DateTime?
-  score         Int?     // 0..100
+  score         Int?
   passed        Boolean?
 
   @@index([userId])
@@ -246,7 +250,7 @@ model UserLevel {
   slug      String   @unique
   name      String
   description String
-  minScore  Int      // min-композитный балл для достижения уровня
+  minScore  Int
 
   users     User[]
 }
@@ -255,8 +259,8 @@ model Badge {
   id          String   @id @default(cuid())
   name        String
   description String
-  icon        String   // путь к иконке, например: /badges/fast.png
-  condition   String   // условие (для админов/логики)
+  icon        String
+  condition   String
   users       UserBadge[]
 }
 
@@ -276,7 +280,7 @@ model HireRequest {
   executorId  String
   createdAt   DateTime @default(now())
   paid        Boolean  @default(false)
-  status      String   @default("pending") // pending, accepted, rejected
+  status      String   @default("pending")
 
   customer    User     @relation("HireCustomer", fields: [customerId], references: [id])
   executor    User     @relation("HireExecutor", fields: [executorId], references: [id])
@@ -287,14 +291,16 @@ model PrivateMessage {
   senderId    String
   recipientId String
   content     String?
-  fileUrl     String?
-  mimeType    String?
-  fileName    String?
-  size        Int?
+  fileUrl     String?  @deprecated("заменим на relation с File")
+  mimeType    String?  @deprecated("заменим на relation с File")
+  fileName    String?  @deprecated("заменим на relation с File")
+  size        Int?     @deprecated("заменим на relation с File")
   createdAt   DateTime @default(now())
 
   sender      User     @relation("PrivateMessageSender", fields: [senderId], references: [id])
   recipient   User     @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
+
+  file        File?    @relation("PrivateMessageFile")
 }
 
 model AdminInvite {
@@ -318,8 +324,25 @@ model Transaction {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   amount    Int
-  type      String   // earn | spend | bonus
+  type      String
   reason    String
   createdAt DateTime @default(now())
 }
 
+/* =========================
+   ФАЙЛЫ
+   ========================= */
+
+model File {
+  id        String   @id @default(cuid())
+  filename  String
+  mimetype  String
+  size      Int
+  data      Bytes?   // хранение бинаря (MVP)
+  url       String?  // для будущего S3/Storage
+  createdAt DateTime @default(now())
+
+  userAvatar   User?            @relation("UserAvatar")
+  messages     Message[]        @relation("MessageFile")
+  privateMsgs  PrivateMessage[] @relation("PrivateMessageFile")
+}
