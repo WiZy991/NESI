@@ -1,16 +1,10 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
 const ALLOWED_EXTENSIONS = [
-  "pdf",
-  "doc",
-  "docx",
-  "xls",
-  "xlsx",
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
+  "pdf", "doc", "docx", "xls", "xlsx",
+  "png", "jpg", "jpeg", "gif"
 ];
 
 export async function POST(req: Request) {
@@ -24,25 +18,20 @@ export async function POST(req: Request) {
 
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
-      return NextResponse.json(
-        { error: "Недопустимый тип файла" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Недопустимый тип файла" }, { status: 400 });
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "Файл слишком большой (макс 10МБ)" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Файл слишком большой (макс 10МБ)" }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Сохраняем в таблицу File
-    const saved = await prisma.file.create({
+    // Сохраняем в БД
+    const savedFile = await prisma.file.create({
       data: {
+        id: randomUUID(),
         filename: file.name,
         mimetype: file.type,
         size: file.size,
@@ -50,10 +39,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({
-      id: saved.id,
-      url: `/api/files/${saved.id}`,
-    });
+    return NextResponse.json({ id: savedFile.id });
   } catch (err) {
     console.error("❌ Ошибка загрузки файла:", err);
     return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
