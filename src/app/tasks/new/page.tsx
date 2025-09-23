@@ -47,24 +47,28 @@ export default function CreateTaskPage() {
     }
 
     setLoading(true)
-    toast.loading('Создание задачи...')
 
     try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title, description, subcategoryId }),
-      })
+      await toast.promise(
+        fetch('/api/tasks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ title, description, subcategoryId }),
+        }).then((res) => {
+          if (!res.ok) throw new Error('Ошибка при создании')
+          return res
+        }),
+        {
+          loading: 'Создание задачи...',
+          success: 'Задача успешно создана!',
+          error: 'Ошибка сервера',
+        }
+      )
 
-      if (!res.ok) throw new Error('Ошибка при создании')
-
-      toast.success('Задача создана!')
       router.push('/profile')
-    } catch (err) {
-      toast.error('Ошибка сервера')
     } finally {
       setLoading(false)
     }
