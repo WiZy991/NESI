@@ -3,7 +3,7 @@
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { FaCode, FaPython, FaJs, FaDatabase, FaGlobe, FaToolbox } from 'react-icons/fa'
+import { FaPython, FaJs, FaDatabase, FaGlobe, FaToolbox, FaUserCircle } from 'react-icons/fa'
 
 type Review = {
   id: string
@@ -117,12 +117,14 @@ export default function ProfilePageContent() {
       <h1 className="text-3xl font-bold text-emerald-400 mb-4">👤 Профиль</h1>
 
       {/* Аватар */}
-      {profile.avatarUrl && (
+      {profile.avatarUrl ? (
         <img
           src={profile.avatarUrl}
           alt="Avatar"
-          className="w-28 h-28 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] mb-4"
+          className="w-28 h-28 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] mb-4 object-cover"
         />
+      ) : (
+        <FaUserCircle className="text-gray-600 w-28 h-28 mb-4" />
       )}
 
       {/* Основная инфа */}
