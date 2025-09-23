@@ -19,7 +19,6 @@ export async function GET(
     orderBy: { createdAt: 'asc' },
   })
 
-  // приводим к единому формату
   const result = messages.map((m) => ({
     id: m.id,
     content: m.content,
@@ -28,6 +27,7 @@ export async function GET(
     fileId: m.file?.id || null,
     fileName: m.file?.filename || null,
     fileMimetype: m.file?.mimetype || null,
+    fileUrl: m.file ? `/api/files/${m.file.id}` : null, // 🔥 всегда отдаём url
   }))
 
   return NextResponse.json({ messages: result })
@@ -85,6 +85,7 @@ export async function POST(
       fileId: message.file?.id || null,
       fileName: message.file?.filename || null,
       fileMimetype: message.file?.mimetype || null,
+      fileUrl: message.file ? `/api/files/${message.file.id}` : null, // 🔥 сразу готовая ссылка
     },
   })
 }
