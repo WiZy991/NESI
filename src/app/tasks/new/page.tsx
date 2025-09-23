@@ -21,6 +21,7 @@ export default function CreateTaskPage() {
   const [categoryId, setCategoryId] = useState('')
   const [subcategoryId, setSubcategoryId] = useState('')
   const [categories, setCategories] = useState<Category[]>([])
+  const [files, setFiles] = useState<File[]>([])
 
   const [loading, setLoading] = useState(false)
 
@@ -49,14 +50,20 @@ export default function CreateTaskPage() {
     setLoading(true)
 
     try {
+      const formData = new FormData()
+      formData.append('title', title)
+      formData.append('description', description)
+      formData.append('subcategoryId', subcategoryId)
+
+      files.forEach((file) => formData.append('files', file))
+
       await toast.promise(
         fetch('/api/tasks', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ title, description, subcategoryId }),
+          body: formData,
         }).then((res) => {
           if (!res.ok) throw new Error('Ошибка при создании')
           return res
@@ -128,6 +135,34 @@ export default function CreateTaskPage() {
             ))}
           </select>
         )}
+
+        {/* Загрузка файлов */}
+        <div className="flex flex-col gap-2">
+          <label
+            htmlFor="task-files"
+            className="cursor-pointer px-3 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition text-sm shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+          >
+            📎 Прикрепить файлы
+          </label>
+          <input
+            id="task-files"
+            type="file"
+            multiple
+            onChange={(e) => {
+              if (e.target.files) {
+                setFiles(Array.from(e.target.files))
+              }
+            }}
+            className="hidden"
+          />
+          {files.length > 0 && (
+            <ul className="text-xs text-emerald-400 list-disc pl-4">
+              {files.map((f) => (
+                <li key={f.name}>{f.name}</li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <button
           onClick={handleCreate}
