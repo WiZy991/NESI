@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
 export async function POST(req: Request) {
   try {
@@ -10,31 +11,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Некорректный файл" }, { status: 400 });
     }
 
-    // Читаем бинарные данные
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Сохраняем запись в таблице File
-    const saved = await prisma.file.create({
+    // Сохраняем в БД
+    const savedFile = await prisma.file.create({
       data: {
+        id: randomUUID(),
         filename: file.name,
         mimetype: file.type,
         size: file.size,
-        data: buffer,
+        data: buffer, // ⚠️ хранение бинаря в БД (MVP)
       },
     });
 
-    // ⚠️ Тут нужно знать userId (например, брать из JWT/сессии)
-    // Для примера я просто верну ID файла
-    return NextResponse.json({
-      id: saved.id,
-      url: `/api/files/${saved.id}`,
-    });
+    return NextResponse.json({ id: savedFile.id });
   } catch (err) {
     console.error("Ошибка загрузки файла:", err);
-    return NextResponse.json(
-      { error: "Ошибка загрузки файла" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Ошибка загрузки файла" }, { status: 500 });
   }
 }
