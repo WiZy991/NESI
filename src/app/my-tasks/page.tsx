@@ -17,7 +17,7 @@ export default function MyTasksPage() {
 
     const fetchTasks = async () => {
       try {
-        const res = await fetch('/api/my-tasks', {
+        const res = await fetch('/api/tasks?mine=true', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -48,7 +48,7 @@ export default function MyTasksPage() {
       <h1 className="text-2xl font-bold">Мои задачи</h1>
 
       {tasks.length === 0 ? (
-        <p className="text-gray-400">Пока нет назначенных задач.</p>
+        <p className="text-gray-400">У вас пока нет созданных задач.</p>
       ) : (
         <ul className="space-y-4">
           {tasks.map((task) => (
@@ -59,10 +59,10 @@ export default function MyTasksPage() {
               <Link href={`/tasks/${task.id}`} className="block">
                 <h2 className="text-lg font-semibold">{task.title}</h2>
                 <p className="text-sm text-gray-400 mt-1">
-                  Заказчик: {task.customer?.fullName || 'Без имени'}
+                  Статус: {task.status}
                 </p>
                 <p className="text-sm text-gray-500">
-                  Назначено: {new Date(task.createdAt).toLocaleDateString()}
+                  Создано: {new Date(task.createdAt).toLocaleDateString()}
                 </p>
               </Link>
             </li>
