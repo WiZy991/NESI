@@ -90,7 +90,7 @@ export default function Hero() {
             <li className="italic">БАЗА ЗНАНИЙ — ДЛЯ РОСТА НАВЫКОВ</li>
           </ul>
 
-          {/* 🚪 Дверь с таймером */}
+          {/* 🚪 Дверь */}
           <div className="mt-12 flex flex-col items-center justify-center">
             <div className="relative w-40 h-64">
               <svg
@@ -134,15 +134,15 @@ export default function Hero() {
                   </linearGradient>
                 </defs>
               </svg>
-
-              {/* Таймер прямо на двери */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-emerald-400 font-bold tracking-widest text-center text-xs md:text-sm drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]">
-                  {timeLeft.weeks} нед : {timeLeft.hours} ч : {timeLeft.minutes} мин : {timeLeft.seconds} сек
-                </p>
-              </div>
             </div>
-            <p className="mt-4 text-lg font-semibold uppercase tracking-widest text-emerald-400 text-center">
+
+            {/* Таймер под дверью */}
+            <div className="mt-4 text-emerald-400 font-bold tracking-widest text-sm md:text-base drop-shadow-[0_0_6px_rgba(16,185,129,0.8)] text-center">
+              {timeLeft.weeks} нед : {timeLeft.hours} ч : {timeLeft.minutes} мин : {timeLeft.seconds} сек
+            </div>
+
+            {/* Надпись под таймером */}
+            <p className="mt-2 text-lg font-semibold uppercase tracking-widest text-emerald-400 text-center">
               РЕЛИЗ ОЖИДАЕТСЯ В ОКТЯБРЕ
             </p>
           </div>
