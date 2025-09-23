@@ -154,7 +154,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       {/* Описание */}
       <p className="text-gray-300 text-lg">{task.description}</p>
 
-      {/* Автор */}
+      {/* Автор и дата */}
       <p className="text-sm text-gray-400">
         Автор{' '}
         <Link
@@ -165,6 +165,34 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </Link>{' '}
         — {new Date(task.createdAt).toLocaleDateString()}
       </p>
+
+      {/* 📎 Файлы, прикреплённые при создании задачи */}
+      {task.files?.length > 0 && (
+        <div className="mt-2 flex flex-col gap-2">
+          {task.files.map((file: any) => {
+            const isImage = file.mimetype?.startsWith('image/')
+            return (
+              <div key={file.id}>
+                {isImage ? (
+                  <img
+                    src={`/api/files/${file.id}`}
+                    alt={file.filename}
+                    className="max-w-xs max-h-64 rounded border border-gray-700"
+                  />
+                ) : (
+                  <a
+                    href={`/api/files/${file.id}`}
+                    download={file.filename}
+                    className="text-emerald-300 hover:underline"
+                  >
+                    📎 {file.filename} ({Math.round(file.size / 1024)} КБ)
+                  </a>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Статус */}
       <span
@@ -224,7 +252,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </div>
       )}
 
-      {/* ====== ФОРМА ОТКЛИКА / ГЕЙТ СЕРТИФИКАЦИИ ====== */}
+      {/* ====== ФОРМА ОТКЛИКА ====== */}
       {user?.role === 'executor' && task.status === 'open' && !task.executorId && (
         <>
           {loadingActive ? (
@@ -234,59 +262,10 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
               У вас уже есть активная задача. Завершите её, чтобы откликнуться на новые.
             </div>
           ) : (
-            <>
-              {needCertification ? (
-                isCertChecking ? (
-                  <div className="mt-4 text-sm text-gray-400">Проверка сертификации…</div>
-                ) : isCertified ? (
-                  <ResponseForm taskId={task.id} minPrice={minPrice} />
-                ) : (
-                  <div
-                    className="relative mt-2 inline-block"
-                    onMouseEnter={openHint}
-                    onMouseLeave={scheduleCloseHint}
-                  >
-                    <div className="opacity-60 select-none pointer-events-none">
-                      <ResponseForm taskId={task.id} minPrice={minPrice} />
-                    </div>
-                    <div
-                      className="absolute inset-0 z-10 cursor-not-allowed"
-                      aria-hidden
-                      onMouseEnter={openHint}
-                      onMouseLeave={scheduleCloseHint}
-                    />
-                    {hintOpen && (
-                      <div
-                        className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-20"
-                        style={{ minWidth: 260 }}
-                      >
-                        <div className="rounded border border-gray-700 bg-gray-900 text-white text-sm px-3 py-2 shadow-lg">
-                          Для отклика по этой задаче нужна сертификация
-                          {subcategoryName ? <> по «{subcategoryName}»</> : ''}.
-                          {subcategoryId && (
-                            <>
-                              {' '}
-                              <Link
-                                href={`/cert?subcategoryId=${subcategoryId}`}
-                                className="text-blue-400 underline"
-                              >
-                                Пройти тест
-                              </Link>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              ) : (
-                <ResponseForm taskId={task.id} minPrice={minPrice} />
-              )}
-            </>
+            <ResponseForm taskId={task.id} minPrice={minPrice} />
           )}
         </>
       )}
-      {/* ====== /ФОРМА ОТКЛИКА ====== */}
 
       {/* Отклики */}
       {isCustomer && (
@@ -295,55 +274,40 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
           {task.responses.length === 0 ? (
             <p className="text-gray-500 italic">Пока нет откликов</p>
           ) : (
-            task.responses.map((response: any) => {
-              const reviews = response.user?.reviewsReceived || []
-              const avgRating =
-                reviews.length > 0
-                  ? (
-                      reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / reviews.length
-                    ).toFixed(1)
-                  : null
-
-              return (
-                <div
-                  key={response.id}
-                  className="p-4 rounded-xl bg-black/40 border border-emerald-500/30 mb-3 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition"
-                >
-                  <p className="font-semibold text-emerald-400">
-                    <Link
-                      href={getUserProfileLink(user?.id, response.user.id)}
-                      className="hover:underline"
-                    >
-                      {response.user.fullName || response.user.email}
-                    </Link>
-                  </p>
-                  {avgRating ? (
-                    <p className="text-sm text-yellow-400">⭐ Рейтинг: {avgRating}</p>
-                  ) : (
-                    <p className="text-sm text-gray-500 italic">Нет отзывов</p>
-                  )}
-                  <p className="text-sm text-gray-400">
-                    Отклик: {new Date(response.createdAt).toLocaleDateString()}
-                  </p>
-                  {response.price && (
-                    <p className="text-sm text-emerald-300 font-medium">💰 {response.price} ₽</p>
-                  )}
-                  {response.message && <p className="text-gray-200 mt-1">{response.message}</p>}
-                  {task.status === 'open' && isCustomer && (
-                    <AssignExecutorButton
-                      taskId={task.id}
-                      executorId={response.userId}
-                      currentUserId={user?.id}
-                    />
-                  )}
-                </div>
-              )
-            })
+            task.responses.map((response: any) => (
+              <div
+                key={response.id}
+                className="p-4 rounded-xl bg-black/40 border border-emerald-500/30 mb-3 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+              >
+                <p className="font-semibold text-emerald-400">
+                  <Link
+                    href={getUserProfileLink(user?.id, response.user.id)}
+                    className="hover:underline"
+                  >
+                    {response.user.fullName || response.user.email}
+                  </Link>
+                </p>
+                <p className="text-sm text-gray-400">
+                  Отклик: {new Date(response.createdAt).toLocaleDateString()}
+                </p>
+                {response.price && (
+                  <p className="text-sm text-emerald-300 font-medium">💰 {response.price} ₽</p>
+                )}
+                {response.message && <p className="text-gray-200 mt-1">{response.message}</p>}
+                {task.status === 'open' && isCustomer && (
+                  <AssignExecutorButton
+                    taskId={task.id}
+                    executorId={response.userId}
+                    currentUserId={user?.id}
+                  />
+                )}
+              </div>
+            ))
           )}
         </div>
       )}
 
-      {/* Чат */}
+      {/* Чат по задаче (с прикреплением файлов) */}
       {canChat && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
           <h2 className="text-lg font-semibold text-emerald-300 mb-2">Чат по задаче</h2>
