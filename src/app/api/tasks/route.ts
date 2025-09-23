@@ -35,10 +35,8 @@ export async function GET(req: Request) {
       },
       orderBy: { createdAt: sort },
       include: {
-        customer: {
-          select: { fullName: true },
-        },
-        files: true, // 🔥 теперь будем подтягивать файлы
+        customer: { select: { fullName: true } },
+        files: true, // 📎 включаем файлы
       },
     })
 
@@ -77,7 +75,9 @@ export async function POST(req: Request) {
       )
     }
 
-    // сначала создаём задачу
+    // получаем все файлы
+    const files = formData.getAll('files') as File[]
+
     const task = await prisma.task.create({
       data: {
         title: title.trim(),
@@ -86,32 +86,27 @@ export async function POST(req: Request) {
         deadline,
         customerId: user.id,
         subcategoryId,
+        files: {
+          create: await Promise.all(
+            files
+              .filter((f) => f instanceof File)
+              .map(async (file) => {
+                const buffer = Buffer.from(await file.arrayBuffer())
+                return {
+                  filename: file.name,
+                  mimetype: file.type,
+                  size: file.size,
+                  data: buffer, // ⚠️ если хочешь хранить байты в БД
+                  // url: `/uploads/${file.name}`, // ⚠️ если будешь сохранять на диск
+                }
+              })
+          ),
+        },
       },
-    })
-
-    // сохраняем файлы
-    const files = formData.getAll('files')
-    for (const entry of files) {
-      if (entry instanceof File) {
-        const buffer = Buffer.from(await entry.arrayBuffer())
-        await prisma.file.create({
-          data: {
-            filename: entry.name,
-            mimetype: entry.type,
-            size: entry.size,
-            data: buffer,
-            task: { connect: { id: task.id } },
-          },
-        })
-      }
-    }
-
-    const taskWithFiles = await prisma.task.findUnique({
-      where: { id: task.id },
       include: { files: true },
     })
 
-    return NextResponse.json({ task: taskWithFiles })
+    return NextResponse.json({ task })
   } catch (err) {
     console.error('Ошибка при создании задачи:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
