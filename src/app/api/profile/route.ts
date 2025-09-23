@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { writeFile } from 'fs/promises'
+import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import fs from 'fs'
 
 export async function GET(req: Request) {
   const user = await getUserFromRequest(req)
@@ -29,29 +30,32 @@ export async function PATCH(req: Request) {
   if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   try {
-    const contentType = req.headers.get("content-type") || ""
+    const contentType = req.headers.get('content-type') || ''
     let dataToUpdate: any = {}
 
-    if (contentType.includes("multipart/form-data")) {
-      // === Обработка формы с файлом ===
+    if (contentType.includes('multipart/form-data')) {
+      // === multipart/form-data ===
       const formData = await req.formData()
 
-      const fullName = formData.get("fullName") as string
-      const role = formData.get("role") as string
-      const password = formData.get("password") as string | null
-      const description = formData.get("description") as string | null
-      const location = formData.get("location") as string | null
-      const skills = formData.get("skills") as string | null
-      const avatar = formData.get("avatar") as File | null
+      const fullName = formData.get('fullName') as string
+      const role = formData.get('role') as string
+      const password = formData.get('password') as string | null
+      const description = formData.get('description') as string | null
+      const location = formData.get('location') as string | null
+      const skills = formData.get('skills') as string | null
+      const avatar = formData.get('avatar') as File | null
 
       if (!fullName || !role) {
-        return NextResponse.json({ error: "Имя и роль обязательны" }, { status: 400 })
+        return NextResponse.json({ error: 'Имя и роль обязательны' }, { status: 400 })
       }
 
       dataToUpdate = { fullName, role, description, location }
 
       if (skills) {
-        dataToUpdate.skills = skills.split(",").map(s => s.trim()).filter(Boolean)
+        dataToUpdate.skills = skills
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
       }
 
       if (password && password.length > 0) {
@@ -61,18 +65,28 @@ export async function PATCH(req: Request) {
 
       if (avatar) {
         const bytes = Buffer.from(await avatar.arrayBuffer())
+
+        // создаём папку public/uploads если её нет
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+        if (!fs.existsSync(uploadDir)) {
+          await mkdir(uploadDir, { recursive: true })
+        }
+
         const fileName = `${user.id}-${Date.now()}-${avatar.name}`
-        const filePath = path.join(process.cwd(), "public", "uploads", fileName)
+        const filePath = path.join(uploadDir, fileName)
+
         await writeFile(filePath, bytes)
+
+        // путь для <img src="...">
         dataToUpdate.avatarUrl = `/uploads/${fileName}`
       }
     } else {
-      // === Обычный JSON ===
+      // === JSON ===
       const body = await req.json()
       const { fullName, role, password, description, avatarUrl, location, skills } = body
 
       if (!fullName || !role) {
-        return NextResponse.json({ error: "Имя и роль обязательны" }, { status: 400 })
+        return NextResponse.json({ error: 'Имя и роль обязательны' }, { status: 400 })
       }
 
       dataToUpdate = { fullName, role, description, avatarUrl, location }
@@ -80,7 +94,7 @@ export async function PATCH(req: Request) {
       if (skills) {
         dataToUpdate.skills = Array.isArray(skills)
           ? skills
-          : (skills as string).split(",").map(s => s.trim()).filter(Boolean)
+          : (skills as string).split(',').map((s) => s.trim()).filter(Boolean)
       }
 
       if (password && password.length > 0) {
@@ -96,7 +110,7 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ user: updatedUser })
   } catch (err: any) {
-    console.error("❌ Ошибка обновления профиля:", err)
-    return NextResponse.json({ error: "Ошибка обновления" }, { status: 500 })
+    console.error('❌ Ошибка обновления профиля:', err)
+    return NextResponse.json({ error: 'Ошибка обновления' }, { status: 500 })
   }
 }
