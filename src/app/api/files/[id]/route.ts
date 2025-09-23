@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -11,30 +11,31 @@ export async function GET(
     });
 
     if (!file) {
-      return new NextResponse("Файл не найден", { status: 404 });
+      return NextResponse.json({ error: "Файл не найден" }, { status: 404 });
     }
 
-    // Если бинарь хранится в базе (Buffer)
+    // Если бинарь хранится в базе
     if (file.data) {
-      const uint8 = new Uint8Array(file.data as Buffer); // ✅ преобразуем
-      return new NextResponse(uint8, {
+      return new NextResponse(file.data as Buffer, {
         headers: {
           "Content-Type": file.mimetype || "application/octet-stream",
-          // inline → браузер попробует показать (картинки/pdf)
-          // attachment → скачивание
-          "Content-Disposition": `inline; filename="${encodeURIComponent(file.filename)}"`,
+          // inline → откроется в браузере (pdf, картинки и т.д.)
+          // attachment → сразу скачивание
+          "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(
+            file.filename
+          )}`,
         },
       });
     }
 
-    // Если файл хранится по внешней ссылке
+    // Если есть внешний URL (например, s3/public/uploads)
     if (file.url) {
       return NextResponse.redirect(file.url);
     }
 
-    return new NextResponse("Файл пуст", { status: 404 });
+    return NextResponse.json({ error: "Файл пуст" }, { status: 404 });
   } catch (err) {
     console.error("Ошибка при выдаче файла:", err);
-    return new NextResponse("Ошибка сервера", { status: 500 });
+    return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
   }
 }
