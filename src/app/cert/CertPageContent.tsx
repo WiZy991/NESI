@@ -55,15 +55,191 @@ async function authFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const res = await fetch(input, { ...init, credentials: 'include', headers })
   const text = await res.text()
   let data: any = null
-  try { data = JSON.parse(text) } catch { data = { error: text } }
+  try {
+    data = JSON.parse(text)
+  } catch {
+    data = { error: text }
+  }
   return { res, data }
 }
 
 /* =========================
    Тест-раннер
    ========================= */
-// оставляем твой TestRunner без изменений
-// ...
+function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: string }) {
+  const router = useRouter()
+
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
+
+  const [test, setTest] = useState<TestMeta | null>(null)
+  const [questions, setQuestions] = useState<SafeQuestion[]>([])
+  const [attemptId, setAttemptId] = useState<string | null>(null)
+
+  const [idx, setIdx] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [leftSec, setLeftSec] = useState<number | null>(null)
+  const [result, setResult] = useState<{ passed: boolean; score: number; outOfTime: boolean; passScore: number } | null>(null)
+
+  const [reloadKey, setReloadKey] = useState(0)
+
+  // Загружаем тест + стартуем попытку
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      setLoading(true); setErr(null); setNotFound(false)
+      try {
+        const r1 = await authFetch(`/api/cert/test?subcategoryId=${encodeURIComponent(subcategoryId)}`)
+        if (r1.res.status === 404) {
+          setNotFound(true)
+          return
+        }
+        if (!r1.res.ok) throw new Error(r1.data?.error || `HTTP ${r1.res.status}`)
+
+        const r2 = await authFetch('/api/cert/attempts/start', {
+          method: 'POST',
+          body: JSON.stringify({ testId: (r1.data as TestResponse).test.id })
+        })
+        if (!r2.res.ok) throw new Error(r2.data?.error || `HTTP ${r2.res.status}`)
+
+        if (!cancelled) {
+          const d1 = r1.data as TestResponse
+          const d2 = r2.data as StartAttemptResponse
+          setTest(d1.test)
+          setQuestions(d1.questions)
+          setAttemptId(d2.attemptId)
+          const startedAt = new Date(d2.startedAt).getTime()
+          const expiresAt = startedAt + d2.timeLimitSec * 1000
+          setLeftSec(Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)))
+        }
+      } catch (e: any) {
+        if (!cancelled) setErr(e.message || 'Ошибка загрузки теста')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [subcategoryId, reloadKey])
+
+  // Таймер
+  useEffect(() => {
+    if (!test) return
+    const t = setInterval(() => setLeftSec(prev => (prev == null ? prev : Math.max(0, prev - 1))), 1000)
+    return () => clearInterval(t)
+  }, [test])
+
+  const onSubmit = async () => {
+    if (!attemptId) return
+    try {
+      setLoading(true); setErr(null)
+      const payload = {
+        attemptId,
+        answers: Object.entries(answers).map(([questionId, optionId]) => ({ questionId, optionId }))
+      }
+      const r = await authFetch('/api/cert/attempts/submit', { method: 'POST', body: JSON.stringify(payload) })
+      if (!r.res.ok) throw new Error(r.data?.error || `HTTP ${r.res.status}`)
+      setResult({
+        passed: r.data.passed,
+        score: r.data.score,
+        outOfTime: !!r.data.outOfTime,
+        passScore: r.data.passScore ?? (test?.passScore ?? 80)
+      })
+    } catch (e: any) {
+      setErr(e.message || 'Ошибка проверки')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (notFound) {
+    return <div className="p-6 text-red-400">Тест для подкатегории не найден.</div>
+  }
+  if (loading && !test) return <div className="p-6 text-gray-400">Загрузка…</div>
+  if (err && !test) return <div className="p-6 text-red-400">Ошибка: {err}</div>
+  if (!test) return null
+
+  if (result) {
+    return (
+      <div className="p-6 space-y-4">
+        <h1 className="text-2xl font-bold">Результат</h1>
+        {result.passed ? (
+          <div className="text-emerald-400">✅ Сертификат получен! Балл: {result.score}%</div>
+        ) : (
+          <div className="text-red-400">❌ Недостаточно баллов: {result.score}% (нужно ≥{result.passScore}%)</div>
+        )}
+        <button onClick={() => router.push(backTo)} className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700">Назад</button>
+      </div>
+    )
+  }
+
+  const total = questions.length
+  const canSubmit = Object.keys(answers).length === total
+
+  return (
+    <div className="p-6 space-y-6 max-w-3xl mx-auto">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">{test.title}</h1>
+        <div className={`font-mono ${leftSec !== null && leftSec <= 30 ? 'text-red-400' : 'text-gray-300'}`}>
+          ⏳ {fmtLeft(leftSec)}
+        </div>
+      </div>
+
+      {/* Вопрос */}
+      <div>
+        <p className="mb-3 font-medium">{questions[idx].text}</p>
+        <div className="space-y-2">
+          {questions[idx].options.map(o => {
+            const checked = answers[questions[idx].id] === o.id
+            return (
+              <label key={o.id} className={`flex items-center gap-3 p-2 rounded border cursor-pointer ${checked ? 'border-white bg-gray-800' : 'border-gray-700 bg-gray-900'}`}>
+                <input
+                  type="radio"
+                  className="accent-white"
+                  name={questions[idx].id}
+                  checked={checked}
+                  onChange={() => setAnswers(a => ({ ...a, [questions[idx].id]: o.id }))}
+                />
+                {o.text}
+              </label>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Навигация */}
+      <div className="flex justify-between">
+        <button
+          onClick={() => setIdx(i => Math.max(0, i - 1))}
+          disabled={idx === 0}
+          className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
+        >
+          Назад
+        </button>
+        {idx < total - 1 ? (
+          <button
+            onClick={() => setIdx(i => Math.min(total - 1, i + 1))}
+            disabled={!answers[questions[idx]?.id]}
+            className="px-4 py-2 rounded bg-white text-black hover:bg-gray-200 disabled:opacity-50"
+          >
+            Далее
+          </button>
+        ) : (
+          <button
+            onClick={() => void onSubmit()}
+            disabled={!canSubmit}
+            className="px-4 py-2 rounded bg-white text-black hover:bg-gray-200 disabled:opacity-50"
+          >
+            Завершить
+          </button>
+        )}
+      </div>
+
+      {err && <div className="text-red-400">{err}</div>}
+    </div>
+  )
+}
 
 /* =========================
    Страница /cert
