@@ -29,27 +29,6 @@ export default function EditProfilePage() {
     }
   }, [user])
 
-  const uploadAvatar = async (): Promise<string | null> => {
-    if (!avatarFile) return null
-    try {
-      const formData = new FormData()
-      formData.append('avatar', avatarFile)
-
-      const res = await fetch('/api/upload/avatar', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!res.ok) throw new Error('Ошибка загрузки файла')
-
-      const data = await res.json()
-      return data.url
-    } catch (err) {
-      toast.error('Не удалось загрузить аватар')
-      return null
-    }
-  }
-
   const handleSave = async () => {
     if (!token) return toast.error('Нет токена авторизации')
     if (!fullName.trim()) return toast.error('Имя не может быть пустым')
@@ -58,27 +37,22 @@ export default function EditProfilePage() {
     const toastId = toast.loading('Сохраняем профиль...')
 
     try {
-      const avatarUrl = await uploadAvatar()
+      const formData = new FormData()
+      formData.append('fullName', fullName)
+      formData.append('role', role)
+      if (password) formData.append('password', password)
+      formData.append('description', description)
+      formData.append('location', location)
+      formData.append('skills', skills)
+      if (avatarFile) formData.append('avatar', avatarFile)
 
       const res = await fetch('/api/profile', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          fullName,
-          role,
-          password: password || undefined,
-          description,
-          avatarUrl: avatarUrl || undefined,
-          location,
-          skills,
-        }),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       })
 
       const data = await res.json()
-
       if (!res.ok) throw new Error(data.error || 'Ошибка при сохранении')
 
       login(data.user, token)
@@ -127,11 +101,7 @@ export default function EditProfilePage() {
               Исполнитель
             </option>
           </select>
-
-          {/* Кастомная стрелочка */}
-          <span className="absolute right-3 top-9 pointer-events-none text-emerald-400">
-            ▼
-          </span>
+          <span className="absolute right-3 top-9 pointer-events-none text-emerald-400">▼</span>
         </div>
 
         {/* Пароль */}
