@@ -67,13 +67,13 @@ export async function POST(req: NextRequest) {
       select: { id: true, status: true, createdAt: true },
     })
 
-    // 📩 создаём уведомление исполнителю
+    // 📩 создаём уведомление исполнителю → сразу ведём в чат с заказчиком
     await prisma.notification.create({
       data: {
         userId: executorId,
         type: 'hire_request',
         message: `Заказчик ${me.fullName || me.email} хочет нанять вас`,
-        link: `/hire/${hire.id}`, // можно потом сделать страницу деталей
+        link: `/messages/${me.id}`, // 👉 сразу чат с заказчиком
       },
     })
 
