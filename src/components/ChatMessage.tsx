@@ -5,7 +5,9 @@ type Props = {
     id: string
     content: string
     createdAt: string
-    fileUrl?: string
+    fileId?: string
+    fileName?: string
+    fileMimetype?: string
     sender: {
       id: string
       fullName?: string
@@ -15,7 +17,8 @@ type Props = {
 }
 
 export default function ChatMessage({ message }: Props) {
-  const isImage = message.fileUrl?.match(/\.(png|jpe?g|gif|webp)$/i)
+  const fileUrl = message.fileId ? `/api/files/${message.fileId}` : null
+  const isImage = message.fileMimetype?.startsWith('image/')
 
   return (
     <div className="bg-gray-800 p-2 rounded text-sm">
@@ -30,21 +33,23 @@ export default function ChatMessage({ message }: Props) {
         <div className="text-white whitespace-pre-line">{message.content}</div>
       )}
 
-      {message.fileUrl && (
+      {fileUrl && (
         <div className="mt-2">
           {isImage ? (
             <img
-              src={message.fileUrl}
-              alt="Вложение"
+              src={fileUrl}
+              alt={message.fileName || 'Вложение'}
               className="max-w-xs max-h-64 rounded border"
             />
           ) : (
             <a
-              href={message.fileUrl}
-              download
+              href={fileUrl}
+              download={message.fileName}
               className="text-blue-400 underline inline-block mt-1"
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              📎 Скачать файл
+              📎 {message.fileName || 'Скачать файл'}
             </a>
           )}
         </div>
