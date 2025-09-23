@@ -17,9 +17,11 @@ export async function GET(req: Request) {
     const maxPrice = parseInt(searchParams.get('maxPrice') || '', 10)
     const sort = searchParams.get('sort') === 'old' ? 'asc' : 'desc'
     const subcategoryId = searchParams.get('subcategory') || undefined
+    const mine = searchParams.get('mine') === 'true' // 👈 фильтр "мои задачи"
 
     const tasks = await prisma.task.findMany({
       where: {
+        ...(mine ? { customerId: user.id } : {}), // ✅ отбираем только свои задачи
         ...(search
           ? {
               OR: [
@@ -96,8 +98,7 @@ export async function POST(req: Request) {
                   filename: file.name,
                   mimetype: file.type,
                   size: file.size,
-                  data: buffer, // ⚠️ если хочешь хранить байты в БД
-                  // url: `/uploads/${file.name}`, // ⚠️ если будешь сохранять на диск
+                  data: buffer, // ⚠️ храним байты в БД
                 }
               })
           ),
