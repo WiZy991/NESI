@@ -171,13 +171,11 @@ export default function UserPublicProfilePage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <div className="bg-black/40 border border-green-500/30 rounded-xl p-6 shadow-[0_0_15px_rgba(0,255,150,0.3)] flex gap-4 items-start hover:shadow-[0_0_25px_rgba(0,255,150,0.5)] transition">
-        {viewUser.avatarUrl && (
-          <img
-            src={viewUser.avatarUrl}
-            alt="Avatar"
-            className="w-20 h-20 rounded-full border border-green-500/40 object-cover shadow-[0_0_10px_rgba(0,255,150,0.4)]"
-          />
-        )}
+        <img
+          src={viewUser.avatarUrl || '/default-avatar.png'}
+          alt="Avatar"
+          className="w-20 h-20 rounded-full border border-green-500/40 object-cover shadow-[0_0_10px_rgba(0,255,150,0.4)]"
+        />
 
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-green-400 mb-1">
