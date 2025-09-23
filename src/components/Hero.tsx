@@ -7,12 +7,47 @@ export default function Hero() {
   const [openModal, setOpenModal] = useState<'features' | 'solutions' | 'support' | null>(null)
   const [supportMessage, setSupportMessage] = useState('')
 
+  const [timeLeft, setTimeLeft] = useState({
+    weeks: 4,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  })
+
   const closeModal = () => setOpenModal(null)
 
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && closeModal()
     window.addEventListener('keydown', onEsc)
     return () => window.removeEventListener('keydown', onEsc)
+  }, [])
+
+  // Обратный отсчёт
+  useEffect(() => {
+    const target = new Date()
+    target.setMonth(target.getMonth() + 1)
+
+    const timer = setInterval(() => {
+      const now = new Date()
+      const diff = target.getTime() - now.getTime()
+
+      if (diff <= 0) {
+        clearInterval(timer)
+        setTimeLeft({ weeks: 0, hours: 0, minutes: 0, seconds: 0 })
+        return
+      }
+
+      const totalSeconds = Math.floor(diff / 1000)
+      const weeks = Math.floor(totalSeconds / (7 * 24 * 3600))
+      const daysLeft = totalSeconds % (7 * 24 * 3600)
+      const hours = Math.floor(daysLeft / 3600)
+      const minutes = Math.floor((daysLeft % 3600) / 60)
+      const seconds = daysLeft % 60
+
+      setTimeLeft({ weeks, hours, minutes, seconds })
+    }, 1000)
+
+    return () => clearInterval(timer)
   }, [])
 
   const sendSupportMessage = async () => {
@@ -55,14 +90,64 @@ export default function Hero() {
             <li className="italic">БАЗА ЗНАНИЙ — ДЛЯ РОСТА НАВЫКОВ</li>
           </ul>
 
-          <div className="mt-10 w-full max-w-[420px] rounded-3xl border border-emerald-400/50 bg-emerald-900/40 px-8 py-6 text-center shadow-[0_0_50px_rgba(16,185,129,0.35)]">
-            <p className="text-xs uppercase tracking-widest text-gray-300">ИНФОРМАЦИЯ О НАС</p>
-            <p className="mt-2 text-lg font-semibold uppercase tracking-widest text-emerald-400">
-              РЕЛИЗ ПРОЕКТА ОЖИДАЕТСЯ В ОКТЯБРЕ
+          {/* 🚪 Дверь с таймером */}
+          <div className="mt-12 flex flex-col items-center justify-center">
+            <div className="relative w-40 h-64">
+              <svg
+                viewBox="0 0 100 160"
+                className="w-full h-full drop-shadow-[0_0_20px_rgba(16,185,129,0.7)]"
+              >
+                {/* рама двери */}
+                <rect
+                  x="10"
+                  y="5"
+                  width="80"
+                  height="150"
+                  rx="4"
+                  stroke="rgba(16,185,129,0.8)"
+                  strokeWidth="3"
+                  fill="rgba(0,0,0,0.7)"
+                />
+                {/* створка двери слегка приоткрыта */}
+                <polygon
+                  points="20,5 75,10 75,155 20,150"
+                  fill="rgba(16,185,129,0.15)"
+                  stroke="rgba(16,185,129,0.8)"
+                  strokeWidth="2"
+                  className="animate-[swing_4s_ease-in-out_infinite]"
+                />
+                {/* свет из щели */}
+                <rect
+                  x="74"
+                  y="10"
+                  width="4"
+                  height="140"
+                  fill="url(#light)"
+                  className="animate-pulse"
+                />
+                {/* ручка */}
+                <circle cx="65" cy="80" r="3" fill="#10b981" />
+                <defs>
+                  <linearGradient id="light" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="rgba(16,185,129,0.8)" />
+                    <stop offset="100%" stopColor="transparent" />
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              {/* Таймер прямо на двери */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="text-emerald-400 font-bold tracking-widest text-center text-xs md:text-sm drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]">
+                  {timeLeft.weeks} нед : {timeLeft.hours} ч : {timeLeft.minutes} мин : {timeLeft.seconds} сек
+                </p>
+              </div>
+            </div>
+            <p className="mt-4 text-lg font-semibold uppercase tracking-widest text-emerald-400 text-center">
+              РЕЛИЗ ОЖИДАЕТСЯ В ОКТЯБРЕ
             </p>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-6">
+          <div className="mt-10 flex flex-wrap gap-6">
             <button
               onClick={() => setOpenModal('features')}
               className="rounded-full border border-emerald-400 px-8 py-2 text-sm tracking-wide text-emerald-400 transition hover:bg-emerald-400 hover:text-black"
@@ -88,21 +173,21 @@ export default function Hero() {
         <div className="relative w-full h-[850px]">
           {/* SVG фон */}
           <div className="pointer-events-none absolute -z-10 right-0 top-1/2 w-[2200px] max-w-none -translate-y-1/3 translate-x-[10%] opacity-25">
-             <Image
-    		src="/nessi.svg"
-    		alt="Nessi"
-    		width={2200}
-    		height={1600}
-    		priority
-    		className="opacity-80 brightness-125"
-    		style={{
-      		filter: `
-        		drop-shadow(0 0 20px rgba(16,185,129,0.8))
-        		drop-shadow(0 0 50px rgba(16,185,129,0.7))
-        		drop-shadow(0 0 100px rgba(16,185,129,0.6))
-      		`
-    		}}
-  	      />
+            <Image
+              src="/nessi.svg"
+              alt="Nessi"
+              width={2200}
+              height={1600}
+              priority
+              className="opacity-80 brightness-125"
+              style={{
+                filter: `
+                  drop-shadow(0 0 20px rgba(16,185,129,0.8))
+                  drop-shadow(0 0 50px rgba(16,185,129,0.7))
+                  drop-shadow(0 0 100px rgba(16,185,129,0.6))
+                `,
+              }}
+            />
           </div>
 
           {/* хаотично расположенные картинки */}
@@ -242,6 +327,14 @@ export default function Hero() {
           </div>
         </div>
       )}
+
+      {/* Анимация двери */}
+      <style jsx global>{`
+        @keyframes swing {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(1.5px); }
+        }
+      `}</style>
     </section>
   )
 }
