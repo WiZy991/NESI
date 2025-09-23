@@ -21,7 +21,7 @@ type Message = {
 export default function MessagesPage() {
   const { user } = useUser()
   const params = useParams()
-  const otherUserId = params.userId as string
+  const otherUserId = (params.userId || (params as any).userid) as string
 
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
