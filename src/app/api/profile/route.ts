@@ -63,22 +63,23 @@ export async function PATCH(req: Request) {
         dataToUpdate.password = hashed
       }
 
-      if (avatar) {
+      if (avatar && avatar.size > 0) {
         const bytes = Buffer.from(await avatar.arrayBuffer())
 
-        // создаём папку public/uploads если её нет
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+        // создаём папку public/uploads/avatars если её нет
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'avatars')
         if (!fs.existsSync(uploadDir)) {
           await mkdir(uploadDir, { recursive: true })
         }
 
-        const fileName = `${user.id}-${Date.now()}-${avatar.name}`
+        const ext = path.extname(avatar.name) || '.png'
+        const fileName = `${user.id}-${Date.now()}${ext}`
         const filePath = path.join(uploadDir, fileName)
 
         await writeFile(filePath, bytes)
 
         // путь для <img src="...">
-        dataToUpdate.avatarUrl = `/uploads/${fileName}`
+        dataToUpdate.avatarUrl = `/uploads/avatars/${fileName}`
       }
     } else {
       // === JSON ===
