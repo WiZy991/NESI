@@ -78,6 +78,9 @@ export default function Header() {
                       Подиум исполнителей
                     </Link>
                     <Link href="/tasks" className="hover:text-emerald-400 transition">
+                      Каталог задач
+                    </Link>
+                    <Link href="/my-tasks" className="hover:text-emerald-400 transition">
                       Мои задачи
                     </Link>
                     <Link href="/tasks/new" className="hover:text-emerald-400 transition">
