@@ -18,8 +18,10 @@ model User {
   createdAt        DateTime  @default(now())
 
   description      String?
-  avatarUrl        String?   @deprecated("заменим на relation с File")
-  avatarFile       File?     @relation("UserAvatar")
+  // устарело, раньше хранили путь
+  avatarUrl        String?
+  avatarFileId     String?   @unique
+  avatarFile       File?     @relation("UserAvatar", fields: [avatarFileId], references: [id])
 
   location         String?
   skills           String[]
@@ -113,15 +115,17 @@ model Review {
 model Message {
   id        String   @id @default(uuid())
   content   String
-  fileUrl   String?  @deprecated("заменим на relation с File")
+  // устарело, раньше хранили путь
+  fileUrl   String?
   createdAt DateTime @default(now())
   taskId    String
   senderId  String
+  fileId    String?
 
   task   Task @relation(fields: [taskId], references: [id])
   sender User @relation("MessageSender", fields: [senderId], references: [id])
 
-  file   File? @relation("MessageFile")
+  file   File? @relation("MessageFile", fields: [fileId], references: [id])
 }
 
 model Notification {
@@ -168,7 +172,7 @@ model Subcategory {
 }
 
 /* =========================
-   СЕРТИФИКАЦИЯ (новые модели)
+   СЕРТИФИКАЦИЯ
    ========================= */
 
 model CertificationTest {
@@ -291,16 +295,17 @@ model PrivateMessage {
   senderId    String
   recipientId String
   content     String?
-  fileUrl     String?  @deprecated("заменим на relation с File")
-  mimeType    String?  @deprecated("заменим на relation с File")
-  fileName    String?  @deprecated("заменим на relation с File")
-  size        Int?     @deprecated("заменим на relation с File")
+  // устаревшие поля
+  fileUrl     String?
+  mimeType    String?
+  fileName    String?
+  size        Int?
   createdAt   DateTime @default(now())
+  fileId      String?
 
   sender      User     @relation("PrivateMessageSender", fields: [senderId], references: [id])
   recipient   User     @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
-
-  file        File?    @relation("PrivateMessageFile")
+  file        File?    @relation("PrivateMessageFile", fields: [fileId], references: [id])
 }
 
 model AdminInvite {
@@ -338,8 +343,8 @@ model File {
   filename  String
   mimetype  String
   size      Int
-  data      Bytes?   // хранение бинаря (MVP)
-  url       String?  // для будущего S3/Storage
+  data      Bytes?
+  url       String?
   createdAt DateTime @default(now())
 
   userAvatar   User?            @relation("UserAvatar")
