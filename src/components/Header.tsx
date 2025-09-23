@@ -74,6 +74,9 @@ export default function Header() {
 
                 {user.role === 'customer' && (
                   <>
+                    <Link href="/specialists" className="hover:text-emerald-400 transition">
+                      Подиум исполнителей
+                    </Link>
                     <Link href="/tasks" className="hover:text-emerald-400 transition">
                       Мои задачи
                     </Link>
