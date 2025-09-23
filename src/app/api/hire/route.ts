@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
         userId: executorId,
         type: 'hire_request',
         message: `Заказчик ${me.fullName || me.email} хочет нанять вас`,
-        link: `/messages/${me.id}`, // 👉 сразу чат с заказчиком
+        link: `/messages/${me.id}`, // ✅ теперь исполнитель при клике пойдёт в чат
       },
     })
 
