@@ -112,23 +112,32 @@ export default function ProfilePageContent() {
     return <div className="p-6 text-gray-400">Загрузка профиля...</div>
   }
 
+  // Корректируем URL для аватара
+  const avatarSrc = profile.avatarUrl
+    ? profile.avatarUrl.startsWith('http')
+      ? profile.avatarUrl
+      : `${typeof window !== 'undefined' ? window.location.origin : ''}${profile.avatarUrl}`
+    : null
+
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold text-emerald-400 mb-4">👤 Профиль</h1>
 
       {/* Аватар */}
-      {profile.avatarUrl ? (
+      {avatarSrc ? (
         <img
-          src={profile.avatarUrl}
+          src={avatarSrc}
           alt="Avatar"
-          className="w-28 h-28 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] mb-4 object-cover"
+          className="w-28 h-28 rounded-full border-2 border-emerald-500 
+                     shadow-[0_0_15px_rgba(16,185,129,0.5)] mb-4 object-cover"
         />
       ) : (
         <FaUserCircle className="text-gray-600 w-28 h-28 mb-4" />
       )}
 
       {/* Основная инфа */}
-      <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] space-y-2">
+      <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 
+                      shadow-[0_0_15px_rgba(16,185,129,0.2)] space-y-2">
         <p><span className="text-gray-400">Имя:</span> {profile.fullName || 'Не указано'}</p>
         <p><span className="text-gray-400">Email:</span> {profile.email}</p>
         <p><span className="text-gray-400">Роль:</span> {profile.role === 'customer' ? 'Заказчик' : 'Исполнитель'}</p>
@@ -136,20 +145,28 @@ export default function ProfilePageContent() {
       </div>
 
       {/* Баланс */}
-      <div className="p-4 bg-black/40 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+      <div className="p-4 bg-black/40 rounded-xl border border-emerald-500/30 
+                      shadow-[0_0_15px_rgba(16,185,129,0.2)]">
         <h2 className="text-lg font-semibold text-emerald-400 mb-2">💰 Баланс</h2>
-        <p className="mb-2">Текущий баланс: <span className="text-emerald-300 font-medium">{profile.balance ?? 0} NESI</span></p>
+        <p className="mb-2">
+          Текущий баланс: <span className="text-emerald-300 font-medium">{profile.balance ?? 0} NESI</span>
+        </p>
         <div className="flex gap-2 mb-4">
           <input
             type="number"
             value={amount}
             onChange={(e) => setAmount(parseInt(e.target.value))}
-            className="bg-transparent border border-emerald-500/30 text-white p-2 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-32"
+            className="bg-transparent border border-emerald-500/30 text-white p-2 
+                       rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-32"
           />
-          <button onClick={handleDeposit} className="px-3 py-1 rounded border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition">
+          <button onClick={handleDeposit} className="px-3 py-1 rounded border border-emerald-400 
+                                                     text-emerald-400 hover:bg-emerald-400 
+                                                     hover:text-black transition">
             Пополнить
           </button>
-          <button onClick={handleWithdraw} className="px-3 py-1 rounded border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition">
+          <button onClick={handleWithdraw} className="px-3 py-1 rounded border border-red-400 
+                                                      text-red-400 hover:bg-red-400 
+                                                      hover:text-black transition">
             Вывести
           </button>
         </div>
@@ -173,13 +190,16 @@ export default function ProfilePageContent() {
 
       {/* Навыки */}
       {profile.skills && (
-        <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+        <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 
+                        shadow-[0_0_15px_rgba(16,185,129,0.2)]">
           <h2 className="text-lg font-semibold text-emerald-400 mb-2">🛠 Навыки</h2>
           <div className="flex flex-wrap gap-2 mt-1">
             {Array.isArray(profile.skills) && profile.skills.map((skill, index) => (
               <div
                 key={index}
-                className="flex items-center px-3 py-1 rounded-full text-sm border border-emerald-500/40 bg-black/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+                className="flex items-center px-3 py-1 rounded-full text-sm 
+                           border border-emerald-500/40 bg-black/60 
+                           shadow-[0_0_8px_rgba(16,185,129,0.2)]"
               >
                 {getSkillIcon(skill)}
                 {skill.trim()}
@@ -191,7 +211,8 @@ export default function ProfilePageContent() {
 
       {/* О себе */}
       {profile.description && (
-        <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+        <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 
+                        shadow-[0_0_15px_rgba(16,185,129,0.2)]">
           <h2 className="text-lg font-semibold text-emerald-400 mb-2">📄 О себе</h2>
           <p className="text-gray-300">{profile.description}</p>
         </div>
@@ -201,13 +222,15 @@ export default function ProfilePageContent() {
       <div className="flex gap-4 flex-wrap mt-4">
         <Link
           href="/profile/edit"
-          className="px-4 py-2 rounded border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition"
+          className="px-4 py-2 rounded border border-emerald-400 text-emerald-400 
+                     hover:bg-emerald-400 hover:text-black transition"
         >
           ✏️ Редактировать профиль
         </Link>
         <Link
           href="/level"
-          className="px-4 py-2 rounded border border-indigo-400 text-indigo-400 hover:bg-indigo-400 hover:text-black transition"
+          className="px-4 py-2 rounded border border-indigo-400 text-indigo-400 
+                     hover:bg-indigo-400 hover:text-black transition"
         >
           📊 Мой уровень
         </Link>
@@ -222,7 +245,8 @@ export default function ProfilePageContent() {
           ) : (
             <div className="space-y-4">
               {reviews.map((review) => (
-                <div key={review.id} className="bg-black/40 border border-emerald-500/30 p-4 rounded shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                <div key={review.id} className="bg-black/40 border border-emerald-500/30 
+                                               p-4 rounded shadow-[0_0_10px_rgba(16,185,129,0.2)]">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-medium text-white">{review.task.title}</span>
                     <span className="text-yellow-400 font-bold">{review.rating} ⭐</span>
