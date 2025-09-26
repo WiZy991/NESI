@@ -46,13 +46,13 @@ export async function POST(req: NextRequest) {
     const post = await prisma.communityPost.create({
       data: {
         title: title.trim(),
-        content: content.trim(), // ✅ исправлено
+        content: content.trim(),
         imageUrl: imageUrl || null,
         authorId: me.id,
       },
     })
 
-    return NextResponse.json({ post }, { status: 201 })
+    return NextResponse.json({ ok: true, post }, { status: 201 })
   } catch (err) {
     console.error('Ошибка создания поста:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
