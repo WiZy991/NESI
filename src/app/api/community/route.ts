@@ -20,9 +20,12 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json({ posts })
-  } catch (err) {
+  } catch (err: any) {
     console.error('Ошибка получения постов:', err)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Ошибка сервера', details: String(err) },
+      { status: 500 }
+    )
   }
 }
 
@@ -53,8 +56,11 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json({ ok: true, post }, { status: 201 })
-  } catch (err) {
+  } catch (err: any) {
     console.error('Ошибка создания поста:', err)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Ошибка сервера', details: String(err) },
+      { status: 500 }
+    )
   }
 }
