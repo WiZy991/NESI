@@ -3,10 +3,12 @@
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 export default function Header() {
   const { user, logout, unreadCount } = useUser()
   const router = useRouter()
+  const [open, setOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -104,6 +106,29 @@ export default function Header() {
                 <Link href="/profile" className="hover:text-emerald-400 transition">
                   Профиль
                 </Link>
+
+                {/* Ещё с выпадашкой */}
+                <div
+                  className="relative"
+                  onMouseEnter={() => setOpen(true)}
+                  onMouseLeave={() => setOpen(false)}
+                >
+                  <button className="hover:text-emerald-400 transition">
+                    Ещё ▾
+                  </button>
+                  {open && (
+                    <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+                      <Link
+                        href="/community"
+                        className="block px-4 py-2 hover:bg-gray-700 transition"
+                      >
+                        💬 Сообщество
+                      </Link>
+                      {/* сюда можно добавлять новые разделы */}
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={handleLogout}
                   className="px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:brightness-110 transition"
