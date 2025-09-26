@@ -21,13 +21,17 @@ export default function NewPostPage() {
         body: JSON.stringify({ title, content }),
       })
 
+      const data = await res.json()
+
       if (res.ok) {
-        const post = await res.json()
-        router.push(`/community/${post.id}`)
+        // ✅ редиректим на список постов
+        router.push('/community')
       } else {
-        const err = await res.json().catch(() => ({}))
-        alert(err.error || 'Ошибка при создании поста')
+        alert(data.error || 'Ошибка при создании поста')
       }
+    } catch (err) {
+      console.error('Ошибка при создании поста:', err)
+      alert('Ошибка сервера')
     } finally {
       setLoading(false)
     }
