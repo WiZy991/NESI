@@ -18,7 +18,6 @@ model User {
   createdAt        DateTime  @default(now())
 
   description      String?
-  // устарело, раньше хранили путь
   avatarUrl        String?
   avatarFileId     String?   @unique
   avatarFile       File?     @relation("UserAvatar", fields: [avatarFileId], references: [id])
@@ -43,9 +42,9 @@ model User {
   completedTasksCount   Int      @default(0)
   avgRating             Float    @default(0)
 
-  badges UserBadge[]
-  hireRequestsSent     HireRequest[] @relation("HireCustomer")
-  hireRequestsReceived HireRequest[] @relation("HireExecutor")
+  badges                UserBadge[]
+  hireRequestsSent      HireRequest[] @relation("HireCustomer")
+  hireRequestsReceived  HireRequest[] @relation("HireExecutor")
 
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
@@ -53,6 +52,11 @@ model User {
   balance        Int           @default(100)
   transactions   Transaction[]
   frozenBalance  Int           @default(0)
+
+  // 🔥 Обратные связи для Community
+  communityPosts    CommunityPost[]
+  communityComments CommunityComment[]
+  communityLikes    CommunityLike[]
 }
 
 model Task {
@@ -81,7 +85,6 @@ model Task {
   review        Review?
   messages      Message[]
 
-  // 🔥 связь с файлами
   files         File[]   @relation("TaskFiles")
 }
 
@@ -118,7 +121,6 @@ model Review {
 model Message {
   id        String   @id @default(uuid())
   content   String
-  // устарело, раньше хранили путь
   fileUrl   String?
   createdAt DateTime @default(now())
   taskId    String
@@ -173,10 +175,6 @@ model Subcategory {
   certificationTest   CertificationTest?
   userCertifications  UserCertification[]
 }
-
-/* =========================
-   СЕРТИФИКАЦИЯ
-   ========================= */
 
 model CertificationTest {
   id            String          @id @default(uuid())
@@ -298,7 +296,6 @@ model PrivateMessage {
   senderId    String
   recipientId String
   content     String?
-  // устаревшие поля
   fileUrl     String?
   mimeType    String?
   fileName    String?
@@ -337,10 +334,6 @@ model Transaction {
   createdAt DateTime @default(now())
 }
 
-/* =========================
-   ФАЙЛЫ
-   ========================= */
-
 model File {
   id        String   @id @default(cuid())
   filename  String
@@ -354,10 +347,13 @@ model File {
   messages     Message[]        @relation("MessageFile")
   privateMsgs  PrivateMessage[] @relation("PrivateMessageFile")
 
-  // 🔥 связь к задачам
   task         Task?            @relation("TaskFiles", fields: [taskId], references: [id])
   taskId       String?
 }
+
+/* =========================
+   COMMUNITY
+   ========================= */
 
 model CommunityPost {
   id        String   @id @default(cuid())
@@ -365,9 +361,10 @@ model CommunityPost {
   authorId  String
   title     String
   content   String
-  imageUrl  String?    // если разрешишь прикреплять картинку
+  imageUrl  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   comments  CommunityComment[]
   likes     CommunityLike[]
 }
@@ -390,5 +387,5 @@ model CommunityLike {
   userId    String
   createdAt DateTime @default(now())
 
-  @@unique([postId, userId]) // один лайк от одного пользователя
+  @@unique([postId, userId])
 }
