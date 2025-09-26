@@ -358,3 +358,37 @@ model File {
   task         Task?            @relation("TaskFiles", fields: [taskId], references: [id])
   taskId       String?
 }
+
+model CommunityPost {
+  id        String   @id @default(cuid())
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  title     String
+  content   String
+  imageUrl  String?    // если разрешишь прикреплять картинку
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  comments  CommunityComment[]
+  likes     CommunityLike[]
+}
+
+model CommunityComment {
+  id        String   @id @default(cuid())
+  post      CommunityPost @relation(fields: [postId], references: [id])
+  postId    String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model CommunityLike {
+  id        String   @id @default(cuid())
+  post      CommunityPost @relation(fields: [postId], references: [id])
+  postId    String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId]) // один лайк от одного пользователя
+}
