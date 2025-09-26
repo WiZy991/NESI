@@ -21,17 +21,23 @@ export default function NewPostPage() {
         body: JSON.stringify({ title, content }),
       })
 
-      const data = await res.json()
+      // ✅ читаем ответ безопасно
+      let data: any = {}
+      try {
+        data = await res.json()
+      } catch {
+        // если тело пустое — оставляем data = {}
+      }
 
       if (res.ok) {
-        // ✅ редиректим на список постов
+        // перенаправляем на список постов
         router.push('/community')
       } else {
-        alert(data.error || 'Ошибка при создании поста')
+        alert(data.error || data.details || 'Ошибка при создании поста')
       }
     } catch (err) {
       console.error('Ошибка при создании поста:', err)
-      alert('Ошибка сервера')
+      alert('Ошибка сети или сервера')
     } finally {
       setLoading(false)
     }
