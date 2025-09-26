@@ -37,19 +37,22 @@ export async function POST(req: NextRequest) {
     const { title, content, imageUrl } = await req.json()
 
     if (!title?.trim() || !content?.trim()) {
-      return NextResponse.json({ error: 'Заполни заголовок и текст' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Заполни заголовок и текст' },
+        { status: 400 }
+      )
     }
 
     const post = await prisma.communityPost.create({
       data: {
         title: title.trim(),
-        content: content.trim(),
+        content: content.trim(), // ✅ исправлено
         imageUrl: imageUrl || null,
         authorId: me.id,
       },
     })
 
-    return NextResponse.json({ post })
+    return NextResponse.json({ post }, { status: 201 })
   } catch (err) {
     console.error('Ошибка создания поста:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
