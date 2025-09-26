@@ -3,17 +3,29 @@
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function Header() {
   const { user, logout, unreadCount } = useUser()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
 
   const handleLogout = () => {
     logout()
     router.push('/login')
   }
+
+  // Закрывать меню при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <header className="w-full px-8 py-4 flex justify-between items-center bg-black border-b border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.4)]">
@@ -107,13 +119,12 @@ export default function Header() {
                   Профиль
                 </Link>
 
-                {/* Ещё с выпадашкой */}
-                <div
-                  className="relative"
-                  onMouseEnter={() => setOpen(true)}
-                  onMouseLeave={() => setOpen(false)}
-                >
-                  <button className="hover:text-emerald-400 transition">
+                {/* Ещё с кликом */}
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setOpen((v) => !v)}
+                    className="hover:text-emerald-400 transition"
+                  >
                     Ещё ▾
                   </button>
                   {open && (
@@ -121,10 +132,11 @@ export default function Header() {
                       <Link
                         href="/community"
                         className="block px-4 py-2 hover:bg-gray-700 transition"
+                        onClick={() => setOpen(false)}
                       >
                         💬 Сообщество
                       </Link>
-                      {/* сюда можно добавлять новые разделы */}
+                      {/* можно добавить другие пункты */}
                     </div>
                   )}
                 </div>
