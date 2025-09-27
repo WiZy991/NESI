@@ -2,42 +2,53 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useUser } from '@/context/UserContext'
+import { toast } from 'sonner'
 
 export default function NewPostPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { token, user } = useUser()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !content.trim()) return
+    if (!title.trim() || !content.trim()) {
+      toast.error('Заполни заголовок и текст')
+      return
+    }
+    if (!token) {
+      toast.error('Нет токена авторизации, войди заново')
+      return
+    }
 
     setLoading(true)
+    const toastId = toast.loading('Создаём тему...')
+
     try {
       const res = await fetch('/api/community', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, // 🔑 теперь токен передаётся
+        },
         body: JSON.stringify({ title, content }),
       })
 
-      // ✅ читаем ответ безопасно
-      let data: any = {}
-      try {
-        data = await res.json()
-      } catch {
-        // если тело пустое — оставляем data = {}
-      }
+      const data = await res.json().catch(() => ({}))
 
       if (res.ok) {
-        // перенаправляем на список постов
+        toast.success('Тема создана!', { id: toastId })
         router.push('/community')
       } else {
-        alert(data.error || data.details || 'Ошибка при создании поста')
+        toast.error(data.error || data.details || 'Ошибка при создании поста', {
+          id: toastId,
+        })
       }
     } catch (err) {
       console.error('Ошибка при создании поста:', err)
-      alert('Ошибка сети или сервера')
+      toast.error('Ошибка сети или сервера', { id: toastId })
     } finally {
       setLoading(false)
     }
