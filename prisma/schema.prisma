@@ -18,6 +18,7 @@ model User {
   createdAt        DateTime  @default(now())
 
   description      String?
+  // устарело, раньше хранили путь
   avatarUrl        String?
   avatarFileId     String?   @unique
   avatarFile       File?     @relation("UserAvatar", fields: [avatarFileId], references: [id])
@@ -42,9 +43,15 @@ model User {
   completedTasksCount   Int      @default(0)
   avgRating             Float    @default(0)
 
+<<<<<<< HEAD
   badges                UserBadge[]
   hireRequestsSent      HireRequest[] @relation("HireCustomer")
   hireRequestsReceived  HireRequest[] @relation("HireExecutor")
+=======
+  badges UserBadge[]
+  hireRequestsSent     HireRequest[] @relation("HireCustomer")
+  hireRequestsReceived HireRequest[] @relation("HireExecutor")
+>>>>>>> cbb5cfe (update schema.prisma)
 
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
@@ -85,6 +92,10 @@ model Task {
   review        Review?
   messages      Message[]
 
+<<<<<<< HEAD
+=======
+  // 🔥 связь с файлами
+>>>>>>> cbb5cfe (update schema.prisma)
   files         File[]   @relation("TaskFiles")
 }
 
@@ -121,6 +132,7 @@ model Review {
 model Message {
   id        String   @id @default(uuid())
   content   String
+  // устарело, раньше хранили путь
   fileUrl   String?
   createdAt DateTime @default(now())
   taskId    String
@@ -176,6 +188,13 @@ model Subcategory {
   userCertifications  UserCertification[]
 }
 
+<<<<<<< HEAD
+=======
+/* =========================
+   СЕРТИФИКАЦИЯ
+   ========================= */
+
+>>>>>>> cbb5cfe (update schema.prisma)
 model CertificationTest {
   id            String          @id @default(uuid())
   subcategoryId String          @unique
@@ -296,6 +315,7 @@ model PrivateMessage {
   senderId    String
   recipientId String
   content     String?
+  // устаревшие поля
   fileUrl     String?
   mimeType    String?
   fileName    String?
@@ -334,6 +354,7 @@ model Transaction {
   createdAt DateTime @default(now())
 }
 
+
 model File {
   id        String   @id @default(cuid())
   filename  String
@@ -347,13 +368,11 @@ model File {
   messages     Message[]        @relation("MessageFile")
   privateMsgs  PrivateMessage[] @relation("PrivateMessageFile")
 
+  // 🔥 связь к задачам
   task         Task?            @relation("TaskFiles", fields: [taskId], references: [id])
   taskId       String?
 }
 
-/* =========================
-   COMMUNITY
-   ========================= */
 
 model CommunityPost {
   id        String   @id @default(cuid())
