@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 
 type Author = {
   id: string
-  fullName: string
-  avatarUrl?: string | null
+  fullName: string | null
+  email: string
+  avatarUrl: string | null
 }
 
 type Comment = {
@@ -14,164 +14,201 @@ type Comment = {
   content: string
   createdAt: string
   author: Author
+  parentId: string | null
+  _count: { children: number; likes: number }
+  children?: Comment[]
 }
 
 type Post = {
   id: string
   title: string
   content: string
-  imageUrl?: string | null
   createdAt: string
   author: Author
+  liked: boolean
   _count: { comments: number; likes: number }
 }
 
 export default function CommunityPost({ post }: { post: Post }) {
-  const [liked, setLiked] = useState(false)
-  const [likesCount, setLikesCount] = useState(post._count.likes)
+  const [likes, setLikes] = useState(post._count.likes)
+  const [liked, setLiked] = useState(post.liked)
   const [comments, setComments] = useState<Comment[]>([])
-  const [newComment, setNewComment] = useState('')
-  const [showComments, setShowComments] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [comment, setComment] = useState('')
 
-  const handleLike = async () => {
+  // 📌 лайк поста
+  const toggleLike = async () => {
     try {
-      const res = await fetch(`/api/community/${post.id}/like`, { method: 'POST' })
+      const res = await fetch(`/api/community/${post.id}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
       const data = await res.json()
       if (res.ok) {
         setLiked(data.liked)
-        setLikesCount(data.likesCount)
+        setLikes(data.likesCount)
       }
     } catch (err) {
       console.error('Ошибка лайка:', err)
     }
   }
 
-  const handleAddComment = async () => {
-    if (!newComment.trim()) return
+  // 📌 отправка комментария
+  const handleComment = async () => {
+    if (!comment.trim()) return
+    setLoading(true)
+
     try {
       const res = await fetch(`/api/community/${post.id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newComment }),
+        body: JSON.stringify({ content: comment }),
       })
       const data = await res.json()
       if (res.ok) {
-        setComments([...comments, data.comment])
-        setNewComment('')
+        setComments((prev) => [...prev, data.comment])
+        setComment('')
       }
     } catch (err) {
-      console.error('Ошибка добавления комментария:', err)
+      console.error('Ошибка комментария:', err)
+    } finally {
+      setLoading(false)
     }
-  }
-
-  const toggleComments = async () => {
-    if (!showComments) {
-      try {
-        const res = await fetch(`/api/community/${post.id}`)
-        const data = await res.json()
-        if (res.ok) {
-          setComments(data.post.comments)
-        }
-      } catch (err) {
-        console.error('Ошибка загрузки комментариев:', err)
-      }
-    }
-    setShowComments(!showComments)
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 mb-6 shadow-lg">
-      {/* Автор */}
-      <div className="flex items-center mb-4">
+    <div className="p-4 bg-gray-900 rounded-xl shadow-md border border-gray-800 mb-6">
+      {/* Заголовок поста */}
+      <div className="flex items-center gap-3">
         {post.author.avatarUrl ? (
-          <Image
+          <img
             src={post.author.avatarUrl}
-            alt={post.author.fullName}
-            width={40}
-            height={40}
-            className="rounded-full"
+            alt="avatar"
+            className="w-10 h-10 rounded-full"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white">
-            {post.author.fullName[0]}
+          <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center text-white">
+            {post.author.fullName?.[0] || 'U'}
           </div>
         )}
-        <div className="ml-3">
-          <p className="font-semibold">{post.author.fullName}</p>
-          <p className="text-xs text-gray-400">
+        <div>
+          <p className="font-semibold">{post.author.fullName || post.author.email}</p>
+          <span className="text-xs text-gray-400">
             {new Date(post.createdAt).toLocaleString()}
-          </p>
+          </span>
         </div>
       </div>
 
-      {/* Контент */}
-      <h2 className="text-lg font-bold mb-2">{post.title}</h2>
-      <p className="text-gray-200 mb-3">{post.content}</p>
+      {/* Текст поста */}
+      <div className="mt-3">
+        <h2 className="text-lg font-semibold">{post.title}</h2>
+        <p className="text-gray-300 mt-1">{post.content}</p>
+      </div>
 
-      {post.imageUrl && (
-        <div className="mb-3">
-          <Image
-            src={post.imageUrl}
-            alt="post"
-            width={600}
-            height={400}
-            className="rounded-lg"
+      {/* Лайки / Комменты */}
+      <div className="mt-4 flex gap-6 text-gray-400 text-sm">
+        <button onClick={toggleLike} className="flex items-center gap-1 hover:text-emerald-400">
+          {liked ? '❤️' : '🤍'} {likes}
+        </button>
+        <span>💬 {post._count.comments + comments.length}</span>
+      </div>
+
+      {/* Список комментариев */}
+      <div className="mt-4 space-y-3">
+        {comments.map((c) => (
+          <CommentItem key={c.id} comment={c} postId={post.id} />
+        ))}
+      </div>
+
+      {/* Форма коммента */}
+      <div className="mt-3 flex gap-2">
+        <input
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Написать комментарий..."
+          className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white"
+        />
+        <button
+          onClick={handleComment}
+          disabled={loading}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded text-white text-sm"
+        >
+          {loading ? '...' : 'Отправить'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function CommentItem({ comment, postId }: { comment: Comment; postId: string }) {
+  const [replying, setReplying] = useState(false)
+  const [reply, setReply] = useState('')
+  const [children, setChildren] = useState<Comment[]>(comment.children || [])
+
+  const sendReply = async () => {
+    if (!reply.trim()) return
+
+    try {
+      const res = await fetch(`/api/community/${postId}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: reply, parentId: comment.id }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setChildren((prev) => [...prev, data.comment])
+        setReply('')
+        setReplying(false)
+      }
+    } catch (err) {
+      console.error('Ошибка ответа:', err)
+    }
+  }
+
+  return (
+    <div className="ml-10">
+      <div className="flex items-start gap-2">
+        {comment.author.avatarUrl ? (
+          <img src={comment.author.avatarUrl} className="w-8 h-8 rounded-full" />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs">
+            {comment.author.fullName?.[0] || 'U'}
+          </div>
+        )}
+        <div>
+          <p className="font-semibold text-sm">{comment.author.fullName}</p>
+          <p className="text-gray-300 text-sm">{comment.content}</p>
+          <button
+            onClick={() => setReplying(!replying)}
+            className="text-xs text-gray-400 hover:text-emerald-400 mt-1"
+          >
+            Ответить
+          </button>
+        </div>
+      </div>
+
+      {replying && (
+        <div className="mt-2 ml-10 flex gap-2">
+          <input
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            placeholder="Ваш ответ..."
+            className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-sm text-white"
           />
+          <button
+            onClick={sendReply}
+            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-sm"
+          >
+            Отправить
+          </button>
         </div>
       )}
 
-      {/* Действия */}
-      <div className="flex space-x-6 text-gray-400 mb-2">
-        <button onClick={handleLike} className="flex items-center space-x-1 hover:text-red-500">
-          <span>{liked ? '❤️' : '🤍'}</span>
-          <span>{likesCount}</span>
-        </button>
-        <button onClick={toggleComments} className="flex items-center space-x-1 hover:text-emerald-400">
-          <span>💬</span>
-          <span>{comments.length || post._count.comments}</span>
-        </button>
-      </div>
-
-      {/* Комментарии */}
-      {showComments && (
-        <div className="mt-3 space-y-3">
-          {comments.map((c) => (
-            <div key={c.id} className="flex items-start space-x-3">
-              {c.author.avatarUrl ? (
-                <Image
-                  src={c.author.avatarUrl}
-                  alt={c.author.fullName}
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white">
-                  {c.author.fullName[0]}
-                </div>
-              )}
-              <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
-                <p className="font-semibold text-sm">{c.author.fullName}</p>
-                <p className="text-gray-200 text-sm">{c.content}</p>
-              </div>
-            </div>
+      {children.length > 0 && (
+        <div className="mt-2 ml-6 space-y-2">
+          {children.map((child) => (
+            <CommentItem key={child.id} comment={child} postId={postId} />
           ))}
-
-          <div className="flex items-center space-x-2 mt-2">
-            <input
-              type="text"
-              placeholder="Написать комментарий..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            <button
-              onClick={handleAddComment}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
-            >
-              Отправить
-            </button>
-          </div>
         </div>
       )}
     </div>
