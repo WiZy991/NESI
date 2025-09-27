@@ -357,35 +357,44 @@ model File {
 
 model CommunityPost {
   id        String   @id @default(cuid())
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
   title     String
   content   String
-  imageUrl  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  imageUrl  String?   // для картинок/мемов
+  author    User      @relation(fields: [authorId], references: [id])
+  authorId  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   comments  CommunityComment[]
   likes     CommunityLike[]
+  views     CommunityView[]
 }
 
 model CommunityComment {
   id        String   @id @default(cuid())
+  content   String
+  author    User      @relation(fields: [authorId], references: [id])
+  authorId  String
   post      CommunityPost @relation(fields: [postId], references: [id])
   postId    String
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
-  content   String
-  createdAt DateTime @default(now())
+  parentId  String?   // для вложенных комментов
+  createdAt DateTime  @default(now())
 }
 
 model CommunityLike {
+  id      String @id @default(cuid())
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String
+  post    CommunityPost @relation(fields: [postId], references: [id])
+  postId  String
+
+  @@unique([userId, postId])
+}
+
+model CommunityView {
   id        String   @id @default(cuid())
   post      CommunityPost @relation(fields: [postId], references: [id])
   postId    String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
+  userId    String?
   createdAt DateTime @default(now())
-
-  @@unique([postId, userId])
 }
