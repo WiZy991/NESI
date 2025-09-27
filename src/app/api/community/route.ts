@@ -17,29 +17,21 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
       include: {
         author: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            avatarUrl: true,
-          },
+          select: { id: true, fullName: true, email: true, avatarFileId: true },
         },
         _count: { select: { comments: true, likes: true } },
+        likes: me
+          ? { where: { userId: me.id }, select: { id: true } }
+          : false,
       },
     })
 
-    // помечаем лайки текущего юзера
-    let withLikes = posts
-    if (me) {
-      const liked = await prisma.communityLike.findMany({
-        where: { userId: me.id, postId: { in: posts.map((p) => p.id) } },
-        select: { postId: true },
-      })
-      const likedIds = new Set(liked.map((l) => l.postId))
-      withLikes = posts.map((p) => ({ ...p, liked: likedIds.has(p.id) }))
-    }
+    const formatted = posts.map((p) => ({
+      ...p,
+      liked: me ? p.likes.length > 0 : false,
+    }))
 
-    return NextResponse.json({ posts: withLikes })
+    return NextResponse.json({ posts: formatted })
   } catch (err: any) {
     console.error('❌ Ошибка получения постов:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
@@ -49,12 +41,27 @@ export async function GET(req: NextRequest) {
 // 📌 Создать пост
 export async function POST(req: NextRequest) {
   try {
-    const me = await getUserFromRequest(req)
-    if (!me) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    const me = await getUserFromRequest(req).catch(() => null)
+    if (!me) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    }
 
-    const { title, content, imageUrl } = await req.json()
+    let body: any
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Неверный формат запроса' },
+        { status: 400 }
+      )
+    }
+
+    const { title, content, imageUrl } = body || {}
     if (!title?.trim() || !content?.trim()) {
-      return NextResponse.json({ error: 'Заполни заголовок и текст' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Заполни заголовок и текст' },
+        { status: 400 }
+      )
     }
 
     const post = await prisma.communityPost.create({
@@ -66,20 +73,18 @@ export async function POST(req: NextRequest) {
       },
       include: {
         author: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            avatarUrl: true,
-          },
+          select: { id: true, fullName: true, email: true, avatarFileId: true },
         },
         _count: { select: { comments: true, likes: true } },
       },
     })
 
-    return NextResponse.json({ ok: true, post: { ...post, liked: false } }, { status: 201 })
+    return NextResponse.json({ ok: true, post }, { status: 201 })
   } catch (err: any) {
     console.error('🔥 Ошибка создания поста:', err)
-    return NextResponse.json({ error: 'Ошибка сервера', details: String(err) }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Ошибка сервера', details: String(err) },
+      { status: 500 }
+    )
   }
 }
