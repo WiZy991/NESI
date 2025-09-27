@@ -14,7 +14,14 @@ export async function GET(req: NextRequest) {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        author: { select: { id: true, fullName: true, email: true } },
+        author: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarUrl: true, // ✅ аватарка
+          },
+        },
         _count: { select: { comments: true, likes: true } },
       },
     })
@@ -47,7 +54,10 @@ export async function POST(req: NextRequest) {
       body = await req.json()
     } catch (e) {
       console.error('❌ Ошибка парсинга JSON:', e)
-      return NextResponse.json({ error: 'Неверный формат запроса' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Неверный формат запроса' },
+        { status: 400 }
+      )
     }
 
     console.log('📦 Данные body:', body)
@@ -55,7 +65,10 @@ export async function POST(req: NextRequest) {
     const { title, content, imageUrl } = body || {}
 
     if (!title?.trim() || !content?.trim()) {
-      return NextResponse.json({ error: 'Заполни заголовок и текст' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Заполни заголовок и текст' },
+        { status: 400 }
+      )
     }
 
     const post = await prisma.communityPost.create({
@@ -65,6 +78,17 @@ export async function POST(req: NextRequest) {
         imageUrl: imageUrl || null,
         authorId: me.id,
       },
+      include: {
+        author: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+        _count: { select: { comments: true, likes: true } },
+      },
     })
 
     console.log('✅ Пост создан:', post.id)
@@ -72,6 +96,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, post }, { status: 201 })
   } catch (err: any) {
     console.error('🔥 Ошибка создания поста:', err)
-    return NextResponse.json({ error: 'Ошибка сервера', details: String(err) }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Ошибка сервера', details: String(err) },
+      { status: 500 }
+    )
   }
 }
