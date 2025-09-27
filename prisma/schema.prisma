@@ -43,15 +43,9 @@ model User {
   completedTasksCount   Int      @default(0)
   avgRating             Float    @default(0)
 
-<<<<<<< HEAD
   badges                UserBadge[]
   hireRequestsSent      HireRequest[] @relation("HireCustomer")
   hireRequestsReceived  HireRequest[] @relation("HireExecutor")
-=======
-  badges UserBadge[]
-  hireRequestsSent     HireRequest[] @relation("HireCustomer")
-  hireRequestsReceived HireRequest[] @relation("HireExecutor")
->>>>>>> cbb5cfe (update schema.prisma)
 
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
@@ -92,10 +86,6 @@ model Task {
   review        Review?
   messages      Message[]
 
-<<<<<<< HEAD
-=======
-  // 🔥 связь с файлами
->>>>>>> cbb5cfe (update schema.prisma)
   files         File[]   @relation("TaskFiles")
 }
 
@@ -188,13 +178,6 @@ model Subcategory {
   userCertifications  UserCertification[]
 }
 
-<<<<<<< HEAD
-=======
-/* =========================
-   СЕРТИФИКАЦИЯ
-   ========================= */
-
->>>>>>> cbb5cfe (update schema.prisma)
 model CertificationTest {
   id            String          @id @default(uuid())
   subcategoryId String          @unique
@@ -354,7 +337,6 @@ model Transaction {
   createdAt DateTime @default(now())
 }
 
-
 model File {
   id        String   @id @default(cuid())
   filename  String
@@ -372,7 +354,6 @@ model File {
   task         Task?            @relation("TaskFiles", fields: [taskId], references: [id])
   taskId       String?
 }
-
 
 model CommunityPost {
   id        String   @id @default(cuid())
