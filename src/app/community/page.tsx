@@ -14,6 +14,7 @@ type Post = {
   _count: { comments: number; likes: number }
 }
 
+
 export default function CommunityPage() {
   const { user } = useUser()
   const [posts, setPosts] = useState<Post[]>([])
