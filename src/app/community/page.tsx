@@ -20,6 +20,7 @@ type Post = {
   imageUrl?: string | null
   createdAt: string
   author: Author
+  liked?: boolean // ✅ теперь у поста есть признак лайка
   _count: { comments: number; likes: number }
 }
 
@@ -64,15 +65,13 @@ export default function CommunityPage() {
 
       {/* Список постов */}
       <div className="space-y-5">
-        {posts.length === 0 && (
+        {posts.length === 0 ? (
           <p className="text-gray-400">
             Постов пока нет. Будь первым, кто создаст тему 🚀
           </p>
+        ) : (
+          posts.map((post) => <CommunityPost key={post.id} post={post} />)
         )}
-
-        {posts.map((post) => (
-          <CommunityPost key={post.id} post={post} />
-        ))}
       </div>
     </div>
   )
