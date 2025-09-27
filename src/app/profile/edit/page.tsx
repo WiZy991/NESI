@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import Select from 'react-select'
 
-// 🔹 Города (можно расширить — вставить полный список РФ)
+// 🔹 Города
 const cityOptions = [
     { "value": "Москва", "label": "Москва" },
     { "value": "Санкт-Петербург", "label": "Санкт-Петербург" },
@@ -206,50 +206,79 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
-const skillOptions = [
-  // Программирование
-  { value: 'JavaScript', label: 'JavaScript' },
-  { value: 'TypeScript', label: 'TypeScript' },
-  { value: 'Python', label: 'Python' },
-  { value: 'Django', label: 'Django' },
-  { value: 'Flask', label: 'Flask' },
-  { value: 'Node.js', label: 'Node.js' },
-  { value: 'React', label: 'React' },
-  { value: 'Next.js', label: 'Next.js' },
-  { value: 'Vue.js', label: 'Vue.js' },
-  { value: 'Angular', label: 'Angular' },
-  { value: 'PHP', label: 'PHP' },
-  { value: 'Laravel', label: 'Laravel' },
-  { value: 'Symfony', label: 'Symfony' },
-  { value: 'Go', label: 'Go' },
-  { value: 'Rust', label: 'Rust' },
-  { value: 'Java', label: 'Java' },
-  { value: 'Spring', label: 'Spring' },
-  { value: 'Kotlin', label: 'Kotlin' },
-  { value: 'Swift', label: 'Swift' },
-  { value: 'C#', label: 'C#' },
-  { value: '.NET', label: '.NET' },
-  { value: 'C++', label: 'C++' },
-
-  // Дизайн
-  { value: 'Figma', label: 'Figma' },
-  { value: 'Photoshop', label: 'Photoshop' },
-  { value: 'Illustrator', label: 'Illustrator' },
-  { value: 'UI/UX', label: 'UI/UX' },
-
-  // DevOps
-  { value: 'Docker', label: 'Docker' },
-  { value: 'Kubernetes', label: 'Kubernetes' },
-  { value: 'CI/CD', label: 'CI/CD' },
-  { value: 'Linux', label: 'Linux' },
-
-  // Другое
-  { value: 'SEO', label: 'SEO' },
-  { value: 'Маркетинг', label: 'Маркетинг' },
-  { value: 'Продажи', label: 'Продажи' },
-  { value: 'Project Management', label: 'Project Management' },
-  { value: 'Bitrix', label: 'Bitrix' },
+// 🔹 Рекомендуемые навыки
+const recommendedSkills = [
+  "JavaScript", "TypeScript", "React", "Next.js", "Node.js",
+  "Python", "Bitrix", "PostgreSQL", "REST API", "UI",
+  "Docker", "Git", "Linux", "Prisma ORM", "JWT"
 ]
+
+// 🔹 Кастомный селектор навыков
+function SkillsSelector({
+  skills,
+  setSkills,
+}: {
+  skills: string[]
+  setSkills: (s: string[]) => void
+}) {
+  const addSkill = (skill: string) => {
+    if (!skills.includes(skill)) {
+      setSkills([...skills, skill])
+    }
+  }
+
+  const removeSkill = (skill: string) => {
+    setSkills(skills.filter((s) => s !== skill))
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Выбранные навыки */}
+      <div className="flex flex-wrap gap-2 p-2 bg-[#0d1b14] rounded-lg border border-emerald-700">
+        {skills.map((skill) => (
+          <span
+            key={skill}
+            className="px-3 py-1 bg-emerald-700/20 text-emerald-300 text-sm rounded-full border border-emerald-600 flex items-center gap-2"
+          >
+            {skill}
+            <button
+              type="button"
+              onClick={() => removeSkill(skill)}
+              className="text-red-400 hover:text-red-600"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          placeholder="Добавить..."
+          className="bg-transparent text-emerald-200 focus:outline-none px-2"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.currentTarget.value.trim() !== '') {
+              addSkill(e.currentTarget.value.trim())
+              e.currentTarget.value = ''
+            }
+          }}
+        />
+      </div>
+
+      {/* Рекомендуемые навыки */}
+      <div className="flex flex-wrap gap-2">
+        {recommendedSkills.map((skill) => (
+          <button
+            key={skill}
+            type="button"
+            onClick={() => addSkill(skill)}
+            className="px-3 py-1 text-sm rounded-full bg-emerald-900/30 text-emerald-300 border border-emerald-600 hover:bg-emerald-700/40"
+          >
+            {skill}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function EditProfilePage() {
   const { user, token, login, loading } = useUser()
@@ -395,14 +424,7 @@ export default function EditProfilePage() {
         {/* Навыки */}
         <div>
           <label className="block mb-1 text-gray-300">Навыки</label>
-          <Select
-            options={skillOptions}
-            isMulti
-            value={skills.map((s) => ({ value: s, label: s }))}
-            onChange={(selected) => setSkills(selected.map((s) => s.value))}
-            placeholder="Выберите навыки..."
-            className="text-black"
-          />
+          <SkillsSelector skills={skills} setSkills={setSkills} />
         </div>
 
         {/* Сохранить */}
