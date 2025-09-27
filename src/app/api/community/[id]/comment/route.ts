@@ -7,11 +7,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const me = await getUserFromRequest(req)
     if (!me) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-    const { content } = await req.json()
+    const { content, parentId } = await req.json()
     if (!content?.trim()) return NextResponse.json({ error: 'Комментарий пустой' }, { status: 400 })
 
     const comment = await prisma.communityComment.create({
-      data: { content: content.trim(), postId: params.id, authorId: me.id },
+      data: {
+        content: content.trim(),
+        postId: params.id,
+        authorId: me.id,
+        parentId: parentId || null, // ✅ вложенные комменты
+      },
+      include: {
+        author: { select: { id: true, fullName: true, avatarUrl: true } },
+      },
     })
 
     return NextResponse.json({ comment })

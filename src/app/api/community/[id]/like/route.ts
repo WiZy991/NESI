@@ -15,14 +15,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (existing) {
       // убираем лайк
       await prisma.communityLike.delete({ where: { id: existing.id } })
-      return NextResponse.json({ liked: false })
+    } else {
+      // ставим лайк
+      await prisma.communityLike.create({
+        data: { postId: params.id, userId: me.id },
+      })
     }
 
-    await prisma.communityLike.create({
-      data: { postId: params.id, userId: me.id },
+    // ⚡ всегда возвращаем актуальное состояние
+    const likesCount = await prisma.communityLike.count({
+      where: { postId: params.id },
     })
 
-    return NextResponse.json({ liked: true })
+    return NextResponse.json({ liked: !existing, likesCount })
   } catch (err) {
     console.error('Ошибка лайка:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
