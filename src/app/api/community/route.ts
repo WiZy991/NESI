@@ -5,6 +5,8 @@ import { getUserFromRequest } from '@/lib/auth'
 // 📌 Получить список постов
 export async function GET(req: NextRequest) {
   try {
+    const me = await getUserFromRequest(req).catch(() => null)
+
     const { searchParams } = new URL(req.url)
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '10', 10)
@@ -19,14 +21,25 @@ export async function GET(req: NextRequest) {
             id: true,
             fullName: true,
             email: true,
-            avatarUrl: true, // ✅ аватарка
+            avatarUrl: true,
           },
         },
         _count: { select: { comments: true, likes: true } },
       },
     })
 
-    return NextResponse.json({ posts })
+    // помечаем лайки текущего юзера
+    let withLikes = posts
+    if (me) {
+      const liked = await prisma.communityLike.findMany({
+        where: { userId: me.id, postId: { in: posts.map((p) => p.id) } },
+        select: { postId: true },
+      })
+      const likedIds = new Set(liked.map((l) => l.postId))
+      withLikes = posts.map((p) => ({ ...p, liked: likedIds.has(p.id) }))
+    }
+
+    return NextResponse.json({ posts: withLikes })
   } catch (err: any) {
     console.error('❌ Ошибка получения постов:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
@@ -36,39 +49,12 @@ export async function GET(req: NextRequest) {
 // 📌 Создать пост
 export async function POST(req: NextRequest) {
   try {
-    console.log('📩 Создание поста...')
+    const me = await getUserFromRequest(req)
+    if (!me) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-    const me = await getUserFromRequest(req).catch((e) => {
-      console.error('❌ Ошибка getUserFromRequest:', e)
-      return null
-    })
-
-    console.log('👤 Пользователь:', me)
-
-    if (!me) {
-      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-    }
-
-    let body: any
-    try {
-      body = await req.json()
-    } catch (e) {
-      console.error('❌ Ошибка парсинга JSON:', e)
-      return NextResponse.json(
-        { error: 'Неверный формат запроса' },
-        { status: 400 }
-      )
-    }
-
-    console.log('📦 Данные body:', body)
-
-    const { title, content, imageUrl } = body || {}
-
+    const { title, content, imageUrl } = await req.json()
     if (!title?.trim() || !content?.trim()) {
-      return NextResponse.json(
-        { error: 'Заполни заголовок и текст' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Заполни заголовок и текст' }, { status: 400 })
     }
 
     const post = await prisma.communityPost.create({
@@ -91,14 +77,9 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    console.log('✅ Пост создан:', post.id)
-
-    return NextResponse.json({ ok: true, post }, { status: 201 })
+    return NextResponse.json({ ok: true, post: { ...post, liked: false } }, { status: 201 })
   } catch (err: any) {
     console.error('🔥 Ошибка создания поста:', err)
-    return NextResponse.json(
-      { error: 'Ошибка сервера', details: String(err) },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Ошибка сервера', details: String(err) }, { status: 500 })
   }
 }
