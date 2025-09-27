@@ -206,12 +206,28 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
-// 🔹 Рекомендуемые навыки
-const recommendedSkills = [
-  "JavaScript", "TypeScript", "React", "Next.js", "Node.js",
-  "Python", "Bitrix", "PostgreSQL", "REST API", "UI",
-  "Docker", "Git", "Linux", "Prisma ORM", "JWT"
+// 🔹 Роли
+const roleOptions = [
+  { value: 'user', label: 'Пользователь' },
+  { value: 'executor', label: 'Исполнитель' },
+  { value: 'customer', label: 'Заказчик' },
+  { value: 'admin', label: 'Админ' },
 ]
+
+// 🔹 Категории навыков
+const skillCategories: Record<string, string[]> = {
+  'IT и программирование': [
+    'JavaScript', 'TypeScript', 'React', 'Next.js', 'Node.js',
+    'Python', 'Django', 'Flask', 'Bitrix', 'PostgreSQL',
+    'REST API', 'Prisma ORM', 'JWT', 'Docker', 'Git', 'Linux',
+  ],
+  'Дизайн': [
+    'UI/UX', 'Figma', 'Photoshop', 'Illustrator', 'Адаптив',
+  ],
+  'Контент и копирайтинг': [
+    'SEO', 'Маркетинг', 'Копирайтинг', 'Редактура', 'SMM',
+  ],
+}
 
 // 🔹 Кастомный селектор навыков
 function SkillsSelector({
@@ -232,7 +248,7 @@ function SkillsSelector({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Выбранные навыки */}
       <div className="flex flex-wrap gap-2 p-2 bg-[#0d1b14] rounded-lg border border-emerald-700">
         {skills.map((skill) => (
@@ -263,19 +279,28 @@ function SkillsSelector({
         />
       </div>
 
-      {/* Рекомендуемые навыки */}
-      <div className="flex flex-wrap gap-2">
-        {recommendedSkills.map((skill) => (
-          <button
-            key={skill}
-            type="button"
-            onClick={() => addSkill(skill)}
-            className="px-3 py-1 text-sm rounded-full bg-emerald-900/30 text-emerald-300 border border-emerald-600 hover:bg-emerald-700/40"
-          >
-            {skill}
-          </button>
-        ))}
-      </div>
+      {/* Категории с кнопками */}
+      {Object.entries(skillCategories).map(([category, categorySkills]) => (
+        <div key={category}>
+          <h3 className="text-emerald-400 text-sm mb-2">{category}</h3>
+          <div className="flex flex-wrap gap-2">
+            {categorySkills.map((skill) => (
+              <button
+                key={skill}
+                type="button"
+                onClick={() => addSkill(skill)}
+                className={`px-3 py-1 text-sm rounded-full border ${
+                  skills.includes(skill)
+                    ? 'bg-emerald-600 text-black border-emerald-400'
+                    : 'bg-emerald-900/30 text-emerald-300 border-emerald-600 hover:bg-emerald-700/40'
+                }`}
+              >
+                {skill}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -288,15 +313,20 @@ export default function EditProfilePage() {
   const [password, setPassword] = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
+  const [role, setRole] = useState('user')
   const [skills, setSkills] = useState<string[]>([])
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const [cityModalOpen, setCityModalOpen] = useState(false)
+  const [citySearch, setCitySearch] = useState('')
 
   useEffect(() => {
     if (user) {
       setFullName(user.fullName || '')
       setDescription(user.description || '')
       setLocation(user.location || '')
+      setRole(user.role || 'user')
 
       if (Array.isArray(user.skills)) {
         setSkills(user.skills)
@@ -309,6 +339,7 @@ export default function EditProfilePage() {
   const handleSave = async () => {
     if (!token) return toast.error('Нет токена авторизации')
     if (!fullName.trim()) return toast.error('Имя не может быть пустым')
+    if (!role.trim()) return toast.error('Роль обязательна')
 
     setSaving(true)
     const toastId = toast.loading('Сохраняем профиль...')
@@ -316,6 +347,7 @@ export default function EditProfilePage() {
     try {
       const formData = new FormData()
       formData.append('fullName', fullName)
+      formData.append('role', role)
       if (password) formData.append('password', password)
       formData.append('description', description)
       formData.append('location', location)
@@ -358,6 +390,23 @@ export default function EditProfilePage() {
             className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
                        focus:outline-none focus:ring-2 focus:ring-emerald-400"
           />
+        </div>
+
+        {/* Роль */}
+        <div>
+          <label className="block mb-1 text-gray-300">Роль</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
+                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          >
+            {roleOptions.map((r) => (
+              <option key={r.value} value={r.value} className="bg-black">
+                {r.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Пароль */}
@@ -412,14 +461,62 @@ export default function EditProfilePage() {
         {/* Город */}
         <div>
           <label className="block mb-1 text-gray-300">Город</label>
-          <Select
-            options={cityOptions}
-            value={cityOptions.find((c) => c.value === location) || null}
-            onChange={(option) => setLocation(option?.value || '')}
-            placeholder="Выберите город..."
-            className="text-black"
-          />
+          <button
+            type="button"
+            onClick={() => setCityModalOpen(true)}
+            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white text-left
+                       hover:border-emerald-400 transition"
+          >
+            {location || 'Выберите город...'}
+          </button>
         </div>
+
+        {/* Модалка выбора города */}
+        {cityModalOpen && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div className="bg-[#0d1b14] p-6 rounded-lg border border-emerald-600 w-full max-w-lg">
+              <h2 className="text-xl text-emerald-400 mb-4">Выберите город</h2>
+              <input
+                type="text"
+                placeholder="Поиск..."
+                value={citySearch}
+                onChange={(e) => setCitySearch(e.target.value)}
+                className="w-full mb-4 px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
+                           focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {cityOptions
+                  .filter((c) =>
+                    c.label.toLowerCase().includes(citySearch.toLowerCase())
+                  )
+                  .map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => {
+                        setLocation(c.value)
+                        setCityModalOpen(false)
+                      }}
+                      className={`block w-full text-left px-3 py-2 rounded-lg ${
+                        location === c.value
+                          ? 'bg-emerald-700/50 text-white'
+                          : 'hover:bg-emerald-700/30 text-emerald-200'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCityModalOpen(false)}
+                className="mt-4 px-4 py-2 rounded-lg border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Навыки */}
         <div>
