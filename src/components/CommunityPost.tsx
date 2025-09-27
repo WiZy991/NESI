@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import Image from 'next/image'
+import { useUser } from '@/context/UserContext'
 
 type Author = {
   id: string
   fullName: string | null
   email: string
-  avatarUrl: string | null
+  avatarFileId?: string | null
 }
 
 type Comment = {
@@ -14,201 +16,187 @@ type Comment = {
   content: string
   createdAt: string
   author: Author
-  parentId: string | null
-  _count: { children: number; likes: number }
-  children?: Comment[]
+  parentId?: string | null
+  replies?: Comment[]
 }
 
 type Post = {
   id: string
   title: string
   content: string
+  imageUrl?: string | null
   createdAt: string
   author: Author
-  liked: boolean
   _count: { comments: number; likes: number }
+  liked?: boolean
 }
 
 export default function CommunityPost({ post }: { post: Post }) {
-  const [likes, setLikes] = useState(post._count.likes)
-  const [liked, setLiked] = useState(post.liked)
+  const { user } = useUser()
+  const [liked, setLiked] = useState(post.liked || false)
+  const [likesCount, setLikesCount] = useState(post._count.likes)
   const [comments, setComments] = useState<Comment[]>([])
-  const [loading, setLoading] = useState(false)
-  const [comment, setComment] = useState('')
+  const [commentInput, setCommentInput] = useState('')
+  const [replyTo, setReplyTo] = useState<string | null>(null)
+  const [loadingComments, setLoadingComments] = useState(false)
 
-  // 📌 лайк поста
+  // 📌 Загружаем комментарии
+  useEffect(() => {
+    const loadComments = async () => {
+      setLoadingComments(true)
+      try {
+        const res = await fetch(`/api/community/${post.id}/comment`)
+        const data = await res.json()
+        setComments(data.comments || [])
+      } catch (err) {
+        console.error('Ошибка загрузки комментариев:', err)
+      } finally {
+        setLoadingComments(false)
+      }
+    }
+    loadComments()
+  }, [post.id])
+
+  // 📌 Лайк поста
   const toggleLike = async () => {
     try {
       const res = await fetch(`/api/community/${post.id}/like`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
       })
       const data = await res.json()
       if (res.ok) {
         setLiked(data.liked)
-        setLikes(data.likesCount)
+        setLikesCount(data.likesCount)
+      } else {
+        alert(data.error || 'Ошибка лайка')
       }
     } catch (err) {
       console.error('Ошибка лайка:', err)
     }
   }
 
-  // 📌 отправка комментария
-  const handleComment = async () => {
-    if (!comment.trim()) return
-    setLoading(true)
-
+  // 📌 Отправка комментария
+  const submitComment = async () => {
+    if (!commentInput.trim()) return
     try {
       const res = await fetch(`/api/community/${post.id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: comment }),
+        body: JSON.stringify({ content: commentInput, parentId: replyTo }),
       })
       const data = await res.json()
       if (res.ok) {
-        setComments((prev) => [...prev, data.comment])
-        setComment('')
+        setComments((prev) =>
+          replyTo
+            ? prev.map((c) =>
+                c.id === replyTo ? { ...c, replies: [...(c.replies || []), data.comment] } : c
+              )
+            : [...prev, data.comment]
+        )
+        setCommentInput('')
+        setReplyTo(null)
+      } else {
+        alert(data.error || 'Ошибка комментария')
       }
     } catch (err) {
-      console.error('Ошибка комментария:', err)
-    } finally {
-      setLoading(false)
+      console.error('Ошибка отправки комментария:', err)
     }
   }
 
-  return (
-    <div className="p-4 bg-gray-900 rounded-xl shadow-md border border-gray-800 mb-6">
-      {/* Заголовок поста */}
-      <div className="flex items-center gap-3">
-        {post.author.avatarUrl ? (
-          <img
-            src={post.author.avatarUrl}
-            alt="avatar"
-            className="w-10 h-10 rounded-full"
-          />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center text-white">
-            {post.author.fullName?.[0] || 'U'}
+  // 📌 Рендер аватарки
+  const Avatar = ({ author }: { author: Author }) => (
+    <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center text-sm">
+      {author.avatarFileId ? (
+        <Image
+          src={`/api/files/${author.avatarFileId}`}
+          alt={author.fullName || author.email}
+          width={32}
+          height={32}
+        />
+      ) : (
+        (author.fullName?.[0] || author.email[0]).toUpperCase()
+      )}
+    </div>
+  )
+
+  // 📌 Рекурсивный вывод комментариев
+  const renderComments = (list: Comment[], level = 0) =>
+    list.map((c) => (
+      <div key={c.id} className="mt-3" style={{ marginLeft: level * 24 }}>
+        <div className="flex items-start gap-2">
+          <Avatar author={c.author} />
+          <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
+            <p className="text-sm font-semibold">{c.author.fullName || c.author.email}</p>
+            <p className="text-sm">{c.content}</p>
+            <button
+              onClick={() => setReplyTo(c.id)}
+              className="text-xs text-emerald-400 hover:underline mt-1"
+            >
+              Ответить
+            </button>
           </div>
-        )}
+        </div>
+        {c.replies && renderComments(c.replies, level + 1)}
+      </div>
+    ))
+
+  return (
+    <div className="p-5 border border-emerald-500/30 rounded-xl bg-black/40 shadow-md space-y-4">
+      {/* Автор */}
+      <div className="flex items-center gap-3">
+        <Avatar author={post.author} />
         <div>
           <p className="font-semibold">{post.author.fullName || post.author.email}</p>
-          <span className="text-xs text-gray-400">
-            {new Date(post.createdAt).toLocaleString()}
-          </span>
+          <p className="text-xs text-gray-400">{new Date(post.createdAt).toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Текст поста */}
-      <div className="mt-3">
-        <h2 className="text-lg font-semibold">{post.title}</h2>
-        <p className="text-gray-300 mt-1">{post.content}</p>
-      </div>
+      {/* Контент */}
+      <h2 className="text-lg font-bold text-emerald-300">{post.title}</h2>
+      <p>{post.content}</p>
+      {post.imageUrl && (
+        <Image
+          src={post.imageUrl}
+          alt="post image"
+          width={600}
+          height={400}
+          className="rounded-lg mt-2"
+        />
+      )}
 
-      {/* Лайки / Комменты */}
-      <div className="mt-4 flex gap-6 text-gray-400 text-sm">
+      {/* Действия */}
+      <div className="flex items-center gap-6 text-sm">
         <button onClick={toggleLike} className="flex items-center gap-1 hover:text-emerald-400">
-          {liked ? '❤️' : '🤍'} {likes}
+          {liked ? '❤️' : '🤍'} {likesCount}
         </button>
-        <span>💬 {post._count.comments + comments.length}</span>
+        <span>💬 {comments.length}</span>
       </div>
 
-      {/* Список комментариев */}
-      <div className="mt-4 space-y-3">
-        {comments.map((c) => (
-          <CommentItem key={c.id} comment={c} postId={post.id} />
-        ))}
+      {/* Комментарии */}
+      <div className="mt-3">
+        {loadingComments ? (
+          <p className="text-gray-500">Загрузка комментариев...</p>
+        ) : (
+          renderComments(comments)
+        )}
       </div>
 
       {/* Форма коммента */}
-      <div className="mt-3 flex gap-2">
-        <input
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Написать комментарий..."
-          className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white"
-        />
-        <button
-          onClick={handleComment}
-          disabled={loading}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded text-white text-sm"
-        >
-          {loading ? '...' : 'Отправить'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function CommentItem({ comment, postId }: { comment: Comment; postId: string }) {
-  const [replying, setReplying] = useState(false)
-  const [reply, setReply] = useState('')
-  const [children, setChildren] = useState<Comment[]>(comment.children || [])
-
-  const sendReply = async () => {
-    if (!reply.trim()) return
-
-    try {
-      const res = await fetch(`/api/community/${postId}/comment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: reply, parentId: comment.id }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setChildren((prev) => [...prev, data.comment])
-        setReply('')
-        setReplying(false)
-      }
-    } catch (err) {
-      console.error('Ошибка ответа:', err)
-    }
-  }
-
-  return (
-    <div className="ml-10">
-      <div className="flex items-start gap-2">
-        {comment.author.avatarUrl ? (
-          <img src={comment.author.avatarUrl} className="w-8 h-8 rounded-full" />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs">
-            {comment.author.fullName?.[0] || 'U'}
-          </div>
-        )}
-        <div>
-          <p className="font-semibold text-sm">{comment.author.fullName}</p>
-          <p className="text-gray-300 text-sm">{comment.content}</p>
-          <button
-            onClick={() => setReplying(!replying)}
-            className="text-xs text-gray-400 hover:text-emerald-400 mt-1"
-          >
-            Ответить
-          </button>
-        </div>
-      </div>
-
-      {replying && (
-        <div className="mt-2 ml-10 flex gap-2">
+      {user && (
+        <div className="flex items-center gap-2 mt-3">
           <input
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            placeholder="Ваш ответ..."
-            className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-sm text-white"
+            type="text"
+            value={commentInput}
+            onChange={(e) => setCommentInput(e.target.value)}
+            placeholder={replyTo ? 'Ответить на комментарий...' : 'Написать комментарий...'}
+            className="flex-1 px-3 py-2 bg-gray-800 rounded-lg focus:ring-2 focus:ring-emerald-500"
           />
           <button
-            onClick={sendReply}
-            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-sm"
+            onClick={submitComment}
+            className="px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700"
           >
             Отправить
           </button>
-        </div>
-      )}
-
-      {children.length > 0 && (
-        <div className="mt-2 ml-6 space-y-2">
-          {children.map((child) => (
-            <CommentItem key={child.id} comment={child} postId={postId} />
-          ))}
         </div>
       )}
     </div>
