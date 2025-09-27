@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ posts })
   } catch (err: any) {
-    console.error('Ошибка получения постов:', err)
+    console.error('❌ Ошибка получения постов:', err)
     return NextResponse.json(
       { error: 'Ошибка сервера', details: String(err) },
       { status: 500 }
@@ -32,12 +32,23 @@ export async function GET(req: NextRequest) {
 // 📌 Создать пост
 export async function POST(req: NextRequest) {
   try {
-    const me = await getUserFromRequest(req)
+    const me = await getUserFromRequest(req).catch(() => null)
+
     if (!me) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    const { title, content, imageUrl } = await req.json()
+    let body: any
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Неверный формат запроса, нужен JSON' },
+        { status: 400 }
+      )
+    }
+
+    const { title, content, imageUrl } = body || {}
 
     if (!title?.trim() || !content?.trim()) {
       return NextResponse.json(
@@ -57,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, post }, { status: 201 })
   } catch (err: any) {
-    console.error('Ошибка создания поста:', err)
+    console.error('❌ Ошибка создания поста:', err)
     return NextResponse.json(
       { error: 'Ошибка сервера', details: String(err) },
       { status: 500 }
