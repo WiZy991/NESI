@@ -9,38 +9,30 @@ export default function NewPostPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
   const router = useRouter()
   const { token } = useUser()
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setImageFile(file)
-      setImagePreview(URL.createObjectURL(file))
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (!title.trim() || !content.trim()) {
       toast.error('Заполни заголовок и текст')
       return
     }
+
     if (!token) {
-      toast.error('Нет токена авторизации, войди заново')
+      toast.error('Нет токена авторизации')
       return
     }
 
     setLoading(true)
     const toastId = toast.loading('Создаём тему...')
 
-    let uploadedImageId: string | null = null
+    let uploadedImageUrl: string | null = null
 
     try {
-      // 👉 если есть картинка — загружаем
+      // 📤 Загружаем изображение (если есть)
       if (imageFile) {
         const formData = new FormData()
         formData.append('file', imageFile)
@@ -51,14 +43,12 @@ export default function NewPostPage() {
         })
 
         const uploadData = await uploadRes.json()
-        if (!uploadRes.ok) {
-          throw new Error(uploadData.error || 'Ошибка загрузки файла')
-        }
+        if (!uploadRes.ok) throw new Error(uploadData.error || 'Ошибка загрузки файла')
 
-        uploadedImageId = uploadData.id
+        uploadedImageUrl = `/api/files/${uploadData.id}`
       }
 
-      // 👉 отправляем пост
+      // 📌 Создание поста
       const res = await fetch('/api/community', {
         method: 'POST',
         headers: {
@@ -68,21 +58,20 @@ export default function NewPostPage() {
         body: JSON.stringify({
           title,
           content,
-          imageFileId: uploadedImageId, // 👈 отправляем fileId
+          imageUrl: uploadedImageUrl,
         }),
       })
 
-      const data = await res.json().catch(() => ({}))
-
+      const data = await res.json()
       if (res.ok) {
         toast.success('Тема создана!', { id: toastId })
         router.push('/community')
       } else {
-        toast.error(data.error || data.details || 'Ошибка при создании поста', { id: toastId })
+        toast.error(data.error || 'Ошибка создания поста', { id: toastId })
       }
-    } catch (err: any) {
-      console.error('Ошибка создания поста:', err)
-      toast.error(err.message || 'Ошибка сети или сервера', { id: toastId })
+    } catch (err) {
+      console.error('Ошибка:', err)
+      toast.error('Ошибка сети или сервера', { id: toastId })
     } finally {
       setLoading(false)
     }
@@ -111,19 +100,12 @@ export default function NewPostPage() {
           className="w-full px-4 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
         />
 
-        {/* 👇 Выбор и предпросмотр картинки */}
-        <div className="space-y-2">
-          <label className="text-sm text-gray-400">Файл</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="block text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-700"
-          />
-          {imagePreview && (
-            <img src={imagePreview} alt="preview" className="max-h-60 rounded border border-gray-700" />
-          )}
-        </div>
+        <input
+          type="file"
+          accept="image/png, image/jpeg, image/gif"
+          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+          className="text-sm text-gray-300"
+        />
 
         <button
           type="submit"
