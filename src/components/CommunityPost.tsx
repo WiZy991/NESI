@@ -40,20 +40,22 @@ export default function CommunityPost({ post }: { post: Post }) {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [loadingComments, setLoadingComments] = useState(false)
 
-  // 📌 Загружаем комментарии (уже деревом)
-  useEffect(() => {
-    const loadComments = async () => {
-      setLoadingComments(true)
-      try {
-        const res = await fetch(`/api/community/${post.id}/comment`)
-        const data = await res.json()
-        setComments(data.comments || [])
-      } catch (err) {
-        console.error('Ошибка загрузки комментариев:', err)
-      } finally {
-        setLoadingComments(false)
-      }
+  // ✅ функция перезагрузки комментариев
+  const loadComments = async () => {
+    setLoadingComments(true)
+    try {
+      const res = await fetch(`/api/community/${post.id}/comment`)
+      const data = await res.json()
+      setComments(data.comments || [])
+    } catch (err) {
+      console.error('Ошибка загрузки комментариев:', err)
+    } finally {
+      setLoadingComments(false)
     }
+  }
+
+  // 📌 Загружаем дерево комментариев один раз
+  useEffect(() => {
     loadComments()
   }, [post.id])
 
@@ -73,7 +75,7 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  // 📌 Отправка комментария / ответа
+  // ✅ Отправка комментария / ответа
   const submitComment = async () => {
     if (!commentInput.trim()) return
     try {
@@ -84,20 +86,8 @@ export default function CommunityPost({ post }: { post: Post }) {
       })
       const data = await res.json()
       if (res.ok) {
-        const { comment } = data
-        if (replyTo) {
-          // добавляем как ответ
-          const addReply = (list: Comment[]): Comment[] =>
-            list.map((c) =>
-              c.id === replyTo
-                ? { ...c, replies: [...c.replies, { ...comment, replies: [] }] }
-                : { ...c, replies: addReply(c.replies) }
-            )
-          setComments((prev) => addReply(prev))
-        } else {
-          // новый корневой
-          setComments((prev) => [...prev, { ...comment, replies: [] }])
-        }
+        // ✅ просто перезагружаем с сервера
+        await loadComments()
         setCommentInput('')
         setReplyTo(null)
       } else {
