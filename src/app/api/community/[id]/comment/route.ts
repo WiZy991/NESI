@@ -2,23 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 
-// 📌 Получить комментарии для поста
+// 📌 Получить комментарии для поста (с рекурсией)
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const comments = await prisma.communityComment.findMany({
-      where: { postId: params.id, parentId: null }, // только верхний уровень
+      where: { postId: params.id, parentId: null },
       orderBy: { createdAt: 'asc' },
       include: {
         author: {
           select: { id: true, fullName: true, email: true, avatarFileId: true },
         },
-        replies: {   // 👈 self-relation alias (children)
+        replies: {
           include: {
             author: {
               select: { id: true, fullName: true, email: true, avatarFileId: true },
+            },
+            replies: {
+              include: {
+                author: {
+                  select: { id: true, fullName: true, email: true, avatarFileId: true },
+                },
+                replies: true, // 👈 рекурсия
+              },
             },
           },
         },
@@ -62,6 +70,8 @@ export async function POST(
         author: {
           select: { id: true, fullName: true, email: true, avatarFileId: true },
         },
+        replies: true,
+        _count: { select: { replies: true, likes: true } },
       },
     })
 
