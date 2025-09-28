@@ -40,6 +40,11 @@ export default function CommunityPost({ post }: { post: Post }) {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [loadingComments, setLoadingComments] = useState(false)
 
+  // модалка “показать все”
+  const [showAllComments, setShowAllComments] = useState(false)
+
+  const maxVisibleRootComments = 3
+
   // ✅ функция перезагрузки комментариев
   const loadComments = async () => {
     setLoadingComments(true)
@@ -54,7 +59,6 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  // 📌 Загружаем дерево комментариев один раз
   useEffect(() => {
     loadComments()
   }, [post.id])
@@ -75,7 +79,7 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  // ✅ Отправка комментария / ответа
+  // 📌 Отправка комментария / ответа
   const submitComment = async () => {
     if (!commentInput.trim()) return
     try {
@@ -86,7 +90,6 @@ export default function CommunityPost({ post }: { post: Post }) {
       })
       const data = await res.json()
       if (res.ok) {
-        // ✅ просто перезагружаем с сервера
         await loadComments()
         setCommentInput('')
         setReplyTo(null)
@@ -135,6 +138,12 @@ export default function CommunityPost({ post }: { post: Post }) {
       </div>
     ))
 
+  const visibleRootComments = showAllComments
+    ? comments
+    : comments.slice(0, maxVisibleRootComments)
+
+  const hasHiddenComments = comments.length > maxVisibleRootComments
+
   return (
     <div className="p-5 border border-emerald-500/30 rounded-xl bg-black/40 shadow-md space-y-4">
       {/* Автор */}
@@ -172,9 +181,35 @@ export default function CommunityPost({ post }: { post: Post }) {
         {loadingComments ? (
           <p className="text-gray-500">Загрузка комментариев...</p>
         ) : (
-          renderComments(comments)
+          <>
+            {renderComments(visibleRootComments)}
+            {hasHiddenComments && !showAllComments && (
+              <button
+                onClick={() => setShowAllComments(true)}
+                className="mt-2 text-sm text-emerald-400 hover:underline"
+              >
+                Показать все комментарии ({comments.length})
+              </button>
+            )}
+          </>
         )}
       </div>
+
+      {/* Модалка */}
+      {showAllComments && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
+          <div className="bg-gray-900 p-6 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-4 text-white">Все комментарии</h3>
+            {renderComments(comments)}
+            <button
+              onClick={() => setShowAllComments(false)}
+              className="mt-4 text-sm text-emerald-400 hover:underline"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Форма коммента */}
       {user && (
