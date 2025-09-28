@@ -12,8 +12,9 @@ export async function POST(
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    const existing = await prisma.communityLike.findUnique({
-      where: { postId_userId: { postId: params.id, userId: me.id } },
+    // ⚡ ищем лайк через findFirst (надёжнее, чем findUnique с композитом)
+    const existing = await prisma.communityLike.findFirst({
+      where: { postId: params.id, userId: me.id },
     })
 
     if (existing) {
@@ -32,8 +33,11 @@ export async function POST(
       liked: !existing,
       likesCount,
     })
-  } catch (err) {
-    console.error('❌ Ошибка лайка:', err)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  } catch (err: any) {
+    console.error('❌ Ошибка лайка:', err.message || err)
+    return NextResponse.json(
+      { error: 'Ошибка сервера', details: String(err) },
+      { status: 500 }
+    )
   }
 }
