@@ -158,8 +158,7 @@ export default function CommunityPost({ post }: { post: Post }) {
   )
 
   const renderReplies = (replies: Comment[], level: number) => {
-    const first = replies[0] ? [replies[0]] : []
-    return first.map((reply) => (
+    return replies.map((reply) => (
       <div key={reply.id} className="mt-3" style={{ marginLeft: level * 24 }}>
         <div className="flex items-start gap-2">
           <Avatar author={reply.author} />
@@ -247,37 +246,53 @@ export default function CommunityPost({ post }: { post: Post }) {
       </div>
 
       {user && (
-        <div className="flex items-center gap-2 mt-3">
-          <input
-            type="text"
-            value={commentInput}
-            onChange={(e) => setCommentInput(e.target.value)}
-            placeholder={replyTo ? 'Ответить на комментарий...' : 'Написать комментарий...'}
-            className="flex-1 px-3 py-2 bg-gray-800 rounded-lg focus:ring-2 focus:ring-emerald-500"
-          />
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={(e) => {
-              if (e.target.files?.[0]) setFile(e.target.files[0])
-            }}
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-emerald-400 hover:text-emerald-500"
-            title="Прикрепить файл"
-          >
-            📎
-          </button>
-          <button
-            onClick={submitComment}
-            disabled={uploading}
-            className="px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700"
-          >
-            {uploading ? '...' : 'Отправить'}
-          </button>
+        <div className="flex flex-col gap-2 mt-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={commentInput}
+              onChange={(e) => setCommentInput(e.target.value)}
+              placeholder={replyTo ? 'Ответить на комментарий...' : 'Написать комментарий...'}
+              className="flex-1 px-3 py-2 bg-gray-800 rounded-lg focus:ring-2 focus:ring-emerald-500"
+            />
+
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={(e) => {
+                if (e.target.files?.[0]) setFile(e.target.files[0])
+              }}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-emerald-400 hover:text-emerald-500"
+              title="Прикрепить файл"
+            >
+              📎
+            </button>
+
+            <button
+              onClick={submitComment}
+              disabled={uploading}
+              className="px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700"
+            >
+              {uploading ? '...' : 'Отправить'}
+            </button>
+          </div>
+
+          {file && (
+            <div className="text-sm text-gray-400">
+              📎 {file.name}
+              <button
+                onClick={() => setFile(null)}
+                className="ml-2 text-red-400 hover:underline"
+              >
+                Удалить
+              </button>
+            </div>
+          )}
         </div>
       )}
 
