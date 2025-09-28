@@ -373,11 +373,12 @@ model CommunityPost {
 model CommunityComment {
   id        String   @id @default(cuid())
   content   String
+  imageUrl  String?   
   author    User      @relation(fields: [authorId], references: [id])
   authorId  String
   post      CommunityPost @relation(fields: [postId], references: [id])
   postId    String
-  parentId  String?   // для вложенных комментов
+  parentId  String?   
   createdAt DateTime  @default(now())
 }
 
