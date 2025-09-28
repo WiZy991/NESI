@@ -19,7 +19,6 @@ async function getReplies(commentId: string) {
     },
   })
 
-  // Рекурсивно добавляем replies в каждый ответ
   for (const reply of replies) {
     ;(reply as any).replies = await getReplies(reply.id)
   }
@@ -34,10 +33,7 @@ export async function GET(
 ) {
   try {
     const comments = await prisma.communityComment.findMany({
-      where: {
-        postId: params.id,
-        parentId: null,
-      },
+      where: { postId: params.id, parentId: null },
       orderBy: { createdAt: 'asc' },
       include: {
         author: {
@@ -51,7 +47,6 @@ export async function GET(
       },
     })
 
-    // Рекурсивно добавляем вложенные ответы
     const commentsWithReplies = await Promise.all(
       comments.map(async (comment) => ({
         ...comment,
@@ -77,7 +72,17 @@ export async function POST(
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    const { content, parentId, imageUrl } = await req.json()
+    let body
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Неверный формат запроса' },
+        { status: 400 }
+      )
+    }
+
+    const { content, parentId, imageUrl } = body || {}
 
     if (!content?.trim() && !imageUrl) {
       return NextResponse.json(
@@ -106,7 +111,7 @@ export async function POST(
       },
     })
 
-    return NextResponse.json({ comment })
+    return NextResponse.json({ ok: true, comment }, { status: 201 })
   } catch (err) {
     console.error('🔥 Ошибка создания комментария:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
