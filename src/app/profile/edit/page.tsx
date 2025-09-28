@@ -211,7 +211,6 @@ const roleOptions = [
   { value: 'user', label: 'Пользователь' },
   { value: 'executor', label: 'Исполнитель' },
   { value: 'customer', label: 'Заказчик' },
-  { value: 'admin', label: 'Админ' },
 ]
 
 // 🔹 Категории навыков
