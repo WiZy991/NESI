@@ -1,5 +1,3 @@
-'use client'
-
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
@@ -22,7 +20,7 @@ type Comment = {
 
 type Post = {
   id: string
-  // title убран
+  title: string
   content: string
   imageUrl?: string | null
   createdAt: string
@@ -40,6 +38,7 @@ export default function CommunityPost({ post }: { post: Post }) {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [loadingComments, setLoadingComments] = useState(false)
   const [showAllComments, setShowAllComments] = useState(false)
+  const [attachedFile, setAttachedFile] = useState<File | null>(null)
 
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -95,13 +94,14 @@ export default function CommunityPost({ post }: { post: Post }) {
       const res = await fetch(`/api/community/${post.id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: commentInput, parentId: replyTo }),
+        body: JSON.stringify({ content: commentInput, parentId: replyTo })
       })
       const data = await res.json()
       if (res.ok) {
         await loadComments()
         setCommentInput('')
         setReplyTo(null)
+        setAttachedFile(null)
       } else {
         alert(data.error || 'Ошибка комментария')
       }
@@ -174,17 +174,10 @@ export default function CommunityPost({ post }: { post: Post }) {
         </div>
       </div>
 
-      {post.content && <p>{post.content}</p>}
+      <h2 className="text-lg font-bold text-emerald-300">{post.title}</h2>
+      <p>{post.content}</p>
       {post.imageUrl && (
-        <a href={post.imageUrl} target="_blank" rel="noopener noreferrer">
-          <Image
-            src={post.imageUrl}
-            alt="Изображение поста"
-            width={600}
-            height={400}
-            className="rounded-lg mt-2 hover:opacity-90 transition"
-          />
-        </a>
+        <Image src={post.imageUrl} alt="post image" width={600} height={400} className="rounded-lg mt-2" />
       )}
 
       <div className="flex items-center gap-6 text-sm">
@@ -213,7 +206,7 @@ export default function CommunityPost({ post }: { post: Post }) {
       </div>
 
       {user && (
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2 mt-3 relative">
           <input
             type="text"
             value={commentInput}
@@ -221,6 +214,34 @@ export default function CommunityPost({ post }: { post: Post }) {
             placeholder={replyTo ? 'Ответить на комментарий...' : 'Написать комментарий...'}
             className="flex-1 px-3 py-2 bg-gray-800 rounded-lg focus:ring-2 focus:ring-emerald-500"
           />
+
+          {/* Скрепка */}
+          <label className="cursor-pointer flex items-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.8}
+              stroke="currentColor"
+              className="w-6 h-6 text-gray-400 hover:text-emerald-400 transition"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79V18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3h5.21" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 5l3 3-8.5 8.5a2.121 2.121 0 01-3-3L16 5z" />
+            </svg>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  console.log('📎 Выбран файл для комментария:', file.name)
+                  setAttachedFile(file)
+                }
+              }}
+            />
+          </label>
+
           <button
             onClick={submitComment}
             className="px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700"
