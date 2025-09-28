@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 📌 Создать пост
+// 📌 Создать пост (без заголовка)
 export async function POST(req: NextRequest) {
   try {
     const me = await getUserFromRequest(req).catch(() => null)
@@ -56,18 +56,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { title, content, imageUrl } = body || {}
-    if (!title?.trim() || !content?.trim()) {
+    const { content, imageUrl } = body || {}
+    if (!content?.trim() && !imageUrl) {
       return NextResponse.json(
-        { error: 'Заполни заголовок и текст' },
+        { error: 'Пост не может быть пустым' },
         { status: 400 }
       )
     }
 
     const post = await prisma.communityPost.create({
       data: {
-        title: title.trim(),
-        content: content.trim(),
+        title: '', // теперь заголовок пустой
+        content: content?.trim() || '',
         imageUrl: imageUrl || null,
         authorId: me.id,
       },
