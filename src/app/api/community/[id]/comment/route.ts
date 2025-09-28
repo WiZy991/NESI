@@ -9,19 +9,25 @@ async function getReplies(commentId: string) {
     orderBy: { createdAt: 'asc' },
     include: {
       author: {
-        select: { id: true, fullName: true, email: true, avatarFileId: true },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          avatarFileId: true,
+        },
       },
     },
   })
 
   // Рекурсивно добавляем replies в каждый ответ
   for (const reply of replies) {
-    (reply as any).replies = await getReplies(reply.id)
+    ;(reply as any).replies = await getReplies(reply.id)
   }
 
   return replies
 }
 
+// 📌 Получить комментарии к посту
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -35,12 +41,17 @@ export async function GET(
       orderBy: { createdAt: 'asc' },
       include: {
         author: {
-          select: { id: true, fullName: true, email: true, avatarFileId: true },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarFileId: true,
+          },
         },
       },
     })
 
-    // рекурсивно добавляем вложенные ответы
+    // Рекурсивно добавляем вложенные ответы
     const commentsWithReplies = await Promise.all(
       comments.map(async (comment) => ({
         ...comment,
@@ -55,4 +66,49 @@ export async function GET(
   }
 }
 
-// 📌 Добавление комментария — остаётся как у тебя, без изменений
+// 📌 Добавить комментарий (текст + imageUrl, либо только один из них)
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const me = await getUserFromRequest(req).catch(() => null)
+    if (!me) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    }
+
+    const { content, parentId, imageUrl } = await req.json()
+
+    if (!content?.trim() && !imageUrl) {
+      return NextResponse.json(
+        { error: 'Комментарий или файл обязателен' },
+        { status: 400 }
+      )
+    }
+
+    const comment = await prisma.communityComment.create({
+      data: {
+        content: content?.trim() || '',
+        parentId: parentId || null,
+        imageUrl: imageUrl || null,
+        postId: params.id,
+        authorId: me.id,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarFileId: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({ comment })
+  } catch (err) {
+    console.error('🔥 Ошибка создания комментария:', err)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
+}
