@@ -9,11 +9,27 @@ export async function GET(
 ) {
   try {
     const comments = await prisma.communityComment.findMany({
-      where: { postId: params.id },
+      where: { postId: params.id, parentId: null }, // только верхний уровень
       orderBy: { createdAt: 'asc' },
       include: {
         author: {
           select: { id: true, fullName: true, email: true, avatarFileId: true },
+        },
+        replies: { // 👈 подкомментарии (рекурсия)
+          orderBy: { createdAt: 'asc' },
+          include: {
+            author: {
+              select: { id: true, fullName: true, email: true, avatarFileId: true },
+            },
+            replies: { // 👈 вложенные ответы без лимита
+              orderBy: { createdAt: 'asc' },
+              include: {
+                author: {
+                  select: { id: true, fullName: true, email: true, avatarFileId: true },
+                },
+              },
+            },
+          },
         },
         _count: { select: { replies: true, likes: true } },
       },
