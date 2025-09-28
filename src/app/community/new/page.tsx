@@ -113,7 +113,7 @@ export default function NewPostPage() {
 
         {/* 👇 Выбор и предпросмотр картинки */}
         <div className="space-y-2">
-          <label className="text-sm text-gray-400">Картинка / мем / гифка</label>
+          <label className="text-sm text-gray-400">Файл</label>
           <input
             type="file"
             accept="image/*"
