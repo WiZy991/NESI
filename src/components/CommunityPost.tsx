@@ -92,8 +92,8 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  const uploadFile = async (): Promise<string | null> => {
-    if (!file) return null
+  const uploadFile = async (): Promise<string | undefined> => {
+    if (!file) return undefined
     const formData = new FormData()
     formData.append('file', file)
 
@@ -103,10 +103,10 @@ export default function CommunityPost({ post }: { post: Post }) {
         body: formData,
       })
       const data = await res.json()
-      return data?.id ? `/api/files/${data.id}` : null
+      return data?.id ? `/api/files/${data.id}` : undefined
     } catch (err) {
       console.error('Ошибка загрузки файла:', err)
-      return null
+      return undefined
     }
   }
 
@@ -114,17 +114,22 @@ export default function CommunityPost({ post }: { post: Post }) {
     if (!commentInput.trim() && !file) return
 
     setUploading(true)
-    const imageUrl = await uploadFile()
+    let imageUrl: string | undefined
+    if (file) {
+      imageUrl = await uploadFile()
+    }
 
     try {
+      const body: any = {
+        content: commentInput,
+        parentId: replyTo,
+      }
+      if (imageUrl) body.imageUrl = imageUrl
+
       const res = await fetch(`/api/community/${post.id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: commentInput,
-          parentId: replyTo,
-          imageUrl,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (res.ok) {
