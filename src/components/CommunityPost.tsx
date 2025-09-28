@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
@@ -13,6 +15,7 @@ type Comment = {
   id: string
   content: string
   createdAt: string
+  imageUrl?: string | null
   author: Author
   parentId?: string | null
   replies: Comment[]
@@ -20,7 +23,6 @@ type Comment = {
 
 type Post = {
   id: string
-  title: string
   content: string
   imageUrl?: string | null
   createdAt: string
@@ -38,9 +40,11 @@ export default function CommunityPost({ post }: { post: Post }) {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [loadingComments, setLoadingComments] = useState(false)
   const [showAllComments, setShowAllComments] = useState(false)
-  const [attachedFile, setAttachedFile] = useState<File | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const modalRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadComments = async () => {
     setLoadingComments(true)
@@ -88,25 +92,53 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
+  const uploadFile = async (): Promise<string | null> => {
+    if (!file) return null
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/upload/chat-file', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      return data?.id ? `/api/files/${data.id}` : null
+    } catch (err) {
+      console.error('Ошибка загрузки файла:', err)
+      return null
+    }
+  }
+
   const submitComment = async () => {
-    if (!commentInput.trim()) return
+    if (!commentInput.trim() && !file) return
+
+    setUploading(true)
+    const imageUrl = await uploadFile()
+
     try {
       const res = await fetch(`/api/community/${post.id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: commentInput, parentId: replyTo })
+        body: JSON.stringify({
+          content: commentInput,
+          parentId: replyTo,
+          imageUrl,
+        }),
       })
       const data = await res.json()
       if (res.ok) {
         await loadComments()
         setCommentInput('')
         setReplyTo(null)
-        setAttachedFile(null)
+        setFile(null)
       } else {
         alert(data.error || 'Ошибка комментария')
       }
     } catch (err) {
       console.error('Ошибка отправки комментария:', err)
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -134,10 +166,15 @@ export default function CommunityPost({ post }: { post: Post }) {
           <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
             <p className="text-sm font-semibold">{reply.author.fullName || reply.author.email}</p>
             <p className="text-sm">{reply.content}</p>
+            {reply.imageUrl && (
+              <Image src={reply.imageUrl} alt="img" width={300} height={200} className="mt-2 rounded" />
+            )}
             <button
               onClick={() => setReplyTo(reply.id)}
               className="text-xs text-emerald-400 hover:underline mt-1"
-            >Ответить</button>
+            >
+              Ответить
+            </button>
           </div>
         </div>
       </div>
@@ -153,10 +190,15 @@ export default function CommunityPost({ post }: { post: Post }) {
           <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
             <p className="text-sm font-semibold">{c.author.fullName || c.author.email}</p>
             <p className="text-sm">{c.content}</p>
+            {c.imageUrl && (
+              <Image src={c.imageUrl} alt="img" width={300} height={200} className="mt-2 rounded" />
+            )}
             <button
               onClick={() => setReplyTo(c.id)}
               className="text-xs text-emerald-400 hover:underline mt-1"
-            >Ответить</button>
+            >
+              Ответить
+            </button>
           </div>
         </div>
         {renderReplies(c.replies || [], 1)}
@@ -174,7 +216,6 @@ export default function CommunityPost({ post }: { post: Post }) {
         </div>
       </div>
 
-      <h2 className="text-lg font-bold text-emerald-300">{post.title}</h2>
       <p>{post.content}</p>
       {post.imageUrl && (
         <Image src={post.imageUrl} alt="post image" width={600} height={400} className="rounded-lg mt-2" />
@@ -206,7 +247,7 @@ export default function CommunityPost({ post }: { post: Post }) {
       </div>
 
       {user && (
-        <div className="flex items-center gap-2 mt-3 relative">
+        <div className="flex items-center gap-2 mt-3">
           <input
             type="text"
             value={commentInput}
@@ -214,39 +255,28 @@ export default function CommunityPost({ post }: { post: Post }) {
             placeholder={replyTo ? 'Ответить на комментарий...' : 'Написать комментарий...'}
             className="flex-1 px-3 py-2 bg-gray-800 rounded-lg focus:ring-2 focus:ring-emerald-500"
           />
-
-          {/* Скрепка */}
-          <label className="cursor-pointer flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-              stroke="currentColor"
-              className="w-6 h-6 text-gray-400 hover:text-emerald-400 transition"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79V18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3h5.21" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 5l3 3-8.5 8.5a2.121 2.121 0 01-3-3L16 5z" />
-            </svg>
-            <input
-              type="file"
-              accept="image/*,video/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) {
-                  console.log('📎 Выбран файл для комментария:', file.name)
-                  setAttachedFile(file)
-                }
-              }}
-            />
-          </label>
-
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={(e) => {
+              if (e.target.files?.[0]) setFile(e.target.files[0])
+            }}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 text-emerald-400 hover:text-emerald-500"
+            title="Прикрепить файл"
+          >
+            📎
+          </button>
           <button
             onClick={submitComment}
+            disabled={uploading}
             className="px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700"
           >
-            Отправить
+            {uploading ? '...' : 'Отправить'}
           </button>
         </div>
       )}
