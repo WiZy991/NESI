@@ -22,7 +22,7 @@ type Comment = {
 
 type Post = {
   id: string
-  title: string
+  // title убран
   content: string
   imageUrl?: string | null
   createdAt: string
@@ -174,10 +174,17 @@ export default function CommunityPost({ post }: { post: Post }) {
         </div>
       </div>
 
-      <h2 className="text-lg font-bold text-emerald-300">{post.title}</h2>
-      <p>{post.content}</p>
+      {post.content && <p>{post.content}</p>}
       {post.imageUrl && (
-        <Image src={post.imageUrl} alt="post image" width={600} height={400} className="rounded-lg mt-2" />
+        <a href={post.imageUrl} target="_blank" rel="noopener noreferrer">
+          <Image
+            src={post.imageUrl}
+            alt="Изображение поста"
+            width={600}
+            height={400}
+            className="rounded-lg mt-2 hover:opacity-90 transition"
+          />
+        </a>
       )}
 
       <div className="flex items-center gap-6 text-sm">
