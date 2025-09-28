@@ -17,7 +17,7 @@ type Comment = {
   createdAt: string
   author: Author
   parentId?: string | null
-  replies?: Comment[]
+  replies: Comment[]
 }
 
 type Post = {
@@ -40,14 +40,29 @@ export default function CommunityPost({ post }: { post: Post }) {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [loadingComments, setLoadingComments] = useState(false)
 
-  // 📌 Загружаем комментарии
+  // 📌 Загружаем комментарии и строим дерево
   useEffect(() => {
     const loadComments = async () => {
       setLoadingComments(true)
       try {
         const res = await fetch(`/api/community/${post.id}/comment`)
         const data = await res.json()
-        setComments(data.comments || [])
+        const flat: Comment[] = data.comments || []
+
+        // строим дерево
+        const map: Record<string, Comment & { replies: Comment[] }> = {}
+        flat.forEach((c) => (map[c.id] = { ...c, replies: [] }))
+
+        const root: Comment[] = []
+        flat.forEach((c) => {
+          if (c.parentId && map[c.parentId]) {
+            map[c.parentId].replies.push(map[c.id])
+          } else {
+            root.push(map[c.id])
+          }
+        })
+
+        setComments(root)
       } catch (err) {
         console.error('Ошибка загрузки комментариев:', err)
       } finally {
@@ -75,7 +90,7 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  // 📌 Отправка комментария
+  // 📌 Отправка комментария / ответа
   const submitComment = async () => {
     if (!commentInput.trim()) return
     try {
@@ -86,13 +101,22 @@ export default function CommunityPost({ post }: { post: Post }) {
       })
       const data = await res.json()
       if (res.ok) {
-        setComments((prev) =>
-          replyTo
-            ? prev.map((c) =>
-                c.id === replyTo ? { ...c, replies: [...(c.replies || []), data.comment] } : c
+        const { comment } = data
+        setComments((prev) => {
+          if (replyTo) {
+            // добавить как ответ
+            const addReply = (list: Comment[]): Comment[] =>
+              list.map((c) =>
+                c.id === replyTo
+                  ? { ...c, replies: [...(c.replies || []), { ...comment, replies: [] }] }
+                  : { ...c, replies: addReply(c.replies || []) }
               )
-            : [...prev, data.comment]
-        )
+            return addReply(prev)
+          } else {
+            // новый корневой коммент
+            return [...prev, { ...comment, replies: [] }]
+          }
+        })
         setCommentInput('')
         setReplyTo(null)
       } else {
