@@ -388,7 +388,7 @@ model CommunityLike {
   post    CommunityPost @relation(fields: [postId], references: [id])
   postId  String
 
-  @@unique([userId, postId])
+  @@unique([postId, userId], name: "postId_userId")
 }
 
 model CommunityView {
