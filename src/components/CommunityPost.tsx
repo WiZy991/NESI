@@ -40,29 +40,14 @@ export default function CommunityPost({ post }: { post: Post }) {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [loadingComments, setLoadingComments] = useState(false)
 
-  // 📌 Загружаем комментарии и строим дерево
+  // 📌 Загружаем комментарии (уже деревом)
   useEffect(() => {
     const loadComments = async () => {
       setLoadingComments(true)
       try {
         const res = await fetch(`/api/community/${post.id}/comment`)
         const data = await res.json()
-        const flat: Comment[] = data.comments || []
-
-        // строим дерево
-        const map: Record<string, Comment & { replies: Comment[] }> = {}
-        flat.forEach((c) => (map[c.id] = { ...c, replies: [] }))
-
-        const root: Comment[] = []
-        flat.forEach((c) => {
-          if (c.parentId && map[c.parentId]) {
-            map[c.parentId].replies.push(map[c.id])
-          } else {
-            root.push(map[c.id])
-          }
-        })
-
-        setComments(root)
+        setComments(data.comments || [])
       } catch (err) {
         console.error('Ошибка загрузки комментариев:', err)
       } finally {
@@ -75,9 +60,7 @@ export default function CommunityPost({ post }: { post: Post }) {
   // 📌 Лайк поста
   const toggleLike = async () => {
     try {
-      const res = await fetch(`/api/community/${post.id}/like`, {
-        method: 'POST',
-      })
+      const res = await fetch(`/api/community/${post.id}/like`, { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
         setLiked(data.liked)
@@ -102,21 +85,19 @@ export default function CommunityPost({ post }: { post: Post }) {
       const data = await res.json()
       if (res.ok) {
         const { comment } = data
-        setComments((prev) => {
-          if (replyTo) {
-            // добавить как ответ
-            const addReply = (list: Comment[]): Comment[] =>
-              list.map((c) =>
-                c.id === replyTo
-                  ? { ...c, replies: [...(c.replies || []), { ...comment, replies: [] }] }
-                  : { ...c, replies: addReply(c.replies || []) }
-              )
-            return addReply(prev)
-          } else {
-            // новый корневой коммент
-            return [...prev, { ...comment, replies: [] }]
-          }
-        })
+        if (replyTo) {
+          // добавляем как ответ
+          const addReply = (list: Comment[]): Comment[] =>
+            list.map((c) =>
+              c.id === replyTo
+                ? { ...c, replies: [...c.replies, { ...comment, replies: [] }] }
+                : { ...c, replies: addReply(c.replies) }
+            )
+          setComments((prev) => addReply(prev))
+        } else {
+          // новый корневой
+          setComments((prev) => [...prev, { ...comment, replies: [] }])
+        }
         setCommentInput('')
         setReplyTo(null)
       } else {
@@ -160,7 +141,7 @@ export default function CommunityPost({ post }: { post: Post }) {
             </button>
           </div>
         </div>
-        {c.replies && renderComments(c.replies, level + 1)}
+        {c.replies?.length > 0 && renderComments(c.replies, level + 1)}
       </div>
     ))
 
