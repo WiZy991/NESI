@@ -1,21 +1,17 @@
-// Финальный компонент CommunityPost.tsx с комментариями как в ВК и загрузкой файлов
-
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
 
-// Типы
-
-interface Author {
+type Author = {
   id: string
   fullName: string | null
   email: string
   avatarFileId?: string | null
 }
 
-interface Comment {
+type Comment = {
   id: string
   content: string
   createdAt: string
@@ -24,7 +20,7 @@ interface Comment {
   replies: Comment[]
 }
 
-interface Post {
+type Post = {
   id: string
   title: string
   content: string
@@ -45,11 +41,8 @@ export default function CommunityPost({ post }: { post: Post }) {
   const [loadingComments, setLoadingComments] = useState(false)
   const [showAllComments, setShowAllComments] = useState(false)
 
-  const maxVisibleRootComments = 3
+  const modalRef = useRef<HTMLDivElement>(null)
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Загрузка комментариев
   const loadComments = async () => {
     setLoadingComments(true)
     try {
@@ -67,7 +60,20 @@ export default function CommunityPost({ post }: { post: Post }) {
     loadComments()
   }, [post.id])
 
-  // Лайк
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        setShowAllComments(false)
+      }
+    }
+    if (showAllComments) {
+      document.addEventListener('mousedown', handleClickOutside)
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showAllComments])
+
   const toggleLike = async () => {
     try {
       const res = await fetch(`/api/community/${post.id}/like`, { method: 'POST' })
@@ -83,14 +89,13 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  // Отправка комментария
   const submitComment = async () => {
     if (!commentInput.trim()) return
     try {
       const res = await fetch(`/api/community/${post.id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: commentInput, parentId: replyTo })
+        body: JSON.stringify({ content: commentInput, parentId: replyTo }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -120,9 +125,29 @@ export default function CommunityPost({ post }: { post: Post }) {
     </div>
   )
 
-  const renderComments = (list: Comment[], level = 0) =>
-    list.map((c) => (
-      <div key={c.id} className="mt-3" style={{ marginLeft: level * 24 }}>
+  const renderReplies = (replies: Comment[], level: number) => {
+    const first = replies[0] ? [replies[0]] : []
+    return first.map((reply) => (
+      <div key={reply.id} className="mt-3" style={{ marginLeft: level * 24 }}>
+        <div className="flex items-start gap-2">
+          <Avatar author={reply.author} />
+          <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
+            <p className="text-sm font-semibold">{reply.author.fullName || reply.author.email}</p>
+            <p className="text-sm">{reply.content}</p>
+            <button
+              onClick={() => setReplyTo(reply.id)}
+              className="text-xs text-emerald-400 hover:underline mt-1"
+            >Ответить</button>
+          </div>
+        </div>
+      </div>
+    ))
+  }
+
+  const renderComments = (list: Comment[], limit = 3) => {
+    const sliced = list.slice(0, limit)
+    return sliced.map((c) => (
+      <div key={c.id} className="mt-3">
         <div className="flex items-start gap-2">
           <Avatar author={c.author} />
           <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
@@ -131,20 +156,13 @@ export default function CommunityPost({ post }: { post: Post }) {
             <button
               onClick={() => setReplyTo(c.id)}
               className="text-xs text-emerald-400 hover:underline mt-1"
-            >
-              Ответить
-            </button>
+            >Ответить</button>
           </div>
         </div>
-        {c.replies?.length > 0 && renderComments(c.replies, level + 1)}
+        {renderReplies(c.replies || [], 1)}
       </div>
     ))
-
-  const visibleRootComments = showAllComments
-    ? comments
-    : comments.slice(0, maxVisibleRootComments)
-
-  const hasHiddenComments = comments.length > maxVisibleRootComments
+  }
 
   return (
     <div className="p-5 border border-emerald-500/30 rounded-xl bg-black/40 shadow-md space-y-4">
@@ -159,13 +177,7 @@ export default function CommunityPost({ post }: { post: Post }) {
       <h2 className="text-lg font-bold text-emerald-300">{post.title}</h2>
       <p>{post.content}</p>
       {post.imageUrl && (
-        <Image
-          src={post.imageUrl}
-          alt="post image"
-          width={600}
-          height={400}
-          className="rounded-lg mt-2"
-        />
+        <Image src={post.imageUrl} alt="post image" width={600} height={400} className="rounded-lg mt-2" />
       )}
 
       <div className="flex items-center gap-6 text-sm">
@@ -180,11 +192,11 @@ export default function CommunityPost({ post }: { post: Post }) {
           <p className="text-gray-500">Загрузка комментариев...</p>
         ) : (
           <>
-            {renderComments(visibleRootComments)}
-            {hasHiddenComments && !showAllComments && (
+            {renderComments(comments)}
+            {comments.length > 3 && (
               <button
                 onClick={() => setShowAllComments(true)}
-                className="mt-2 text-sm text-emerald-400 hover:underline"
+                className="text-sm text-emerald-400 hover:underline mt-2"
               >
                 Показать все комментарии ({comments.length})
               </button>
@@ -192,21 +204,6 @@ export default function CommunityPost({ post }: { post: Post }) {
           </>
         )}
       </div>
-
-      {showAllComments && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
-          <div className="bg-gray-900 p-6 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4 text-white">Все комментарии</h3>
-            {renderComments(comments)}
-            <button
-              onClick={() => setShowAllComments(false)}
-              className="mt-4 text-sm text-emerald-400 hover:underline"
-            >
-              Закрыть
-            </button>
-          </div>
-        </div>
-      )}
 
       {user && (
         <div className="flex items-center gap-2 mt-3">
@@ -223,6 +220,15 @@ export default function CommunityPost({ post }: { post: Post }) {
           >
             Отправить
           </button>
+        </div>
+      )}
+
+      {showAllComments && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div ref={modalRef} className="bg-gray-900 max-h-[80vh] overflow-y-auto w-full max-w-2xl p-6 rounded-xl">
+            <h3 className="text-lg font-semibold mb-4">Все комментарии</h3>
+            {renderComments(comments, comments.length)}
+          </div>
         </div>
       )}
     </div>
