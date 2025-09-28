@@ -1,17 +1,21 @@
+// Финальный компонент CommunityPost.tsx с комментариями как в ВК и загрузкой файлов
+
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
 
-type Author = {
+// Типы
+
+interface Author {
   id: string
   fullName: string | null
   email: string
   avatarFileId?: string | null
 }
 
-type Comment = {
+interface Comment {
   id: string
   content: string
   createdAt: string
@@ -20,7 +24,7 @@ type Comment = {
   replies: Comment[]
 }
 
-type Post = {
+interface Post {
   id: string
   title: string
   content: string
@@ -39,13 +43,13 @@ export default function CommunityPost({ post }: { post: Post }) {
   const [commentInput, setCommentInput] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [loadingComments, setLoadingComments] = useState(false)
-
-  // модалка “показать все”
   const [showAllComments, setShowAllComments] = useState(false)
 
   const maxVisibleRootComments = 3
 
-  // ✅ функция перезагрузки комментариев
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Загрузка комментариев
   const loadComments = async () => {
     setLoadingComments(true)
     try {
@@ -63,7 +67,7 @@ export default function CommunityPost({ post }: { post: Post }) {
     loadComments()
   }, [post.id])
 
-  // 📌 Лайк поста
+  // Лайк
   const toggleLike = async () => {
     try {
       const res = await fetch(`/api/community/${post.id}/like`, { method: 'POST' })
@@ -79,14 +83,14 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  // 📌 Отправка комментария / ответа
+  // Отправка комментария
   const submitComment = async () => {
     if (!commentInput.trim()) return
     try {
       const res = await fetch(`/api/community/${post.id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: commentInput, parentId: replyTo }),
+        body: JSON.stringify({ content: commentInput, parentId: replyTo })
       })
       const data = await res.json()
       if (res.ok) {
@@ -101,7 +105,6 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  // 📌 Рендер аватарки
   const Avatar = ({ author }: { author: Author }) => (
     <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center text-sm">
       {author.avatarFileId ? (
@@ -117,7 +120,6 @@ export default function CommunityPost({ post }: { post: Post }) {
     </div>
   )
 
-  // 📌 Рекурсивный вывод комментариев
   const renderComments = (list: Comment[], level = 0) =>
     list.map((c) => (
       <div key={c.id} className="mt-3" style={{ marginLeft: level * 24 }}>
@@ -146,7 +148,6 @@ export default function CommunityPost({ post }: { post: Post }) {
 
   return (
     <div className="p-5 border border-emerald-500/30 rounded-xl bg-black/40 shadow-md space-y-4">
-      {/* Автор */}
       <div className="flex items-center gap-3">
         <Avatar author={post.author} />
         <div>
@@ -155,7 +156,6 @@ export default function CommunityPost({ post }: { post: Post }) {
         </div>
       </div>
 
-      {/* Контент */}
       <h2 className="text-lg font-bold text-emerald-300">{post.title}</h2>
       <p>{post.content}</p>
       {post.imageUrl && (
@@ -168,7 +168,6 @@ export default function CommunityPost({ post }: { post: Post }) {
         />
       )}
 
-      {/* Действия */}
       <div className="flex items-center gap-6 text-sm">
         <button onClick={toggleLike} className="flex items-center gap-1 hover:text-emerald-400">
           {liked ? '❤️' : '🤍'} {likesCount}
@@ -176,7 +175,6 @@ export default function CommunityPost({ post }: { post: Post }) {
         <span>💬 {comments.length}</span>
       </div>
 
-      {/* Комментарии */}
       <div className="mt-3">
         {loadingComments ? (
           <p className="text-gray-500">Загрузка комментариев...</p>
@@ -195,7 +193,6 @@ export default function CommunityPost({ post }: { post: Post }) {
         )}
       </div>
 
-      {/* Модалка */}
       {showAllComments && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
           <div className="bg-gray-900 p-6 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -211,7 +208,6 @@ export default function CommunityPost({ post }: { post: Post }) {
         </div>
       )}
 
-      {/* Форма коммента */}
       {user && (
         <div className="flex items-center gap-2 mt-3">
           <input
