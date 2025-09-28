@@ -61,7 +61,7 @@ export async function GET(
   }
 }
 
-// 📌 Добавить комментарий (текст + imageUrl, либо только один из них)
+// 📌 Добавить комментарий (текст или imageUrl, либо оба)
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -91,14 +91,19 @@ export async function POST(
       )
     }
 
+    const data: any = {
+      content: content?.trim() || '',
+      parentId: parentId || null,
+      postId: params.id,
+      authorId: me.id,
+    }
+
+    if (imageUrl) {
+      data.imageUrl = imageUrl
+    }
+
     const comment = await prisma.communityComment.create({
-      data: {
-        content: content?.trim() || '',
-        parentId: parentId || null,
-        imageUrl: imageUrl || null,
-        postId: params.id,
-        authorId: me.id,
-      },
+      data,
       include: {
         author: {
           select: {
