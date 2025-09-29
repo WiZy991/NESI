@@ -7,8 +7,8 @@ import path from 'path'
 
 export const runtime = 'nodejs'
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
-const ALLOWED = ['image/', 'application/pdf', 'application/zip'];
+const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
+const ALLOWED = ['image/', 'application/pdf', 'application/zip']
 
 export async function POST(req: NextRequest) {
   const me = await getUserFromRequest(req)
@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
 
     const blob = form.get('file') as File | null
     if (blob && blob.size > 0) {
-      // валидация
       if (blob.size > MAX_SIZE) {
         return NextResponse.json({ error: 'Файл слишком большой (до 10MB)' }, { status: 413 })
       }
@@ -40,7 +39,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Недопустимый тип файла' }, { status: 415 })
       }
 
-      // сохранение
       const arrayBuf = await blob.arrayBuffer()
       const buffer = Buffer.from(arrayBuf)
       const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'pm')
@@ -64,16 +62,14 @@ export async function POST(req: NextRequest) {
     recipientId = body?.recipientId
     content = body?.content ?? ''
   }
-  // попытка мягкого JSON при неизвестном content-type
+  // мягкий JSON fallback
   else {
     const body = await req.json().catch(() => null)
     if (body) {
       recipientId = body.recipientId
       content = body.content ?? ''
     } else {
-      const body = await req.json().catch(() => null)
-      if (!body) {
-        return NextResponse.json({ error: 'Unsupported body or invalid format' }, { status: 400 })
+      return NextResponse.json({ error: 'Unsupported body or invalid format' }, { status: 400 })
     }
   }
 
@@ -94,4 +90,4 @@ export async function POST(req: NextRequest) {
   })
 
   return NextResponse.json(msg)
-}
+} 
