@@ -136,7 +136,13 @@ export default function Header() {
                       >
                         💬 Сообщество
                       </Link>
-                      {/* можно добавить другие пункты */}
+                      <Link
+                        href="/hire"
+                        className="block px-4 py-2 hover:bg-gray-700 transition"
+                        onClick={() => setOpen(false)}
+                      >
+                        📑 Запросы найма
+                      </Link>
                     </div>
                   )}
                 </div>
