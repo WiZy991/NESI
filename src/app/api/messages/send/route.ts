@@ -23,6 +23,12 @@ export async function POST(req: NextRequest) {
   let mimeType: string | null = null
   let size: number | null = null
 
+  // берём базовый URL из переменной или заголовка origin
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    req.headers.get('origin') ||
+    ''
+
   // multipart/form-data
   if (ct.includes('multipart/form-data')) {
     const form = await req.formData()
@@ -50,7 +56,8 @@ export async function POST(req: NextRequest) {
       const outPath = path.join(uploadsDir, outName)
       await fsp.writeFile(outPath, buffer)
 
-      fileUrl = `/uploads/pm/${outName}`
+      // сохраняем абсолютный путь
+      fileUrl = `${baseUrl}/uploads/pm/${outName}`
       fileName = originalName
       mimeType = blob.type || null
       size = blob.size || null
@@ -90,4 +97,4 @@ export async function POST(req: NextRequest) {
   })
 
   return NextResponse.json(msg)
-} 
+}
