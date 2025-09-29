@@ -1,3 +1,4 @@
+// src/components/ResponseForm.tsx
 'use client'
 
 import { useState } from 'react'
@@ -69,7 +70,13 @@ export default function ResponseForm({
 
   const Tooltip = () =>
     !isCertified && (
-      <div className="absolute top-1/2 left-full ml-2 -translate-y-1/2 hidden group-hover:block bg-gray-900 border border-gray-700 text-gray-200 text-xs px-3 py-2 rounded shadow-lg w-64 z-10">
+      <div
+        className="absolute top-1/2 left-full ml-2 -translate-y-1/2 
+                   hidden group-hover:block group-focus-within:block 
+                   bg-gray-900 border border-gray-700 text-gray-200 text-xs 
+                   px-3 py-2 rounded shadow-lg w-64 z-10 
+                   transition-opacity duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+      >
         Чтобы откликнуться на задачу, нужна сертификация по «{subcategoryName}». <br />
         <a
           href={`/cert?subcategoryId=${subcategoryId}`}
@@ -85,7 +92,7 @@ export default function ResponseForm({
       <h2 className="text-lg font-semibold mb-2">Откликнуться</h2>
 
       {/* Комментарий */}
-      <div className="relative group w-full mb-2">
+      <div className="relative group inline-block w-full mb-2">
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -99,7 +106,7 @@ export default function ResponseForm({
       </div>
 
       {/* Цена */}
-      <div className="relative group w-full mb-2">
+      <div className="relative group inline-block w-full mb-2">
         <input
           type="number"
           value={price}
