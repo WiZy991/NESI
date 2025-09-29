@@ -24,7 +24,18 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       return NextResponse.json({ error: 'Отклик возможен только на открытые задачи' }, { status: 400 })
     }
 
-    // ⚠️ Требуем сертификацию, если у задачи указана подкатегория
+    // Глобальная проверка: исполнитель должен иметь хотя бы одну сертификацию
+    const hasAnyCert = await prisma.userCertification.findFirst({
+      where: { userId: user.id }
+    })
+    if (!hasAnyCert) {
+      return NextResponse.json(
+        { error: 'Для откликов нужна сертификация' },
+        { status: 403 }
+      )
+    }
+
+    // Если у задачи указана подкатегория → нужна сертификация именно по ней
     if (task.subcategoryId) {
       const cert = await prisma.userCertification.findUnique({
         where: {
@@ -33,7 +44,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       })
       if (!cert) {
         return NextResponse.json(
-          { error: 'Для отклика нужна сертификация по этой подкатегории' },
+          { error: 'Для этой подкатегории нужна отдельная сертификация' },
           { status: 403 }
         )
       }
