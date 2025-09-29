@@ -8,7 +8,7 @@ import { useUser } from '@/context/UserContext'
 export default function ResponseForm({
   taskId,
   minPrice = 0,
-  isCertified = true, // 👈 по умолчанию true, но TaskDetailPageContent пробрасывает false
+  isCertified = true,
   subcategoryId,
 }: {
   taskId: string
@@ -70,27 +70,21 @@ export default function ResponseForm({
     }
   }
 
+  // Текст для tooltip
+  const tooltipText = !isCertified
+    ? `Пройдите сертификацию: ${subcategoryId ? `/certifications/${subcategoryId}` : '/certifications'}`
+    : ''
+
   return (
     <form onSubmit={handleSubmit} className="mt-6 border-t border-gray-700 pt-4">
       <h2 className="text-lg font-semibold mb-2">Откликнуться</h2>
-
-      {!isCertified && (
-        <div className="mb-3 p-2 rounded bg-red-900/40 border border-red-700 text-red-300 text-sm">
-          Для отклика на эту задачу нужно пройти{' '}
-          <a
-            href={`/certifications/${subcategoryId}`}
-            className="underline hover:text-red-200"
-          >
-            сертификацию по подкатегории →
-          </a>
-        </div>
-      )}
 
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Комментарий"
         disabled={!isCertified}
+        title={tooltipText}
         className={`w-full p-2 rounded bg-gray-800 border border-gray-600 text-sm mb-2 ${
           !isCertified ? 'cursor-not-allowed opacity-50' : ''
         }`}
@@ -102,6 +96,7 @@ export default function ResponseForm({
         onChange={(e) => setPrice(e.target.value)}
         placeholder="Цена"
         disabled={!isCertified}
+        title={tooltipText}
         className={`w-full p-2 rounded bg-gray-800 border border-gray-600 text-sm mb-1 ${
           !isCertified ? 'cursor-not-allowed opacity-50' : ''
         }`}
