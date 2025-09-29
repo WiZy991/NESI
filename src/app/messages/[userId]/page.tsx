@@ -37,6 +37,16 @@ export default function MessagesPage() {
   const token = (typeof window !== 'undefined' && (localStorage.getItem('token') || '')) || ''
   const isImage = (m?: string | null) => !!m && m.startsWith('image/')
 
+  // делает ссылку абсолютной (Railway требует полный URL)
+  const makeAbsoluteUrl = (url: string) => {
+    if (!url) return url
+    if (url.startsWith('http')) return url
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}${url}`
+    }
+    return url
+  }
+
   const scrollToBottom = () =>
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
@@ -57,7 +67,6 @@ export default function MessagesPage() {
     }
   }
 
-  // умный опрос: только на активной вкладке, без дубликатов
   useEffect(() => {
     fetchMessages()
 
@@ -79,10 +88,9 @@ export default function MessagesPage() {
       stopPolling()
       document.removeEventListener('visibilitychange', onVis)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otherUserId])
 
-  // drag & drop для прикрепления
+  // drag & drop
   useEffect(() => {
     const el = dropRef.current
     if (!el) return
@@ -158,44 +166,46 @@ export default function MessagesPage() {
           ref={dropRef}
           className="flex flex-col space-y-2 max-h-[70vh] overflow-y-auto bg-gray-900 p-4 rounded mb-4 border border-gray-800"
         >
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`p-2 rounded max-w-[80%] ${
-                msg.senderId === user?.id ? 'self-end bg-blue-600 text-white'
-                                          : 'self-start bg-gray-700 text-white'
-              }`}
-            >
-              {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
+          {messages.map((msg) => {
+            const url = msg.fileUrl ? makeAbsoluteUrl(msg.fileUrl) : null
+            return (
+              <div
+                key={msg.id}
+                className={`p-2 rounded max-w-[80%] ${
+                  msg.senderId === user?.id ? 'self-end bg-blue-600 text-white'
+                                            : 'self-start bg-gray-700 text-white'
+                }`}
+              >
+                {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
 
-              {/* Вложение */}
-              {msg.fileUrl && (
-                <div className="mt-2">
-                  {isImage(msg.mimeType) ? (
-                    <a href={msg.fileUrl} target="_blank" rel="noreferrer">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={msg.fileUrl} alt={msg.fileName || 'image'} className="rounded max-h-64" />
-                    </a>
-                  ) : (
-                    <a href={msg.fileUrl} target="_blank" rel="noreferrer" className="underline text-sm">
-                      📎 {msg.fileName || 'файл'}{msg.size ? ` (${Math.ceil((msg.size || 0)/1024)} KB)` : ''}
-                    </a>
-                  )}
-                </div>
-              )}
+                {/* Вложение */}
+                {url && (
+                  <div className="mt-2">
+                    {isImage(msg.mimeType) ? (
+                      <a href={url} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={msg.fileName || 'image'} className="rounded max-h-64" />
+                      </a>
+                    ) : (
+                      <a href={url} target="_blank" rel="noreferrer" className="underline text-sm">
+                        📎 {msg.fileName || 'файл'}{msg.size ? ` (${Math.ceil((msg.size || 0)/1024)} KB)` : ''}
+                      </a>
+                    )}
+                  </div>
+                )}
 
-              <span className="block text-xs opacity-80 mt-1">
-                {new Date(msg.createdAt).toLocaleTimeString()}
-              </span>
-            </div>
-          ))}
+                <span className="block text-xs opacity-80 mt-1">
+                  {new Date(msg.createdAt).toLocaleTimeString()}
+                </span>
+              </div>
+            )
+          })}
           <div ref={bottomRef} />
         </div>
       )}
 
       {/* Composer */}
       <div className="bg-gray-900 border border-gray-800 rounded p-2">
-        {/* панель действий */}
         <div className="flex items-center gap-2 mb-2">
           <button
             className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700"
