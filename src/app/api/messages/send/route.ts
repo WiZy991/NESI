@@ -4,8 +4,8 @@ import { getUserFromRequest } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_PREFIXES = ['image/', 'application/pdf', 'application/zip'];
+const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
+const ALLOWED_PREFIXES = ['image/', 'application/pdf', 'application/zip']
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
     let recipientId: string | undefined
     let content = ''
 
-    // то, что пойдёт в PrivateMessage
     let fileUrl: string | null = null
     let fileName: string | null = null
     let mimeType: string | null = null
@@ -31,31 +30,29 @@ export async function POST(req: NextRequest) {
 
       const blob = form.get('file') as File | null
       if (blob && blob.size > 0) {
-        // валидации
         if (blob.size > MAX_SIZE) {
           return NextResponse.json({ error: 'Файл слишком большой (до 10MB)' }, { status: 413 })
         }
-        const allowed = ALLOWED_PREFIXES.some(p => (blob.type || '').startsWith(p))
+        const allowed = ALLOWED_PREFIXES.some((p) => (blob.type || '').startsWith(p))
         if (!allowed) {
           return NextResponse.json({ error: 'Недопустимый тип файла' }, { status: 415 })
         }
 
-        // читаем бинарь
         const buf = Buffer.from(await blob.arrayBuffer())
 
-        // сохраняем в таблицу File (важно: поля name/mimeType/size/data)
+        // сохраняем файл в таблицу File
         const created = await prisma.file.create({
           data: {
-            name: (blob as any).name || 'file',
-            mimeType: blob.type || 'application/octet-stream',
+            filename: (blob as any).name || 'file',
+            mimetype: blob.type || 'application/octet-stream',
             size: buf.length,
-            data: buf
-          }
+            data: buf,
+          },
         })
 
         fileUrl = `/api/files/${created.id}`
-        fileName = created.name
-        mimeType = created.mimeType
+        fileName = created.filename
+        mimeType = created.mimetype
         size = created.size
       }
     } else if (ct.includes('application/json')) {
@@ -63,7 +60,6 @@ export async function POST(req: NextRequest) {
       recipientId = body?.recipientId
       content = body?.content ?? ''
     } else {
-      // мягкий JSON fallback
       const body = await req.json().catch(() => null)
       if (body) {
         recipientId = body.recipientId
@@ -85,13 +81,13 @@ export async function POST(req: NextRequest) {
         fileUrl,
         fileName,
         mimeType,
-        size
-      }
+        size,
+      },
     })
 
     return NextResponse.json(msg, { status: 201 })
   } catch (err) {
-    console.error('🔥 Ошибка отправки сообщения:', err)
+    console.error('🔥 Ошибка при отправке сообщения:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
