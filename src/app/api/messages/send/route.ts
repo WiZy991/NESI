@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
-import { promises as fsp } from 'fs'
-import { randomUUID } from 'crypto'
-import path from 'path'
 
 export const runtime = 'nodejs'
 
@@ -12,22 +9,18 @@ const ALLOWED = ['image/', 'application/pdf', 'application/zip']
 
 export async function POST(req: NextRequest) {
   const me = await getUserFromRequest(req)
-  if (!me) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  if (!me) {
+    return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  }
 
   const ct = req.headers.get('content-type') || ''
   let recipientId: string | undefined
   let content = ''
 
-  let fileUrl: string | null = null
+  let fileId: string | null = null
   let fileName: string | null = null
   let mimeType: string | null = null
   let size: number | null = null
-
-  // берём базовый URL из переменной или заголовка origin
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    req.headers.get('origin') ||
-    ''
 
   // multipart/form-data
   if (ct.includes('multipart/form-data')) {
@@ -47,20 +40,21 @@ export async function POST(req: NextRequest) {
 
       const arrayBuf = await blob.arrayBuffer()
       const buffer = Buffer.from(arrayBuf)
-      const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'pm')
-      await fsp.mkdir(uploadsDir, { recursive: true })
 
-      const originalName = (blob as any).name || 'file'
-      const ext = path.extname(originalName)
-      const outName = `${randomUUID()}${ext || ''}`
-      const outPath = path.join(uploadsDir, outName)
-      await fsp.writeFile(outPath, buffer)
+      // создаём запись в File
+      const file = await prisma.file.create({
+        data: {
+          name: (blob as any).name || 'file',
+          mimeType: blob.type,
+          size: blob.size,
+          data: buffer, // если у тебя поле Binary в БД
+        },
+      })
 
-      // сохраняем абсолютный путь
-      fileUrl = `${baseUrl}/uploads/pm/${outName}`
-      fileName = originalName
-      mimeType = blob.type || null
-      size = blob.size || null
+      fileId = file.id
+      fileName = file.name
+      mimeType = file.mimeType
+      size = file.size
     }
   }
   // application/json
@@ -68,15 +62,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null)
     recipientId = body?.recipientId
     content = body?.content ?? ''
-  }
-  // мягкий JSON fallback
-  else {
+  } else {
     const body = await req.json().catch(() => null)
     if (body) {
       recipientId = body.recipientId
       content = body.content ?? ''
     } else {
-      return NextResponse.json({ error: 'Unsupported body or invalid format' }, { status: 400 })
+      return NextResponse.json({ error: 'Неподдерживаемый формат' }, { status: 400 })
     }
   }
 
@@ -89,7 +81,7 @@ export async function POST(req: NextRequest) {
       senderId: me.id,
       recipientId,
       content,
-      fileUrl,
+      fileId,
       fileName,
       mimeType,
       size,
