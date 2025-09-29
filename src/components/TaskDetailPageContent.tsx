@@ -269,7 +269,8 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
               minPrice={minPrice}
               isCertified={isCertified}
               subcategoryId={subcategoryId}
-            />
+              subcategoryName={subcategoryName}
+          />
           )}
         </>
       )}
