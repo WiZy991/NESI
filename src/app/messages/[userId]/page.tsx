@@ -9,7 +9,7 @@ import { Picker } from 'emoji-mart'
 type Message = {
   id: string
   content: string
-  fileUrl?: string | null
+  fileId?: string | null
   fileName?: string | null
   mimeType?: string | null
   size?: number | null
@@ -36,16 +36,6 @@ export default function MessagesPage() {
 
   const token = (typeof window !== 'undefined' && (localStorage.getItem('token') || '')) || ''
   const isImage = (m?: string | null) => !!m && m.startsWith('image/')
-
-  // делает ссылку абсолютной (Railway требует полный URL)
-  const makeAbsoluteUrl = (url: string) => {
-    if (!url) return url
-    if (url.startsWith('http')) return url
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}${url}`
-    }
-    return url
-  }
 
   const scrollToBottom = () =>
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
@@ -167,7 +157,7 @@ export default function MessagesPage() {
           className="flex flex-col space-y-2 max-h-[70vh] overflow-y-auto bg-gray-900 p-4 rounded mb-4 border border-gray-800"
         >
           {messages.map((msg) => {
-            const url = msg.fileUrl ? makeAbsoluteUrl(msg.fileUrl) : null
+            const url = msg.fileId ? `/api/files/${msg.fileId}` : null
             return (
               <div
                 key={msg.id}
