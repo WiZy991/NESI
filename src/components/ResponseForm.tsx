@@ -70,37 +70,58 @@ export default function ResponseForm({
     }
   }
 
-  // Текст для tooltip
-  const tooltipText = !isCertified
-    ? `Пройдите сертификацию: ${subcategoryId ? `/certifications/${subcategoryId}` : '/certifications'}`
-    : ''
-
   return (
     <form onSubmit={handleSubmit} className="mt-6 border-t border-gray-700 pt-4">
       <h2 className="text-lg font-semibold mb-2">Откликнуться</h2>
 
-      <textarea
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Комментарий"
-        disabled={!isCertified}
-        title={tooltipText}
-        className={`w-full p-2 rounded bg-gray-800 border border-gray-600 text-sm mb-2 ${
-          !isCertified ? 'cursor-not-allowed opacity-50' : ''
-        }`}
-      />
+      {/* === Поле комментария с tooltip === */}
+      <div className="relative group">
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Комментарий"
+          disabled={!isCertified}
+          className={`w-full p-2 rounded bg-gray-800 border border-gray-600 text-sm mb-2 ${
+            !isCertified ? 'cursor-not-allowed opacity-50' : ''
+          }`}
+        />
+        {!isCertified && (
+          <div className="absolute -top-10 left-0 hidden group-hover:block bg-red-900/90 border border-red-700 text-red-200 text-xs px-3 py-2 rounded shadow-lg z-10">
+            Для отклика нужно пройти{' '}
+            <a
+              href={`/certifications/${subcategoryId}`}
+              className="underline hover:text-white"
+            >
+              сертификацию →
+            </a>
+          </div>
+        )}
+      </div>
 
-      <input
-        type="number"
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-        placeholder="Цена"
-        disabled={!isCertified}
-        title={tooltipText}
-        className={`w-full p-2 rounded bg-gray-800 border border-gray-600 text-sm mb-1 ${
-          !isCertified ? 'cursor-not-allowed opacity-50' : ''
-        }`}
-      />
+      {/* === Поле цены с tooltip === */}
+      <div className="relative group">
+        <input
+          type="number"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          placeholder="Цена"
+          disabled={!isCertified}
+          className={`w-full p-2 rounded bg-gray-800 border border-gray-600 text-sm mb-1 ${
+            !isCertified ? 'cursor-not-allowed opacity-50' : ''
+          }`}
+        />
+        {!isCertified && (
+          <div className="absolute -top-10 left-0 hidden group-hover:block bg-red-900/90 border border-red-700 text-red-200 text-xs px-3 py-2 rounded shadow-lg z-10">
+            Для отклика нужно пройти{' '}
+            <a
+              href={`/certifications/${subcategoryId}`}
+              className="underline hover:text-white"
+            >
+              сертификацию →
+            </a>
+          </div>
+        )}
+      </div>
 
       {minPrice > 0 && (
         <p className="text-sm text-gray-400 mb-2">
