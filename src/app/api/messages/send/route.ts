@@ -71,7 +71,9 @@ export async function POST(req: NextRequest) {
       recipientId = body.recipientId
       content = body.content ?? ''
     } else {
-      return NextResponse.json({ error: 'Unsupported Content-Type' }, { status: 415 })
+      const body = await req.json().catch(() => null)
+      if (!body) {
+        return NextResponse.json({ error: 'Unsupported body or invalid format' }, { status: 400 })
     }
   }
 
