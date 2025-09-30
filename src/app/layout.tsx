@@ -18,7 +18,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <head>meta name="description" content="Тест"</head>
       <body className={`${inter.variable} antialiased`}>
         <LayoutClient>{children}</LayoutClient>
       </body>
