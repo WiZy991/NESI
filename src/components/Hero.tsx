@@ -136,11 +136,6 @@ export default function Hero() {
               </svg>
             </div>
 
-            {/* Таймер под дверью */}
-            <div className="mt-4 text-emerald-400 font-bold tracking-widest text-sm md:text-base drop-shadow-[0_0_6px_rgba(16,185,129,0.8)] text-center">
-              {timeLeft.weeks} нед : {timeLeft.hours} ч : {timeLeft.minutes} мин : {timeLeft.seconds} сек
-            </div>
-
             {/* Надпись под таймером */}
             <p className="mt-2 text-lg font-semibold uppercase tracking-widest text-emerald-400 text-center">
               РЕЛИЗ ОЖИДАЕТСЯ В ОКТЯБРЕ
