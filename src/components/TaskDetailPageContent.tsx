@@ -64,7 +64,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
     hideTimerRef.current = setTimeout(() => setHintOpen(false), 350)
   }
 
-  // 🔥 Вынес в useCallback, чтобы можно было вызывать вручную
+  // 🔥 функция обновления таски
   const fetchTask = useCallback(async () => {
     if (!token) return
     try {
@@ -235,8 +235,8 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       {task.status === 'in_progress' && isCustomer && (
         <>
           <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
-          {/* 🔥 Передаем fetchTask для обновления */}
-          <CancelExecutorButton taskId={task.id} onSuccess={fetchTask} />
+          {/* 🔥 теперь передаём колбэк */}
+          <CancelExecutorButton taskId={task.id} onCancelled={fetchTask} />
         </>
       )}
 
