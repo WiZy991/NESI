@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (!task.executorId || task.status !== "in_progress") {
+    if (!task.executorId || !["in_progress", "in progress"].includes(task.status)) {
       return NextResponse.json({ error: "Task is not in progress" }, { status: 400 });
     }
 
