@@ -266,8 +266,16 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
             <div className="mt-2 rounded border border-yellow-700 bg-yellow-900/30 text-yellow-300 px-3 py-2">
               У вас уже есть активная задача. Завершите её, чтобы откликнуться на новые.
             </div>
+          ) : isCertChecking ? (
+            <div className="mt-4 text-sm text-gray-400">Проверка сертификации…</div>
           ) : (
-            <ResponseForm taskId={task.id} minPrice={minPrice} />
+            <ResponseForm
+              taskId={task.id}
+              minPrice={minPrice}
+              isCertified={isCertified}
+              subcategoryId={subcategoryId}
+              subcategoryName={subcategoryName}
+          />
           )}
         </>
       )}
