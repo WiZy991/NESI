@@ -18,11 +18,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (!task.executorId || !["in_progress", "in progress"].includes(task.status)) {
-      return NextResponse.json({ error: "Task is not in progress" }, { status: 400 });
+    
+    const validStatuses = ["in_progress", "in progress", "in-progress"];
+    if (!task.executorId || !validStatuses.includes(task.status)) {
+      return NextResponse.json(
+        { error: `Task is not in progress (actual status = "${task.status}")` },
+        { status: 400 }
+      );
     }
 
-    // 💰 Откатываем деньги заказчику
+    
     if (task.escrowAmount > 0) {
       await prisma.$transaction([
         prisma.user.update({
@@ -43,7 +48,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ]);
     }
 
-    // 🔄 Обновляем задачу
+    
     await prisma.task.update({
       where: { id: params.id },
       data: {
@@ -53,7 +58,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       },
     });
 
-    // 🔔 Уведомляем исполнителя
+    
     if (task.executorId) {
       await prisma.notification.create({
         data: {
