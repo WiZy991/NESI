@@ -142,7 +142,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
   const isCustomer = user?.id === task.customerId
   const canChat = task.executor && (isExecutor || isCustomer)
 
-  const needCertification = Boolean(task?.subcategory?.id || task?.subcategoryId)
   const subcategoryId: string | undefined = task?.subcategory?.id || task?.subcategoryId
   const subcategoryName: string | undefined = task?.subcategory?.name
   const minPrice: number = task?.subcategory?.minPrice ?? 0
@@ -232,12 +231,9 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       {/* Кнопки действий */}
       <TaskActionsClient taskId={task.id} authorId={task.customerId} status={task.status} />
 
+      {/* Завершение задачи оставляем сверху */}
       {task.status === 'in_progress' && isCustomer && (
-        <>
-          <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
-          {/* 🔥 теперь передаём колбэк */}
-          <CancelExecutorButton taskId={task.id} onCancelled={fetchTask} />
-        </>
+        <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
       )}
 
       {/* Отзыв */}
@@ -309,12 +305,17 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
                   <p className="text-sm text-emerald-300 font-medium">💰 {response.price} ₽</p>
                 )}
                 {response.message && <p className="text-gray-200 mt-1">{response.message}</p>}
+
+                {/* 👉 Кнопки внутри отклика */}
                 {task.status === 'open' && isCustomer && (
                   <AssignExecutorButton
                     taskId={task.id}
                     executorId={response.userId}
                     currentUserId={user?.id}
                   />
+                )}
+                {task.status === 'in_progress' && task.executorId === response.userId && isCustomer && (
+                  <CancelExecutorButton taskId={task.id} onCancelled={fetchTask} />
                 )}
               </div>
             ))
