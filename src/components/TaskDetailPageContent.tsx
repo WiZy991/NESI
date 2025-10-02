@@ -9,6 +9,8 @@ import CompleteTaskButton from './CompleteTaskButton'
 import ResponseForm from './ResponseForm'
 import ChatBox from './ChatBox'
 import ReviewForm from './ReviewForm'
+import CancelExecutorButton from './CancelExecutorButton'
+
 
 // Цвета статусов
 const statusColors: Record<string, string> = {
@@ -229,8 +231,11 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       {/* Кнопки действий */}
       <TaskActionsClient taskId={task.id} authorId={task.customerId} status={task.status} />
 
-      {task.status === 'in_progress' && (
+      {task.status === 'in_progress' && isCustomer && (
+	<>
         <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
+	<CancelExecutorButton taskId={task.id} />
+	</>
       )}
 
       {/* Отзыв */}
