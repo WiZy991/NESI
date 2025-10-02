@@ -18,6 +18,12 @@ type Message = {
   recipientId: string
 }
 
+function getToken(): string | null {
+  if (typeof document === 'undefined') return null
+  const m = document.cookie.match(/(?:^|;\s*)token=([^;]+)/)
+  return m ? decodeURIComponent(m[1]) : localStorage.getItem('token')
+}
+
 export default function MessagesPage() {
   const { user } = useUser()
   const params = useParams()
@@ -34,7 +40,7 @@ export default function MessagesPage() {
   const dropRef = useRef<HTMLDivElement | null>(null)
   const pollRef = useRef<number | null>(null)
 
-  const token = (typeof window !== 'undefined' && (localStorage.getItem('token') || '')) || ''
+  const token = getToken()
   const isImage = (m?: string | null) => !!m && m.startsWith('image/')
 
   const scrollToBottom = () =>
@@ -43,8 +49,9 @@ export default function MessagesPage() {
   const fetchMessages = async () => {
     try {
       const res = await fetch(`/api/messages/${otherUserId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         cache: 'no-store',
+        credentials: 'include',
       })
       if (!res.ok) return
       const data = await res.json()
@@ -57,32 +64,20 @@ export default function MessagesPage() {
     }
   }
 
-  // умный опрос: только на активной вкладке, без дубликатов
   useEffect(() => {
     fetchMessages()
 
-    const startPolling = () => {
-      if (!pollRef.current) pollRef.current = window.setInterval(fetchMessages, 8000)
-    }
-    const stopPolling = () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current)
-        pollRef.current = null
-      }
-    }
+    const start = () => { if (!pollRef.current) pollRef.current = window.setInterval(fetchMessages, 8000) }
+    const stop = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
 
-    if (!document.hidden) startPolling()
-    const onVis = () => (document.hidden ? stopPolling() : startPolling())
+    if (!document.hidden) start()
+    const onVis = () => (document.hidden ? stop() : start())
     document.addEventListener('visibilitychange', onVis)
-
-    return () => {
-      stopPolling()
-      document.removeEventListener('visibilitychange', onVis)
-    }
+    return () => { stop(); document.removeEventListener('visibilitychange', onVis) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otherUserId])
 
-  // drag & drop для прикрепления
+  // drag & drop
   useEffect(() => {
     const el = dropRef.current
     if (!el) return
@@ -116,15 +111,17 @@ export default function MessagesPage() {
         res = await fetch('/api/messages/send', {
           method: 'POST',
           body: form,
-          headers: { Authorization: `Bearer ${token}` },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include',
         })
       } else {
         res = await fetch('/api/messages/send', {
           method: 'POST',
           headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
           },
+          credentials: 'include',
           body: JSON.stringify({ recipientId: otherUserId, content: messageText }),
         })
       }
@@ -138,10 +135,12 @@ export default function MessagesPage() {
         scrollToBottom()
       } else {
         const j = await res.json().catch(() => ({}))
+        alert(j?.error || `Ошибка отправки (${res.status})`)
         console.warn('Ошибка отправки:', res.status, j?.error)
       }
     } catch (e) {
       console.error('Ошибка отправки:', e)
+      alert('Ошибка сети при отправке')
     } finally {
       setSending(false)
     }
@@ -158,44 +157,46 @@ export default function MessagesPage() {
           ref={dropRef}
           className="flex flex-col space-y-2 max-h-[70vh] overflow-y-auto bg-gray-900 p-4 rounded mb-4 border border-gray-800"
         >
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`p-2 rounded max-w-[80%] ${
-                msg.senderId === user?.id ? 'self-end bg-blue-600 text-white'
-                                          : 'self-start bg-gray-700 text-white'
-              }`}
-            >
-              {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
+          {messages.map((msg) => {
+            const url = msg.fileUrl || null // теперь это /api/files/:id
+            return (
+              <div
+                key={msg.id}
+                className={`p-2 rounded max-w-[80%] ${
+                  msg.senderId === user?.id ? 'self-end bg-blue-600 text-white'
+                                            : 'self-start bg-gray-700 text-white'
+                }`}
+              >
+                {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
 
-              {/* Вложение */}
-              {msg.fileUrl && (
-                <div className="mt-2">
-                  {isImage(msg.mimeType) ? (
-                    <a href={msg.fileUrl} target="_blank" rel="noreferrer">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={msg.fileUrl} alt={msg.fileName || 'image'} className="rounded max-h-64" />
-                    </a>
-                  ) : (
-                    <a href={msg.fileUrl} target="_blank" rel="noreferrer" className="underline text-sm">
-                      📎 {msg.fileName || 'файл'}{msg.size ? ` (${Math.ceil((msg.size || 0)/1024)} KB)` : ''}
-                    </a>
-                  )}
-                </div>
-              )}
+                {url && (
+                  <div className="mt-2">
+                    {isImage(msg.mimeType) ? (
+                      <a href={url} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={msg.fileName || 'image'} className="rounded max-h-64" />
+                      </a>
+                    ) : (
+                      <a href={url} target="_blank" rel="noreferrer" className="underline text-sm">
+                        📎 {msg.fileName || 'файл'}
+                        {msg.size ? ` (${Math.ceil((msg.size || 0)/1024)} KB)` : ''}
+                      </a>
+                    )}
+                  </div>
+                )}
 
-              <span className="block text-xs opacity-80 mt-1">
-                {new Date(msg.createdAt).toLocaleTimeString()}
-              </span>
-            </div>
-          ))}
+                <span className="block text-xs opacity-80 mt-1">
+                  {new Date(msg.createdAt).toLocaleTimeString()}
+                </span>
+              </div>
+            )
+          })}
           <div ref={bottomRef} />
         </div>
       )}
 
       {/* Composer */}
       <div className="bg-gray-900 border border-gray-800 rounded p-2">
-        {/* панель действий */}
         <div className="flex items-center gap-2 mb-2">
           <button
             className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700"
@@ -220,8 +221,8 @@ export default function MessagesPage() {
 
           {file && (
             <div className="text-xs opacity-80 ml-2 select-none">
-              📎 {file.name} ({Math.ceil(file.size / 1024)} KB)
-              <button className="ml-2 underline" onClick={() => setFile(null)}>убрать</button>
+              📎 {file.name} ({Math.ceil(file.size / 1024)} KB){' '}
+              <button className="underline" onClick={() => setFile(null)}>убрать</button>
             </div>
           )}
         </div>

@@ -54,7 +54,7 @@ export default function HirePage() {
   const [incoming, setIncoming] = useState<IncomingItem[]>([])
   const [sent, setSent] = useState<SentItem[]>([])
 
-  // Вкладка зависит от роли
+  // вкладка зависит от роли
   const allowedTab: 'incoming' | 'sent' | null = user
     ? user.role === 'executor'
       ? 'incoming'
@@ -140,7 +140,7 @@ export default function HirePage() {
         Запросы найма
       </h1>
 
-      {/* Заголовок вкладки */}
+      {/* заголовок вкладки */}
       <div className="flex items-center gap-3">
         {user?.role === 'executor' && (
           <span className="px-3 py-1 rounded-lg bg-emerald-900/40 border border-emerald-500/30 text-emerald-300 font-medium">
@@ -276,24 +276,33 @@ export default function HirePage() {
                   </span>
                 </div>
 
+                {/* чат доступен всегда */}
+                <p className="text-blue-400 mt-2">
+                  💬 Перейти в{' '}
+                  <Link
+                    href={`/messages/${s.executor.id}`}
+                    className="underline text-emerald-300 hover:text-emerald-200"
+                  >
+                    чат
+                  </Link>
+                </p>
+
                 {s.status === 'accepted' && (
                   <p className="text-green-400 mt-2">
-                    ✅ Исполнитель принял запрос. Перейти в{' '}
-                    <Link
-                      href={`/messages/${s.executor.id}`}
-                      className="underline text-emerald-300 hover:text-emerald-200"
-                    >
-                      чат
-                    </Link>.
+                    ✅ Исполнитель принял запрос.
                   </p>
                 )}
 
                 {s.status === 'rejected' && (
-                  <p className="text-red-400 mt-2">❌ Исполнитель отклонил запрос.</p>
+                  <p className="text-red-400 mt-2">
+                    ❌ Исполнитель отклонил запрос.
+                  </p>
                 )}
 
                 {s.status === 'pending' && (
-                  <p className="text-yellow-400 mt-2">⌛ Ожидает ответа исполнителя.</p>
+                  <p className="text-yellow-400 mt-2">
+                    ⌛ Ожидает ответа исполнителя.
+                  </p>
                 )}
               </div>
             ))
