@@ -290,14 +290,25 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
                 key={response.id}
                 className="p-4 rounded-xl bg-black/40 border border-emerald-500/30 mb-3 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
               >
-                <p className="font-semibold text-emerald-400">
-                  <Link
-                    href={getUserProfileLink(user?.id, response.user.id)}
-                    className="hover:underline"
-                  >
-                    {response.user.fullName || response.user.email}
-                  </Link>
-                </p>
+                {/* имя + кнопка отмены справа */}
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-emerald-400">
+                    <Link
+                      href={getUserProfileLink(user?.id, response.user.id)}
+                      className="hover:underline"
+                    >
+                      {response.user.fullName || response.user.email}
+                    </Link>
+                  </p>
+
+                  {/* 👉 кнопка отмены исполнителя справа */}
+                  {task.status === 'in_progress' &&
+                    task.executorId === response.userId &&
+                    isCustomer && (
+                      <CancelExecutorButton taskId={task.id} onCancelled={fetchTask} />
+                    )}
+                </div>
+
                 <p className="text-sm text-gray-400">
                   Отклик: {new Date(response.createdAt).toLocaleDateString()}
                 </p>
@@ -306,16 +317,13 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
                 )}
                 {response.message && <p className="text-gray-200 mt-1">{response.message}</p>}
 
-                {/* 👉 Кнопки внутри отклика */}
+                {/* Назначить исполнителя */}
                 {task.status === 'open' && isCustomer && (
                   <AssignExecutorButton
                     taskId={task.id}
                     executorId={response.userId}
                     currentUserId={user?.id}
                   />
-                )}
-                {task.status === 'in_progress' && task.executorId === response.userId && isCustomer && (
-                  <CancelExecutorButton taskId={task.id} onCancelled={fetchTask} />
                 )}
               </div>
             ))
