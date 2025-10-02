@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 
 export default function CancelExecutorButton({
   taskId,
+  onCancelled,
 }: {
   taskId: string;
+  onCancelled?: () => void;
 }) {
-  const router = useRouter();
   const { token } = useUser();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -31,8 +31,7 @@ export default function CancelExecutorButton({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Ошибка ${res.status}`);
 
-      router.refresh(); 
-
+      onCancelled?.();
     } catch (e: any) {
       setErr(e.message || "Не удалось отменить");
     } finally {
