@@ -1,37 +1,45 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useUser } from "@/context/UserContext";
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useUser } from '@/context/UserContext'
 
 export default function CancelExecutorButton({ taskId }: { taskId: string }) {
-  const router = useRouter();
-  const { token } = useUser();
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const router = useRouter()
+  const { token } = useUser()
 
-  async function onClick() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const onClick = async () => {
     if (!token) {
-      setErr("Нет авторизации");
-      return;
+      setError('Нет авторизации')
+      return
     }
-    if (!confirm("Отменить исполнителя и вернуть средства?")) return;
 
-    setLoading(true);
-    setErr(null);
+    const confirmed = confirm('Отменить исполнителя и вернуть средства?')
+    if (!confirmed) return
+
+    setLoading(true)
+    setError(null)
+
     try {
       const res = await fetch(`/api/tasks/${taskId}/cancel`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Ошибка ${res.status}`);
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
-      router.refresh(); // аккуратнее, чем reload
-    } catch (e: any) {
-      setErr(e.message || "Не удалось отменить");
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || `Ошибка ${res.status}`)
+
+      // ⏬ Обновляем страницу, чтобы убрать исполнителя и обновить статус
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message || 'Ошибка отмены')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
@@ -42,9 +50,9 @@ export default function CancelExecutorButton({ taskId }: { taskId: string }) {
         disabled={loading}
         className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-60"
       >
-        {loading ? "Отмена..." : "Отменить исполнителя"}
+        {loading ? 'Отмена...' : 'Отменить исполнителя'}
       </button>
-      {err && <p className="mt-2 text-sm text-red-300">{err}</p>}
+      {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
     </div>
-  );
+  )
 }
