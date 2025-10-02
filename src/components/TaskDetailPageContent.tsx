@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import AssignExecutorButton from './AssignExecutorButton'
@@ -10,7 +10,6 @@ import ResponseForm from './ResponseForm'
 import ChatBox from './ChatBox'
 import ReviewForm from './ReviewForm'
 import CancelExecutorButton from './CancelExecutorButton'
-
 
 // Цвета статусов
 const statusColors: Record<string, string> = {
@@ -65,21 +64,23 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
     hideTimerRef.current = setTimeout(() => setHintOpen(false), 350)
   }
 
-  useEffect(() => {
+  // 🔥 Вынес в useCallback, чтобы можно было вызывать вручную
+  const fetchTask = useCallback(async () => {
     if (!token) return
-    const fetchTask = async () => {
-      try {
-        const res = await fetch(`/api/tasks/${taskId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        const data = await res.json()
-        setTask(data.task)
-      } catch (err) {
-        console.error('Ошибка загрузки задачи:', err)
-      }
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      setTask(data.task)
+    } catch (err) {
+      console.error('Ошибка загрузки задачи:', err)
     }
-    fetchTask()
   }, [token, taskId])
+
+  useEffect(() => {
+    fetchTask()
+  }, [fetchTask])
 
   // Проверка наличия активной задачи у исполнителя
   useEffect(() => {
@@ -168,7 +169,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         — {new Date(task.createdAt).toLocaleDateString()}
       </p>
 
-      {/* 📎 Файлы, прикреплённые при создании задачи */}
+      {/* 📎 Файлы */}
       {task.files?.length > 0 && (
         <div className="mt-2 flex flex-col gap-2">
           {task.files.map((file: any) => {
@@ -232,10 +233,11 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       <TaskActionsClient taskId={task.id} authorId={task.customerId} status={task.status} />
 
       {task.status === 'in_progress' && isCustomer && (
-	<>
-        <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
-	<CancelExecutorButton taskId={task.id} />
-	</>
+        <>
+          <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
+          {/* 🔥 Передаем fetchTask для обновления */}
+          <CancelExecutorButton taskId={task.id} onSuccess={fetchTask} />
+        </>
       )}
 
       {/* Отзыв */}
@@ -275,7 +277,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
               isCertified={isCertified}
               subcategoryId={subcategoryId}
               subcategoryName={subcategoryName}
-          />
+            />
           )}
         </>
       )}
@@ -320,7 +322,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </div>
       )}
 
-      {/* Чат по задаче (с прикреплением файлов) */}
+      {/* Чат */}
       {canChat && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
           <h2 className="text-lg font-semibold text-emerald-300 mb-2">Чат по задаче</h2>
