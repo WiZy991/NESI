@@ -10,7 +10,7 @@ export default function Home() {
         className="absolute inset-0 w-full h-full object-cover"
         style={{
           pointerEvents: 'none',
-          transform: 'scaleY(0.95)',
+          transform: 'scaleY(1)',
           transformOrigin: 'center',
         }}
       />
