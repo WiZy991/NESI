@@ -13,7 +13,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     setLoading(true)
-    const timeout = setTimeout(() => setLoading(false), 400) // плавнее
+    const timeout = setTimeout(() => setLoading(false), 400)
     return () => clearTimeout(timeout)
   }, [pathname])
 
@@ -21,13 +21,17 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
   return (
     <UserProvider>
-      {/* Хедер общий */}
-      <Header />
+      {/* Хедер отображаем только НЕ на главной */}
+      {!isHome && <Header />}
 
       <main className="relative min-h-screen w-full overflow-hidden text-white">
-        {/* Фон градиент + подсветка справа-снизу */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0a] to-[#04382A] z-0" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.25),transparent_70%)] z-0" />
+        {/* Фон (оставляем для внутренних страниц, но на главной можно убрать если мешает) */}
+        {!isHome && (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0a] to-[#04382A] z-0" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.25),transparent_70%)] z-0" />
+          </>
+        )}
 
         {/* Лоадер */}
         {loading && (
@@ -40,8 +44,8 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         <div
           className={`relative z-10 ${
             isHome
-              ? 'w-full px-0 py-0' // На главной — во всю ширину, без отступов
-              : 'max-w-screen-xl mx-auto px-4 py-10 md:px-8' // На остальных — как раньше
+              ? 'w-full px-0 py-0' // На главной — во всю ширину, svg займет всё
+              : 'max-w-screen-xl mx-auto px-4 py-10 md:px-8'
           } animate-fade-in`}
         >
           {children}
