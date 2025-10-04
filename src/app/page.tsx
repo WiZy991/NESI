@@ -6,8 +6,8 @@ export default function Home() {
       className="relative min-h-screen w-full overflow-hidden text-white"
       style={{
         backgroundImage: "url('/nessi.svg')",
-        backgroundSize: "cover", // полностью покрывает экран
-        backgroundPosition: "center", // центрируем
+        backgroundSize: "100% 95%",
+        backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
     >
