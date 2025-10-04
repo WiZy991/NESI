@@ -1,47 +1,48 @@
 'use client'
 
 import Link from 'next/link'
+import NessiSVG from '@/public/nessi.svg'
 
 export default function HomePage() {
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <img
-        src="/nessi.svg"
-        alt="Nessi Background"
-        className="absolute inset-0 w-full h-full object-cover"
+      <NessiSVG className="w-full h-full" />
+
+      {/* Область для "Вход" */}
+      <Link href="/login">
+        <rect
+          x="1600"
+          y="50"
+          width="100"
+          height="40"
+          fill="transparent"
+          className="cursor-pointer"
+        />
+      </Link>
+
+      {/* Область для "Регистрация" */}
+      <Link href="/register">
+        <rect
+          x="1710"
+          y="50"
+          width="150"
+          height="40"
+          fill="transparent"
+          className="cursor-pointer"
+        />
+      </Link>
+
+      {/* Область для "Бизнес" */}
+      <div
+        onClick={() => alert('Информация для заказчиков')}
+        className="absolute top-[330px] left-[720px] w-[180px] h-[70px] cursor-pointer"
       />
 
-      {/* Кнопка Вход */}
-      <Link
-        href="/login"
-        className="absolute top-[50px] right-[180px] px-4 py-2 border border-emerald-400 text-emerald-400 rounded-md hover:bg-emerald-400 hover:text-black transition"
-      >
-        Вход
-      </Link>
-
-      {/* Кнопка Регистрация */}
-      <Link
-        href="/register"
-        className="absolute top-[50px] right-[40px] px-4 py-2 border border-emerald-400 text-emerald-400 rounded-md hover:bg-emerald-400 hover:text-black transition"
-      >
-        Регистрация
-      </Link>
-
-      {/* Кнопка Бизнес */}
-      <button
-        onClick={() => alert('Информация для заказчиков')}
-        className="absolute top-[300px] left-[650px] w-[160px] h-[80px] border border-emerald-400 text-emerald-400 rounded-lg hover:bg-emerald-400 hover:text-black transition"
-      >
-        Бизнес
-      </button>
-
-      {/* Кнопка Таланты */}
-      <button
+      {/* Область для "Таланты" */}
+      <div
         onClick={() => alert('Информация для исполнителей')}
-        className="absolute top-[300px] left-[850px] w-[160px] h-[80px] border border-emerald-400 text-emerald-400 rounded-lg hover:bg-emerald-400 hover:text-black transition"
-      >
-        Таланты
-      </button>
+        className="absolute top-[330px] left-[930px] w-[180px] h-[70px] cursor-pointer"
+      />
     </div>
   )
 }
