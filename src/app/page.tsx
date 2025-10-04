@@ -2,17 +2,16 @@
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen w-full overflow-hidden text-white">
-      {/* Фон */}
-      <img
-        src="/nessi.svg"
-        alt="Nessi Background"
-        className="absolute inset-0 w-full h-full object-contain md:object-cover"
-        style={{
-          pointerEvents: 'none',
-        }}
-      />
-
+    <main
+      className="relative min-h-screen w-full overflow-hidden text-white"
+      style={{
+        backgroundImage: "url('/nessi.svg')",
+        backgroundSize: "contain",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        backgroundColor: "black",
+      }}
+    >
       <div className="relative z-10 w-full h-screen overflow-hidden">
         {/* ВХОД */}
         <a aria-label="Вход" href="/login">
