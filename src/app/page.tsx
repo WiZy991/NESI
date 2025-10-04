@@ -2,81 +2,71 @@
 
 import Link from 'next/link'
 
-export default function HomePage() {
-  const W = 1920
-  const H = 1080
-  const pr = (v: number, base: number) => `${(v / base) * 100}%`
-
-  const debug = false
-  const dbg = debug
-    ? { outline: '2px solid red', background: 'rgba(255,0,0,0.2)' }
-    : undefined
-
+export default function Home() {
   return (
-    <div className="relative w-full h-screen overflow-hidden">
-      {/* Фон */}
-      <img
-        src="/nessi.svg"
-        alt="Nessi Background"
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ pointerEvents: 'none' }}
-      />
+    <main className="relative min-h-screen w-full overflow-hidden text-white">
+      <div className="relative z-10 w-full px-0 py-0 animate-fade-in">
+        <div className="relative w-full h-screen overflow-hidden">
+          <img
+            src="/nessi.svg"
+            alt="Nessi Background"
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ pointerEvents: "none" }}
+          />
 
-      {/* --- ВХОД --- */}
-      <Link href="/login" aria-label="Вход">
-        <div
-          className="absolute z-10 cursor-pointer"
-          style={{
-            ...dbg,
-            top: pr(30, H),
-            left: pr(1622, W),
-            width: pr(84, W),
-            height: pr(34, H),
-          }}
-        />
-      </Link>
+          {/* Вход */}
+          <a aria-label="Вход" href="/login">
+            <div
+              className="absolute z-10 cursor-pointer"
+              style={{
+                top: "2.7777777777777777%",
+                left: "84.47916666666667%",
+                width: "4.375%",
+                height: "3.148148148148148%",
+              }}
+            />
+          </a>
 
-      {/* --- РЕГИСТРАЦИЯ --- */}
-      <Link href="/register" aria-label="Регистрация">
-        <div
-          className="absolute z-10 cursor-pointer"
-          style={{
-            ...dbg,
-            top: pr(30, H),
-            left: pr(1716, W),
-            width: pr(160, W),
-            height: pr(34, H),
-          }}
-        />
-      </Link>
+          {/* Регистрация */}
+          <a aria-label="Регистрация" href="/register">
+            <div
+              className="absolute z-10 cursor-pointer"
+              style={{
+                top: "2.7777777777777777%",
+                left: "89.375%",
+                width: "8.333333333333332%",
+                height: "3.148148148148148%",
+              }}
+            />
+          </a>
 
-      {/* --- БИЗНЕС --- */}
-      <Link href="/business" aria-label="Бизнес">
-        <div
-          className="absolute z-10 cursor-pointer"
-          style={{
-            ...dbg,
-            top: pr(378, H),
-            left: pr(600, W),
-            width: pr(350, W),
-            height: pr(60, H),
-          }}
-        />
-      </Link>
+          {/* Бизнес */}
+          <a aria-label="Бизнес" href="/business">
+            <div
+              className="absolute z-10 cursor-pointer"
+              style={{
+                top: "35%",
+                left: "31.25%",
+                width: "18.229166666666664%",
+                height: "5.555555555555555%",
+              }}
+            />
+          </a>
 
-      {/* --- ТАЛАНТЫ --- */}
-      <Link href="/talents" aria-label="Таланты">
-        <div
-          className="absolute z-10 cursor-pointer"
-          style={{
-            ...dbg,
-            top: pr(378, H),
-            left: pr(1025, W),
-            width: pr(450, W),
-            height: pr(60, H),
-          }}
-        />
-      </Link>
-    </div>
-  )
+          {/* Таланты */}
+          <a aria-label="Таланты" href="/talents">
+            <div
+              className="absolute z-10 cursor-pointer"
+              style={{
+                top: "35%",
+                left: "53.385416666666664%",
+                width: "23.4375%",
+                height: "5.555555555555555%",
+              }}
+            />
+          </a>
+        </div>
+      </div>
+    </main>
+  );
 }
