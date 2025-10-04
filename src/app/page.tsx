@@ -2,18 +2,21 @@
 import { useEffect, useState } from 'react'
 
 export default function Home() {
-  const [scaleY, setScaleY] = useState(1)
+  const [scale, setScale] = useState({ x: 1, y: 1 })
 
   useEffect(() => {
     const updateScale = () => {
       const width = window.innerWidth
 
       if (width <= 1920) {
-        setScaleY(0.92)
+        // FullHD — немного сплющиваем по Y
+        setScale({ x: 1.05, y: 0.92 })
       } else if (width <= 2560) {
-        setScaleY(0.96)
+        // 2K — почти естественно
+        setScale({ x: 1.02, y: 0.96 })
       } else {
-        setScaleY(1)
+        // 4K и выше — без искажений
+        setScale({ x: 1, y: 1 })
       }
     }
 
@@ -28,10 +31,10 @@ export default function Home() {
       <img
         src="/nessi.svg"
         alt="Nessi Background"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-contain"
         style={{
           pointerEvents: 'none',
-          transform: `scaleY(${scaleY})`,
+          transform: `scale(${scale.x}, ${scale.y})`,
           transformOrigin: 'center',
         }}
       />
