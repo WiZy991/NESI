@@ -1,31 +1,47 @@
 'use client'
-import { useState } from 'react'
-import NessiSVG from '@/components/NessiSVG'
+
+import Link from 'next/link'
 
 export default function HomePage() {
-  const [modal, setModal] = useState<'business' | 'talents' | null>(null)
-
   return (
-    <main className="min-h-screen bg-black">
-      <NessiSVG
-        onBusinessClick={() => setModal('business')}
-        onTalentsClick={() => setModal('talents')}
+    <div className="relative w-full h-screen overflow-hidden">
+      <img
+        src="/nessi.svg"
+        alt="Nessi Background"
+        className="absolute inset-0 w-full h-full object-cover"
       />
 
-      {modal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
-          <div className="bg-[#0d0d0d] border border-emerald-500 p-6 rounded-lg shadow-xl">
-            {modal === 'business' && <h2 className="text-2xl text-emerald-400">Для заказчиков</h2>}
-            {modal === 'talents' && <h2 className="text-2xl text-emerald-400">Для исполнителей</h2>}
-            <button
-              onClick={() => setModal(null)}
-              className="mt-6 px-4 py-2 border border-emerald-400 hover:bg-emerald-500"
-            >
-              Закрыть
-            </button>
-          </div>
-        </div>
-      )}
-    </main>
+      {/* Кнопка Вход */}
+      <Link
+        href="/login"
+        className="absolute top-[50px] right-[180px] px-4 py-2 border border-emerald-400 text-emerald-400 rounded-md hover:bg-emerald-400 hover:text-black transition"
+      >
+        Вход
+      </Link>
+
+      {/* Кнопка Регистрация */}
+      <Link
+        href="/register"
+        className="absolute top-[50px] right-[40px] px-4 py-2 border border-emerald-400 text-emerald-400 rounded-md hover:bg-emerald-400 hover:text-black transition"
+      >
+        Регистрация
+      </Link>
+
+      {/* Кнопка Бизнес */}
+      <button
+        onClick={() => alert('Информация для заказчиков')}
+        className="absolute top-[300px] left-[650px] w-[160px] h-[80px] border border-emerald-400 text-emerald-400 rounded-lg hover:bg-emerald-400 hover:text-black transition"
+      >
+        Бизнес
+      </button>
+
+      {/* Кнопка Таланты */}
+      <button
+        onClick={() => alert('Информация для исполнителей')}
+        className="absolute top-[300px] left-[850px] w-[160px] h-[80px] border border-emerald-400 text-emerald-400 rounded-lg hover:bg-emerald-400 hover:text-black transition"
+      >
+        Таланты
+      </button>
+    </div>
   )
 }
