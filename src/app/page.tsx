@@ -5,12 +5,7 @@ import Link from 'next/link'
 export default function HomePage() {
   const W = 1920
   const H = 1080
-
   const px = (v: number, base: number) => `${(v / base) * 100}%`
-
-  // смещение
-  const offsetTop = -20
-  const offsetLeft = -20
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
@@ -26,10 +21,10 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(55 + offsetTop, H),
-            left: px(1670 + offsetLeft, W),
+            top: px(50, H),       // было выше
+            left: px(1620, W),    // чуть левее
             width: px(90, W),
-            height: px(40, H),
+            height: px(45, H),
           }}
         />
       </Link>
@@ -39,10 +34,10 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(55 + offsetTop, H),
-            left: px(1770 + offsetLeft, W),
-            width: px(130, W),
-            height: px(40, H),
+            top: px(50, H),
+            left: px(1720, W),    // смещено левее
+            width: px(140, W),
+            height: px(45, H),
           }}
         />
       </Link>
@@ -52,10 +47,10 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(420 + offsetTop, H),
-            left: px(530 + offsetLeft, W),
-            width: px(380, W),
-            height: px(150, H),
+            top: px(360, H),      // поднял (было 420)
+            left: px(520, W),     // немного левее
+            width: px(300, W),    // сузил под блок
+            height: px(100, H),   // уменьшил высоту
           }}
         />
       </Link>
@@ -65,10 +60,10 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(420 + offsetTop, H),
-            left: px(950 + offsetLeft, W),
-            width: px(380, W),
-            height: px(150, H),
+            top: px(360, H),
+            left: px(880, W),     // сдвиг левее
+            width: px(300, W),
+            height: px(100, H),
           }}
         />
       </Link>
