@@ -11,7 +11,7 @@ export default function HomePage() {
       <NessiSVG
         onBusinessClick={() => setModal('business')}
         onTalentsClick={() => setModal('talents')}
-      />
+      /> 
 
       {modal && (
         <div
