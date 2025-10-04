@@ -40,10 +40,10 @@ export default function HomePage() {
       <Link href="/business" aria-label="Бизнес">
         <div className="absolute cursor-pointer bg-transparent hover:bg-white/10"
           style={{
-            top: "28%",     // 300px от 1080
-            left: "30.2%",  // 580px от 1920
-            width: "10.4%", // 200px
-            height: "8.3%"  // 90px
+            top: "45%",
+            left: "48%",
+            width: "19%",
+            height: "11%"
           }}
         />
       </Link>
@@ -52,10 +52,10 @@ export default function HomePage() {
       <Link href="/talents" aria-label="Таланты">
         <div className="absolute cursor-pointer bg-transparent hover:bg-white/10"
           style={{
-            top: "28%",     // 300px
-            left: "43.7%",  // 840px
-            width: "10.4%", // 200px
-            height: "8.3%"  // 90px
+            top: "45%",
+            left: "48%",
+            width: "19%",
+            height: "11%"
           }}
         />
       </Link>
