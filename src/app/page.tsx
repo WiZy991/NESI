@@ -7,7 +7,7 @@ export default function Home() {
       <img
         src="/nessi.svg"
         alt="Nessi Background"
-        className="absolute inset-0 w-full h-full object-contain"
+        className="absolute inset-0 w-full h-full object-contain md:object-cover"
         style={{
           pointerEvents: 'none',
         }}
