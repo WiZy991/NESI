@@ -21,9 +21,9 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(50, H),       // было выше
-            left: px(1620, W),    // чуть левее
-            width: px(90, W),
+            top: px(35, H),        // было 55 → поднял выше
+            left: px(1580, W),     // было 1670 → левее
+            width: px(100, W),     // сделал чуть шире
             height: px(45, H),
           }}
         />
@@ -34,9 +34,9 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(50, H),
-            left: px(1720, W),    // смещено левее
-            width: px(140, W),
+            top: px(35, H),
+            left: px(1700, W),     // левее
+            width: px(150, W),     // шире
             height: px(45, H),
           }}
         />
@@ -47,10 +47,10 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(360, H),      // поднял (было 420)
-            left: px(520, W),     // немного левее
-            width: px(300, W),    // сузил под блок
-            height: px(100, H),   // уменьшил высоту
+            top: px(300, H),       // было 420 → сильно выше
+            left: px(480, W),      // было 530 → левее
+            width: px(330, W),     // подогнал под реальный блок
+            height: px(120, H),    // уменьшил высоту
           }}
         />
       </Link>
@@ -60,10 +60,10 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(360, H),
-            left: px(880, W),     // сдвиг левее
-            width: px(300, W),
-            height: px(100, H),
+            top: px(300, H),
+            left: px(860, W),      // было 950 → левее
+            width: px(330, W),
+            height: px(120, H),
           }}
         />
       </Link>
