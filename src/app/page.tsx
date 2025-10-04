@@ -34,7 +34,7 @@ export default function Home() {
               style={{
                 top: '2.5%',
                 left: '90.3%',
-                width: '5%',
+                width: '5.3%',
                 height: '2.5%',
               }}
             />
