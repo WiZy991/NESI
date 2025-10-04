@@ -2,40 +2,16 @@
 import { useEffect, useState } from 'react'
 
 export default function Home() {
-  const [scale, setScale] = useState({ x: 1, y: 1 })
-
-  useEffect(() => {
-    const updateScale = () => {
-      const width = window.innerWidth
-
-      if (width <= 1920) {
-        // FullHD — чуть растягиваем по ширине
-        setScale({ x: 1.05, y: 1 })
-      } else if (width <= 2560) {
-        // 2K — почти идеально
-        setScale({ x: 1.02, y: 1 })
-      } else {
-        // 4K и выше
-        setScale({ x: 1, y: 1 })
-      }
-    }
-
-    updateScale()
-    window.addEventListener('resize', updateScale)
-    return () => window.removeEventListener('resize', updateScale)
-  }, [])
-
   return (
     <main className="relative min-h-screen w-full overflow-hidden text-white">
-      {/* Фон на весь экран */}
+      {/* SVG фон на весь экран */}
       <img
         src="/nessi.svg"
         alt="Nessi Background"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full"
         style={{
           pointerEvents: 'none',
-          transform: `scale(${scale.x}, ${scale.y})`,
-          transformOrigin: 'center',
+          objectFit: 'fill',
         }}
       />
 
