@@ -1,73 +1,81 @@
 'use client'
 
-import Link from 'next/link'
-
 export default function Home() {
   return (
-    <main className="relative min-h-screen w-full overflow-hidden text-white">
-      <div className="relative z-10 w-full px-0 py-0 animate-fade-in">
-        {/* Фон через background-image */}
+    <main className="relative min-h-screen w-full overflow-hidden bg-black text-white">
+      {/* Центрируем «рамку» 16:9, чтобы svg + клики масштабировались без обрезки */}
+      <div className="absolute inset-0 grid place-items-center">
+        {/* Рамка с базовой системой координат 1920×1080 */}
         <div
-          className="absolute inset-0 bg-center bg-no-repeat"
+          className="relative"
           style={{
-            backgroundImage: "url('/nessi.svg')",
-            backgroundSize: 'contain',
-            pointerEvents: 'none',
+            // ширина = min(ширина окна, высота окна * 16/9)
+            width: 'min(100vw, calc(100vh * (16 / 9)))',
+            // держим точное соотношение
+            aspectRatio: '16 / 9',
           }}
-        />
+        >
+          {/* Сам фон (svg) — растягиваем идеально под рамку, без обрезки */}
+          <img
+            src="/nessi.svg"
+            alt="Nessi background"
+            className="absolute inset-0 w-full h-full object-contain"
+            style={{ pointerEvents: 'none' }}
+          />
 
-        {/* Кнопки */}
-        {/* ВХОД */}
-        <a aria-label="Вход" href="/login">
-          <div
-            className="absolute z-10 cursor-pointer"
+          {/* === Кликабельные области (проценты от 1920×1080) === */}
+          {/* ВХОД — смещено ВПРАВО на 40px ( + 2.0833% от 1920 ) */}
+          <a
+            aria-label="Вход"
+            href="/login"
+            className="absolute z-10"
             style={{
-              top: '2.5%',
-              left: '84%',
+              top: '2.5%',            // как в твоём последнем варианте
+              left: `${84 + 2.0833}%`, // 84% + 2.0833% ≈ 86.0833%
               width: '2.8%',
               height: '2.5%',
             }}
           />
-        </a>
 
-        {/* РЕГИСТРАЦИЯ */}
-        <a aria-label="Регистрация" href="/register">
-          <div
-            className="absolute z-10 cursor-pointer"
+          {/* РЕГИСТРАЦИЯ — смещено ВПРАВО на 40px */}
+          <a
+            aria-label="Регистрация"
+            href="/register"
+            className="absolute z-10"
             style={{
               top: '2.5%',
-              left: '89.6%',
+              left: `${89.6 + 2.0833}%`, // 89.6% + 2.0833% ≈ 91.6833%
               width: '6.8%',
               height: '2.5%',
             }}
           />
-        </a>
 
-        {/* БИЗНЕС */}
-        <a aria-label="Бизнес" href="/business">
-          <div
-            className="absolute z-10 cursor-pointer"
+          {/* БИЗНЕС — смещено ВЛЕВО на 40px ( - 2.0833% от 1920 ) */}
+          <a
+            aria-label="Бизнес"
+            href="/business"
+            className="absolute z-10"
             style={{
               top: '32%',
-              left: '26.2%',
+              left: `${26.2 - 2.0833}%`, // 26.2% - 2.0833% ≈ 24.1167%
               width: '11%',
               height: '4%',
             }}
           />
-        </a>
 
-        {/* ТАЛАНТЫ */}
-        <a aria-label="Таланты" href="/talents">
-          <div
-            className="absolute z-10 cursor-pointer"
+          {/* ТАЛАНТЫ — смещено ВЛЕВО на 40px */}
+          <a
+            aria-label="Таланты"
+            href="/talents"
+            className="absolute z-10"
             style={{
               top: '30%',
-              left: '45.5%',
+              left: `${45.5 - 2.0833}%`, // 45.5% - 2.0833% ≈ 43.4167%
               width: '13.5%',
               height: '5.2%',
             }}
           />
-        </a>
+        </div>
       </div>
     </main>
   )
