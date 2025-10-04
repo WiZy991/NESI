@@ -33,8 +33,8 @@ export default function Home() {
               className="absolute z-10 cursor-pointer"
               style={{
                 top: '2.5%',
-                left: '90.3%',
-                width: '6.1%',
+                left: '89.6%',
+                width: '6.5%',
                 height: '2.5%',
               }}
             />
@@ -59,7 +59,7 @@ export default function Home() {
               className="absolute z-10 cursor-pointer"
               style={{
                 top: '30%',
-                left: '47%',
+                left: '43%',
                 width: '15%',
                 height: '5.2%',
               }}
