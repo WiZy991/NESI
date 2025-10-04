@@ -1,17 +1,41 @@
 'use client'
+import { useEffect, useState } from 'react'
 
 export default function Home() {
+  const [scaleY, setScaleY] = useState(1)
+
+  useEffect(() => {
+    const updateScale = () => {
+      const width = window.innerWidth
+
+      if (width <= 1920) {
+        setScaleY(0.92)
+      } else if (width <= 2560) {
+        setScaleY(0.96)
+      } else {
+        setScaleY(1)
+      }
+    }
+
+    updateScale()
+    window.addEventListener('resize', updateScale)
+    return () => window.removeEventListener('resize', updateScale)
+  }, [])
+
   return (
-    <main
-      className="relative min-h-screen w-full overflow-hidden text-white"
-      style={{
-        backgroundImage: "url('/nessi.svg')",
-        backgroundSize: "contain",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
-        backgroundColor: "black",
-      }}
-    >
+    <main className="relative min-h-screen w-full overflow-hidden text-white">
+      {/* Фон */}
+      <img
+        src="/nessi.svg"
+        alt="Nessi Background"
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{
+          pointerEvents: 'none',
+          transform: `scaleY(${scaleY})`,
+          transformOrigin: 'center',
+        }}
+      />
+
       <div className="relative z-10 w-full h-screen overflow-hidden">
         {/* ВХОД */}
         <a aria-label="Вход" href="/login">
