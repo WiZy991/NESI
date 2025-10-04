@@ -15,12 +15,12 @@ export default function HomePage() {
       {/* --- Вход --- */}
       <Link href="/login" aria-label="Вход">
         <div
-          className="absolute cursor-pointer bg-transparent"
+          className="absolute cursor-pointer"
           style={{
-            top: "3.9%",   // около 42px от 1080
-            right: "6.5%", // около 125px от 1920
-            width: "3.6%", // 70px от 1920
-            height: "3.2%" // 35px от 1080
+            top: `${55 / 1080 * 100}%`,    // 55px от верха
+            left: `${1670 / 1920 * 100}%`, // 1670px от левого края
+            width: `${90 / 1920 * 100}%`,  // 90px ширина
+            height: `${40 / 1080 * 100}%`  // 40px высота
           }}
         />
       </Link>
@@ -28,12 +28,12 @@ export default function HomePage() {
       {/* --- Регистрация --- */}
       <Link href="/register" aria-label="Регистрация">
         <div
-          className="absolute cursor-pointer bg-transparent"
+          className="absolute cursor-pointer"
           style={{
-            top: "3.9%",
-            right: "2%",
-            width: "5%",   // увеличил для наглядности
-            height: "3.2%"
+            top: `${55 / 1080 * 100}%`,
+            left: `${1770 / 1920 * 100}%`,
+            width: `${130 / 1920 * 100}%`,
+            height: `${40 / 1080 * 100}%`
           }}
         />
       </Link>
@@ -41,12 +41,12 @@ export default function HomePage() {
       {/* --- Бизнес --- */}
       <Link href="/business" aria-label="Бизнес">
         <div
-          className="absolute cursor-pointer bg-transparent"
+          className="absolute cursor-pointer"
           style={{
-            top: "43%",     // подогнано ближе к слову
-            left: "32%",    // сдвинуто левее
-            width: "12%",   // ширина блока
-            height: "9%"    // высота
+            top: `${420 / 1080 * 100}%`,
+            left: `${530 / 1920 * 100}%`,
+            width: `${380 / 1920 * 100}%`,
+            height: `${150 / 1080 * 100}%`
           }}
         />
       </Link>
@@ -54,12 +54,12 @@ export default function HomePage() {
       {/* --- Таланты --- */}
       <Link href="/talents" aria-label="Таланты">
         <div
-          className="absolute cursor-pointer bg-transparent"
+          className="absolute cursor-pointer"
           style={{
-            top: "43%",
-            left: "48%",    // сдвинуто правее
-            width: "12%",
-            height: "9%"
+            top: `${420 / 1080 * 100}%`,
+            left: `${950 / 1920 * 100}%`,
+            width: `${380 / 1920 * 100}%`,
+            height: `${150 / 1080 * 100}%`
           }}
         />
       </Link>
