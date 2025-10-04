@@ -9,60 +9,61 @@ export default function HomePage() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
+      {/* фон */}
       <img
         src="/nessi.svg"
         alt="Nessi Background"
         className="absolute inset-0 w-full h-full object-cover"
       />
 
-      {/* Вход */}
+      {/* --- Вход --- */}
       <Link href="/login" aria-label="Вход">
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(15, H),
-            left: px(1580, W),
-            width: px(100, W),
-            height: px(45, H),
+            top: px(45, H),
+            left: px(1615, W),
+            width: px(70, W),
+            height: px(35, H),
           }}
         />
       </Link>
 
-      {/* Регистрация */}
+      {/* --- Регистрация --- */}
       <Link href="/register" aria-label="Регистрация">
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(15, H),
-            left: px(1700, W),
+            top: px(45, H),
+            left: px(1695, W),
             width: px(150, W),
-            height: px(45, H),
+            height: px(35, H),
           }}
         />
       </Link>
 
-      {/* Бизнес */}
+      {/* --- Бизнес --- */}
       <Link href="/business" aria-label="Бизнес">
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(300, H),
-            left: px(480, W),
-            width: px(330, W),
-            height: px(120, H),
+            top: px(420, H),
+            left: px(600, W),
+            width: px(200, W),
+            height: px(60, H),
           }}
         />
       </Link>
 
-      {/* Таланты */}
+      {/* --- Таланты --- */}
       <Link href="/talents" aria-label="Таланты">
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(300, H),
-            left: px(860, W),
-            width: px(330, W),
-            height: px(120, H),
+            top: px(420, H),
+            left: px(930, W),
+            width: px(230, W),
+            height: px(60, H),
           }}
         />
       </Link>
