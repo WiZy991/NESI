@@ -9,13 +9,13 @@ export default function Home() {
       const width = window.innerWidth
 
       if (width <= 1920) {
-        // FullHD — немного сплющиваем по Y
-        setScale({ x: 1.05, y: 0.92 })
+        // FullHD — чуть растягиваем по ширине
+        setScale({ x: 1.05, y: 1 })
       } else if (width <= 2560) {
-        // 2K — почти естественно
-        setScale({ x: 1.02, y: 0.96 })
+        // 2K — почти идеально
+        setScale({ x: 1.02, y: 1 })
       } else {
-        // 4K и выше — без искажений
+        // 4K и выше
         setScale({ x: 1, y: 1 })
       }
     }
@@ -27,11 +27,11 @@ export default function Home() {
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden text-white">
-      {/* Фон */}
+      {/* Фон на весь экран */}
       <img
         src="/nessi.svg"
         alt="Nessi Background"
-        className="absolute inset-0 w-full h-full object-contain"
+        className="absolute inset-0 w-full h-full object-cover"
         style={{
           pointerEvents: 'none',
           transform: `scale(${scale.x}, ${scale.y})`,
