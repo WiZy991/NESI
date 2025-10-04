@@ -14,10 +14,11 @@ export default function HomePage() {
 
       {/* --- Вход --- */}
       <Link href="/login" aria-label="Вход">
-        <div className="absolute cursor-pointer bg-transparent hover:bg-white/10"
+        <div
+          className="absolute cursor-pointer bg-transparent"
           style={{
-            top: "3.9%",   // 42px от 1080
-            right: "6.5%", // 125px от 1920
+            top: "3.9%",   // около 42px от 1080
+            right: "6.5%", // около 125px от 1920
             width: "3.6%", // 70px от 1920
             height: "3.2%" // 35px от 1080
           }}
@@ -26,36 +27,39 @@ export default function HomePage() {
 
       {/* --- Регистрация --- */}
       <Link href="/register" aria-label="Регистрация">
-        <div className="absolute cursor-pointer bg-transparent hover:bg-white/10"
+        <div
+          className="absolute cursor-pointer bg-transparent"
           style={{
-            top: "3.9%",    // 42px
-            right: "2%",    // 40px
-            width: "4.2%",  // 80px
-            height: "3.2%"  // 35px
+            top: "3.9%",
+            right: "2%",
+            width: "5%",   // увеличил для наглядности
+            height: "3.2%"
           }}
         />
       </Link>
 
       {/* --- Бизнес --- */}
       <Link href="/business" aria-label="Бизнес">
-        <div className="absolute cursor-pointer bg-transparent hover:bg-white/10"
+        <div
+          className="absolute cursor-pointer bg-transparent"
           style={{
-            top: "45%",
-            left: "48%",
-            width: "19%",
-            height: "11%"
+            top: "43%",     // подогнано ближе к слову
+            left: "32%",    // сдвинуто левее
+            width: "12%",   // ширина блока
+            height: "9%"    // высота
           }}
         />
       </Link>
 
       {/* --- Таланты --- */}
       <Link href="/talents" aria-label="Таланты">
-        <div className="absolute cursor-pointer bg-transparent hover:bg-white/10"
+        <div
+          className="absolute cursor-pointer bg-transparent"
           style={{
-            top: "45%",
-            left: "48%",
-            width: "19%",
-            height: "11%"
+            top: "43%",
+            left: "48%",    // сдвинуто правее
+            width: "12%",
+            height: "9%"
           }}
         />
       </Link>
