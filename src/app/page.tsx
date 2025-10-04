@@ -34,7 +34,7 @@ export default function Home() {
               style={{
                 top: '2.5%',
                 left: '89.6%',
-                width: '6.5%',
+                width: '6.8%',
                 height: '2.5%',
               }}
             />
@@ -45,7 +45,7 @@ export default function Home() {
             <div
               className="absolute z-10 cursor-pointer"
               style={{
-                top: '28%',
+                top: '32%',
                 left: '26.2%',
                 width: '11%',
                 height: '4%',
@@ -59,8 +59,8 @@ export default function Home() {
               className="absolute z-10 cursor-pointer"
               style={{
                 top: '30%',
-                left: '43%',
-                width: '15%',
+                left: '45%',
+                width: '13%',
                 height: '5.2%',
               }}
             />
