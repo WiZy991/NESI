@@ -3,63 +3,72 @@
 import Link from 'next/link'
 
 export default function HomePage() {
+  const W = 1920
+  const H = 1080
+
+  const px = (v: number, base: number) => `${(v / base) * 100}%`
+
+  // смещение
+  const offsetTop = -20
+  const offsetLeft = -20
+
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      {/* Фон */}
+      {/* фон */}
       <img
         src="/nessi.svg"
         alt="Nessi Background"
         className="absolute inset-0 w-full h-full object-cover"
       />
 
-      {/* --- Вход --- */}
+      {/* Вход */}
       <Link href="/login" aria-label="Вход">
         <div
           className="absolute cursor-pointer"
           style={{
-            top: `${55 / 1080 * 100}%`,    // 55px от верха
-            left: `${1670 / 1920 * 100}%`, // 1670px от левого края
-            width: `${90 / 1920 * 100}%`,  // 90px ширина
-            height: `${40 / 1080 * 100}%`  // 40px высота
+            top: px(55 + offsetTop, H),
+            left: px(1670 + offsetLeft, W),
+            width: px(90, W),
+            height: px(40, H),
           }}
         />
       </Link>
 
-      {/* --- Регистрация --- */}
+      {/* Регистрация */}
       <Link href="/register" aria-label="Регистрация">
         <div
           className="absolute cursor-pointer"
           style={{
-            top: `${55 / 1080 * 100}%`,
-            left: `${1770 / 1920 * 100}%`,
-            width: `${130 / 1920 * 100}%`,
-            height: `${40 / 1080 * 100}%`
+            top: px(55 + offsetTop, H),
+            left: px(1770 + offsetLeft, W),
+            width: px(130, W),
+            height: px(40, H),
           }}
         />
       </Link>
 
-      {/* --- Бизнес --- */}
+      {/* Бизнес */}
       <Link href="/business" aria-label="Бизнес">
         <div
           className="absolute cursor-pointer"
           style={{
-            top: `${420 / 1080 * 100}%`,
-            left: `${530 / 1920 * 100}%`,
-            width: `${380 / 1920 * 100}%`,
-            height: `${150 / 1080 * 100}%`
+            top: px(420 + offsetTop, H),
+            left: px(530 + offsetLeft, W),
+            width: px(380, W),
+            height: px(150, H),
           }}
         />
       </Link>
 
-      {/* --- Таланты --- */}
+      {/* Таланты */}
       <Link href="/talents" aria-label="Таланты">
         <div
           className="absolute cursor-pointer"
           style={{
-            top: `${420 / 1080 * 100}%`,
-            left: `${950 / 1920 * 100}%`,
-            width: `${380 / 1920 * 100}%`,
-            height: `${150 / 1080 * 100}%`
+            top: px(420 + offsetTop, H),
+            left: px(950 + offsetLeft, W),
+            width: px(380, W),
+            height: px(150, H),
           }}
         />
       </Link>
