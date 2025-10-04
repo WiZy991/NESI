@@ -14,22 +14,22 @@ export default function HomePage() {
 
       {/* --- Вход --- */}
       <Link href="/login" aria-label="Вход">
-        <div className="absolute top-[50px] right-[140px] w-[90px] h-[40px] cursor-pointer bg-transparent" />
+        <div className="absolute top-[42px] right-[125px] w-[70px] h-[35px] cursor-pointer bg-transparent hover:bg-white/10" />
       </Link>
 
       {/* --- Регистрация --- */}
       <Link href="/register" aria-label="Регистрация">
-        <div className="absolute top-[50px] right-[40px] w-[130px] h-[40px] cursor-pointer bg-transparent" />
+        <div className="absolute top-[42px] right-[40px] w-[80px] h-[35px] cursor-pointer bg-transparent hover:bg-white/10" />
       </Link>
 
       {/* --- Бизнес --- */}
       <Link href="/business" aria-label="Бизнес">
-        <div className="absolute top-[330px] left-[720px] w-[180px] h-[70px] cursor-pointer bg-transparent" />
+        <div className="absolute top-[300px] left-[580px] w-[200px] h-[90px] cursor-pointer bg-transparent hover:bg-white/10" />
       </Link>
 
       {/* --- Таланты --- */}
       <Link href="/talents" aria-label="Таланты">
-        <div className="absolute top-[330px] left-[930px] w-[180px] h-[70px] cursor-pointer bg-transparent" />
+        <div className="absolute top-[300px] left-[840px] w-[200px] h-[90px] cursor-pointer bg-transparent hover:bg-white/10" />
       </Link>
     </div>
   )
