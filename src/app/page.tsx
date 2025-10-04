@@ -1,46 +1,36 @@
 'use client'
 
 import Link from 'next/link'
-import NessiSVG from '@/components/nessi.svg'
 
 export default function HomePage() {
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <NessiSVG className="w-full h-full" />
+      {/* SVG из public как фон */}
+      <img
+        src="/nessi.svg"
+        alt="Nessi Background"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
 
-      {/* Область для "Вход" */}
+      {/* Вход */}
       <Link href="/login">
-        <rect
-          x="1600"
-          y="50"
-          width="100"
-          height="40"
-          fill="transparent"
-          className="cursor-pointer"
-        />
+        <div className="absolute top-[50px] right-[180px] w-[100px] h-[40px] cursor-pointer" />
       </Link>
 
-      {/* Область для "Регистрация" */}
+      {/* Регистрация */}
       <Link href="/register">
-        <rect
-          x="1710"
-          y="50"
-          width="150"
-          height="40"
-          fill="transparent"
-          className="cursor-pointer"
-        />
+        <div className="absolute top-[50px] right-[40px] w-[150px] h-[40px] cursor-pointer" />
       </Link>
 
-      {/* Область для "Бизнес" */}
+      {/* Бизнес */}
       <div
-        onClick={() => alert('Информация для заказчиков')}
+        onClick={() => alert('Инфа для заказчиков')}
         className="absolute top-[330px] left-[720px] w-[180px] h-[70px] cursor-pointer"
       />
 
-      {/* Область для "Таланты" */}
+      {/* Таланты */}
       <div
-        onClick={() => alert('Информация для исполнителей')}
+        onClick={() => alert('Инфа для исполнителей')}
         className="absolute top-[330px] left-[930px] w-[180px] h-[70px] cursor-pointer"
       />
     </div>
