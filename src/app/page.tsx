@@ -5,65 +5,75 @@ import Link from 'next/link'
 export default function HomePage() {
   const W = 1920
   const H = 1080
-  const px = (v: number, base: number) => `${(v / base) * 100}%`
+  const pr = (v: number, base: number) => `${(v / base) * 100}%`
+
+  const debug = false
+  const dbg = debug
+    ? { outline: '2px solid red', background: 'rgba(255,0,0,0.2)' }
+    : undefined
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      {/* фон */}
+      {/* Фон */}
       <img
         src="/nessi.svg"
         alt="Nessi Background"
         className="absolute inset-0 w-full h-full object-cover"
+        style={{ pointerEvents: 'none' }}
       />
 
-      {/* --- Вход --- */}
+      {/* --- ВХОД --- */}
       <Link href="/login" aria-label="Вход">
         <div
-          className="absolute cursor-pointer"
+          className="absolute z-10 cursor-pointer"
           style={{
-            top: px(34, H),
-            left: px(1605, W),
-            width: px(74, W),
-            height: px(35, H),
+            ...dbg,
+            top: pr(30, H),
+            left: pr(1622, W),
+            width: pr(84, W),
+            height: pr(34, H),
           }}
         />
       </Link>
 
-      {/* --- Регистрация --- */}
+      {/* --- РЕГИСТРАЦИЯ --- */}
       <Link href="/register" aria-label="Регистрация">
         <div
-          className="absolute cursor-pointer"
+          className="absolute z-10 cursor-pointer"
           style={{
-            top: px(45, H),
-            left: px(1690, W),
-            width: px(155, W),
-            height: px(35, H),
+            ...dbg,
+            top: pr(30, H),
+            left: pr(1716, W),
+            width: pr(160, W),
+            height: pr(34, H),
           }}
         />
       </Link>
 
-      {/* --- Бизнес --- */}
+      {/* --- БИЗНЕС --- */}
       <Link href="/business" aria-label="Бизнес">
         <div
-          className="absolute cursor-pointer"
+          className="absolute z-10 cursor-pointer"
           style={{
-            top: px(345, H),
-            left: px(560, W),
-            width: px(415, W),
-            height: px(72, H),
+            ...dbg,
+            top: pr(378, H),
+            left: pr(600, W),
+            width: pr(350, W),
+            height: pr(60, H),
           }}
         />
       </Link>
 
-      {/* --- Таланты --- */}
+      {/* --- ТАЛАНТЫ --- */}
       <Link href="/talents" aria-label="Таланты">
         <div
-          className="absolute cursor-pointer"
+          className="absolute z-10 cursor-pointer"
           style={{
-            top: px(345, H),
-            left: px(895, W),
-            width: px(500, W),
-            height: px(72, H),
+            ...dbg,
+            top: pr(378, H),
+            left: pr(1025, W),
+            width: pr(450, W),
+            height: pr(60, H),
           }}
         />
       </Link>
