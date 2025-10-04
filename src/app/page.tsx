@@ -9,7 +9,6 @@ export default function HomePage() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      {/* фон */}
       <img
         src="/nessi.svg"
         alt="Nessi Background"
@@ -21,9 +20,9 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(35, H),        // было 55 → поднял выше
-            left: px(1580, W),     // было 1670 → левее
-            width: px(100, W),     // сделал чуть шире
+            top: px(15, H),
+            left: px(1580, W),
+            width: px(100, W),
             height: px(45, H),
           }}
         />
@@ -34,9 +33,9 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(35, H),
-            left: px(1700, W),     // левее
-            width: px(150, W),     // шире
+            top: px(15, H),
+            left: px(1700, W),
+            width: px(150, W),
             height: px(45, H),
           }}
         />
@@ -47,10 +46,10 @@ export default function HomePage() {
         <div
           className="absolute cursor-pointer"
           style={{
-            top: px(300, H),       // было 420 → сильно выше
-            left: px(480, W),      // было 530 → левее
-            width: px(330, W),     // подогнал под реальный блок
-            height: px(120, H),    // уменьшил высоту
+            top: px(300, H),
+            left: px(480, W),
+            width: px(330, W),
+            height: px(120, H),
           }}
         />
       </Link>
@@ -61,7 +60,7 @@ export default function HomePage() {
           className="absolute cursor-pointer"
           style={{
             top: px(300, H),
-            left: px(860, W),      // было 950 → левее
+            left: px(860, W),
             width: px(330, W),
             height: px(120, H),
           }}
