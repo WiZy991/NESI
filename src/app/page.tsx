@@ -5,7 +5,7 @@ import Link from 'next/link'
 export default function HomePage() {
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      {/* SVG из public как фон */}
+      {/* SVG как фон */}
       <img
         src="/nessi.svg"
         alt="Nessi Background"
@@ -23,16 +23,14 @@ export default function HomePage() {
       </Link>
 
       {/* Бизнес */}
-      <div
-        onClick={() => alert('Инфа для заказчиков')}
-        className="absolute top-[330px] left-[720px] w-[180px] h-[70px] cursor-pointer"
-      />
+      <Link href="/business">
+        <div className="absolute top-[330px] left-[720px] w-[180px] h-[70px] cursor-pointer" />
+      </Link>
 
       {/* Таланты */}
-      <div
-        onClick={() => alert('Инфа для исполнителей')}
-        className="absolute top-[330px] left-[930px] w-[180px] h-[70px] cursor-pointer"
-      />
+      <Link href="/talents">
+        <div className="absolute top-[330px] left-[930px] w-[180px] h-[70px] cursor-pointer" />
+      </Link>
     </div>
   )
 }
