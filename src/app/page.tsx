@@ -3,77 +3,67 @@
 import Link from 'next/link'
 
 export default function HomePage() {
-  // Базовые размеры исходного макета (nessi.svg отрисован под 1920×1080)
   const W = 1920
   const H = 1080
-  const pr = (v: number, base: number) => `${(v / base) * 100}%`
-  const debug = false
-  const dbg = debug
-    ? { outline: '2px solid rgba(0,255,180,.6)', background: 'rgba(0,255,180,.08)' }
-    : undefined
+  const px = (v: number, base: number) => `${(v / base) * 100}%`
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      {/* Фон */}
+      {/* фон */}
       <img
         src="/nessi.svg"
         alt="Nessi Background"
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ pointerEvents: 'none' }}
       />
 
-      {/* ВХОД */}
+      {/* --- Вход --- */}
       <Link href="/login" aria-label="Вход">
         <div
-          className="absolute z-10 cursor-pointer"
+          className="absolute cursor-pointer"
           style={{
-            ...dbg,
-            top: pr(34, H), 
-            left: pr(1605, W),
-            width: pr(74, W),
-            height: pr(36, H),
+            top: px(34, H),
+            left: px(1605, W),
+            width: px(74, W),
+            height: px(35, H),
           }}
         />
       </Link>
 
-      {/* РЕГИСТРАЦИЯ (подтянул ВЫШЕ и ЛЕВЕЕ) */}
+      {/* --- Регистрация --- */}
       <Link href="/register" aria-label="Регистрация">
         <div
-          className="absolute z-10 cursor-pointer"
+          className="absolute cursor-pointer"
           style={{
-            ...dbg,
-            top: pr(34, H),
-            left: pr(1692, W),
-            width: pr(156, W),
-            height: pr(36, H),
+            top: px(45, H),
+            left: px(1690, W),
+            width: px(155, W),
+            height: px(35, H),
           }}
         />
       </Link>
 
-      {/* БИЗНЕС */}
+      {/* --- Бизнес --- */}
       <Link href="/business" aria-label="Бизнес">
         <div
-          className="absolute z-10 cursor-pointer"
+          className="absolute cursor-pointer"
           style={{
-            ...dbg,
-            top: pr(352, H),
-            left: pr(565, W),
-            width: pr(420, W),
-            height: pr(72, H),
+            top: px(345, H),
+            left: px(560, W),
+            width: px(415, W),
+            height: px(72, H),
           }}
         />
       </Link>
 
-      {/* ТАЛАНТЫ — зона ровно по слову (от Т до Ы), ПОДНЯЛ и ЛЕВЕЕ */}
+      {/* --- Таланты --- */}
       <Link href="/talents" aria-label="Таланты">
         <div
-          className="absolute z-10 cursor-pointer"
+          className="absolute cursor-pointer"
           style={{
-            ...dbg,
-            top: pr(352, H),
-            left: pr(900, W),
-            width: pr(505, W),
-            height: pr(72, H),
+            top: px(345, H),
+            left: px(895, W),
+            width: px(500, W),
+            height: px(72, H),
           }}
         />
       </Link>
