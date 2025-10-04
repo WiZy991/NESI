@@ -19,10 +19,10 @@ export default function Home() {
             <div
               className="absolute z-10 cursor-pointer"
               style={{
-                top: '3.3%',
-                left: '80.5%',
-                width: '5.2%',
-                height: '2.7%',
+                top: '2.5%',
+                left: '82%',
+                width: '5%',
+                height: '2.5%',
               }}
             />
           </a>
@@ -32,10 +32,10 @@ export default function Home() {
             <div
               className="absolute z-10 cursor-pointer"
               style={{
-                top: '3.3%',
-                left: '87.3%',
-                width: '8%',
-                height: '2.7%',
+                top: '2.5%',
+                left: '87.5%',
+                width: '7%',
+                height: '2.5%',
               }}
             />
           </a>
@@ -45,10 +45,10 @@ export default function Home() {
             <div
               className="absolute z-10 cursor-pointer"
               style={{
-                top: '29.5%',
-                left: '28.8%',
-                width: '18.5%',
-                height: '7.2%',
+                top: '29%',
+                left: '29%',
+                width: '16%',
+                height: '6.5%',
               }}
             />
           </a>
@@ -58,10 +58,10 @@ export default function Home() {
             <div
               className="absolute z-10 cursor-pointer"
               style={{
-                top: '29.5%',
-                left: '51%',
-                width: '23.5%',
-                height: '7.2%',
+                top: '29%',
+                left: '50.5%',
+                width: '20%',
+                height: '6.5%',
               }}
             />
           </a>
