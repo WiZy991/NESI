@@ -8,7 +8,8 @@ export default function Hero() {
   const [supportMessage, setSupportMessage] = useState('')
 
   const [timeLeft, setTimeLeft] = useState({
-    weeks: 4,
+    weeks: 0,
+    days: 0,
     hours: 0,
     minutes: 0,
     seconds: 0,
@@ -22,10 +23,8 @@ export default function Hero() {
     return () => window.removeEventListener('keydown', onEsc)
   }, [])
 
-  // Обратный отсчёт
   useEffect(() => {
-    const target = new Date()
-    target.setMonth(target.getMonth() + 1)
+    const target = new Date("2025-11-01T00:00:00")
 
     const timer = setInterval(() => {
       const now = new Date()
@@ -33,18 +32,20 @@ export default function Hero() {
 
       if (diff <= 0) {
         clearInterval(timer)
-        setTimeLeft({ weeks: 0, hours: 0, minutes: 0, seconds: 0 })
+        setTimeLeft({ weeks: 0, days: 0, hours: 0, minutes: 0, seconds: 0 })
         return
       }
 
       const totalSeconds = Math.floor(diff / 1000)
       const weeks = Math.floor(totalSeconds / (7 * 24 * 3600))
-      const daysLeft = totalSeconds % (7 * 24 * 3600)
-      const hours = Math.floor(daysLeft / 3600)
-      const minutes = Math.floor((daysLeft % 3600) / 60)
-      const seconds = daysLeft % 60
+      const remainderAfterWeeks = totalSeconds % (7 * 24 * 3600)
 
-      setTimeLeft({ weeks, hours, minutes, seconds })
+      const days = Math.floor(remainderAfterWeeks / (24 * 3600))
+      const hours = Math.floor((remainderAfterWeeks % (24 * 3600)) / 3600)
+      const minutes = Math.floor((remainderAfterWeeks % 3600) / 60)
+      const seconds = remainderAfterWeeks % 60
+
+      setTimeLeft({ weeks, days, hours, minutes, seconds })
     }, 1000)
 
     return () => clearInterval(timer)
@@ -90,7 +91,7 @@ export default function Hero() {
             <li className="italic">БАЗА ЗНАНИЙ — ДЛЯ РОСТА НАВЫКОВ</li>
           </ul>
 
-          {/* 🚪 Дверь */}
+          {/*Дверь */}
           <div className="mt-12 flex flex-col items-center justify-center">
             <div className="relative w-40 h-64">
               <svg
@@ -108,7 +109,7 @@ export default function Hero() {
                   strokeWidth="3"
                   fill="rgba(0,0,0,0.7)"
                 />
-                {/* створка двери слегка приоткрыта */}
+                {/* створка двери */}
                 <polygon
                   points="20,5 75,10 75,155 20,150"
                   fill="rgba(16,185,129,0.15)"
@@ -136,9 +137,14 @@ export default function Hero() {
               </svg>
             </div>
 
+            {/* Таймер обратного отсчёта */}
+            <p className="mt-6 text-emerald-400 text-lg font-mono text-center">
+              {timeLeft.weeks}н {timeLeft.days}д {timeLeft.hours}ч {timeLeft.minutes}м {timeLeft.seconds}с
+            </p>
+
             {/* Надпись под таймером */}
             <p className="mt-2 text-lg font-semibold uppercase tracking-widest text-emerald-400 text-center">
-              РЕЛИЗ ОЖИДАЕТСЯ В ОКТЯБРЕ
+              РЕЛИЗ 1 НОЯБРЯ 2025
             </p>
           </div>
 
