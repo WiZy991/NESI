@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import NessiSVG from '@/public/nessi.svg'
+import NessiSVG from '@/components/nessi.svg'
 
 export default function HomePage() {
   return (
