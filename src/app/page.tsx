@@ -22,7 +22,7 @@ export default function Home() {
                 top: '2.5%',
                 left: '84%',
                 width: '2.8%',
-                height: '2%',
+                height: '3.5%',
               }}
             />
           </a>
@@ -35,7 +35,7 @@ export default function Home() {
                 top: '2.5%',
                 left: '89.6%',
                 width: '6.8%',
-                height: '2%',
+                height: '3.5%',
               }}
             />
           </a>
