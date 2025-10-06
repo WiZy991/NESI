@@ -76,6 +76,10 @@ export default function LoginForm() {
           </a>
         </p>
       </form>
+
+<Link href="/tasks" className="mt-6 inline-block text-emerald-400 hover:underline">
+        ← Назад к задачам
+      </Link>
     </div>
   )
 }
