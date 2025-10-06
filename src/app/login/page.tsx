@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -37,7 +38,7 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4 bg-black">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4">
       <form
         onSubmit={handleSubmit}
         className="bg-black/40 border border-emerald-500/40 rounded-2xl shadow-[0_0_35px_rgba(16,185,129,0.4)] p-8 w-full max-w-md"
@@ -77,7 +78,7 @@ export default function LoginForm() {
         </p>
       </form>
 
-<Link href="/tasks" className="mt-6 inline-block text-emerald-400 hover:underline">
+      <Link href="/tasks" className="mt-6 inline-block text-emerald-400 hover:underline">
         ← Назад к задачам
       </Link>
     </div>
