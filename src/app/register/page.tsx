@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -101,6 +102,10 @@ export default function RegisterPage() {
           {loading ? 'Регистрируем...' : 'Зарегистрироваться'}
         </button>
       </form>
+
+<Link href="/tasks" className="mt-6 inline-block text-emerald-400 hover:underline">
+        ← Назад
+      </Link>
     </div>
   )
 }
