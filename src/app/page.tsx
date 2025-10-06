@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen w-full overflow-hidden text-white">
+    <main className="relative min-h-screen w-full overflow-hidden text-white bg-black">
       <div className="relative z-10 w-full px-0 py-0 animate-fade-in">
         <div className="relative w-full h-screen overflow-hidden">
           <img
