@@ -7,12 +7,12 @@ export async function POST(req: NextRequest) {
   try {
     const me = await getUserFromRequest(req)
     if (!me) {
-      console.warn('⛔ /api/hire: пользователь не найден по токену')
+      console.warn('/api/hire: пользователь не найден по токену')
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
     if (me.role !== 'customer') {
-      console.warn(`⛔ /api/hire: роль не customer (role=${me.role})`)
+      console.warn(`/api/hire: роль не customer (role=${me.role})`)
       return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
     }
 
@@ -67,13 +67,13 @@ export async function POST(req: NextRequest) {
       select: { id: true, status: true, createdAt: true },
     })
 
-    // 📩 создаём уведомление исполнителю → сразу ведём в чат с заказчиком
+    // создаём уведомление исполнителю → сразу ведём в чат с заказчиком
     await prisma.notification.create({
       data: {
         userId: executorId,
         type: 'hire_request',
         message: `Заказчик ${me.fullName || me.email} хочет нанять вас`,
-        link: `/messages/${me.id}`, // ✅ теперь исполнитель при клике пойдёт в чат
+        link: `/messages/${me.id}`, //исполнитель при клике пойдёт в чат
       },
     })
 
