@@ -143,7 +143,7 @@ export default function TaskCatalogPage() {
 
       <div className="flex gap-8">
         {/* Фильтры */}
-        <div className="w-72 fixed top-48 left-8 p-6 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-4">
+        <div className="w-72 sticky top-28 self-start p-6 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-4">
           <input
             type="text"
             placeholder="Поиск..."
