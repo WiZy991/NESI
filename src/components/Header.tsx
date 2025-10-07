@@ -49,7 +49,7 @@ export default function Header() {
                   href="/notifications"
                   className="relative flex items-center gap-1 hover:text-emerald-400 transition"
                 >
-                  Уведомления <span className="text-lg">🔔</span>
+                  <span className="text-lg">🔔</span>
                   {unreadCount > 0 && (
                     <span className="absolute -top-2 -right-3 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
                       {unreadCount}
@@ -107,7 +107,7 @@ export default function Header() {
                   href="/notifications"
                   className="relative flex items-center gap-1 hover:text-emerald-400 transition"
                 >
-                  Уведомления <span className="text-lg">🔔</span>
+                  <span className="text-lg">🔔</span>
                   {unreadCount > 0 && (
                     <span className="absolute -top-2 -right-3 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
                       {unreadCount}
