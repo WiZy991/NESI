@@ -15,7 +15,7 @@ export function middleware(req: NextRequest) {
 		'/favicon.ico',
 	]
 
-	// Разрешаем доступ к Next.js статикам и API файлов
+	// Разрешаем доступ к Next.js статикам и некоторым API
 	if (
 		pathname.startsWith('/_next') ||
 		pathname.startsWith('/images') ||
@@ -26,33 +26,28 @@ export function middleware(req: NextRequest) {
 		return NextResponse.next()
 	}
 
-	// Добавляем заголовки безопасности
+	// Подготавливаем базовый ответ с безопасными заголовками
 	const response = NextResponse.next()
-
-	// Security headers
 	response.headers.set('X-Frame-Options', 'DENY')
 	response.headers.set('X-Content-Type-Options', 'nosniff')
 	response.headers.set('Referrer-Policy', 'origin-when-cross-origin')
 	response.headers.set('X-XSS-Protection', '1; mode=block')
 
-	// CSP для статических ресурсов
-	if (
-		pathname.startsWith('/_next/static/') ||
-		pathname.startsWith('/api/files/')
-	) {
+	// Кеширование статики
+	if (pathname.startsWith('/_next/static/') || pathname.startsWith('/api/files/')) {
 		response.headers.set('Cache-Control', 'public, max-age=31536000, immutable')
 	}
 
-	// Получаем токен
+	//Получаем токен
 	let token = ''
 	const authHeader = req.headers.get('authorization')
-	if (authHeader && authHeader.startsWith('Bearer ')) {
+	if (authHeader?.startsWith('Bearer ')) {
 		token = authHeader.split(' ')[1]
 	} else if (req.cookies.has('token')) {
 		token = req.cookies.get('token')?.value || ''
 	}
 
-	//Если токен есть и пользователь лезет на /login или /register — редиректим на /tasks
+	//Если пользователь уже авторизован и идёт на /login или /register → редирект на /tasks
 	if (token && (pathname === '/login' || pathname === '/register')) {
 		try {
 			verifyJWT(token)
@@ -60,47 +55,31 @@ export function middleware(req: NextRequest) {
 			redirectUrl.pathname = '/tasks'
 			return NextResponse.redirect(redirectUrl)
 		} catch (error) {
-			// Если токен невалиден, просто очищаем cookie и пускаем дальше
+			// Невалидный токен → очищаем cookie
 			response.cookies.delete('token')
 			return response
 		}
 	}
 
-	// Список защищённых маршрутов
-	const protectedRoutes = [
-		'/profile',
-		'/tasks',
-		'/dashboard',
-		'/chats',
-		'/notifications',
-		'/admin',
-		'/api/profile',
-		'/api/tasks',
-		'/api/chats',
-	]
+	// Если пользователь не авторизован и идёт НЕ на публичные маршруты → редиректим на /login
+	const isPublic = publicRoutes.some(route => pathname.startsWith(route))
 
-	const isProtected = protectedRoutes.some(route => pathname.startsWith(route))
-
-	if (isProtected) {
-		// Нет токена — редиректим или ошибка
-		if (!token) {
-			if (pathname.startsWith('/api/')) {
-				return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-			}
-
-			const loginUrl = req.nextUrl.clone()
-			loginUrl.pathname = '/login'
-			return NextResponse.redirect(loginUrl)
+	if (!token && !isPublic) {
+		if (pathname.startsWith('/api/')) {
+			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
+		const loginUrl = req.nextUrl.clone()
+		loginUrl.pathname = '/login'
+		return NextResponse.redirect(loginUrl)
+	}
 
+	//Проверяем токен на защищённых маршрутах
+	if (token) {
 		try {
 			verifyJWT(token)
-			return response
 		} catch (error) {
-			if (pathname.startsWith('/api/')) {
-				return NextResponse.json({ error: 'Невалидный токен' }, { status: 401 })
-			}
-
+			// Невалидный токен — очищаем и редиректим
+			response.cookies.delete('token')
 			const loginUrl = req.nextUrl.clone()
 			loginUrl.pathname = '/login'
 			return NextResponse.redirect(loginUrl)
@@ -110,7 +89,7 @@ export function middleware(req: NextRequest) {
 	return response
 }
 
-// Middleware применяется ко всем маршрутам, кроме статических
+// Применяем middleware ко всем путям, кроме статики
 export const config = {
 	matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
