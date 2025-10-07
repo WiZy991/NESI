@@ -5,9 +5,8 @@ import { NextResponse } from 'next/server'
 export async function middleware(req: NextRequest) {
 	const { pathname } = req.nextUrl
 
-	// --- Публичные маршруты, куда можно без авторизации ---
+	// --- Публичные маршруты ---
 	const publicRoutes = [
-		'/',
 		'/login',
 		'/register',
 		'/forgot-password',
@@ -17,16 +16,16 @@ export async function middleware(req: NextRequest) {
 		'/api/categories',
 	]
 
-	// --- Пропускаем статику и картинки ---
+	// --- Пропускаем статику, изображения и служебные пути ---
 	if (
 		pathname.startsWith('/_next') ||
 		pathname.startsWith('/images') ||
-		pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp)$/)
+		pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|css|js|woff2?)$/)
 	) {
 		return NextResponse.next()
 	}
 
-	// --- Получаем токен ---
+	// --- Получаем токен из куков или заголовков ---
 	let token = ''
 	const authHeader = req.headers.get('authorization')
 	if (authHeader?.startsWith('Bearer ')) {
@@ -35,10 +34,9 @@ export async function middleware(req: NextRequest) {
 		token = req.cookies.get('token')?.value || ''
 	}
 
-	// --- Проверяем публичный путь ---
 	const isPublic = publicRoutes.some(route => pathname.startsWith(route))
 
-	// Неавторизованный пользователь → редирект на /login ---
+	//Если токена нет и это не публичный маршрут → редирект на /login ---
 	if (!token && !isPublic) {
 		if (pathname.startsWith('/api/')) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
@@ -48,26 +46,24 @@ export async function middleware(req: NextRequest) {
 		return NextResponse.redirect(loginUrl)
 	}
 
-	// Авторизованный лезет на /login или /register → редирект на /tasks ---
+	//Если токен есть и пользователь пытается попасть на /login или /register → редирект на / ---
 	if (token && (pathname === '/login' || pathname === '/register')) {
-		try {
-			await verifyJWT(token)
+		const decoded = await verifyJWT(token)
+		if (decoded) {
 			const redirectUrl = req.nextUrl.clone()
-			redirectUrl.pathname = '/tasks'
+			redirectUrl.pathname = '/'
 			return NextResponse.redirect(redirectUrl)
-		} catch {
-			// если токен битый — очищаем и пропускаем
+		} else {
 			const res = NextResponse.next()
 			res.cookies.delete('token')
 			return res
 		}
 	}
 
-	// --- 3️⃣ Проверка валидности токена на защищённых маршрутах ---
+	//3️⃣ Проверка токена для всех остальных маршрутов ---
 	if (token) {
-		try {
-			await verifyJWT(token)
-		} catch {
+		const decoded = await verifyJWT(token)
+		if (!decoded) {
 			const loginUrl = req.nextUrl.clone()
 			loginUrl.pathname = '/login'
 			const res = NextResponse.redirect(loginUrl)
@@ -86,7 +82,9 @@ export async function middleware(req: NextRequest) {
 	return response
 }
 
-// --- Обязательно! middleware должен применяться ко всем страницам ---
+// --- Применяем middleware ко всем маршрутам, кроме статики ---
 export const config = {
-	matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|gif|webp)$).*)'],
+	matcher: [
+		'/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|gif|webp|css|js|woff2?)$).*)',
+	],
 }
