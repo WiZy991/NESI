@@ -87,6 +87,15 @@ model Task {
   messages      Message[]
 
   files         File[]   @relation("TaskFiles")
+
+  @@index([status])
+  @@index([customerId])
+  @@index([executorId])
+  @@index([subcategoryId])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([customerId, status])
+  @@index([executorId, status])
 }
 
 model TaskResponse {
@@ -101,6 +110,9 @@ model TaskResponse {
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([taskId, userId], name: "taskId_userId")
+  @@index([taskId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Review {
@@ -133,6 +145,11 @@ model Message {
   sender User @relation("MessageSender", fields: [senderId], references: [id])
 
   file   File? @relation("MessageFile", fields: [fileId], references: [id])
+
+  @@index([taskId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([taskId, createdAt])
 }
 
 model Notification {
@@ -145,6 +162,12 @@ model Notification {
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }
 
 model PasswordResetToken {
@@ -335,6 +358,10 @@ model Transaction {
   type      String
   reason    String
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 model File {
@@ -368,6 +395,10 @@ model CommunityPost {
   comments  CommunityComment[]
   likes     CommunityLike[]
   views     CommunityView[]
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([authorId, createdAt])
 }
 
 model CommunityComment {
@@ -380,6 +411,11 @@ model CommunityComment {
   postId    String
   parentId  String?   
   createdAt DateTime  @default(now())
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([postId, createdAt])
 }
 
 model CommunityLike {
