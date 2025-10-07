@@ -1,0 +1,23 @@
+{
+	"name": "nesi-load-tests",
+	"version": "1.0.0",
+	"description": "Load testing suite for NESI project",
+	"scripts": {
+		"test": "k6 run",
+		"test:quick": "k6 run quick-test.js",
+		"test:auth": "k6 run auth-load-test.js",
+		"test:api": "k6 run api-load-test.js",
+		"test:full": "k6 run full-load-test.js",
+		"test:stress": "k6 run stress-test.js",
+		"test:spike": "k6 run spike-test.js",
+		"test:volume": "k6 run volume-test.js",
+		"test:endurance": "k6 run endurance-test.js",
+		"test:all": "npm run test:auth && npm run test:api && npm run test:full",
+		"test:local": "k6 run --env BASE_URL=http://localhost:3000 quick-test.js",
+		"test:staging": "k6 run --env BASE_URL=https://staging.nesi.com quick-test.js",
+		"test:production": "k6 run --env BASE_URL=https://nesi.com quick-test.js"
+	},
+	"devDependencies": {
+		"k6": "^0.0.0"
+	}
+}
