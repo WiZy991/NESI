@@ -7,7 +7,7 @@ import LayoutClient from './LayoutClient'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'SupportHub',
+  title: 'nesi',
   description: 'Сервис задач между заказчиком и исполнителем',
 }
 
