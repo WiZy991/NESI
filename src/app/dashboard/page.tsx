@@ -2,6 +2,9 @@
 
 import { useUser } from '@/context/UserContext'
 import Onboarding from '@/components/Onboarding'
+import { useUser } from '@/context/UserContext'
+import Onboarding from '@/components/onboarding/Onboarding'
+import { ResetOnboardingButton } from '@/components/ResetOnboardingButton'
 
 export default function DashboardPage() {
   const { user } = useUser()
@@ -15,6 +18,10 @@ export default function DashboardPage() {
       <p className="text-gray-400">
         Здесь будут появляться ваши задачи, уведомления и статистика NESI.
       </p>
+    <div>
+      {user && <Onboarding role={user.role} />}
+      <h1>Добро пожаловать, {user?.fullName || 'пользователь'}!</h1>
+      <ResetOnboardingButton />
     </div>
   )
 }

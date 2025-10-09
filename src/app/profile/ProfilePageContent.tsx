@@ -4,6 +4,7 @@ import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { FaPython, FaJs, FaDatabase, FaGlobe, FaToolbox, FaUserCircle } from 'react-icons/fa'
+import Onboarding from '@/components/Onboarding'  // ← добавил импорт
 
 type Review = {
   id: string
@@ -121,6 +122,8 @@ export default function ProfilePageContent() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
+      {user && <Onboarding role={user.role} />}  {/* ← добавил запуск Onboarding */}
+
       <h1 className="text-3xl font-bold text-emerald-400 mb-4">👤 Профиль</h1>
 
       {/* Аватар */}
@@ -160,13 +163,11 @@ export default function ProfilePageContent() {
                        rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-32"
           />
           <button onClick={handleDeposit} className="px-3 py-1 rounded border border-emerald-400 
-                                                     text-emerald-400 hover:bg-emerald-400 
-                                                     hover:text-black transition">
+                                                     text-emerald-400 hover:bg-emerald-400 hover:text-black transition">
             Пополнить
           </button>
           <button onClick={handleWithdraw} className="px-3 py-1 rounded border border-red-400 
-                                                      text-red-400 hover:bg-red-400 
-                                                      hover:text-black transition">
+                                                      text-red-400 hover:bg-red-400 hover:text-black transition">
             Вывести
           </button>
         </div>
@@ -213,9 +214,9 @@ export default function ProfilePageContent() {
       {profile.description && (
         <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 
                         shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-          <h2 className="text-lg font-semibold text-emerald-400 mb-2">📄 О себе</h2>
-          <p className="text-gray-300">{profile.description}</p>
-        </div>
+        <h2 className="text-lg font-semibold text-emerald-400 mb-2">📄 О себе</h2>
+        <p className="text-gray-300">{profile.description}</p>
+      </div>
       )}
 
       {/* Кнопки */}

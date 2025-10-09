@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
+import Onboarding from '@/components/Onboarding'  // ← добавил импорт
 
 /* ---------- типы ---------- */
 type SpecialistItem = {
@@ -246,8 +247,8 @@ export default function SpecialistsPage() {
   }
 
   return (
-    // ВАЖНО: НИКАКИХ фонов на уровне страницы — убрали «чёрный квадрат»
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      {user && <Onboarding role={user.role} />}  {/* ← добавил вызов Onboarding */}
       <h2 className="text-xl font-bold mb-4 text-white">⚡ Подиум исполнителей</h2>
 
       {/* Панель фильтров (не растягиваем фоном на всю страницу) */}
@@ -356,7 +357,7 @@ export default function SpecialistsPage() {
               <button
                 className="px-3 py-1 rounded border border-emerald-700/40 text-white disabled:opacity-40"
                 disabled={page >= pages}
-                onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                onClick(() => setPage((p) => Math.min(pages, p + 1))}
               >
                 Вперёд →
               </button>
