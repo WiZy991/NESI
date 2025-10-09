@@ -356,7 +356,7 @@ export default function SpecialistsPage() {
               <button
                 className="px-3 py-1 rounded border border-emerald-700/40 text-white disabled:opacity-40"
                 disabled={page >= pages}
-                onClick{() => setPage((p) => Math.min(pages, p + 1))}
+                onClick={() => setPage((p) => Math.min(pages, p + 1))}
               >
                 Вперёд →
               </button>
