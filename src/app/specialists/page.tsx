@@ -246,8 +246,8 @@ export default function SpecialistsPage() {
   }
 
   return (
+    // ВАЖНО: НИКАКИХ фонов на уровне страницы — убрали «чёрный квадрат»
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
-      {user && <Onboarding role={user.role} />}  {/* ← добавил вызов Onboarding */}
       <h2 className="text-xl font-bold mb-4 text-white">⚡ Подиум исполнителей</h2>
 
       {/* Панель фильтров (не растягиваем фоном на всю страницу) */}
@@ -367,3 +367,4 @@ export default function SpecialistsPage() {
     </div>
   )
 }
+ 
