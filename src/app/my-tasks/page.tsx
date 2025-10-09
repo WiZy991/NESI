@@ -31,7 +31,7 @@ function getStatusName(status: string) {
 }
 
 export default function MyTasksPage() {
-  const { token, user } = useUser()  // добавлено user, чтобы передавать роль
+  const { token } = useUser()
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -85,8 +85,6 @@ export default function MyTasksPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-8 space-y-8">
-      {user && <Onboarding role={user.role} />}  {/* ← добавил запуск Onboarding */}
-
       <h1 className="text-4xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]">
         Мои задачи
       </h1>
@@ -111,9 +109,7 @@ export default function MyTasksPage() {
               )}
 
               <span
-                className={`inline-block mt-1 px-3 py-1 text-sm rounded-full shadow ${
-                  statusColors[task.status] || ''
-                }`}
+                className={`inline-block mt-1 px-3 py-1 text-sm rounded-full shadow ${statusColors[task.status] || ''}`}
               >
                 Статус: {getStatusName(task.status)}
               </span>
@@ -127,4 +123,4 @@ export default function MyTasksPage() {
       )}
     </div>
   )
-}
+} 
