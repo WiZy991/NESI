@@ -23,7 +23,7 @@ type LevelInfo = {
 }
 
 export default function LevelPage() {
-  const { token, user } = useUser()  // расширил под user, чтобы роль передать
+  const { token } = useUser()
   const [data, setData] = useState<LevelInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -100,76 +100,72 @@ export default function LevelPage() {
   }
 
   return (
-    <>
-      {user && <Onboarding role={user.role} />}  {/* ← добавил запуск Onboarding */}
+    <div className="max-w-2xl mx-auto mt-10 p-6 rounded-xl bg-black/40 border border-green-500/30 shadow-[0_0_20px_rgba(0,255,150,0.2)] text-white">
+      <h1 className="text-2xl font-bold mb-6 text-green-400">🌟 Твой уровень</h1>
 
-      <div className="max-w-2xl mx-auto mt-10 p-6 rounded-xl bg-black/40 border border-green-500/30 shadow-[0_0_20px_rgba(0,255,150,0.2)] text-white">
-        <h1 className="text-2xl font-bold mb-6 text-green-400">🌟 Твой уровень</h1>
+      <div className="space-y-2 mb-6 text-gray-300">
+        <p>
+          Уровень: <span className="font-semibold text-white">{data.level}</span>
+        </p>
+        <p>
+          Опыт (XP):{' '}
+          <span className="font-semibold text-white">{data.xp}</span>
+        </p>
 
-        <div className="space-y-2 mb-6 text-gray-300">
+        {data.nextLevelXP && (
           <p>
-            Уровень: <span className="font-semibold text-white">{data.level}</span>
+            До следующего уровня:{' '}
+            <span className="font-semibold text-white">
+              {data.xpToNextLevel} XP
+            </span>
           </p>
-          <p>
-            Опыт (XP):{' '}
-            <span className="font-semibold text-white">{data.xp}</span>
-          </p>
-
-          {data.nextLevelXP && (
-            <p>
-              До следующего уровня:{' '}
-              <span className="font-semibold text-white">
-                {data.xpToNextLevel} XP
-              </span>
-            </p>
-          )}
-        </div>
-
-        {/* 🔋 Прогрессбар */}
-        <div className="w-full bg-gray-800	h-5 rounded-lg overflow-hidden mb-8">
-          <div
-            className="h-full bg-gradient-to-r	from-green-400 via-green-500 to-emerald-400 transition-all"
-            style={{ width: `${data.progressPercent}%` }}
-          ></div>
-        </div>
-
-        {/* 📌 Подсказки */}
-        <h2 className="text-lg font-semibold mb-2 text-blue-400">📌 Подсказки:</h2>
-        <ul className="list-disc list-inside space-y-2 text-gray-300 mb-8">
-          {data.suggestions.length > 0 ? (
-            data.suggestions.map((s, i) => <li key={i}>{renderSuggestion(s)}</li>)
-          ) : (
-            <li>Ты красавчик, всё идёт по плану!</li>
-          )}
-        </ul>
-
-        {/* 🏅 Бейджи */}
-        <h2 className="text-lg font-semibold mb-2 text-yellow-400">🏅 Твои бейджи:</h2>
-        {!data.badges || data.badges.length === 0 ? (
-          <p className="text-gray-400">Пока ничего, но всё впереди!</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {data.badges.map((badge) => (
-              <div
-                key={badge.id}
-                className="flex items-center space-x-3 bg-gray-800/60 p-3 rounded-lg border border-gray-700 hover:border-yellow-500 transition shadow"
-              >
-                <Image
-                  src={badge.icon}
-                  alt={badge.name}
-                  width={40}
-                  height={40}
-                  className="rounded"
-                />
-                <div>
-                  <p className="font-semibold text-white">{badge.name}</p>
-                  <p className="text-sm text-gray-400">{badge.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         )}
       </div>
-    </>
+
+      {/* 🔋 Прогрессбар */}
+      <div className="w-full bg-gray-800 h-5 rounded-lg overflow-hidden mb-8">
+        <div
+          className="h-full bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 transition-all"
+          style={{ width: `${data.progressPercent}%` }}
+        ></div>
+      </div>
+
+      {/* 📌 Подсказки */}
+      <h2 className="text-lg font-semibold mb-2 text-blue-400">📌 Подсказки:</h2>
+      <ul className="list-disc list-inside space-y-2 text-gray-300 mb-8">
+        {data.suggestions.length > 0 ? (
+          data.suggestions.map((s, i) => <li key={i}>{renderSuggestion(s)}</li>)
+        ) : (
+          <li>Ты красавчик, всё идёт по плану!</li>
+        )}
+      </ul>
+
+      {/* 🏅 Бейджи */}
+      <h2 className="text-lg font-semibold mb-2 text-yellow-400">🏅 Твои бейджи:</h2>
+      {!data.badges || data.badges.length === 0 ? (
+        <p className="text-gray-400">Пока ничего, но всё впереди!</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {data.badges.map((badge) => (
+            <div
+              key={badge.id}
+              className="flex items-center space-x-3 bg-gray-800/60 p-3 rounded-lg border border-gray-700 hover:border-yellow-500 transition shadow"
+            >
+              <Image
+                src={badge.icon}
+                alt={badge.name}
+                width={40}
+                height={40}
+                className="rounded"
+              />
+              <div>
+                <p className="font-semibold text-white">{badge.name}</p>
+                <p className="text-sm text-gray-400">{badge.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
