@@ -206,7 +206,6 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
-
 // 🔹 Роли
 const roleOptions = [
   { value: 'user', label: 'Пользователь' },
@@ -230,12 +229,22 @@ const skillCategories: Record<string, string[]> = {
 }
 
 // 🔹 Кастомный селектор навыков
-function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s: string[]) => void }) {
+function SkillsSelector({
+  skills,
+  setSkills,
+}: {
+  skills: string[]
+  setSkills: (s: string[]) => void
+}) {
   const addSkill = (skill: string) => {
-    if (!skills.includes(skill)) setSkills([...skills, skill])
+    if (!skills.includes(skill)) {
+      setSkills([...skills, skill])
+    }
   }
 
-  const removeSkill = (skill: string) => setSkills(skills.filter((s) => s !== skill))
+  const removeSkill = (skill: string) => {
+    setSkills(skills.filter((s) => s !== skill))
+  }
 
   return (
     <div className="space-y-4">
@@ -269,7 +278,7 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
         />
       </div>
 
-      {/* Категории */}
+      {/* Категории с кнопками */}
       {Object.entries(skillCategories).map(([category, categorySkills]) => (
         <div key={category}>
           <h3 className="text-emerald-400 text-sm mb-2">{category}</h3>
@@ -307,6 +316,7 @@ export default function EditProfilePage() {
   const [skills, setSkills] = useState<string[]>([])
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
+
   const [cityModalOpen, setCityModalOpen] = useState(false)
   const [citySearch, setCitySearch] = useState('')
 
@@ -316,8 +326,12 @@ export default function EditProfilePage() {
       setDescription(user.description || '')
       setLocation(user.location || '')
       setRole(user.role || 'user')
-      if (Array.isArray(user.skills)) setSkills(user.skills)
-      else if (typeof user.skills === 'string') setSkills(user.skills.split(',').map((s) => s.trim()))
+
+      if (Array.isArray(user.skills)) {
+        setSkills(user.skills)
+      } else if (typeof user.skills === 'string') {
+        setSkills(user.skills.split(',').map((s: string) => s.trim()))
+      }
     }
   }, [user])
 
@@ -362,20 +376,18 @@ export default function EditProfilePage() {
 
   return (
     <ProtectedPage>
-      {/* 🔹 Вставил Onboarding прямо под защитой */}
-      {user && <Onboarding role={user.role} />}
-
       <div className="p-6 max-w-xl mx-auto space-y-6 bg-black/40 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)]">
         <h1 className="text-2xl font-bold text-emerald-400 mb-4">✏️ Редактировать профиль</h1>
 
         {/* Имя */}
-        <div data-onboarding="profile-name">
+        <div>
           <label className="block mb-1 text-gray-300">Имя</label>
           <input
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
+                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
           />
         </div>
 
@@ -385,7 +397,8 @@ export default function EditProfilePage() {
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
+                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
           >
             {roleOptions.map((r) => (
               <option key={r.value} value={r.value} className="bg-black">
@@ -395,27 +408,132 @@ export default function EditProfilePage() {
           </select>
         </div>
 
+        {/* Пароль */}
+        <div>
+          <label className="block mb-1 text-gray-300">Новый пароль</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
+                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+        </div>
+
         {/* Описание */}
         <div>
           <label className="block mb-1 text-gray-300">Описание</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
+                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
           />
+        </div>
+
+        {/* Аватар */}
+        <div>
+          <label className="block mb-1 text-gray-300">Аватар (изображение)</label>
+          <label
+            htmlFor="avatar-upload"
+            className="cursor-pointer inline-block px-3 py-2 rounded-lg border border-emerald-400 
+                       text-emerald-400 hover:bg-emerald-400 hover:text-black transition"
+          >
+            📷 Загрузить аватар
+          </label>
+          <input
+            id="avatar-upload"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              if (e.target.files?.[0]) {
+                setAvatarFile(e.target.files[0])
+              }
+            }}
+            className="hidden"
+          />
+          {avatarFile && (
+            <p className="text-xs text-emerald-400 mt-1">Выбран: {avatarFile.name}</p>
+          )}
+        </div>
+
+        {/* Город */}
+        <div>
+          <label className="block mb-1 text-gray-300">Город</label>
+          <button
+            type="button"
+            onClick={() => setCityModalOpen(true)}
+            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white text-left
+                       hover:border-emerald-400 transition"
+          >
+            {location || 'Выберите город...'}
+          </button>
+        </div>
+
+        {/* Модалка выбора города */}
+        {cityModalOpen && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div className="bg-[#0d1b14] p-6 rounded-lg border border-emerald-600 w-full max-w-lg">
+              <h2 className="text-xl text-emerald-400 mb-4">Выберите город</h2>
+              <input
+                type="text"
+                placeholder="Поиск..."
+                value={citySearch}
+                onChange={(e) => setCitySearch(e.target.value)}
+                className="w-full mb-4 px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
+                           focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {cityOptions
+                  .filter((c) =>
+                    c.label.toLowerCase().includes(citySearch.toLowerCase())
+                  )
+                  .map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => {
+                        setLocation(c.value)
+                        setCityModalOpen(false)
+                      }}
+                      className={`block w-full text-left px-3 py-2 rounded-lg ${
+                        location === c.value
+                          ? 'bg-emerald-700/50 text-white'
+                          : 'hover:bg-emerald-700/30 text-emerald-200'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCityModalOpen(false)}
+                className="mt-4 px-4 py-2 rounded-lg border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Навыки */}
+        <div>
+          <label className="block mb-1 text-gray-300">Навыки</label>
+          <SkillsSelector skills={skills} setSkills={setSkills} />
         </div>
 
         {/* Сохранить */}
         <button
-          data-onboarding="save-profile-btn"
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition disabled:opacity-50"
+          className="px-6 py-2 rounded-lg border border-emerald-400 text-emerald-400 
+                     hover:bg-emerald-400 hover:text-black transition disabled:opacity-50"
         >
           {saving ? 'Сохраняем...' : '💾 Сохранить'}
         </button>
       </div>
     </ProtectedPage>
   )
-}
+} 
