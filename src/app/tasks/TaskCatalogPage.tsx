@@ -5,9 +5,6 @@ import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import CategoryDropdown from '@/components/CategoryDropdown'
-
 
 type Task = {
   id: string
@@ -135,8 +132,6 @@ export default function TaskCatalogPage() {
 
   return (
     <div className="space-y-8">
-      {user && <Onboarding role={user.role} />}  {/* ← добавил запуск Onboarding */}
-
       <h1 className="text-4xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]">
         Каталог задач
       </h1>
