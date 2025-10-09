@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import Select from 'react-select'
-import Onboarding from '@/components/Onboarding' // ← Добавил импорт
 
 // 🔹 Города
 const cityOptions = [

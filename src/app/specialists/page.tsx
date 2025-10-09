@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
-import Onboarding from '@/components/Onboarding'  // ← добавил импорт
 
 /* ---------- типы ---------- */
 type SpecialistItem = {

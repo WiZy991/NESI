@@ -5,7 +5,6 @@ import { useUser } from '@/context/UserContext'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import Onboarding from '@/components/Onboarding'  // ← добавил импорт
 
 // Цвета для статусов
 const statusColors: Record<string, string> = {

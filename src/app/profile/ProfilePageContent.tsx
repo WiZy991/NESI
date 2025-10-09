@@ -4,7 +4,6 @@ import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { FaPython, FaJs, FaDatabase, FaGlobe, FaToolbox, FaUserCircle } from 'react-icons/fa'
-import Onboarding from '@/components/Onboarding'  // ← добавил импорт
 
 type Review = {
   id: string

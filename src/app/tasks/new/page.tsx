@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
 import ProtectedPage from '@/components/ProtectedPage'
-import Onboarding from '@/components/Onboarding'  // ← добавил импорт
 
 type Category = {
   id: string

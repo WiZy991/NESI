@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
-import Onboarding from '@/components/Onboarding'  // ← добавил импорт
 
 type Badge = {
   id: string

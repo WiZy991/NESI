@@ -3,14 +3,11 @@
 import CategoryDropdown from '@/components/CategoryDropdown'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
-<<<<<<< HEAD
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-=======
 import { useSearchParams, useRouter } from 'next/navigation'
 import CategoryDropdown from '@/components/CategoryDropdown'
-import Onboarding from '@/components/Onboarding'  // ← добавил импорт
->>>>>>> 447efca (save local changes before rebase)
+
 
 type Task = {
   id: string
