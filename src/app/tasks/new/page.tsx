@@ -13,7 +13,7 @@ type Category = {
 }
 
 export default function CreateTaskPage() {
-  const { token, user } = useUser()  // расширено, чтобы можно было передать роль
+  const { token } = useUser()
   const router = useRouter()
 
   const [title, setTitle] = useState('')
@@ -85,8 +85,6 @@ export default function CreateTaskPage() {
 
   return (
     <ProtectedPage>
-      {user && <Onboarding role={user.role} />}  {/* ← добавил запуск Onboarding */}
-
       <div className="max-w-xl mx-auto p-6 space-y-4 bg-black/40 border border-green-500/30 rounded-lg shadow-[0_0_15px_rgba(0,255,150,0.2)]">
         <h1 className="text-2xl font-bold text-green-400 mb-4">📝 Создать задачу</h1>
 
@@ -166,11 +164,10 @@ export default function CreateTaskPage() {
           )}
         </div>
 
-        {/*метка для онбординга */}
         <button
           onClick={handleCreate}
           disabled={loading}
-          className={`w-full py-3 rounded-lg font-semibold transition create-task-btn ${
+          className={`w-full py-3 rounded-lg font-semibold transition ${
             loading
               ? 'bg-gray-600 cursor-not-allowed text-gray-300'
               : 'bg-green-600 hover:bg-green-700 text-white shadow-[0_0_10px_rgba(0,255,150,0.3)]'
