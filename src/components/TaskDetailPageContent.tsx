@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import AssignExecutorButton from './AssignExecutorButton'
@@ -10,6 +10,7 @@ import ResponseForm from './ResponseForm'
 import ChatBox from './ChatBox'
 import ReviewForm from './ReviewForm'
 import CancelExecutorButton from './CancelExecutorButton'
+
 
 // Цвета статусов
 const statusColors: Record<string, string> = {
@@ -64,23 +65,21 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
     hideTimerRef.current = setTimeout(() => setHintOpen(false), 350)
   }
 
-  // 🔥 функция обновления таски
-  const fetchTask = useCallback(async () => {
-    if (!token) return
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json()
-      setTask(data.task)
-    } catch (err) {
-      console.error('Ошибка загрузки задачи:', err)
-    }
-  }, [token, taskId])
-
   useEffect(() => {
+    if (!token) return
+    const fetchTask = async () => {
+      try {
+        const res = await fetch(`/api/tasks/${taskId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
+        setTask(data.task)
+      } catch (err) {
+        console.error('Ошибка загрузки задачи:', err)
+      }
+    }
     fetchTask()
-  }, [fetchTask])
+  }, [token, taskId])
 
   // Проверка наличия активной задачи у исполнителя
   useEffect(() => {
@@ -142,6 +141,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
   const isCustomer = user?.id === task.customerId
   const canChat = task.executor && (isExecutor || isCustomer)
 
+  const needCertification = Boolean(task?.subcategory?.id || task?.subcategoryId)
   const subcategoryId: string | undefined = task?.subcategory?.id || task?.subcategoryId
   const subcategoryName: string | undefined = task?.subcategory?.name
   const minPrice: number = task?.subcategory?.minPrice ?? 0
@@ -168,7 +168,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         — {new Date(task.createdAt).toLocaleDateString()}
       </p>
 
-      {/* 📎 Файлы */}
+      {/* 📎 Файлы, прикреплённые при создании задачи */}
       {task.files?.length > 0 && (
         <div className="mt-2 flex flex-col gap-2">
           {task.files.map((file: any) => {
@@ -231,9 +231,11 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       {/* Кнопки действий */}
       <TaskActionsClient taskId={task.id} authorId={task.customerId} status={task.status} />
 
-      {/* Завершение задачи оставляем сверху */}
       {task.status === 'in_progress' && isCustomer && (
+	<>
         <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
+	<CancelExecutorButton taskId={task.id} />
+	</>
       )}
 
       {/* Отзыв */}
@@ -273,7 +275,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
               isCertified={isCertified}
               subcategoryId={subcategoryId}
               subcategoryName={subcategoryName}
-            />
+          />
           )}
         </>
       )}
@@ -290,25 +292,14 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
                 key={response.id}
                 className="p-4 rounded-xl bg-black/40 border border-emerald-500/30 mb-3 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
               >
-                {/* имя + кнопка отмены справа */}
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-emerald-400">
-                    <Link
-                      href={getUserProfileLink(user?.id, response.user.id)}
-                      className="hover:underline"
-                    >
-                      {response.user.fullName || response.user.email}
-                    </Link>
-                  </p>
-
-                  {/* 👉 кнопка отмены исполнителя справа */}
-                  {task.status === 'in_progress' &&
-                    task.executorId === response.userId &&
-                    isCustomer && (
-                      <CancelExecutorButton taskId={task.id} onCancelled={fetchTask} />
-                    )}
-                </div>
-
+                <p className="font-semibold text-emerald-400">
+                  <Link
+                    href={getUserProfileLink(user?.id, response.user.id)}
+                    className="hover:underline"
+                  >
+                    {response.user.fullName || response.user.email}
+                  </Link>
+                </p>
                 <p className="text-sm text-gray-400">
                   Отклик: {new Date(response.createdAt).toLocaleDateString()}
                 </p>
@@ -316,8 +307,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
                   <p className="text-sm text-emerald-300 font-medium">💰 {response.price} ₽</p>
                 )}
                 {response.message && <p className="text-gray-200 mt-1">{response.message}</p>}
-
-                {/* Назначить исполнителя */}
                 {task.status === 'open' && isCustomer && (
                   <AssignExecutorButton
                     taskId={task.id}
@@ -331,7 +320,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </div>
       )}
 
-      {/* Чат */}
+      {/* Чат по задаче (с прикреплением файлов) */}
       {canChat && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
           <h2 className="text-lg font-semibold text-emerald-300 mb-2">Чат по задаче</h2>
@@ -344,4 +333,4 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       </Link>
     </div>
   )
-}
+}  
