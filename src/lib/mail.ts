@@ -69,7 +69,7 @@ export async function sendVerificationEmail(to: string, link: string) {
     `
 
     const info = await transporter.sendMail({
-      from: `"NESI" <${process.env.SMTP_USER}>`,
+      from: `"NESI" <${process.env.SUPPORT_EMAIL || process.env.SMTP_USER}>`,
       to,
       subject: 'Подтверждение e-mail',
       html,
