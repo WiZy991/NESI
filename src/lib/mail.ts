@@ -6,7 +6,6 @@ function getTransporter() {
   const user = process.env.SMTP_USER!
   const pass = process.env.SMTP_PASS!
 
-  // Gmail: 587 (STARTTLS) -> secure:false; 465 (SSL/TLS) -> secure:true
   const secure = port === 465
 
   return nodemailer.createTransport({
