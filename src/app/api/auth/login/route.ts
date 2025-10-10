@@ -6,71 +6,73 @@ import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
-	try {
-		// Rate limiting для логина
-		const authRateLimit = rateLimit(rateLimitConfigs.auth)
-		const rateLimitResult = await authRateLimit(req)
+  try {
+    const authRateLimit = rateLimit(rateLimitConfigs.auth)
+    const rateLimitResult = await authRateLimit(req)
 
-		if (!rateLimitResult.success) {
-			return NextResponse.json(
-				{ error: 'Слишком много попыток входа. Попробуйте позже.' },
-				{
-					status: 429,
-					headers: {
-						'Retry-After': Math.ceil(
-							(rateLimitResult.resetTime - Date.now()) / 1000
-						).toString(),
-						'X-RateLimit-Limit': '5',
-						'X-RateLimit-Remaining': '0',
-						'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-					},
-				}
-			)
-		}
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Слишком много попыток входа. Попробуйте позже.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetTime - Date.now()) / 1000
+            ).toString(),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          },
+        }
+      )
+    }
 
-		const body = await req.json()
-		const { email, password } = body
+    const { email, password } = await req.json()
+    const user = await prisma.user.findUnique({ where: { email } })
 
-		const user = await prisma.user.findUnique({ where: { email } })
+    if (!user || !(await verifyPassword(password, user.password))) {
+      return NextResponse.json(
+        { error: 'Неверный логин или пароль' },
+        { status: 401 }
+      )
+    }
 
-		if (!user || !(await verifyPassword(password, user.password))) {
-			return NextResponse.json(
-				{ error: 'Неверный логин или пароль' },
-				{ status: 401 }
-			)
-		}
+    //Проверяем, подтверждён ли e-mail
+    if (!user.verified) {
+      return NextResponse.json(
+        { error: 'Пожалуйста, подтвердите e-mail перед входом.' },
+        { status: 403 }
+      )
+    }
 
-		// 🎯 JWT только с userId, остальное достанем из БД
-		const token = signJWT({ userId: user.id })
+    const token = signJWT({ userId: user.id })
 
-		// ✅ уведомление
-		await createNotification(
-			user.id,
-			'Вы успешно вошли в аккаунт!',
-			'/tasks',
-			'login'
-		)
+    await createNotification(
+      user.id,
+      'Вы успешно вошли в аккаунт!',
+      '/tasks',
+      'login'
+    )
 
-		// 🟢 Кладём токен в HttpOnly cookie
-		const response = NextResponse.json({
-			user: {
-				id: user.id,
-				email: user.email,
-				role: user.role,
-			},
-			token,
-		})
+    const response = NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      token,
+    })
 
-		response.cookies.set('token', token, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === 'production',
-			path: '/',
-			maxAge: 60 * 60 * 24 * 7, // 7 дней
-		})
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    })
 
-		return response
-	} catch (error) {
-		console.error('Login error:', error)
-		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
-	}
+    return response
+  } catch (error) {
+    console.error('Login error:', error)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
 }
