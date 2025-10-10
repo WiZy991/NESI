@@ -40,7 +40,6 @@ export default function ProfilePageContent() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [profile, setProfile] = useState<FullUser | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
-
   const [transactions, setTransactions] = useState<any[]>([])
   const [amount, setAmount] = useState(100)
 
@@ -57,7 +56,6 @@ export default function ProfilePageContent() {
         setProfile(data.user)
         login(data.user, token)
 
-        // Баланс
         const txRes = await fetch('/api/wallet/transactions', {
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -71,7 +69,7 @@ export default function ProfilePageContent() {
     }
 
     fetchProfile()
-  }, [token])
+  }, [token, login])
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -112,7 +110,6 @@ export default function ProfilePageContent() {
     return <div className="p-6 text-gray-400">Загрузка профиля...</div>
   }
 
-  // Корректируем URL для аватара
   const avatarSrc = profile.avatarUrl
     ? profile.avatarUrl.startsWith('http')
       ? profile.avatarUrl
@@ -121,11 +118,8 @@ export default function ProfilePageContent() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
-      {user && <Onboarding role={user.role} />}  {/* ← добавил запуск Onboarding */}
-
       <h1 className="text-3xl font-bold text-emerald-400 mb-4">👤 Профиль</h1>
 
-      {/* Аватар */}
       {avatarSrc ? (
         <img
           src={avatarSrc}
@@ -137,7 +131,6 @@ export default function ProfilePageContent() {
         <FaUserCircle className="text-gray-600 w-28 h-28 mb-4" />
       )}
 
-      {/* Основная инфа */}
       <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 
                       shadow-[0_0_15px_rgba(16,185,129,0.2)] space-y-2">
         <p><span className="text-gray-400">Имя:</span> {profile.fullName || 'Не указано'}</p>
@@ -146,7 +139,6 @@ export default function ProfilePageContent() {
         {profile.location && <p><span className="text-gray-400">Город:</span> {profile.location}</p>}
       </div>
 
-      {/* Баланс */}
       <div className="p-4 bg-black/40 rounded-xl border border-emerald-500/30 
                       shadow-[0_0_15px_rgba(16,185,129,0.2)]">
         <h2 className="text-lg font-semibold text-emerald-400 mb-2">💰 Баланс</h2>
@@ -188,7 +180,6 @@ export default function ProfilePageContent() {
         )}
       </div>
 
-      {/* Навыки */}
       {profile.skills && (
         <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 
                         shadow-[0_0_15px_rgba(16,185,129,0.2)]">
@@ -209,16 +200,14 @@ export default function ProfilePageContent() {
         </div>
       )}
 
-      {/* О себе */}
       {profile.description && (
         <div className="bg-black/40 p-4 rounded-xl border border-emerald-500/30 
                         shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-        <h2 className="text-lg font-semibold text-emerald-400 mb-2">📄 О себе</h2>
-        <p className="text-gray-300">{profile.description}</p>
-      </div>
+          <h2 className="text-lg font-semibold text-emerald-400 mb-2">📄 О себе</h2>
+          <p className="text-gray-300">{profile.description}</p>
+        </div>
       )}
 
-      {/* Кнопки */}
       <div className="flex gap-4 flex-wrap mt-4">
         <Link
           href="/profile/edit"
@@ -236,7 +225,6 @@ export default function ProfilePageContent() {
         </Link>
       </div>
 
-      {/* Отзывы */}
       {user.role === 'executor' && (
         <div className="mt-6 border-t border-emerald-500/30 pt-6 space-y-4">
           <h2 className="text-lg font-semibold text-emerald-400">Отзывы заказчиков</h2>
