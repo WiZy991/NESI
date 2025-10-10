@@ -37,13 +37,6 @@ export async function POST(req: Request) {
       )
     }
 
-    //Проверяем, подтверждён ли e-mail
-    if (!user.verified) {
-      return NextResponse.json(
-        { error: 'Пожалуйста, подтвердите e-mail перед входом.' },
-        { status: 403 }
-      )
-    }
 
     const token = signJWT({ userId: user.id })
 
