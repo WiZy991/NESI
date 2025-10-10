@@ -26,14 +26,14 @@ export default function CheckEmailPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0a0a0a] text-white text-center p-6">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4 text-white text-center">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7 }}
-        className="bg-gradient-to-b from-green-900/30 to-green-800/20 border border-green-700/50 rounded-2xl shadow-2xl shadow-green-900/40 p-10 max-w-md backdrop-blur-sm"
+        className="bg-black/40 border border-emerald-500/40 rounded-2xl shadow-[0_0_35px_rgba(16,185,129,0.4)] p-10 max-w-md w-full backdrop-blur-md"
       >
-        {/* Анимация иконки */}
+        {/* Иконка */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -43,7 +43,7 @@ export default function CheckEmailPage() {
           📬
         </motion.div>
 
-        <h1 className="text-3xl font-bold mb-4 text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.6)]">
+        <h1 className="text-3xl font-bold mb-4 text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
           Проверьте почту
         </h1>
 
@@ -60,12 +60,12 @@ export default function CheckEmailPage() {
           <button
             onClick={resendEmail}
             disabled={loading}
-            className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-500 transition text-black font-semibold shadow-md disabled:opacity-50"
+            className="w-full px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-black font-semibold shadow-md disabled:opacity-50"
           >
             {loading ? 'Отправляем...' : 'Отправить письмо ещё раз'}
           </button>
         ) : (
-          <p className="text-green-400 text-sm mt-4">
+          <p className="text-emerald-400 text-sm mt-4">
             ✅ Письмо отправлено повторно!
           </p>
         )}
@@ -73,7 +73,7 @@ export default function CheckEmailPage() {
         <div className="mt-8">
           <Link
             href="/login"
-            className="inline-block text-green-400 hover:underline text-sm"
+            className="inline-block text-emerald-400 hover:underline text-sm"
           >
             Вернуться к входу →
           </Link>
