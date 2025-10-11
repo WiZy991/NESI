@@ -2,9 +2,6 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-/**
- * 📩 Отправка письма подтверждения e-mail
- */
 export async function sendVerificationEmail(to: string, link: string) {
   const html = `
     <div style="font-family: 'Segoe UI', Roboto, sans-serif; background-color: #0a0a0a; color: #e5e5e5; padding: 30px;">
@@ -41,7 +38,7 @@ export async function sendVerificationEmail(to: string, link: string) {
 
   try {
     const data = await resend.emails.send({
-      from: `NESI <onboarding@resend.dev>`,
+      from: `NESI <no-reply@nesi.su>`,
       to,
       subject: 'Подтверждение e-mail',
       html,
@@ -54,7 +51,7 @@ export async function sendVerificationEmail(to: string, link: string) {
 }
 
 /**
- * 🔑 Отправка письма для сброса пароля
+ * Отправка письма для сброса пароля
  */
 export async function sendResetPasswordEmail(to: string, link: string) {
   const html = `
@@ -91,7 +88,7 @@ export async function sendResetPasswordEmail(to: string, link: string) {
 
   try {
     const data = await resend.emails.send({
-      from: `NESI <onboarding@resend.dev>`,
+      from: `NESI <no-reply@nesi.su>`,
       to,
       subject: 'Сброс пароля',
       html,
