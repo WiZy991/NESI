@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     })
     await prisma.emailVerificationToken.delete({ where: { token } })
 
-    const jwt = signJWT({ userId: updated.id }) // важно: userId
+    const jwt = signJWT({ userId: updated.id })
     const res = NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/email-verified`)
     res.cookies.set('token', jwt, {
       httpOnly: true,
