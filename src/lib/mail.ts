@@ -1,27 +1,8 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
-function createTransporter() {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: false, // Gmail требует STARTTLS
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false, // чтобы не ломалось на Railway
-    },
-    logger: true, // логирует SMTP-сессии в консоль
-    debug: true,  // выводит SMTP-диалог (для проверки)
-  })
-
-  return transporter
-}
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function sendVerificationEmail(to: string, link: string) {
-  const transporter = createTransporter()
-
   const html = `
     <div style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 30px;">
       <div style="max-width: 600px; margin: auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
@@ -41,22 +22,20 @@ export async function sendVerificationEmail(to: string, link: string) {
   `
 
   try {
-    const info = await transporter.sendMail({
-      from: `"SupportHub" <${process.env.SMTP_USER}>`,
+    const data = await resend.emails.send({
+      from: `SupportHub <onboarding@resend.dev>`,
       to,
       subject: 'Подтверждение e-mail',
       html,
     })
 
-    console.log('✅ Email успешно отправлен:', info.messageId)
+    console.log('✅ Email успешно отправлен через Resend:', data)
   } catch (error: any) {
-    console.error('❌ Ошибка при отправке письма:', error.message || error)
+    console.error('❌ Ошибка при отправке письма через Resend:', error.message || error)
   }
 }
 
 export async function sendResetPasswordEmail(to: string, link: string) {
-  const transporter = createTransporter()
-
   const html = `
     <div style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 30px;">
       <div style="max-width: 600px; margin: auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
@@ -76,15 +55,15 @@ export async function sendResetPasswordEmail(to: string, link: string) {
   `
 
   try {
-    const info = await transporter.sendMail({
-      from: `"SupportHub" <${process.env.SMTP_USER}>`,
+    const data = await resend.emails.send({
+      from: `SupportHub <onboarding@resend.dev>`,
       to,
       subject: 'Сброс пароля',
       html,
     })
 
-    console.log('✅ Письмо сброса отправлено:', info.messageId)
+    console.log('✅ Письмо сброса отправлено через Resend:', data)
   } catch (error: any) {
-    console.error('❌ Ошибка при отправке письма сброса:', error.message || error)
+    console.error('❌ Ошибка при отправке письма сброса через Resend:', error.message || error)
   }
 }
