@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import prisma from '@/lib/prisma'
 import crypto from 'crypto'
-import { sendResetPasswordEmail } from '@/lib/mail' // ✅ важно
+import { sendResetPasswordEmail } from '@/lib/mail'
 
 export async function POST(req: Request) {
   try {
@@ -9,25 +9,22 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
-      // не раскрываем, есть ли такой email
+      // Не раскрываем, есть ли пользователь
       return NextResponse.json({ message: 'Если email существует — письмо отправлено' })
     }
 
     const token = crypto.randomBytes(32).toString('hex')
-    const expires = new Date(Date.now() + 1000 * 60 * 30) // 30 мин
+    const expires = new Date(Date.now() + 1000 * 60 * 30) // 30 минут
 
     await prisma.passwordResetToken.create({
       data: { token, userId: user.id, expiresAt: expires },
     })
 
-    const base = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-    const resetLink = `${base}/reset-password?token=${token}`
+    await sendResetPasswordEmail(user.email, token)
 
-    await sendResetPasswordEmail(user.email, resetLink) // ✅ реально отправляем
-
-    return NextResponse.json({ message: 'Ссылка на сброс отправлена' })
+    return NextResponse.json({ message: 'Ссылка для сброса отправлена, проверьте почту' })
   } catch (error) {
-    console.error('Ошибка восстановления:', error)
-    return NextResponse.json({ error: 'Внутренняя ошибка' }, { status: 500 })
+    console.error('Ошибка восстановления пароля:', error)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
