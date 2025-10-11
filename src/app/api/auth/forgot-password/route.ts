@@ -9,22 +9,36 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
-      // Не раскрываем, есть ли пользователь
       return NextResponse.json({ message: 'Если email существует — письмо отправлено' })
     }
 
-    const token = crypto.randomBytes(32).toString('hex')
-    const expires = new Date(Date.now() + 1000 * 60 * 30) // 30 минут
-
-    await prisma.passwordResetToken.create({
-      data: { token, userId: user.id, expiresAt: expires },
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
     })
 
-    await sendResetPasswordEmail(user.email, token)
+    const token = crypto.randomBytes(32).toString('hex')
+    const expires = new Date(Date.now() + 1000 * 60 * 30)
+    await prisma.passwordResetToken.create({
+      data: {
+        token,
+        userId: user.id,
+        expiresAt: expires,
+      },
+    })
 
-    return NextResponse.json({ message: 'Ссылка для сброса отправлена, проверьте почту' })
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const resetLink = `${appUrl}/reset-password?token=${token}`
+
+    await sendResetPasswordEmail(user.email, resetLink)
+
+    return NextResponse.json({
+      message: 'Ссылка для сброса отправлена, проверьте почту',
+    })
   } catch (error) {
     console.error('Ошибка восстановления пароля:', error)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Ошибка сервера, попробуйте позже' },
+      { status: 500 }
+    )
   }
 }
