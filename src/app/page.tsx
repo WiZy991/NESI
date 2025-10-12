@@ -1,20 +1,18 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function Home() {
   return (
     <main className="relative flex items-center justify-center min-h-screen bg-black overflow-hidden">
       <div className="relative w-full max-w-[1800px] aspect-[16/9]">
-        <div
-          className="absolute inset-0 w-full h-full"
-          dangerouslySetInnerHTML={{
-            __html: `
-              ${require('fs')
-                .readFileSync('public/nessi.svg', 'utf8')
-                .replace(/[\n\r]+/g, '')}
-            `,
-          }}
+        <Image
+          src="/nessi.svg"
+          alt="NESI Background"
+          fill
+          priority
+          className="object-contain"
         />
 
         {/* Кликабельные зоны */}
