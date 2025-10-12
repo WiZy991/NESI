@@ -6,16 +6,16 @@ import Image from 'next/image'
 export default function Home() {
   return (
     <main className="relative flex items-center justify-center min-h-screen bg-black overflow-hidden">
-      <div className="relative w-full max-w-[1800px] aspect-[16/9]">
+      <div className="relative w-full h-screen">
         <Image
           src="/nessi.svg"
           alt="NESI Background"
           fill
           priority
-          className="object-contain"
+          className="object-cover"
         />
 
-        {/* Кликабельные зоны */}
+        {/* ВХОД */}
         <Link
           href="/login"
           className="absolute"
@@ -28,6 +28,7 @@ export default function Home() {
           aria-label="Вход"
         />
 
+        {/* РЕГИСТРАЦИЯ */}
         <Link
           href="/register"
           className="absolute"
@@ -40,6 +41,7 @@ export default function Home() {
           aria-label="Регистрация"
         />
 
+        {/* БИЗНЕС */}
         <Link
           href="/business"
           className="absolute"
@@ -52,6 +54,7 @@ export default function Home() {
           aria-label="Бизнес"
         />
 
+        {/* ТАЛАНТЫ */}
         <Link
           href="/talents"
           className="absolute"
