@@ -6,55 +6,55 @@ import Image from 'next/image'
 export default function Home() {
   return (
     <main className="relative flex items-center justify-center min-h-screen bg-black overflow-hidden">
-      <div className="relative w-full h-screen">
+      <div className="relative w-full max-w-[1920px] aspect-[16/9]">
         <Image
           src="/nessi.svg"
           alt="NESI Background"
           fill
           priority
-          className="object-cover"
+          className="object-contain"
         />
 
-        {/* ВХОД */}
+        {/* Вход */}
         <Link
           href="/login"
           className="absolute"
           style={{
-            top: '4%',
-            left: '84%',
-            width: '3%',
+            top: '4.3%',
+            left: '83.9%',
+            width: '3.5%',
             height: '3%',
           }}
           aria-label="Вход"
         />
 
-        {/* РЕГИСТРАЦИЯ */}
+        {/* Регистрация */}
         <Link
           href="/register"
           className="absolute"
           style={{
-            top: '4%',
-            left: '89.5%',
-            width: '7%',
+            top: '4.3%',
+            left: '88.6%',
+            width: '6.8%',
             height: '3%',
           }}
           aria-label="Регистрация"
         />
 
-        {/* БИЗНЕС */}
+        {/* Бизнес */}
         <Link
           href="/business"
           className="absolute"
           style={{
             top: '32%',
-            left: '26%',
+            left: '26.2%',
             width: '11%',
             height: '4%',
           }}
           aria-label="Бизнес"
         />
 
-        {/* ТАЛАНТЫ */}
+        {/* Таланты */}
         <Link
           href="/talents"
           className="absolute"
