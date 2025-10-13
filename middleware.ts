@@ -13,6 +13,7 @@ export function middleware(req: NextRequest) {
 		'/forgot-password',
 		'/reset-password',
 		'/favicon.ico',
+		'/tasks',
 	]
 
 	// Разрешаем доступ к Next.js статикам и API файлов
@@ -69,17 +70,28 @@ export function middleware(req: NextRequest) {
 	// Список защищённых маршрутов
 	const protectedRoutes = [
 		'/profile',
-		'/tasks',
+		'/tasks/create',
+		'/tasks/edit',
 		'/dashboard',
 		'/chats',
 		'/notifications',
 		'/admin',
 		'/api/profile',
-		'/api/tasks',
+		'/api/tasks/create',
+		'/api/tasks/edit',
+		'/api/tasks/delete',
 		'/api/chats',
+		'/api/cert',
 	]
 
-	const isProtected = protectedRoutes.some(route => pathname.startsWith(route))
+	const isProtected = protectedRoutes.some(route => {
+		// Точное совпадение или начинается с маршрута и следующий символ это / или конец строки
+		return (
+			pathname === route ||
+			(pathname.startsWith(route) &&
+				(pathname[route.length] === '/' || pathname.length === route.length))
+		)
+	})
 
 	if (isProtected) {
 		// Нет токена — редиректим или ошибка

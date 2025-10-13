@@ -154,3 +154,4 @@ export function checkCacheHeaders(response) {
 		cacheControl: cacheControl,
 	}
 }
+

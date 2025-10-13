@@ -8,7 +8,7 @@ set -e
 # Конфигурация
 ENVIRONMENT=${1:-"local"}
 OUTPUT_DIR=${2:-"results"}
-BASE_URL=""
+BASE_URL="https://nesi-production.up.railway.app/"
 
 # Настройка URL в зависимости от окружения
 case $ENVIRONMENT in
@@ -19,7 +19,7 @@ case $ENVIRONMENT in
     BASE_URL="https://staging.nesi.com"
     ;;
   "production")
-    BASE_URL="https://nesi.com"
+    BASE_URL="https://nesi-production.up.railway.app/"
     ;;
   *)
     echo "Неизвестное окружение: $ENVIRONMENT"
@@ -185,3 +185,4 @@ echo "   1. Процент ошибок в каждом тесте"
 echo "   2. Время ответа (p95) для критичных операций"
 echo "   3. Эффективность rate limiting"
 echo "   4. Производительность кеширования"
+
