@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 
 export default function Header() {
-  const { user, token, logout, unreadCount } = useUser()
+  const { user, token, logout, unreadCount, setUnreadCount } = useUser()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -56,6 +56,36 @@ export default function Header() {
     fetchNotifications()
   }, [user, token])
 
+  // 📭 Пометить все уведомления как прочитанные
+  const markAllRead = async () => {
+    if (!token) return
+    try {
+      await fetch('/api/notifications/mark-all-read', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      setUnreadCount(0)
+    } catch (err) {
+      console.error('Ошибка при отметке уведомлений как прочитанных', err)
+    }
+  }
+
+  const handleNotificationClick = async (notif: any) => {
+    if (notif.link) {
+      setNotifOpen(false)
+      await markAllRead()
+      router.push(notif.link)
+    }
+  }
+
+  const handleGoToNotifications = async () => {
+    setNotifOpen(false)
+    await markAllRead()
+    router.push('/notifications')
+  }
+
   return (
     <header className="w-full px-8 py-4 flex justify-between items-center bg-black border-b border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.4)] relative">
       {/* Логотип */}
@@ -98,12 +128,7 @@ export default function Header() {
                           className={`p-4 border-b border-emerald-500/10 hover:bg-gray-800 transition ${
                             notif.link ? 'cursor-pointer hover:text-emerald-400' : ''
                           }`}
-                          onClick={() => {
-                            if (notif.link) {
-                              setNotifOpen(false)
-                              router.push(notif.link)
-                            }
-                          }}
+                          onClick={() => handleNotificationClick(notif)}
                         >
                           <p className="text-sm text-gray-200">
                             {notif.message || 'Новое уведомление'}
@@ -117,10 +142,7 @@ export default function Header() {
                   </div>
                   <div className="p-3 border-t border-emerald-500/20 bg-black/40 text-center">
                     <button
-                      onClick={() => {
-                        setNotifOpen(false)
-                        router.push('/notifications')
-                      }}
+                      onClick={handleGoToNotifications}
                       className="text-emerald-400 hover:underline text-sm font-medium"
                     >
                       Перейти к уведомлениям →
