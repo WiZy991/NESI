@@ -13,12 +13,12 @@ model User {
   password         String
   resetTokens      PasswordResetToken[]
   role             Role      @default(user)
+  verified         Boolean   @default(false)
   blocked          Boolean   @default(false)
   fullName         String?
   createdAt        DateTime  @default(now())
 
   description      String?
-  // устарело, раньше хранили путь
   avatarUrl        String?
   avatarFileId     String?   @unique
   avatarFile       File?     @relation("UserAvatar", fields: [avatarFileId], references: [id])
@@ -54,10 +54,11 @@ model User {
   transactions   Transaction[]
   frozenBalance  Int           @default(0)
 
-  // 🔥 Обратные связи для Community
+
   communityPosts    CommunityPost[]
   communityComments CommunityComment[]
   communityLikes    CommunityLike[]
+  emailVerificationTokens EmailVerificationToken[]
 }
 
 model Task {
@@ -434,4 +435,12 @@ model CommunityView {
   postId    String
   userId    String?
   createdAt DateTime @default(now())
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime @default(now())
 }

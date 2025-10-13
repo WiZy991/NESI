@@ -19,7 +19,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const toastId = toast.loading('Регистрация...')
+    const toastId = toast.loading('Регистрируем...')
 
     try {
       const res = await fetch('/api/auth/register', {
@@ -28,26 +28,28 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password, fullName, role }),
       })
 
+      const data = await res.json().catch(() => ({}))
+
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Ошибка регистрации')
+        toast.error(data?.error || 'Ошибка регистрации', { id: toastId })
+        setLoading(false)
+        return
       }
 
-      const { token } = await res.json()
-      localStorage.setItem('token', token)
+      // ✅ Теперь API возвращает message, а не token
+      toast.success(
+        data?.message ||
+          'Регистрация прошла успешно! Проверьте почту и подтвердите адрес.',
+        { id: toastId }
+      )
 
-      const userRes = await fetch('/api/profile', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      if (!userRes.ok) throw new Error('Ошибка при получении профиля')
-
-      const user = await userRes.json()
-      login(user, token)
-      toast.success('Регистрация прошла успешно', { id: toastId })
-      router.push('/profile')
+      // ⚙️ Не логиним пользователя сразу — ждём подтверждения почты
+      setTimeout(() => {
+        router.push('/check-email')
+      }, 800)
     } catch (err: any) {
-      toast.error(err.message || 'Ошибка сервера', { id: toastId })
+      console.error('Ошибка регистрации:', err)
+      toast.error('Ошибка сервера. Попробуйте позже.', { id: toastId })
     } finally {
       setLoading(false)
     }
