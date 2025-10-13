@@ -593,16 +593,6 @@ export default function ProfilePageContent() {
                      hover:bg-indigo-400 hover:text-black transition font-semibold'
 				>
 					📊 Мой уровень
-				</Link>
-				{user.role === 'executor' && (
-					<Link
-						href='/my-tasks'
-						className='px-6 py-3 rounded-lg border border-blue-400 text-blue-400 
-                       hover:bg-blue-400 hover:text-black transition font-semibold'
-					>
-						📋 Мои задачи
-					</Link>
-				)}
 			</div>
 		</div>
 	)
