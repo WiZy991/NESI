@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 
 export default function Header() {
-  const { user, logout, unreadCount } = useUser()
+  const { user, token, logout, unreadCount } = useUser()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -34,21 +34,26 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Подгрузка уведомлений
   useEffect(() => {
-    if (!user) return
+    if (!user || !token) return
     const fetchNotifications = async () => {
       try {
-        const res = await fetch('/api/notifications?limit=5')
-        if (!res.ok) throw new Error('Ошибка загрузки уведомлений')
+        const res = await fetch(`/api/notifications?limit=5`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
         const data = await res.json()
-        setNotifications(data.notifications || [])
+        if (res.ok) {
+          setNotifications(data.notifications || [])
+        } else {
+          console.error('Ошибка уведомлений:', data)
+          setNotifications([])
+        }
       } catch (err) {
         console.error('Ошибка уведомлений:', err)
       }
     }
     fetchNotifications()
-  }, [user])
+  }, [user, token])
 
   return (
     <header className="w-full px-8 py-4 flex justify-between items-center bg-black border-b border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.4)] relative">
@@ -70,7 +75,7 @@ export default function Header() {
               >
                 <span className="text-lg">🔔</span>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse">
                     {unreadCount}
                   </span>
                 )}
@@ -85,9 +90,9 @@ export default function Header() {
                         Нет новых уведомлений
                       </p>
                     ) : (
-                      notifications.map((notif, i) => (
+                      notifications.map((notif) => (
                         <div
-                          key={i}
+                          key={notif.id}
                           className="p-4 border-b border-emerald-500/10 hover:bg-gray-800 transition"
                         >
                           <p className="text-sm text-gray-200">
@@ -115,7 +120,7 @@ export default function Header() {
               )}
             </div>
 
-            {/* Роль админа */}
+            {/* Остальная навигация */}
             {user.role === 'admin' ? (
               <>
                 <Link href="/admin" className="hover:text-emerald-400 transition">
@@ -133,7 +138,6 @@ export default function Header() {
               </>
             ) : (
               <>
-                {/* Клиент или исполнитель */}
                 {user.role === 'executor' && (
                   <>
                     <Link href="/specialists" className="hover:text-emerald-400 transition">
@@ -150,7 +154,6 @@ export default function Header() {
                     </Link>
                   </>
                 )}
-
                 {user.role === 'customer' && (
                   <>
                     <Link href="/specialists" className="hover:text-emerald-400 transition">
@@ -172,7 +175,6 @@ export default function Header() {
                   Профиль
                 </Link>
 
-                {/* Ещё */}
                 <div className="relative" ref={menuRef}>
                   <button
                     onClick={() => setMenuOpen((v) => !v)}
