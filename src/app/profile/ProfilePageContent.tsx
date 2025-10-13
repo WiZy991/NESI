@@ -593,7 +593,6 @@ export default function ProfilePageContent() {
                      hover:bg-indigo-400 hover:text-black transition font-semibold'
 				>
 					📊 Мой уровень
-			</div>
 		</div>
 	)
 }
