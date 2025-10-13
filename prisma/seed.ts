@@ -1,11 +1,11 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+
 const prisma = new PrismaClient()
 
 async function main() {
-  // =========================
-  // Категории и подкатегории
-  // =========================
+  console.log('🚀 Обновляем категории и подкатегории с актуальными минимальными ценами...')
+
   const categories = [
     {
       name: 'IT и программирование',
@@ -34,26 +34,39 @@ async function main() {
     },
   ]
 
-  console.log('🚀 Запускаем наполнение категорий и подкатегорий...')
   for (const category of categories) {
-    await prisma.category.upsert({
+    // upsert категории
+    const cat = await prisma.category.upsert({
       where: { name: category.name },
       update: {},
-      create: {
-        name: category.name,
-        subcategories: {
-          create: category.subcategories,
-        },
-      },
+      create: { name: category.name },
     })
-    console.log(`✅ Категория создана/обновлена: ${category.name}`)
+
+    console.log(`✅ Категория: ${category.name}`)
+
+    // upsert подкатегорий (обновляет minPrice если уже есть)
+    for (const sub of category.subcategories) {
+      await prisma.subcategory.upsert({
+        where: { name: sub.name },
+        update: {
+          minPrice: sub.minPrice,
+          categoryId: cat.id,
+        },
+        create: {
+          name: sub.name,
+          minPrice: sub.minPrice,
+          categoryId: cat.id,
+        },
+      })
+      console.log(`   ↳ Подкатегория обновлена: ${sub.name} → ${sub.minPrice}₽`)
+    }
   }
 
   // =========================
   // Админ
   // =========================
   const email = 'admin@nesi.local'
-  const plain = 'admin123' // обязательно поменяй при первом входе
+  const plain = 'admin123' // поменяй после первого входа
   const password = await bcrypt.hash(plain, 10)
 
   await prisma.user.upsert({
@@ -72,7 +85,7 @@ async function main() {
 }
 
 main()
-  .catch(e => {
+  .catch((e) => {
     console.error('❌ Ошибка при seed:', e)
     process.exit(1)
   })
