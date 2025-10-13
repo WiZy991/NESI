@@ -34,6 +34,7 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Загрузка уведомлений
   useEffect(() => {
     if (!user || !token) return
     const fetchNotifications = async () => {
@@ -68,6 +69,7 @@ export default function Header() {
       <nav className="flex gap-6 items-center relative text-gray-200">
         {user ? (
           <>
+            {/* Уведомления */}
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setNotifOpen((v) => !v)}
@@ -93,7 +95,15 @@ export default function Header() {
                       notifications.map((notif) => (
                         <div
                           key={notif.id}
-                          className="p-4 border-b border-emerald-500/10 hover:bg-gray-800 transition"
+                          className={`p-4 border-b border-emerald-500/10 hover:bg-gray-800 transition ${
+                            notif.link ? 'cursor-pointer hover:text-emerald-400' : ''
+                          }`}
+                          onClick={() => {
+                            if (notif.link) {
+                              setNotifOpen(false)
+                              router.push(notif.link)
+                            }
+                          }}
                         >
                           <p className="text-sm text-gray-200">
                             {notif.message || 'Новое уведомление'}
