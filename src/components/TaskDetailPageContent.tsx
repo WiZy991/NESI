@@ -11,7 +11,6 @@ import ChatBox from './ChatBox'
 import ReviewForm from './ReviewForm'
 import CancelExecutorButton from './CancelExecutorButton'
 
-
 // Цвета статусов
 const statusColors: Record<string, string> = {
   open: 'bg-emerald-900/40 border border-emerald-500/50 text-emerald-300',
@@ -232,27 +231,35 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       <TaskActionsClient taskId={task.id} authorId={task.customerId} status={task.status} />
 
       {task.status === 'in_progress' && isCustomer && (
-	<>
-        <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
-	<CancelExecutorButton taskId={task.id} />
-	</>
+        <>
+          <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
+          <CancelExecutorButton taskId={task.id} />
+        </>
       )}
 
       {/* Отзыв */}
       {task.status === 'completed' && task.review && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
-          <h2 className="text-lg font-semibold mb-2 text-emerald-300">Отзыв заказчика</h2>
+          <h2 className="text-lg font-semibold mb-2 text-emerald-300">Отзывы</h2>
           <p className="text-yellow-400 font-bold">⭐ {task.review.rating}</p>
-          <p className="text-gray-200">{task.review.comment}</p>
-          <p className="text-sm text-gray-500 mt-2">
-            {new Date(task.review.createdAt).toLocaleDateString()}
-          </p>
+          <p className="text-gray-200 whitespace-pre-line">{task.review.comment}</p>
         </div>
       )}
 
+      {/* === Отзыв заказчика === */}
       {task.status === 'completed' && isCustomer && !task.review && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30">
           <h2 className="text-lg font-semibold mb-2 text-emerald-300">Оставить отзыв</h2>
+          <ReviewForm taskId={task.id} />
+        </div>
+      )}
+
+      {/* === Отзыв исполнителя ↓↓↓ === */}
+      {task.status === 'completed' && isExecutor && (
+        <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30">
+          <h2 className="text-lg font-semibold mb-2 text-emerald-300">
+            Оставить отзыв о заказчике
+          </h2>
           <ReviewForm taskId={task.id} />
         </div>
       )}
@@ -275,7 +282,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
               isCertified={isCertified}
               subcategoryId={subcategoryId}
               subcategoryName={subcategoryName}
-          />
+            />
           )}
         </>
       )}
@@ -320,7 +327,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </div>
       )}
 
-      {/* Чат по задаче (с прикреплением файлов) */}
+      {/* Чат по задаче */}
       {canChat && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
           <h2 className="text-lg font-semibold text-emerald-300 mb-2">Чат по задаче</h2>
@@ -333,4 +340,4 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       </Link>
     </div>
   )
-}  
+}
