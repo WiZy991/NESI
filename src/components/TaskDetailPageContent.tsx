@@ -11,6 +11,7 @@ import ChatBox from './ChatBox'
 import ReviewForm from './ReviewForm'
 import CancelExecutorButton from './CancelExecutorButton'
 
+
 // Цвета статусов
 const statusColors: Record<string, string> = {
   open: 'bg-emerald-900/40 border border-emerald-500/50 text-emerald-300',
@@ -145,20 +146,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
   const subcategoryName: string | undefined = task?.subcategory?.name
   const minPrice: number = task?.subcategory?.minPrice ?? 0
 
-  // ====================== ⬇️ ОБНОВЛЁННЫЙ БЛОК С ОТЗЫВАМИ
-  let parsedReview: any = {}
-  if (task.review) {
-    try {
-      parsedReview = JSON.parse(task.review.comment || '{}')
-    } catch {
-      parsedReview = {}
-    }
-  }
-
-  const customerComment = parsedReview.customer
-  const executorComment = parsedReview.executor
-  // ====================== ⬆️
-
   return (
     <div className="max-w-3xl mx-auto p-8 space-y-6">
       {/* Заголовок */}
@@ -181,7 +168,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         — {new Date(task.createdAt).toLocaleDateString()}
       </p>
 
-      {/* 📎 Файлы */}
+      {/* 📎 Файлы, прикреплённые при создании задачи */}
       {task.files?.length > 0 && (
         <div className="mt-2 flex flex-col gap-2">
           {task.files.map((file: any) => {
@@ -245,54 +232,29 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       <TaskActionsClient taskId={task.id} authorId={task.customerId} status={task.status} />
 
       {task.status === 'in_progress' && isCustomer && (
-        <>
-          <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
-          <CancelExecutorButton taskId={task.id} />
-        </>
+	<>
+        <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
+	<CancelExecutorButton taskId={task.id} />
+	</>
       )}
 
-      {/* === Отзывы === */}
+      {/* Отзыв */}
       {task.status === 'completed' && task.review && (
-        <>
-          {isExecutor && customerComment && (
-            <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30">
-              <h2 className="text-lg font-semibold mb-2 text-emerald-300">Отзыв заказчика</h2>
-              <p className="text-yellow-400 font-bold">⭐ {task.review.rating}</p>
-              <p className="text-gray-200">{customerComment}</p>
-            </div>
-          )}
-
-          {isCustomer && executorComment && (
-            <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30">
-              <h2 className="text-lg font-semibold mb-2 text-emerald-300">Отзыв исполнителя</h2>
-              <p className="text-yellow-400 font-bold">⭐ {task.review.rating}</p>
-              <p className="text-gray-200">{executorComment}</p>
-            </div>
-          )}
-        </>
+        <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
+          <h2 className="text-lg font-semibold mb-2 text-emerald-300">Отзыв заказчика</h2>
+          <p className="text-yellow-400 font-bold">⭐ {task.review.rating}</p>
+          <p className="text-gray-200">{task.review.comment}</p>
+          <p className="text-sm text-gray-500 mt-2">
+            {new Date(task.review.createdAt).toLocaleDateString()}
+          </p>
+        </div>
       )}
 
-      {/* === Форма отзывов === */}
-      {task.status === 'completed' && (
-        <>
-          {isCustomer && (!task.review || !customerComment) && (
-            <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30">
-              <h2 className="text-lg font-semibold mb-2 text-emerald-300">
-                Оставить отзыв исполнителю
-              </h2>
-              <ReviewForm taskId={task.id} />
-            </div>
-          )}
-
-          {isExecutor && (!task.review || !executorComment) && (
-            <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30">
-              <h2 className="text-lg font-semibold mb-2 text-emerald-300">
-                Оставить отзыв заказчику
-              </h2>
-              <ReviewForm taskId={task.id} />
-            </div>
-          )}
-        </>
+      {task.status === 'completed' && isCustomer && !task.review && (
+        <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30">
+          <h2 className="text-lg font-semibold mb-2 text-emerald-300">Оставить отзыв</h2>
+          <ReviewForm taskId={task.id} />
+        </div>
       )}
 
       {/* ====== ФОРМА ОТКЛИКА ====== */}
@@ -313,7 +275,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
               isCertified={isCertified}
               subcategoryId={subcategoryId}
               subcategoryName={subcategoryName}
-            />
+          />
           )}
         </>
       )}
@@ -358,7 +320,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </div>
       )}
 
-      {/* Чат */}
+      {/* Чат по задаче (с прикреплением файлов) */}
       {canChat && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
           <h2 className="text-lg font-semibold text-emerald-300 mb-2">Чат по задаче</h2>
@@ -371,4 +333,4 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       </Link>
     </div>
   )
-}
+}  
