@@ -1,14 +1,32 @@
-import { prisma } from '@/lib/prisma'
-import Link from 'next/link'
+// ✅ src/app/admin/disputes/page.tsx
+export const dynamic = "force-dynamic"; // 🔥 Отключает пререндеринг, решает ошибку при билде
+
+import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 export default async function AdminDisputesPage() {
-  const disputes = await prisma.dispute.findMany({
-    include: {
-      task: { select: { id: true, title: true } },
-      user: { select: { id: true, fullName: true, email: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
+  let disputes = [];
+
+  try {
+    disputes = await prisma.dispute.findMany({
+      include: {
+        task: { select: { id: true, title: true } },
+        user: { select: { id: true, fullName: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("Ошибка при загрузке споров:", error);
+    // 🔥 Если база недоступна — не ломаем билд и просто показываем сообщение
+    return (
+      <div className="text-white">
+        <h1 className="text-2xl font-bold mb-4">Споры</h1>
+        <p className="text-red-400">
+          ⚠️ Не удалось подключиться к базе данных. Попробуйте позже.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="text-white">
@@ -32,28 +50,42 @@ export default async function AdminDisputesPage() {
             {disputes.map((d) => (
               <tr key={d.id} className="border-t border-gray-800">
                 <td className="p-2 text-emerald-400">
-                  <Link href={`/admin/tasks/${d.task.id}`} className="hover:underline">
+                  <Link
+                    href={`/admin/tasks/${d.task.id}`}
+                    className="hover:underline"
+                  >
                     {d.task.title}
                   </Link>
                 </td>
                 <td className="p-2">
-                  {d.user.fullName || d.user.email}
+                  {d.user.fullName || d.user.email || "Неизвестный"}
                 </td>
                 <td className="p-2 text-red-300 font-medium">{d.reason}</td>
 
                 {/* 💬 Описание спора */}
-                <td className="p-2 text-gray-300 max-w-[250px] truncate" title={d.details || '—'}>
-                  {d.details || <span className="text-gray-500 italic">Без описания</span>}
+                <td
+                  className="p-2 text-gray-300 max-w-[250px] truncate"
+                  title={d.details || "—"}
+                >
+                  {d.details ? (
+                    d.details
+                  ) : (
+                    <span className="text-gray-500 italic">Без описания</span>
+                  )}
                 </td>
 
                 <td className="p-2">
-                  {d.status === 'open' ? (
+                  {d.status === "open" ? (
                     <span className="px-2 py-1 rounded bg-yellow-800 text-yellow-300 text-xs uppercase">
                       Открыт
                     </span>
-                  ) : d.status === 'resolved' ? (
+                  ) : d.status === "resolved" ? (
                     <span className="px-2 py-1 rounded bg-green-800 text-green-300 text-xs uppercase">
                       Решён
+                    </span>
+                  ) : d.status === "rejected" ? (
+                    <span className="px-2 py-1 rounded bg-red-800 text-red-300 text-xs uppercase">
+                      Отклонён
                     </span>
                   ) : (
                     <span className="px-2 py-1 rounded bg-gray-700 text-gray-300 text-xs uppercase">
@@ -76,5 +108,5 @@ export default async function AdminDisputesPage() {
         </table>
       )}
     </div>
-  )
+  );
 }
