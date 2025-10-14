@@ -8,85 +8,86 @@ datasource db {
 }
 
 model User {
-  id               String    @id @default(cuid())
-  email            String    @unique
-  password         String
-  resetTokens      PasswordResetToken[]
-  role             Role      @default(user)
-  blocked          Boolean   @default(false)
-  fullName         String?
-  createdAt        DateTime  @default(now())
+  id          String               @id @default(cuid())
+  email       String               @unique
+  password    String
+  resetTokens PasswordResetToken[]
+  role        Role                 @default(user)
+  verified    Boolean              @default(false)
+  blocked     Boolean              @default(false)
+  fullName    String?
+  createdAt   DateTime             @default(now())
 
-  description      String?
-  // устарело, раньше хранили путь
-  avatarUrl        String?
-  avatarFileId     String?   @unique
-  avatarFile       File?     @relation("UserAvatar", fields: [avatarFileId], references: [id])
+  description  String?
+  avatarUrl    String?
+  avatarFileId String? @unique
+  avatarFile   File?   @relation("UserAvatar", fields: [avatarFileId], references: [id])
 
-  location         String?
-  skills           String[]
+  location String?
+  skills   String[]
 
-  tasks            Task[]    @relation("Customer")
-  executedTasks    Task[]    @relation("Executor")
-  responses        TaskResponse[]
-  reviewsAuthored  Review[]  @relation("FromUser")
-  reviewsReceived  Review[]  @relation("ToUser")
-  messages         Message[] @relation("MessageSender")
-  notifications    Notification[]
+  tasks           Task[]         @relation("Customer")
+  executedTasks   Task[]         @relation("Executor")
+  responses       TaskResponse[]
+  reviewsAuthored Review[]       @relation("FromUser")
+  reviewsReceived Review[]       @relation("ToUser")
+  messages        Message[]      @relation("MessageSender")
+  notifications   Notification[]
 
   certificationAttempts CertificationAttempt[]
   certifications        UserCertification[]
 
-  levelId               String?  @map("level_id")
-  level                 UserLevel? @relation(fields: [levelId], references: [id])
-  xp                    Int      @default(0)
-  completedTasksCount   Int      @default(0)
-  avgRating             Float    @default(0)
+  levelId             String?    @map("level_id")
+  level               UserLevel? @relation(fields: [levelId], references: [id])
+  xp                  Int        @default(0)
+  completedTasksCount Int        @default(0)
+  avgRating           Float      @default(0)
 
-  badges                UserBadge[]
-  hireRequestsSent      HireRequest[] @relation("HireCustomer")
-  hireRequestsReceived  HireRequest[] @relation("HireExecutor")
+  badges               UserBadge[]
+  hireRequestsSent     HireRequest[] @relation("HireCustomer")
+  hireRequestsReceived HireRequest[] @relation("HireExecutor")
 
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
 
-  balance        Int           @default(100)
-  transactions   Transaction[]
-  frozenBalance  Int           @default(0)
+  balance       Int           @default(100)
+  transactions  Transaction[]
+  frozenBalance Int           @default(0)
 
-  // 🔥 Обратные связи для Community
-  communityPosts    CommunityPost[]
-  communityComments CommunityComment[]
-  communityLikes    CommunityLike[]
+  communityPosts          CommunityPost[]
+  communityComments       CommunityComment[]
+  communityLikes          CommunityLike[]
+  emailVerificationTokens EmailVerificationToken[]
+  adminLogs               AdminActionLog[]
 }
 
 model Task {
-  id            String   @id @default(uuid())
-  title         String
-  description   String
-  price         Int?
-  deadline      DateTime?
-  status        String   @default("open")
-  escrowAmount  Int      @default(0)
+  id           String    @id @default(uuid())
+  title        String
+  description  String
+  price        Int?
+  deadline     DateTime?
+  status       String    @default("open")
+  escrowAmount Int       @default(0)
 
-  customerId    String
-  customer      User     @relation("Customer", fields: [customerId], references: [id])
+  customerId String
+  customer   User   @relation("Customer", fields: [customerId], references: [id])
 
-  executorId    String?
-  executor      User?    @relation("Executor", fields: [executorId], references: [id])
+  executorId String?
+  executor   User?   @relation("Executor", fields: [executorId], references: [id])
 
   subcategoryId String?
   subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  completedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
 
-  responses     TaskResponse[]
-  review        Review?
-  messages      Message[]
+  responses TaskResponse[]
+  review    Review?
+  messages  Message[]
 
-  files         File[]   @relation("TaskFiles")
+  files File[] @relation("TaskFiles")
 
   @@index([status])
   @@index([customerId])
@@ -106,8 +107,8 @@ model TaskResponse {
   price     Int?
   createdAt DateTime @default(now())
 
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([taskId, userId], name: "taskId_userId")
   @@index([taskId])
@@ -116,19 +117,19 @@ model TaskResponse {
 }
 
 model Review {
-  id         String   @id @default(cuid())
-  rating     Int
-  comment    String
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
 
   fromUserId String?
   toUserId   String?
 
-  taskId     String   @unique
+  taskId String @unique
 
-  fromUser   User?    @relation("FromUser", fields: [fromUserId], references: [id])
-  toUser     User?    @relation("ToUser", fields: [toUserId], references: [id])
-  task       Task     @relation(fields: [taskId], references: [id])
+  fromUser User? @relation("FromUser", fields: [fromUserId], references: [id])
+  toUser   User? @relation("ToUser", fields: [toUserId], references: [id])
+  task     Task  @relation(fields: [taskId], references: [id])
 }
 
 model Message {
@@ -144,7 +145,7 @@ model Message {
   task   Task @relation(fields: [taskId], references: [id])
   sender User @relation("MessageSender", fields: [senderId], references: [id])
 
-  file   File? @relation("MessageFile", fields: [fileId], references: [id])
+  file File? @relation("MessageFile", fields: [fileId], references: [id])
 
   @@index([taskId])
   @@index([senderId])
@@ -161,7 +162,7 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([isRead])
@@ -187,44 +188,44 @@ model Category {
 }
 
 model Subcategory {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
-  tasks       Task[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(uuid())
+  name       String   @unique
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  tasks      Task[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  minPrice    Int      @default(500)
+  minPrice Int @default(500)
 
-  certificationTest   CertificationTest?
-  userCertifications  UserCertification[]
+  certificationTest  CertificationTest?
+  userCertifications UserCertification[]
 }
 
 model CertificationTest {
-  id            String          @id @default(uuid())
-  subcategoryId String          @unique
-  subcategory   Subcategory     @relation(fields: [subcategoryId], references: [id])
+  id            String      @id @default(uuid())
+  subcategoryId String      @unique
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
 
   title         String
   timeLimitSec  Int
   passScore     Int
   questionCount Int
 
-  questions     CertificationQuestion[]
-  attempts      CertificationAttempt[]
+  questions CertificationQuestion[]
+  attempts  CertificationAttempt[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CertificationQuestion {
-  id        String   @id @default(uuid())
-  testId    String
-  test      CertificationTest @relation(fields: [testId], references: [id])
+  id     String            @id @default(uuid())
+  testId String
+  test   CertificationTest @relation(fields: [testId], references: [id])
 
-  text      String
-  options   CertificationOption[]
+  text    String
+  options CertificationOption[]
 
   createdAt DateTime @default(now())
 
@@ -232,28 +233,28 @@ model CertificationQuestion {
 }
 
 model CertificationOption {
-  id         String   @id @default(uuid())
+  id         String                @id @default(uuid())
   questionId String
   question   CertificationQuestion @relation(fields: [questionId], references: [id])
 
-  text       String
-  isCorrect  Boolean @default(false)
+  text      String
+  isCorrect Boolean @default(false)
 
   @@index([questionId])
 }
 
 model CertificationAttempt {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  testId        String
-  test          CertificationTest @relation(fields: [testId], references: [id])
+  testId String
+  test   CertificationTest @relation(fields: [testId], references: [id])
 
-  startedAt     DateTime @default(now())
-  finishedAt    DateTime?
-  score         Int?
-  passed        Boolean?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  score      Int?
+  passed     Boolean?
 
   @@index([userId])
   @@index([testId])
@@ -261,32 +262,32 @@ model CertificationAttempt {
 }
 
 model UserCertification {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   subcategoryId String
   subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
 
-  level         String  @default("CERTIFIED")
-  grantedAt     DateTime @default(now())
+  level     String   @default("CERTIFIED")
+  grantedAt DateTime @default(now())
 
   @@unique([userId, subcategoryId], name: "userId_subcategoryId")
   @@index([subcategoryId])
 }
 
 model UserLevel {
-  id        String   @id @default(uuid())
-  slug      String   @unique
-  name      String
+  id          String @id @default(uuid())
+  slug        String @unique
+  name        String
   description String
-  minScore  Int
+  minScore    Int
 
-  users     User[]
+  users User[]
 }
 
 model Badge {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   description String
   icon        String
@@ -295,25 +296,25 @@ model Badge {
 }
 
 model UserBadge {
-  id        String   @id @default(cuid())
-  userId    String
-  badgeId   String
-  earnedAt  DateTime @default(now())
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
 
   user  User  @relation(fields: [userId], references: [id])
   badge Badge @relation(fields: [badgeId], references: [id])
 }
 
 model HireRequest {
-  id          String   @id @default(uuid())
-  customerId  String
-  executorId  String
-  createdAt   DateTime @default(now())
-  paid        Boolean  @default(false)
-  status      String   @default("pending")
+  id         String   @id @default(uuid())
+  customerId String
+  executorId String
+  createdAt  DateTime @default(now())
+  paid       Boolean  @default(false)
+  status     String   @default("pending")
 
-  customer    User     @relation("HireCustomer", fields: [customerId], references: [id])
-  executor    User     @relation("HireExecutor", fields: [executorId], references: [id])
+  customer User @relation("HireCustomer", fields: [customerId], references: [id])
+  executor User @relation("HireExecutor", fields: [executorId], references: [id])
 }
 
 model PrivateMessage {
@@ -329,9 +330,9 @@ model PrivateMessage {
   createdAt   DateTime @default(now())
   fileId      String?
 
-  sender      User     @relation("PrivateMessageSender", fields: [senderId], references: [id])
-  recipient   User     @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
-  file        File?    @relation("PrivateMessageFile", fields: [fileId], references: [id])
+  sender    User  @relation("PrivateMessageSender", fields: [senderId], references: [id])
+  recipient User  @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
+  file      File? @relation("PrivateMessageFile", fields: [fileId], references: [id])
 }
 
 model AdminInvite {
@@ -373,28 +374,27 @@ model File {
   url       String?
   createdAt DateTime @default(now())
 
-  userAvatar   User?            @relation("UserAvatar")
-  messages     Message[]        @relation("MessageFile")
-  privateMsgs  PrivateMessage[] @relation("PrivateMessageFile")
+  userAvatar  User?            @relation("UserAvatar")
+  messages    Message[]        @relation("MessageFile")
+  privateMsgs PrivateMessage[] @relation("PrivateMessageFile")
 
-  // 🔥 связь к задачам
-  task         Task?            @relation("TaskFiles", fields: [taskId], references: [id])
-  taskId       String?
+  task   Task?   @relation("TaskFiles", fields: [taskId], references: [id])
+  taskId String?
 }
 
 model CommunityPost {
   id        String   @id @default(cuid())
   title     String
   content   String
-  imageUrl  String?   // для картинок/мемов
-  author    User      @relation(fields: [authorId], references: [id])
+  imageUrl  String? // для картинок/мемов
+  author    User     @relation(fields: [authorId], references: [id])
   authorId  String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  comments  CommunityComment[]
-  likes     CommunityLike[]
-  views     CommunityView[]
+  comments CommunityComment[]
+  likes    CommunityLike[]
+  views    CommunityView[]
 
   @@index([authorId])
   @@index([createdAt])
@@ -402,15 +402,15 @@ model CommunityPost {
 }
 
 model CommunityComment {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   content   String
-  imageUrl  String?   
-  author    User      @relation(fields: [authorId], references: [id])
+  imageUrl  String?
+  author    User          @relation(fields: [authorId], references: [id])
   authorId  String
   post      CommunityPost @relation(fields: [postId], references: [id])
   postId    String
-  parentId  String?   
-  createdAt DateTime  @default(now())
+  parentId  String?
+  createdAt DateTime      @default(now())
 
   @@index([postId])
   @@index([authorId])
@@ -419,19 +419,47 @@ model CommunityComment {
 }
 
 model CommunityLike {
-  id      String @id @default(cuid())
-  user    User   @relation(fields: [userId], references: [id])
-  userId  String
-  post    CommunityPost @relation(fields: [postId], references: [id])
-  postId  String
+  id     String        @id @default(cuid())
+  user   User          @relation(fields: [userId], references: [id])
+  userId String
+  post   CommunityPost @relation(fields: [postId], references: [id])
+  postId String
 
   @@unique([postId, userId], name: "postId_userId")
 }
 
 model CommunityView {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   post      CommunityPost @relation(fields: [postId], references: [id])
   postId    String
   userId    String?
+  createdAt DateTime      @default(now())
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime @default(now())
+}
+
+model AdminActionLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id])
+}
+
+model SystemMetric {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Float?
+  stringVal String?
   createdAt DateTime @default(now())
 }

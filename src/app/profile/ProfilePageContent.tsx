@@ -590,19 +590,10 @@ export default function ProfilePageContent() {
 				<Link
 					href='/level'
 					className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
-                     hover:bg-indigo-400 hover:text-black transition font-semibold'
+						hover:bg-indigo-400 hover:text-black transition font-semibold'
 				>
 					📊 Мой уровень
 				</Link>
-				{user.role === 'executor' && (
-					<Link
-						href='/my-tasks'
-						className='px-6 py-3 rounded-lg border border-blue-400 text-blue-400 
-                       hover:bg-blue-400 hover:text-black transition font-semibold'
-					>
-						📋 Мои задачи
-					</Link>
-				)}
 			</div>
 		</div>
 	)

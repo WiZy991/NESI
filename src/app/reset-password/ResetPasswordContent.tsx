@@ -1,79 +1,80 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { motion } from 'framer-motion'
 
-export default function ResetPasswordContent() {
+export default function ResetPasswordPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
-  const router = useRouter()
 
   const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    if (!token) {
-      toast.error('Неверная или устаревшая ссылка')
-      router.push('/login')
-    }
-  }, [token, router])
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password !== confirm) {
-      toast.error('Пароли не совпадают')
+    if (!token) {
+      setMessage('Токен не найден.')
       return
     }
 
-    setSubmitting(true)
-    const res = await fetch('/api/auth/reset-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, password }),
-    })
+    try {
+      setLoading(true)
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      })
 
-    const data = await res.json()
-    setSubmitting(false)
+      const data = await res.json()
+      setMessage(data.message)
 
-    if (res.ok) {
-      toast.success('Пароль успешно обновлён!')
-      router.push('/login')
-    } else {
-      toast.error(data.message || 'Ошибка сохранения пароля')
+      if (res.ok) {
+        setTimeout(() => router.push('/login'), 3000)
+      }
+    } catch (err) {
+      setMessage('Ошибка соединения с сервером.')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="max-w-md mx-auto mt-16 p-6 bg-gray-900 text-white rounded shadow">
-      <h1 className="text-2xl font-bold mb-4">Сброс пароля</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="password"
-          placeholder="Новый пароль"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="w-full p-2 bg-gray-800 rounded"
-        />
-        <input
-          type="password"
-          placeholder="Повторите пароль"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-          className="w-full p-2 bg-gray-800 rounded"
-        />
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded"
-        >
-          {submitting ? 'Сохранение...' : 'Сохранить пароль'}
-        </button>
-      </form>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4 text-white text-center">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6 }}
+        className="bg-black/40 border border-emerald-500/40 rounded-2xl shadow-[0_0_35px_rgba(16,185,129,0.4)] p-10 max-w-md w-full backdrop-blur-md"
+      >
+        <h1 className="text-2xl font-bold mb-6 text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
+          🔐 Сброс пароля
+        </h1>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <input
+            type="password"
+            placeholder="Введите новый пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-3 rounded-lg bg-emerald-950/30 border border-emerald-600/40 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-400"
+          />
+
+          <button
+            type="submit"
+            disabled={loading || !password}
+            className="w-full px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-black font-semibold shadow-md disabled:opacity-50"
+          >
+            {loading ? 'Сохраняем...' : 'Сохранить пароль'}
+          </button>
+        </form>
+
+        {message && (
+          <p className="mt-4 text-sm text-emerald-300">{message}</p>
+        )}
+      </motion.div>
     </div>
   )
 }
