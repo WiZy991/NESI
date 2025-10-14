@@ -49,6 +49,9 @@ model User {
 
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
+  
+  // Отслеживание прочитанных сообщений
+  lastPrivateMessageReadAt DateTime? @map("last_private_message_read_at")
 
   balance       Int           @default(100)
   transactions  Transaction[]
@@ -88,6 +91,10 @@ model Task {
   messages  Message[]
 
   files File[] @relation("TaskFiles")
+
+  // Отслеживание прочитанных сообщений
+  customerLastReadAt DateTime? @map("customer_last_read_at")
+  executorLastReadAt DateTime? @map("executor_last_read_at")
 
   @@index([status])
   @@index([customerId])

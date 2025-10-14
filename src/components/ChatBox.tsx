@@ -1,15 +1,17 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import FilePreview from './FilePreview'
 import MessageInput from './MessageInput'
 
 type Message = {
 	id: string
 	content: string
 	fileUrl?: string
+	fileName?: string
+	fileMimetype?: string
 	createdAt: string
 	sender: {
 		id: string
@@ -92,28 +94,11 @@ export default function ChatBox({ taskId }: { taskId: string }) {
 
 							{/* Файл */}
 							{msg.fileUrl && (
-								<div className='mt-2'>
-									{msg.fileUrl.match(/\.(jpg|jpeg|png|gif|webp|avif)$/i) ? (
-										<Image
-											src={msg.fileUrl}
-											alt='attachment'
-											width={200}
-											height={150}
-											className='max-w-[200px] rounded-lg border border-gray-700'
-											style={{ objectFit: 'cover' }}
-											loading='lazy'
-										/>
-									) : (
-										<a
-											href={msg.fileUrl}
-											target='_blank'
-											rel='noopener noreferrer'
-											className='text-emerald-300 hover:underline text-sm'
-										>
-											📎 Скачать файл
-										</a>
-									)}
-								</div>
+								<FilePreview
+									fileUrl={msg.fileUrl}
+									fileName={msg.fileName}
+									mimeType={msg.fileMimetype}
+								/>
 							)}
 						</div>
 					)

@@ -1,21 +1,27 @@
 {
   "compilerOptions": {
-    "target": "ES2020",                      // ✅ Современнее target
-    "module": "CommonJS",                    // ✅ Для работы с ts-node
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2020", // ✅ Современнее target
+    "module": "CommonJS", // ✅ Для работы с ts-node
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "moduleResolution": "node",              // ✅ Лучше для ts-node
+    "moduleResolution": "node", // ✅ Лучше для ts-node
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": ".", 
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": [
+        "src/*"
+      ]
     },
     "plugins": [
       {
@@ -24,11 +30,15 @@
     ]
   },
   "include": [
-    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "prisma/seed.ts"                         // ✅ явно указываем seed-файл
+    "next-env.d.ts",
+    "prisma/seed.ts" // ✅ явно указываем seed-файл
+    ,
+    "./.next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }
