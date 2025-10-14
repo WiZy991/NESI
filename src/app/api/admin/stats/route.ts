@@ -15,7 +15,7 @@ export async function GET() {
     ] = await Promise.all([
       prisma.user.count(),
       prisma.task.count(),
-      prisma.response.count(),
+      prisma.taskResponse.count(),
       subcategoriesCount > 0
         ? prisma.subcategory.aggregate({
             _avg: { minPrice: true },
