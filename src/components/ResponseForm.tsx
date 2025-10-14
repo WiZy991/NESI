@@ -1,7 +1,6 @@
-// src/components/ResponseForm.tsx
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
 
@@ -18,24 +17,48 @@ export default function ResponseForm({
   subcategoryId?: string
   subcategoryName?: string
 }) {
-  const { token } = useUser()
+  const { token, user } = useUser()
   const [message, setMessage] = useState('')
   const [price, setPrice] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // 🔥 Новые состояния
+  const [hasResponded, setHasResponded] = useState(false)
+  const [loadingCheck, setLoadingCheck] = useState(true)
+
+  // Проверка, есть ли уже отклик
+  useEffect(() => {
+    const checkResponse = async () => {
+      if (!token || !user || user.role !== 'executor') return
+      setLoadingCheck(true)
+      try {
+        const res = await fetch(`/api/tasks/${taskId}/my-response`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        })
+        const data = await res.json()
+        setHasResponded(Boolean(data?.response))
+      } catch (err) {
+        console.error('Ошибка проверки отклика:', err)
+      } finally {
+        setLoadingCheck(false)
+      }
+    }
+    checkResponse()
+  }, [taskId, token, user])
+
+  // 📤 Отправка отклика
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!token) return toast.error('Вы не авторизованы')
     if (!isCertified) return toast.error('Сначала пройдите сертификацию')
-
     if (!message || !price) return toast.error('Заполните сообщение и цену')
 
     const parsedPrice = parseInt(price)
     if (Number.isNaN(parsedPrice)) return toast.error('Некорректная цена')
-    if (parsedPrice < minPrice) return toast.error(`Минимальная цена по категории — ${minPrice}₽`)
+    if (parsedPrice < minPrice)
+      return toast.error(`Минимальная цена по категории — ${minPrice}₽`)
 
-    const payload = { message, price: parsedPrice }
     setLoading(true)
     try {
       const res = await fetch(`/api/tasks/${taskId}/responses`, {
@@ -44,22 +67,16 @@ export default function ResponseForm({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ message, price: parsedPrice }),
       })
 
-      const text = await res.text()
       if (!res.ok) {
-        try {
-          const data = JSON.parse(text)
-          toast.error(data?.error || 'Ошибка при отклике')
-        } catch {
-          toast.error('Ошибка при отклике')
-        }
-        return
+        const data = await res.json().catch(() => null)
+        return toast.error(data?.error || 'Ошибка при отклике')
       }
 
-      toast.success('Отклик отправлен')
-      window.location.reload()
+      toast.success('Отклик отправлен!')
+      setHasResponded(true) // форма исчезает
     } catch (err) {
       console.error('Ошибка сети:', err)
       toast.error('Ошибка сети')
@@ -87,6 +104,18 @@ export default function ResponseForm({
       </div>
     )
 
+  // 💡 Логика отображения
+  if (loadingCheck)
+    return <div className="mt-4 text-sm text-gray-400">Проверка отклика...</div>
+
+  if (hasResponded)
+    return (
+      <div className="mt-6 border-t border-gray-700 pt-4 text-center">
+        <p className="text-emerald-400 font-semibold">✅ Вы уже откликнулись на задачу.</p>
+      </div>
+    )
+
+  // 🧾 Если отклика нет — показываем форму
   return (
     <form onSubmit={handleSubmit} className="mt-6 border-t border-gray-700 pt-4">
       <h2 className="text-lg font-semibold mb-2">Откликнуться</h2>
