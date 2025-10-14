@@ -26,18 +26,20 @@ export default function ResponseForm({
   const [hasResponded, setHasResponded] = useState(false)
   const [loadingCheck, setLoadingCheck] = useState(true)
 
-  // Проверка, есть ли уже отклик
+  // ✅ Проверка, есть ли уже отклик
   useEffect(() => {
     const checkResponse = async () => {
-      if (!token || !user || user.role !== 'executor') return
-      setLoadingCheck(true)
+      if (!token || !user || user.role !== 'executor') {
+        setLoadingCheck(false)
+        return
+      }
       try {
         const res = await fetch(`/api/tasks/${taskId}/my-response`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
         })
         const data = await res.json()
-        setHasResponded(Boolean(data?.response))
+        setHasResponded(Boolean(data?.has)) // ← тут теперь правильно
       } catch (err) {
         console.error('Ошибка проверки отклика:', err)
       } finally {
@@ -70,8 +72,8 @@ export default function ResponseForm({
         body: JSON.stringify({ message, price: parsedPrice }),
       })
 
+      const data = await res.json().catch(() => null)
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
         return toast.error(data?.error || 'Ошибка при отклике')
       }
 
@@ -104,14 +106,16 @@ export default function ResponseForm({
       </div>
     )
 
-  // 💡 Логика отображения
+  // 💡 Отображение
   if (loadingCheck)
     return <div className="mt-4 text-sm text-gray-400">Проверка отклика...</div>
 
   if (hasResponded)
     return (
       <div className="mt-6 border-t border-gray-700 pt-4 text-center">
-        <p className="text-emerald-400 font-semibold">✅ Вы уже откликнулись на задачу.</p>
+        <p className="text-emerald-400 font-semibold">
+          ✅ Вы откликнулись на задачу.
+        </p>
       </div>
     )
 
