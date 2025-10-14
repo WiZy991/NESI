@@ -578,7 +578,6 @@ export default function ProfilePageContent() {
 				</div>
 			)}
 
-			{/* Кнопки действий */}
 			<div className='flex gap-4 flex-wrap justify-center'>
 				<Link
 					href='/profile/edit'
