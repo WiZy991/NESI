@@ -222,6 +222,32 @@ export async function GET(req: NextRequest) {
 			userLastReadAt: userData?.lastPrivateMessageReadAt,
 		})
 
+		// Добавляем отладочную информацию для аватарок
+		console.log('🖼️ Аватарки в приватных чатах:')
+		privateChats.forEach((chat, userId) => {
+			console.log(`  Пользователь ${userId}:`, {
+				fullName: chat.otherUser?.fullName,
+				email: chat.otherUser?.email,
+				avatarUrl: chat.otherUser?.avatarUrl,
+			})
+		})
+
+		console.log('🖼️ Аватарки в чатах задач:')
+		taskChats.forEach((chat, taskId) => {
+			console.log(`  Задача ${taskId}:`, {
+				customer: {
+					fullName: chat.task?.customer?.fullName,
+					email: chat.task?.customer?.email,
+					avatarUrl: chat.task?.customer?.avatarUrl,
+				},
+				executor: {
+					fullName: chat.task?.executor?.fullName,
+					email: chat.task?.executor?.email,
+					avatarUrl: chat.task?.executor?.avatarUrl,
+				},
+			})
+		})
+
 		return NextResponse.json({ chats: allChats })
 	} catch (error) {
 		console.error('Ошибка получения чатов:', error)

@@ -3,7 +3,6 @@
 import MessageInput from '@/components/ChatMessageInput'
 import FilePreview from '@/components/FilePreview'
 import { useUser } from '@/context/UserContext'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
@@ -90,6 +89,31 @@ export default function ChatsPage() {
 				if (res.ok) {
 					setChats(data.chats || [])
 					console.log('✅ Чаты загружены:', data.chats?.length || 0)
+
+					// Отладочная информация для аватарок
+					console.log('🖼️ Аватарки в загруженных чатах:')
+					data.chats?.forEach((chat: any) => {
+						if (chat.type === 'private') {
+							console.log(`  Приватный чат с ${chat.otherUser?.id}:`, {
+								fullName: chat.otherUser?.fullName,
+								email: chat.otherUser?.email,
+								avatarUrl: chat.otherUser?.avatarUrl,
+							})
+						} else if (chat.type === 'task') {
+							console.log(`  Чат задачи ${chat.task?.id}:`, {
+								customer: {
+									fullName: chat.task?.customer?.fullName,
+									email: chat.task?.customer?.email,
+									avatarUrl: chat.task?.customer?.avatarUrl,
+								},
+								executor: {
+									fullName: chat.task?.executor?.fullName,
+									email: chat.task?.executor?.email,
+									avatarUrl: chat.task?.executor?.avatarUrl,
+								},
+							})
+						}
+					})
 				} else {
 					console.error('❌ Ошибка API:', data)
 				}
@@ -426,6 +450,77 @@ export default function ChatsPage() {
 		}
 	}
 
+	// Функция для правильного формирования URL аватарки
+	const getAvatarUrl = (avatarUrl: string | null | undefined) => {
+		if (!avatarUrl) return null
+
+		// Если URL уже абсолютный (начинается с http), возвращаем как есть
+		if (avatarUrl.startsWith('http')) {
+			return avatarUrl
+		}
+
+		// Если URL начинается с /uploads, убираем начальный слеш
+		if (avatarUrl.startsWith('/uploads')) {
+			return avatarUrl.substring(1)
+		}
+
+		// Если URL не начинается с uploads, добавляем uploads/
+		if (!avatarUrl.startsWith('uploads')) {
+			return `uploads/${avatarUrl}`
+		}
+
+		return avatarUrl
+	}
+
+	// Компонент аватарки с fallback
+	const AvatarComponent = ({
+		avatarUrl,
+		fallbackText,
+		size = 48,
+		userId,
+	}: {
+		avatarUrl?: string | null
+		fallbackText: string
+		size?: number
+		userId?: string
+	}) => {
+		const [imageError, setImageError] = useState(false)
+		const [imageLoaded, setImageLoaded] = useState(false)
+
+		// Если есть userId, используем API для получения аватарки
+		const apiAvatarUrl = userId ? `/api/avatars/${userId}` : null
+
+		// Если нет URL или произошла ошибка загрузки, показываем fallback
+		if (!apiAvatarUrl || imageError) {
+			return (
+				<div
+					className='rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'
+					style={{ width: size, height: size }}
+				>
+					{fallbackText.charAt(0).toUpperCase()}
+				</div>
+			)
+		}
+
+		return (
+			<img
+				src={apiAvatarUrl}
+				alt='avatar'
+				width={size}
+				height={size}
+				className='rounded-full object-cover'
+				onError={() => {
+					console.error('❌ Ошибка загрузки аватарки из API:', apiAvatarUrl)
+					setImageError(true)
+				}}
+				onLoad={() => {
+					console.log('✅ Аватарка загружена из API:', apiAvatarUrl)
+					setImageLoaded(true)
+				}}
+			/>
+		)
+	}
+
 	const getChatTitle = (chat: Chat) => {
 		if (chat.type === 'private') {
 			return (
@@ -450,7 +545,7 @@ export default function ChatsPage() {
 
 	if (loading) {
 		return (
-			<div className='min-h-screen bg-black flex items-center justify-center'>
+			<div className='min-h-screen bg-transparent flex items-center justify-center'>
 				<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
 			</div>
 		)
@@ -503,29 +598,22 @@ export default function ChatsPage() {
 									>
 										<div className='flex items-center space-x-3'>
 											{/* Аватар */}
-											<div className='w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'>
-												{chat.type === 'private' ? (
-													chat.otherUser?.avatarUrl ? (
-														<Image
-															src={chat.otherUser.avatarUrl}
-															alt='avatar'
-															width={48}
-															height={48}
-															className='rounded-full'
-														/>
-													) : (
-														(
-															chat.otherUser?.fullName ||
-															chat.otherUser?.email ||
-															'?'
-														)
-															.charAt(0)
-															.toUpperCase()
-													)
-												) : (
-													'📋'
-												)}
-											</div>
+											{chat.type === 'private' ? (
+												<AvatarComponent
+													avatarUrl={chat.otherUser?.avatarUrl}
+													fallbackText={
+														chat.otherUser?.fullName ||
+														chat.otherUser?.email ||
+														'?'
+													}
+													size={48}
+													userId={chat.otherUser?.id}
+												/>
+											) : (
+												<div className='w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'>
+													📋
+												</div>
+											)}
 
 											{/* Информация о чате */}
 											<div className='flex-1 min-w-0'>
@@ -569,23 +657,16 @@ export default function ChatsPage() {
 									<div className='flex items-center space-x-4'>
 										<div className='w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'>
 											{selectedChat.type === 'private' ? (
-												selectedChat.otherUser?.avatarUrl ? (
-													<Image
-														src={selectedChat.otherUser.avatarUrl}
-														alt='avatar'
-														width={40}
-														height={40}
-														className='rounded-full'
-													/>
-												) : (
-													(
+												<AvatarComponent
+													avatarUrl={selectedChat.otherUser?.avatarUrl}
+													fallbackText={
 														selectedChat.otherUser?.fullName ||
 														selectedChat.otherUser?.email ||
 														'?'
-													)
-														.charAt(0)
-														.toUpperCase()
-												)
+													}
+													size={40}
+													userId={selectedChat.otherUser?.id}
+												/>
 											) : (
 												'📋'
 											)}

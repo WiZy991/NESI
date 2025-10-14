@@ -17,6 +17,21 @@ const nextConfig = {
     // ❌ игнорим ошибки типов при билде
     ignoreBuildErrors: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '54112',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+    unoptimized: true, // Отключаем оптимизацию для локальной разработки
+  },
 }
 
 module.exports = nextConfig
