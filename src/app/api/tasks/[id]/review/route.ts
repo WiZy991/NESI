@@ -33,49 +33,43 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: 'Вы не участник задачи' }, { status: 403 })
   }
 
-  // --- Если отзыв уже есть, дополняем его ---
-  if (task.review) {
-    const existingComment = task.review.comment || ''
-
-    if (isCustomer && existingComment.includes('[ОТ ЗАКАЗЧИКА]:')) {
-      return NextResponse.json({ error: 'Вы уже оставили отзыв как заказчик' }, { status: 400 })
-    }
-
-    if (isExecutor && existingComment.includes('[ОТ ИСПОЛНИТЕЛЯ]:')) {
-      return NextResponse.json({ error: 'Вы уже оставили отзыв как исполнитель' }, { status: 400 })
-    }
-
-    // Формируем текст с пометкой
-    const newComment = existingComment + 
-      (existingComment ? '\n' : '') + 
-      (isCustomer
-        ? `[ОТ ЗАКАЗЧИКА]: ${comment}`
-        : `[ОТ ИСПОЛНИТЕЛЯ]: ${comment}`)
-
-    await prisma.review.update({
-      where: { taskId },
+  // Если отзыва ещё нет — создаём пустую запись с JSON
+  let existing = task.review
+  if (!existing) {
+    existing = await prisma.review.create({
       data: {
-        comment: newComment,
-        // рейтинг можно усреднять, но пока просто берём последний
+        taskId,
+        fromUserId: isCustomer ? task.customerId : task.executorId,
+        toUserId: isCustomer ? task.executorId : task.customerId,
         rating,
+        comment: JSON.stringify({ customer: '', executor: '' }),
       },
     })
-
-    return NextResponse.json({ success: true, message: 'Отзыв добавлен' })
   }
 
-  // --- Если отзыв ещё не создан, создаём ---
-  const review = await prisma.review.create({
+  const json = JSON.parse(existing.comment || '{}')
+
+  if (isCustomer) {
+    if (json.customer) {
+      return NextResponse.json({ error: 'Вы уже оставили отзыв' }, { status: 400 })
+    }
+    json.customer = comment
+  }
+
+  if (isExecutor) {
+    if (json.executor) {
+      return NextResponse.json({ error: 'Вы уже оставили отзыв' }, { status: 400 })
+    }
+    json.executor = comment
+  }
+
+  const updated = await prisma.review.update({
+    where: { taskId },
     data: {
       rating,
-      comment: isCustomer
-        ? `[ОТ ЗАКАЗЧИКА]: ${comment}`
-        : `[ОТ ИСПОЛНИТЕЛЯ]: ${comment}`,
-      taskId,
-      fromUserId: user.id,
-      toUserId: isCustomer ? task.executorId : task.customerId,
+      comment: JSON.stringify(json),
     },
   })
 
-  return NextResponse.json({ review })
+  return NextResponse.json({ review: updated })
 }
