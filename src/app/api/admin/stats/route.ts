@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    // Сначала проверим, есть ли подкатегории в базе
     const subcategoriesCount = await prisma.subcategory.count()
 
-    // Теперь безопасно делаем агрегацию, только если есть данные
     const [
       usersCount,
       tasksCount,
