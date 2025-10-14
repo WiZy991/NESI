@@ -17,6 +17,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link className="block hover:text-white" href="/admin/cert">Сертификация</Link>
             <Link className="block hover:text-white" href="/admin/reviews">Отзывы</Link>
             <Link className="block hover:text-white" href="/admin/responses">Отклики</Link>
+            <Link className="block hover:text-white" href="/admin/finance">Финансы</Link>
+            <Link className="block hover:text-white" href="/admin/disputes">
+              Споры
+            </Link>
           </nav>
         </aside>
 

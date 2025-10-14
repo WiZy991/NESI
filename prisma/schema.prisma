@@ -22,6 +22,7 @@ model User {
   avatarUrl    String?
   avatarFileId String? @unique
   avatarFile   File?   @relation("UserAvatar", fields: [avatarFileId], references: [id])
+  last_private_message_read_at DateTime?
 
   location String?
   skills   String[]
@@ -59,6 +60,7 @@ model User {
   communityLikes          CommunityLike[]
   emailVerificationTokens EmailVerificationToken[]
   adminLogs               AdminActionLog[]
+  disputes    Dispute[]
 }
 
 model Task {
@@ -86,8 +88,11 @@ model Task {
   responses TaskResponse[]
   review    Review?
   messages  Message[]
+  files     File[] @relation("TaskFiles")
 
-  files File[] @relation("TaskFiles")
+  transactions Transaction[] @relation("TaskTransactions")
+
+  disputes Dispute[]
 
   @@index([status])
   @@index([customerId])
@@ -135,7 +140,6 @@ model Review {
 model Message {
   id        String   @id @default(uuid())
   content   String
-  // устарело, раньше хранили путь
   fileUrl   String?
   createdAt DateTime @default(now())
   taskId    String
@@ -358,11 +362,16 @@ model Transaction {
   amount    Int
   type      String
   reason    String
+  status    String   @default("pending")
+  reviewedBy String?
   createdAt DateTime @default(now())
+
+  taskId      String?
+  task        Task?     @relation("TaskTransactions", fields: [taskId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
-  @@index([userId, createdAt])
+  @@index([status])
 }
 
 model File {
@@ -462,4 +471,23 @@ model SystemMetric {
   value     Float?
   stringVal String?
   createdAt DateTime @default(now())
+}
+
+
+model Dispute {
+  id          String   @id @default(uuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id])
+  userId      String   // кто открыл спор
+  user        User     @relation(fields: [userId], references: [id])
+  reason      String
+  details     String?
+  status      String   @default("open") // open | resolved | rejected
+  resolution  String?
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([status])
 }

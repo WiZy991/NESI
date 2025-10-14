@@ -11,6 +11,90 @@ import ChatBox from './ChatBox'
 import ReviewForm from './ReviewForm'
 import CancelExecutorButton from './CancelExecutorButton'
 
+// 💥 Форма открытия спора
+function DisputeForm({ taskId, onSuccess }: { taskId: string; onSuccess: () => void }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [details, setDetails] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) {
+      setError('Укажите причину спора')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/disputes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, reason, details }),
+      })
+      if (res.ok) {
+        setIsOpen(false)
+        setReason('')
+        setDetails('')
+        onSuccess()
+      } else {
+        let data = {}
+        try {
+          data = await res.json()
+        } catch {}
+        setError((data as any)?.error || 'Ошибка при создании спора')
+      }
+    } catch (err) {
+      console.error(err)
+      setError('Ошибка соединения с сервером')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen)
+    return (
+      <button
+        onClick={() => setIsOpen(true)}
+        className="px-3 py-1 bg-red-700 hover:bg-red-800 rounded text-white"
+      >
+        Спорная ситуация (Решить)
+      </button>
+    )
+
+  return (
+    <div>
+      <textarea
+        placeholder="Причина спора..."
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        className="w-full p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 mb-2"
+      />
+      <textarea
+        placeholder="Дополнительные детали (опционально)"
+        value={details}
+        onChange={(e) => setDetails(e.target.value)}
+        className="w-full p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 mb-3"
+      />
+      {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="px-3 py-1 bg-green-700 hover:bg-green-800 rounded text-white disabled:opacity-50"
+        >
+          {loading ? 'Отправка...' : 'Отправить спор'}
+        </button>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="px-3 py-1 bg-gray-700 hover:bg-gray-800 rounded text-gray-200"
+        >
+          Отмена
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // Цвета статусов
 const statusColors: Record<string, string> = {
@@ -36,7 +120,7 @@ function getStatusName(status: string) {
   }
 }
 
-// Профиль
+// Ссылка на профиль
 function getUserProfileLink(currentUserId: string | undefined, targetUserId: string) {
   return currentUserId === targetUserId ? '/profile' : `/users/${targetUserId}`
 }
@@ -44,18 +128,17 @@ function getUserProfileLink(currentUserId: string | undefined, targetUserId: str
 export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
   const { token, user } = useUser()
   const [task, setTask] = useState<any>(null)
-
-  // Сертификация
   const [isCertChecking, setIsCertChecking] = useState(false)
   const [isCertified, setIsCertified] = useState(false)
-
-  // 🔒 Флаг «есть активная задача у исполнителя»
   const [hasActive, setHasActive] = useState(false)
   const [loadingActive, setLoadingActive] = useState(true)
-
-  // Управление плашкой сертификации
   const [hintOpen, setHintOpen] = useState(false)
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // 💥 Спор
+  const [hasDispute, setHasDispute] = useState(false)
+  const [disputeInfo, setDisputeInfo] = useState<any>(null)
+
   const openHint = () => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     setHintOpen(true)
@@ -65,6 +148,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
     hideTimerRef.current = setTimeout(() => setHintOpen(false), 350)
   }
 
+  // Загружаем задачу
   useEffect(() => {
     if (!token) return
     const fetchTask = async () => {
@@ -81,7 +165,25 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
     fetchTask()
   }, [token, taskId])
 
-  // Проверка наличия активной задачи у исполнителя
+  // Проверяем спор по задаче
+  useEffect(() => {
+    if (!token) return
+    const checkDispute = async () => {
+      try {
+        const res = await fetch(`/api/disputes/by-task/${taskId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
+        setHasDispute(Boolean(data?.dispute))
+        setDisputeInfo(data?.dispute || null)
+      } catch (err) {
+        console.error('Ошибка проверки спора:', err)
+      }
+    }
+    checkDispute()
+  }, [token, taskId])
+
+  // Проверяем сертификацию и активную задачу (остальное без изменений)
   useEffect(() => {
     let cancelled = false
     const run = async () => {
@@ -110,7 +212,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
     }
   }, [token, user])
 
-  // Проверка сертификации
   useEffect(() => {
     const check = async () => {
       if (!token || !user || user.role !== 'executor') return
@@ -140,23 +241,18 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
   const isExecutor = user?.id === task.executorId
   const isCustomer = user?.id === task.customerId
   const canChat = task.executor && (isExecutor || isCustomer)
-
-  const needCertification = Boolean(task?.subcategory?.id || task?.subcategoryId)
   const subcategoryId: string | undefined = task?.subcategory?.id || task?.subcategoryId
   const subcategoryName: string | undefined = task?.subcategory?.name
   const minPrice: number = task?.subcategory?.minPrice ?? 0
 
   return (
     <div className="max-w-3xl mx-auto p-8 space-y-6">
-      {/* Заголовок */}
       <h1 className="text-4xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]">
         {task.title}
       </h1>
 
-      {/* Описание */}
       <p className="text-gray-300 text-lg">{task.description}</p>
 
-      {/* Автор и дата */}
       <p className="text-sm text-gray-400">
         Автор{' '}
         <Link
@@ -168,7 +264,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         — {new Date(task.createdAt).toLocaleDateString()}
       </p>
 
-      {/* 📎 Файлы, прикреплённые при создании задачи */}
       {task.files?.length > 0 && (
         <div className="mt-2 flex flex-col gap-2">
           {task.files.map((file: any) => {
@@ -196,7 +291,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </div>
       )}
 
-      {/* Статус */}
       <span
         className={`inline-block px-3 py-1 text-sm rounded-full shadow-md ${
           statusColors[task.status] || ''
@@ -205,17 +299,20 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         Статус: {getStatusName(task.status)}
       </span>
 
-      {/* Подкатегория */}
       {subcategoryName && (
         <p className="text-sm text-gray-400">
-          Подкатегория: <span className="font-medium text-gray-200">{subcategoryName}</span>
+          Подкатегория:{' '}
+          <span className="font-medium text-gray-200">{subcategoryName}</span>
           {minPrice > 0 && (
-            <> • минимальная ставка: <span className="text-emerald-400 font-semibold">{minPrice} ₽</span></>
+            <>
+              {' '}
+              • минимальная ставка:{' '}
+              <span className="text-emerald-400 font-semibold">{minPrice} ₽</span>
+            </>
           )}
         </p>
       )}
 
-      {/* Исполнитель */}
       {task.executor && (
         <p className="text-sm text-emerald-300">
           Исполнитель{' '}
@@ -228,17 +325,15 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </p>
       )}
 
-      {/* Кнопки действий */}
       <TaskActionsClient taskId={task.id} authorId={task.customerId} status={task.status} />
 
       {task.status === 'in_progress' && isCustomer && (
-	<>
-        <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
-	<CancelExecutorButton taskId={task.id} />
-	</>
+        <>
+          <CompleteTaskButton taskId={task.id} authorId={task.customerId} />
+          <CancelExecutorButton taskId={task.id} />
+        </>
       )}
 
-      {/* Отзыв */}
       {task.status === 'completed' && task.review && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
           <h2 className="text-lg font-semibold mb-2 text-emerald-300">Отзыв заказчика</h2>
@@ -257,7 +352,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </div>
       )}
 
-      {/* ====== ФОРМА ОТКЛИКА ====== */}
       {user?.role === 'executor' && task.status === 'open' && !task.executorId && (
         <>
           {loadingActive ? (
@@ -275,12 +369,11 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
               isCertified={isCertified}
               subcategoryId={subcategoryId}
               subcategoryName={subcategoryName}
-          />
+            />
           )}
         </>
       )}
 
-      {/* Отклики */}
       {isCustomer && (
         <div className="mt-6">
           <h2 className="text-xl font-semibold text-emerald-300 mb-4">Отклики</h2>
@@ -320,11 +413,39 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
         </div>
       )}
 
-      {/* Чат по задаче (с прикреплением файлов) */}
       {canChat && (
         <div className="mt-6 p-4 rounded-xl bg-black/40 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
           <h2 className="text-lg font-semibold text-emerald-300 mb-2">Чат по задаче</h2>
           <ChatBox taskId={task.id} />
+        </div>
+      )}
+
+      {/* 💥 Споры */}
+      {(isCustomer || isExecutor) && !hasDispute && (
+        <div className="mt-6 p-4 rounded-xl bg-red-900/30 border border-red-700/40 shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+          <h2 className="text-lg font-semibold text-red-400 mb-3">Открыть спор</h2>
+          <DisputeForm
+            taskId={task.id}
+            onSuccess={() => {
+              setHasDispute(true)
+              setDisputeInfo({ status: 'open' })
+            }}
+          />
+        </div>
+      )}
+
+      {hasDispute && disputeInfo?.status === 'open' && (
+        <div className="mt-6 p-4 rounded-xl bg-yellow-900/30 border border-yellow-700/40">
+          <p className="text-yellow-300">
+            ⚖️ По задаче открыт спор. Ожидается решение.
+          </p>
+        </div>
+      )}
+
+      {hasDispute && disputeInfo?.status !== 'open' && (
+        <div className="mt-6 p-4 rounded-xl bg-green-900/30 border border-green-700/40">
+          <h2 className="text-lg font-semibold text-green-400 mb-2">✅ Спор решён</h2>
+          <p className="text-gray-200">{disputeInfo?.resolution || 'Без комментария'}</p>
         </div>
       )}
 
@@ -333,4 +454,4 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       </Link>
     </div>
   )
-}  
+}
