@@ -37,6 +37,12 @@ export default function TaskCatalogPage() {
   const [subcategory, setSubcategory] = useState(searchParams.get('subcategory') || '')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [isSortOpen, setIsSortOpen] = useState(false)
+
+  const sortOptions = [
+    { value: 'new', label: 'Сначала новые' },
+    { value: 'old', label: 'Сначала старые' },
+  ]
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -58,7 +64,7 @@ export default function TaskCatalogPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки')
 
-      // Показываем только открытые задачи
+      // показываем только открытые задачи
       const visibleTasks = (data.tasks || []).filter(
         (task: Task) => task.status === 'open' || !task.status
       )
@@ -158,20 +164,37 @@ export default function TaskCatalogPage() {
             />
           </div>
 
-          {/* Сортировка */}
-          <div className="space-y-2">
+          {/* Кастомный селект сортировки */}
+          <div className="space-y-2 relative">
             <label className="text-emerald-400 text-sm font-medium">Сортировка</label>
-            <div className="relative">
-              <select
-                className="appearance-none w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 hover:border-emerald-400 transition-all cursor-pointer"
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-              >
-                <option value="new">Сначала новые</option>
-                <option value="old">Сначала старые</option>
-              </select>
-              <span className="absolute right-3 top-3 text-emerald-400 pointer-events-none">▼</span>
-            </div>
+            <button
+              onClick={() => setIsSortOpen(!isSortOpen)}
+              className={`w-full flex justify-between items-center p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white hover:border-emerald-400 focus:ring-2 focus:ring-emerald-400 transition-all`}
+            >
+              {sortOptions.find((opt) => opt.value === sort)?.label}
+              <span className="text-emerald-400">▼</span>
+            </button>
+
+            {isSortOpen && (
+              <div className="absolute z-20 mt-2 w-full bg-black/80 border border-emerald-500/30 rounded-lg shadow-[0_0_25px_rgba(16,185,129,0.4)] backdrop-blur-md overflow-hidden">
+                {sortOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setSort(opt.value)
+                      setIsSortOpen(false)
+                    }}
+                    className={`block w-full text-left px-4 py-2 text-sm ${
+                      sort === opt.value
+                        ? 'bg-emerald-700/40 text-emerald-100'
+                        : 'text-emerald-300 hover:bg-emerald-600/30 hover:text-emerald-100'
+                    } transition-all`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Кнопки */}
