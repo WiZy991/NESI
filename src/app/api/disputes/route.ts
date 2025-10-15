@@ -1,25 +1,31 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 
-//Получить споры пользователя
+// 📦 Получить споры пользователя
 export async function GET(req: Request) {
   const user = await getUserFromRequest(req);
-  if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
   const disputes = await prisma.dispute.findMany({
     where: { userId: user.id },
-    include: { task: { select: { id: true, title: true, status: true } } },
+    include: {
+      task: {
+        select: { id: true, title: true, status: true },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
   return NextResponse.json({ disputes });
 }
 
-//Создать спор по задаче
+// ⚡ Создать спор по задаче
 export async function POST(req: Request) {
   const user = await getUserFromRequest(req);
-  if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
   const { taskId, reason, details } = await req.json();
 
@@ -27,7 +33,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Не хватает данных" }, { status: 400 });
   }
 
-  // Проверяем, что пользователь связан с задачей
+  // Проверяем, связан ли пользователь с задачей
   const task = await prisma.task.findFirst({
     where: {
       id: taskId,
@@ -39,6 +45,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Нет доступа к задаче" }, { status: 403 });
   }
 
+  // Проверяем, не существует ли уже спор по этой задаче
+  const existing = await prisma.dispute.findFirst({
+    where: { taskId },
+  });
+  if (existing) {
+    return NextResponse.json({ error: "Спор уже создан" }, { status: 400 });
+  }
+
+  // Создаём новый спор
   const dispute = await prisma.dispute.create({
     data: {
       taskId,

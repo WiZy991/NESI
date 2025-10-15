@@ -486,6 +486,7 @@ model Dispute {
   resolution  String?
   createdAt   DateTime @default(now())
   resolvedAt  DateTime?
+  adminDecision String? // "customer" | "executor"
 
   @@index([taskId])
   @@index([userId])
