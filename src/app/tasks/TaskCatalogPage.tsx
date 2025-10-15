@@ -12,7 +12,11 @@ type Task = {
   description: string
   createdAt: string
   price?: number
+  status: string
   customer: { fullName?: string }
+  executor?: { fullName?: string }
+  category?: { name?: string }
+  subcategory?: { name?: string }
 }
 
 type Category = {
@@ -59,7 +63,12 @@ export default function TaskCatalogPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки')
 
-      setTasks(data.tasks || [])
+      // 🔥 фильтруем "в работе" и "выполненные"
+      const filtered = (data.tasks || []).filter(
+        (t: Task) => t.status !== 'in_progress' && t.status !== 'completed'
+      )
+
+      setTasks(filtered)
       setTotalPages(data.pagination?.totalPages || 1)
     } catch (err: any) {
       console.error('Ошибка загрузки задач:', err)
@@ -131,8 +140,8 @@ export default function TaskCatalogPage() {
   )
 
   return (
-    <div className="relative max-w-[95rem] mx-auto px-8 py-10 space-y-8">
-      {/* Фон с мягким свечением */}
+    <div className="relative max-w-[1600px] mx-auto px-10 py-10 space-y-8">
+      {/* Фон */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(16,185,129,0.08),transparent_70%)]" />
 
       <h1 className="text-5xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]">
@@ -144,7 +153,7 @@ export default function TaskCatalogPage() {
         onSelectSubcategory={handleSubcategorySelect}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-10">
         {/* Фильтры */}
         <aside className="bg-black/40 backdrop-blur-sm border border-emerald-500/30 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.25)] p-6 sticky top-28 h-fit">
           <input
@@ -154,16 +163,6 @@ export default function TaskCatalogPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <select
-            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="">Все статусы</option>
-            <option value="open">Открыта</option>
-            <option value="in_progress">В работе</option>
-            <option value="completed">Выполнена</option>
-          </select>
           <select
             className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             value={sort}
@@ -189,7 +188,7 @@ export default function TaskCatalogPage() {
           </div>
         </aside>
 
-        {/* Задачи */}
+        {/* Список задач */}
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {loading || userLoading ? (
             renderSkeleton()
@@ -197,7 +196,7 @@ export default function TaskCatalogPage() {
             <div className="text-red-400">{error}</div>
           ) : tasks.length === 0 ? (
             <div className="col-span-full text-center py-16 text-gray-400 text-lg">
-              😔 Задач пока нет
+              😔 Нет доступных задач
             </div>
           ) : (
             <>
@@ -211,43 +210,51 @@ export default function TaskCatalogPage() {
                       {task.title}
                     </h2>
                   </Link>
+
                   <p className="text-gray-300 line-clamp-3">{task.description}</p>
+
+                  <div className="flex flex-col text-sm text-gray-400 space-y-1">
+                    {task.category?.name && (
+                      <p>
+                        <span className="text-emerald-400">Категория:</span>{' '}
+                        {task.category.name}
+                        {task.subcategory?.name ? ` / ${task.subcategory.name}` : ''}
+                      </p>
+                    )}
+                    <p>
+                      <span className="text-emerald-400">Автор:</span>{' '}
+                      {task.customer?.fullName || 'Без имени'}
+                    </p>
+                    {task.executor?.fullName && (
+                      <p>
+                        <span className="text-emerald-400">Исполнитель:</span>{' '}
+                        {task.executor.fullName}
+                      </p>
+                    )}
+                    <p>
+                      <span className="text-emerald-400">Создано:</span>{' '}
+                      {new Date(task.createdAt).toLocaleDateString('ru-RU')}
+                    </p>
+                  </div>
+
                   {task.price && (
                     <p className="text-emerald-400 font-medium">💰 {task.price} ₽</p>
                   )}
-                  <p className="text-sm text-gray-400">
-                    Автор: {task.customer?.fullName || 'Без имени'} —{' '}
-                    {new Date(task.createdAt).toLocaleDateString('ru-RU')}
-                  </p>
+
+                  <div className="pt-2">
+                    <Link
+                      href={`/tasks/${task.id}`}
+                      className="inline-block text-sm px-4 py-2 border border-emerald-400 text-emerald-300 rounded-lg hover:bg-emerald-400 hover:text-black transition"
+                    >
+                      Подробнее →
+                    </Link>
+                  </div>
                 </div>
               ))}
             </>
           )}
         </section>
       </div>
-
-      {/* Пагинация */}
-      {tasks.length > 0 && (
-        <div className="flex justify-center items-center gap-6 mt-10">
-          <button
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page === 1}
-            className="px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 transition"
-          >
-            ← Назад
-          </button>
-          <span className="text-gray-400 text-lg">
-            Страница {page} из {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-            disabled={page === totalPages}
-            className="px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 transition"
-          >
-            Далее →
-          </button>
-        </div>
-      )}
     </div>
   )
 }
