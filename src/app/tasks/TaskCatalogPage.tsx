@@ -1,5 +1,3 @@
-Вот код src/app/tasks/TaskCatalogPage.tsx, добавь в него чего-нибудь, ну и то о чем я просил. 
-
 'use client'
 
 import CategoryDropdown from '@/components/CategoryDropdown'
@@ -14,6 +12,7 @@ type Task = {
   description: string
   createdAt: string
   price?: number
+  status?: string
   customer: { fullName?: string }
 }
 
@@ -61,7 +60,12 @@ export default function TaskCatalogPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки')
 
-      setTasks(data.tasks || [])
+      // 👇 ФИЛЬТРУЕМ: убираем задачи "в работе" и "выполненные"
+      const visibleTasks = (data.tasks || []).filter(
+        (task: Task) => task.status !== 'in_progress' && task.status !== 'completed'
+      )
+
+      setTasks(visibleTasks)
       setTotalPages(data.pagination?.totalPages || 1)
     } catch (err: any) {
       console.error('Ошибка загрузки задач:', err)
@@ -145,7 +149,7 @@ export default function TaskCatalogPage() {
 
       <div className="flex gap-8">
         {/* Фильтры */}
-       <div className="w-72 sticky top-28 self-start p-6 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-4">
+        <div className="w-72 sticky top-28 self-start p-6 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-4">
           <input
             type="text"
             placeholder="Поиск..."
