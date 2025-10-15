@@ -1,3 +1,5 @@
+Вот код src/app/tasks/TaskCatalogPage.tsx, добавь в него чего-нибудь, ну и то о чем я просил. 
+
 'use client'
 
 import CategoryDropdown from '@/components/CategoryDropdown'
@@ -12,11 +14,7 @@ type Task = {
   description: string
   createdAt: string
   price?: number
-  status: string
   customer: { fullName?: string }
-  executor?: { fullName?: string }
-  category?: { name?: string }
-  subcategory?: { name?: string }
 }
 
 type Category = {
@@ -63,12 +61,7 @@ export default function TaskCatalogPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки')
 
-      // 🔥 фильтруем "в работе" и "выполненные"
-      const filtered = (data.tasks || []).filter(
-        (t: Task) => t.status !== 'in_progress' && t.status !== 'completed'
-      )
-
-      setTasks(filtered)
+      setTasks(data.tasks || [])
       setTotalPages(data.pagination?.totalPages || 1)
     } catch (err: any) {
       console.error('Ошибка загрузки задач:', err)
@@ -125,8 +118,8 @@ export default function TaskCatalogPage() {
   )
 
   const renderSkeleton = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      {Array.from({ length: 6 }).map((_, i) => (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
           className="p-6 border border-emerald-500/30 rounded-xl bg-black/40 animate-pulse shadow-[0_0_25px_rgba(16,185,129,0.2)] space-y-3"
@@ -140,11 +133,8 @@ export default function TaskCatalogPage() {
   )
 
   return (
-    <div className="relative max-w-[1600px] mx-auto px-10 py-10 space-y-8">
-      {/* Фон */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(16,185,129,0.08),transparent_70%)]" />
-
-      <h1 className="text-5xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]">
+    <div className="space-y-8">
+      <h1 className="text-4xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]">
         Каталог задач
       </h1>
 
@@ -153,107 +143,102 @@ export default function TaskCatalogPage() {
         onSelectSubcategory={handleSubcategorySelect}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-10">
+      <div className="flex gap-8">
         {/* Фильтры */}
-        <aside className="bg-black/40 backdrop-blur-sm border border-emerald-500/30 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.25)] p-6 sticky top-28 h-fit">
+       <div className="w-72 sticky top-28 self-start p-6 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-4">
           <input
             type="text"
-            placeholder="🔍 Поиск..."
-            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 mb-4"
+            placeholder="Поиск..."
+            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
           />
           <select
-            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            value={status}
+            onChange={e => setStatus(e.target.value)}
+          >
+            <option value="">Все статусы</option>
+            <option value="open">Открыта</option>
+            <option value="in_progress">В работе</option>
+            <option value="completed">Выполнена</option>
+          </select>
+          <select
+            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
+            onChange={e => setSort(e.target.value)}
           >
             <option value="new">Сначала новые</option>
             <option value="old">Сначала старые</option>
           </select>
+          <button
+            onClick={applyFilters}
+            className="w-full py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold"
+          >
+            Применить
+          </button>
+          <button
+            onClick={resetFilters}
+            className="w-full py-2 rounded-lg border border-gray-500 text-gray-300 hover:bg-gray-600 hover:text-white transition"
+          >
+            Сбросить
+          </button>
+        </div>
 
-          <div className="flex flex-col gap-3 mt-4">
-            <button
-              onClick={applyFilters}
-              className="w-full py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold"
-            >
-              Применить
-            </button>
-            <button
-              onClick={resetFilters}
-              className="w-full py-2 rounded-lg border border-gray-500 text-gray-300 hover:bg-gray-600 hover:text-white transition"
-            >
-              Сбросить
-            </button>
-          </div>
-        </aside>
-
-        {/* Список задач */}
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* Задачи */}
+        <div className="flex-1 ml-80 space-y-6">
           {loading || userLoading ? (
             renderSkeleton()
           ) : error ? (
             <div className="text-red-400">{error}</div>
           ) : tasks.length === 0 ? (
-            <div className="col-span-full text-center py-16 text-gray-400 text-lg">
-              😔 Нет доступных задач
-            </div>
+            <div className="text-gray-400">Задач пока нет</div>
           ) : (
             <>
-              {tasks.map((task) => (
+              {tasks.map(task => (
                 <div
                   key={task.id}
-                  className="p-6 border border-emerald-500/30 rounded-xl bg-gradient-to-br from-black/60 to-emerald-900/10 hover:from-black/80 hover:to-emerald-900/20 shadow-[0_0_25px_rgba(16,185,129,0.15)] hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] transition-all duration-300 space-y-3 hover:scale-[1.02]"
+                  className="p-6 border border-emerald-500/30 rounded-xl bg-black/40 shadow-[0_0_25px_rgba(16,185,129,0.2)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transition space-y-2"
                 >
                   <Link href={`/tasks/${task.id}`}>
                     <h2 className="text-xl font-semibold text-emerald-300 hover:underline cursor-pointer">
                       {task.title}
                     </h2>
                   </Link>
-
-                  <p className="text-gray-300 line-clamp-3">{task.description}</p>
-
-                  <div className="flex flex-col text-sm text-gray-400 space-y-1">
-                    {task.category?.name && (
-                      <p>
-                        <span className="text-emerald-400">Категория:</span>{' '}
-                        {task.category.name}
-                        {task.subcategory?.name ? ` / ${task.subcategory.name}` : ''}
-                      </p>
-                    )}
-                    <p>
-                      <span className="text-emerald-400">Автор:</span>{' '}
-                      {task.customer?.fullName || 'Без имени'}
-                    </p>
-                    {task.executor?.fullName && (
-                      <p>
-                        <span className="text-emerald-400">Исполнитель:</span>{' '}
-                        {task.executor.fullName}
-                      </p>
-                    )}
-                    <p>
-                      <span className="text-emerald-400">Создано:</span>{' '}
-                      {new Date(task.createdAt).toLocaleDateString('ru-RU')}
-                    </p>
-                  </div>
-
+                  <p className="text-gray-300">{task.description}</p>
                   {task.price && (
                     <p className="text-emerald-400 font-medium">💰 {task.price} ₽</p>
                   )}
-
-                  <div className="pt-2">
-                    <Link
-                      href={`/tasks/${task.id}`}
-                      className="inline-block text-sm px-4 py-2 border border-emerald-400 text-emerald-300 rounded-lg hover:bg-emerald-400 hover:text-black transition"
-                    >
-                      Подробнее →
-                    </Link>
-                  </div>
+                  <p className="text-sm text-gray-400">
+                    Автор: {task.customer?.fullName || 'Без имени'} —{' '}
+                    {new Date(task.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
               ))}
+
+              {/* Пагинация */}
+              <div className="flex justify-center items-center gap-6 mt-8">
+                <button
+                  onClick={() => setPage(p => Math.max(p - 1, 1))}
+                  disabled={page === 1}
+                  className="px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40"
+                >
+                  ← Назад
+                </button>
+                <span className="text-gray-400">
+                  Страница {page} из {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+                  disabled={page === totalPages}
+                  className="px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40"
+                >
+                  Далее →
+                </button>
+              </div>
             </>
           )}
-        </section>
+        </div>
       </div>
     </div>
   )
