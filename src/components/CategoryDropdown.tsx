@@ -49,32 +49,19 @@ export default function CategoryDropdown({ categories, onSelectSubcategory }: Pr
           onMouseEnter={() => handleMouseEnter(category.id)}
           onMouseLeave={handleMouseLeave}
         >
-          {/* Кнопка категории */}
           <button
-            className={`
-              px-5 py-2 rounded-xl border border-emerald-500/30 
-              bg-black/40 text-emerald-300 font-medium transition-all duration-200
-              hover:bg-emerald-700/30 hover:text-emerald-100 
-              hover:shadow-[0_0_25px_rgba(16,185,129,0.6)]
-              ${hoveredCategoryId === category.id ? 'bg-emerald-700/40 shadow-[0_0_25px_rgba(16,185,129,0.6)] text-emerald-100' : ''}
-            `}
+            className={`px-5 py-2 rounded-xl border border-emerald-500/30 bg-black/40 text-emerald-300 font-medium transition-all duration-200 hover:bg-emerald-700/30 hover:text-emerald-100 hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] ${hoveredCategoryId === category.id ? 'bg-emerald-700/40 shadow-[0_0_25px_rgba(16,185,129,0.6)] text-emerald-100' : ''}`}
           >
             {category.name}
           </button>
 
-          {/* Подкатегории */}
           {hoveredCategoryId === category.id && category.subcategories.length > 0 && (
-            <div
-              className="absolute left-0 z-20 mt-2 min-w-[220px] bg-black/80 border border-emerald-500/30 
-                         rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.4)] backdrop-blur-md p-2 
-                         animate-fadeIn space-y-1"
-            >
+            <div className="absolute left-0 z-20 mt-2 min-w-[220px] bg-black/80 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.4)] backdrop-blur-md p-2 animate-fadeIn space-y-1">
               {category.subcategories.map((subcat) => (
                 <button
                   key={subcat.id}
                   onClick={() => handleSubcategoryClick(subcat.id)}
-                  className="w-full text-left px-4 py-2 rounded-lg text-sm text-emerald-300 
-                             hover:bg-emerald-600/30 hover:text-emerald-100 transition-all"
+                  className="w-full text-left px-4 py-2 rounded-lg text-sm text-emerald-300 hover:bg-emerald-600/30 hover:text-emerald-100 transition-all"
                 >
                   {subcat.name}
                 </button>
