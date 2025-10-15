@@ -1,5 +1,3 @@
-Вот мой src/components/TaskDetailPageContent.tsx, добавь в него нововведения! Но не ломай то что уже есть! Дай мне полный код!
-
 'use client'
 
 import { useUser } from '@/context/UserContext'
