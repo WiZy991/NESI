@@ -127,7 +127,6 @@ export default function CommunityPage() {
 
           <div className="mt-10 border-t border-gray-800 pt-4 text-xs text-gray-500 space-y-1">
             <p>NESI Community © {new Date().getFullYear()}</p>
-            <p className="text-gray-600">Вдохновлено Reddit 🌿</p>
           </div>
         </aside>
 
