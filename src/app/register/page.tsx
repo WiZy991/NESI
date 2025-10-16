@@ -85,35 +85,42 @@ export default function RegisterPage() {
             className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
           />
 
-          {/* 🔽 Стилизованный SELECT */}
-          <div className="relative">
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'customer' | 'executor')}
-              className="w-full p-3 bg-black/30 border border-emerald-400/50 rounded-lg text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition appearance-none relative cursor-pointer"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to right, rgba(0,255,150,0.1), rgba(0,255,150,0.05))," +
-                  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' fill='%2310b981' viewBox='0 0 20 20'><path d='M10 12l-5-5h10l-5 5z'/></svg>\")",
-                backgroundRepeat: 'no-repeat, no-repeat',
-                backgroundPosition: 'right 0.75rem center, 0 0',
-                backgroundSize: '1.2rem auto, 100%',
-              }}
-            >
-              <option
-                value="customer"
-                className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
-              >
-                Заказчик
-              </option>
-              <option
-                value="executor"
-                className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
-              >
-                Исполнитель
-              </option>
-            </select>
-          </div>
+         {/* 🔽 Стилизованный SELECT со стрелочкой */}
+<div className="relative">
+  <select
+    value={role}
+    onChange={(e) => setRole(e.target.value as 'customer' | 'executor')}
+    className="w-full p-3 bg-black/30 border border-emerald-400/50 rounded-lg text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition appearance-none cursor-pointer pr-10"
+  >
+    <option
+      value="customer"
+      className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
+    >
+      Заказчик
+    </option>
+    <option
+      value="executor"
+      className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
+    >
+      Исполнитель
+    </option>
+  </select>
+
+  {/* SVG стрелочка */}
+  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="#10b981"
+      className="w-5 h-5 opacity-80 group-hover:opacity-100 transition"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  </div>
+</div>
+
 
           <button
             type="submit"
