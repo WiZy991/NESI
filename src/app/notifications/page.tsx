@@ -10,6 +10,7 @@ interface Notification {
   type: string
   message: string
   link?: string
+  userId?: string
   isRead: boolean
   createdAt: string
 }
@@ -43,12 +44,10 @@ export default function NotificationsPage() {
         const data = await res.json()
         setNotifications(data.notifications || [])
 
-        // 📌 Отметим как прочитанные
         await fetch('/api/notifications/mark-all-read', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         })
-
         setUnreadCount(0)
       } catch (err) {
         console.error('Ошибка загрузки уведомлений:', err)
@@ -68,13 +67,7 @@ export default function NotificationsPage() {
 
       {notifications.length === 0 ? (
         <div className="flex flex-col items-center text-gray-400 py-12">
-          <svg width="56" height="56" fill="none" viewBox="0 0 56 56">
-            <rect width="56" height="56" rx="28" fill="#111" />
-            <path d="M18 35V22a2 2 0 012-2h16a2 2 0 012 2v13" stroke="#555" strokeWidth="2" />
-            <path d="M20 38h16" stroke="#555" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="28" cy="28" r="27" stroke="#333" strokeWidth="2" />
-          </svg>
-          <span className="mt-4 text-lg">Уведомлений пока нет</span>
+          <p className="mt-4 text-lg">Уведомлений пока нет</p>
         </div>
       ) : (
         <ul className="space-y-4">
@@ -93,14 +86,15 @@ export default function NotificationsPage() {
                 <p className="text-xs text-gray-500">
                   {new Date(n.createdAt).toLocaleString()}
                 </p>
-                {n.link && (
-                  <Link
-                    href={n.link}
-                    className="text-blue-400 text-sm hover:underline mt-2 inline-block"
-                  >
+                {n.link ? (
+                  <Link href={n.link} className="text-blue-400 text-sm hover:underline mt-2 inline-block">
                     Перейти →
                   </Link>
-                )}
+                ) : n.userId ? (
+                  <Link href={`/chats?open=${n.userId}`} className="text-blue-400 text-sm hover:underline mt-2 inline-block">
+                    Перейти в чат →
+                  </Link>
+                ) : null}
               </div>
             </li>
           ))}
