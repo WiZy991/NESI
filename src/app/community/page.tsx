@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import {
@@ -19,6 +20,7 @@ type Author = {
   id: string
   fullName: string | null
   email: string
+  avatarFileId?: string | null
   avatarUrl?: string | null
 }
 
@@ -33,14 +35,35 @@ type Post = {
   _count: { comments: number; likes: number }
 }
 
+function resolveAvatarUrl(fileId?: string | null) {
+  if (!fileId) return null
+  if (!fileId.startsWith('http')) return `/api/files/${fileId}`
+  return fileId
+}
+
 export default function CommunityPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, token } = useUser()
+
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
   const [likeLoading, setLikeLoading] = useState<string | null>(null)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
 
+  // 🔄 фильтр из URL
+  const currentFilter = (searchParams.get('sort') as 'popular' | null)
+    ? 'popular'
+    : (searchParams.get('filter') as 'my' | null)
+    ? 'my'
+    : 'new'
+  const [filter, setFilter] = useState<'new' | 'popular' | 'my'>(currentFilter)
+
+  useEffect(() => {
+    setFilter(currentFilter)
+  }, [currentFilter])
+
+  // 🚀 Загрузка постов
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -56,26 +79,37 @@ export default function CommunityPage() {
     fetchPosts()
   }, [])
 
-  if (loading) return <LoadingSpinner />
+  const changeFilter = (type: 'new' | 'popular' | 'my') => {
+    setFilter(type)
+    if (type === 'popular') router.push('/community?sort=popular')
+    else if (type === 'my') router.push('/community?filter=my')
+    else router.push('/community')
+  }
 
-  const filtered =
-    filter === 'my'
-      ? posts.filter((p) => p.author.id === user?.id)
-      : filter === 'popular'
-      ? [...posts].sort(
-          (a, b) =>
-            b._count.likes + b._count.comments - (a._count.likes + a._count.comments)
-        )
-      : [...posts].sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )
-
-  const topPosts = [...posts]
-    .sort(
-      (a, b) => b._count.comments + b._count.likes - (a._count.comments + a._count.likes)
+  const filtered = useMemo(() => {
+    if (filter === 'my') return posts.filter((p) => p.author.id === user?.id)
+    if (filter === 'popular')
+      return [...posts].sort(
+        (a, b) =>
+          b._count.likes + b._count.comments - (a._count.likes + a._count.comments)
+      )
+    return [...posts].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
-    .slice(0, 5)
+  }, [filter, posts, user])
+
+  const topPosts = useMemo(
+    () =>
+      [...posts]
+        .sort(
+          (a, b) =>
+            b._count.comments + b._count.likes -
+            (a._count.comments + a._count.likes)
+        )
+        .slice(0, 5),
+    [posts]
+  )
 
   const toggleLike = async (postId: string) => {
     if (!token) return
@@ -95,7 +129,9 @@ export default function CommunityPage() {
                   liked: data.liked,
                   _count: {
                     ...p._count,
-                    likes: data.liked ? p._count.likes + 1 : p._count.likes - 1,
+                    likes: data.liked
+                      ? p._count.likes + 1
+                      : p._count.likes - 1,
                   },
                 }
               : p
@@ -129,12 +165,15 @@ export default function CommunityPage() {
         setPosts((prev) => prev.filter((p) => p.id !== id))
         alert('✅ Пост удалён')
       } else {
-        alert('Ошибка удаления поста')
+        const err = await res.json()
+        alert(err?.error || 'Ошибка удаления поста')
       }
     } catch {
       alert('Ошибка сети при удалении поста')
     }
   }
+
+  if (loading) return <LoadingSpinner />
 
   return (
     <div className="min-h-screen text-white">
@@ -144,7 +183,7 @@ export default function CommunityPage() {
           <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
           <nav className="flex flex-col gap-2 text-sm">
             <button
-              onClick={() => setFilter('new')}
+              onClick={() => changeFilter('new')}
               className={`flex items-center gap-2 px-3 py-2 rounded-md transition ${
                 filter === 'new'
                   ? 'bg-emerald-600/20 text-emerald-300'
@@ -154,7 +193,7 @@ export default function CommunityPage() {
               <Home className="w-4 h-4" /> Новые
             </button>
             <button
-              onClick={() => setFilter('popular')}
+              onClick={() => changeFilter('popular')}
               className={`flex items-center gap-2 px-3 py-2 rounded-md transition ${
                 filter === 'popular'
                   ? 'bg-emerald-600/20 text-emerald-300'
@@ -165,7 +204,7 @@ export default function CommunityPage() {
             </button>
             {user && (
               <button
-                onClick={() => setFilter('my')}
+                onClick={() => changeFilter('my')}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md transition ${
                   filter === 'my'
                     ? 'bg-emerald-600/20 text-emerald-300'
@@ -177,7 +216,7 @@ export default function CommunityPage() {
             )}
             <Link
               href="/community/new"
-              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 text-center justify-center font-medium transition"
+              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 justify-center font-medium transition"
             >
               <Plus className="w-4 h-4" /> Создать тему
             </Link>
@@ -207,9 +246,9 @@ export default function CommunityPage() {
                       href={`/users/${post.author.id}`}
                       className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
                     >
-                      {post.author.avatarUrl ? (
+                      {post.author.avatarUrl || post.author.avatarFileId ? (
                         <img
-                          src={post.author.avatarUrl}
+                          src={resolveAvatarUrl(post.author.avatarFileId || post.author.avatarUrl)}
                           alt="avatar"
                           className="w-10 h-10 rounded-full object-cover border border-emerald-700/40"
                         />
