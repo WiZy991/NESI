@@ -56,28 +56,11 @@ export default function MyTasksPage() {
     fetchTasks()
   }, [token, user])
 
-  if (loading) {
-    return <p className="text-center mt-10 text-gray-400">Загрузка задач...</p>
-  }
+  if (loading) return <p className="text-center mt-10 text-gray-400">Загрузка задач...</p>
+  if (error)   return <p className="text-center mt-10 text-red-400">Ошибка: {error}</p>
 
-  if (error) {
-    return (
-      <p className="text-center mt-10 text-red-400">
-        Ошибка: {error}
-      </p>
-    )
-  }
-
-  const stats = {
-    open: 0,
-    in_progress: 0,
-    completed: 0,
-    cancelled: 0,
-  }
-
-  tasks.forEach((t) => {
-    if (stats[t.status] !== undefined) stats[t.status]++
-  })
+  const stats = { open: 0, in_progress: 0, completed: 0, cancelled: 0 }
+  tasks.forEach((t) => { if (stats[t.status] !== undefined) stats[t.status]++ })
 
   const total = tasks.length || 1
   const percentages = {
@@ -100,7 +83,7 @@ export default function MyTasksPage() {
         Мои задачи
       </motion.h1>
 
-      {/* Панель статистики */}
+      {/* Статистика */}
       <div className="bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(0,255,150,0.15)] p-6 mb-10 backdrop-blur-md">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-emerald-400">📊 Статистика</h2>
@@ -122,11 +105,9 @@ export default function MyTasksPage() {
         </div>
       </div>
 
-      {/* Список задач (Grid Layout) */}
+      {/* Список задач (Grid) */}
       {tasks.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
-          У вас пока нет задач.
-        </div>
+        <div className="text-center py-16 text-gray-500">У вас пока нет задач.</div>
       ) : (
         <motion.ul
           className="grid gap-6 md:grid-cols-2"
@@ -134,43 +115,56 @@ export default function MyTasksPage() {
           animate="visible"
           variants={{
             hidden: { opacity: 0 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+            visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
           }}
         >
-          {tasks.map((task) => (
-            <motion.li
-              key={task.id}
-              variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
-              className={`relative bg-black/40 border-l-4 ${statusColorMap[task.status]} rounded-xl p-5 hover:shadow-[0_0_18px_rgba(0,255,150,0.2)] transition backdrop-blur-sm`}
-            >
-              <div className="flex justify-between items-start">
-                <h2 className="text-lg font-semibold text-emerald-400 mb-1">
-                  {task.title}
-                </h2>
-                <p className="text-sm text-gray-400">
-                  {statusMap[task.status] || task.status}
-                </p>
-              </div>
+          {tasks.map((task) => {
+            const customerName =
+              task.customer?.fullName || task.customer?.email || '—'
+            const customerId = task.customer?.id
 
-              <p className="text-sm text-gray-400 mt-1">
-                Заказчик:{' '}
-                <span className="text-blue-400">
-                  {task.customer?.fullName || task.customer?.email || '—'}
-                </span>
-              </p>
-
-              <p className="text-sm text-gray-300 mt-2 italic">
-                {task.description || 'Без описания'}
-              </p>
-
-              <Link
-                href={`/tasks/${task.id}`}
-                className="mt-3 inline-block text-sm text-blue-400 hover:underline hover:text-blue-300 transition"
+            return (
+              <motion.li
+                key={task.id}
+                variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+                className={`relative bg-black/40 border-l-4 ${statusColorMap[task.status]} rounded-xl p-5 hover:shadow-[0_0_18px_rgba(0,255,150,0.2)] transition backdrop-blur-sm`}
               >
-                Перейти к задаче →
-              </Link>
-            </motion.li>
-          ))}
+                <div className="flex justify-between items-start">
+                  <h2 className="text-lg font-semibold text-emerald-400 mb-1">
+                    {task.title}
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    {statusMap[task.status] || task.status}
+                  </p>
+                </div>
+
+                <p className="text-sm text-gray-400 mt-1">
+                  Заказчик:{' '}
+                  {customerId ? (
+                    <Link
+                      href={`/users/${customerId}`}
+                      className="text-blue-400 hover:text-blue-300 hover:underline transition"
+                    >
+                      {customerName}
+                    </Link>
+                  ) : (
+                    <span className="text-blue-300/70 cursor-default">{customerName}</span>
+                  )}
+                </p>
+
+                <p className="text-sm text-gray-300 mt-2 italic">
+                  {task.description || 'Без описания'}
+                </p>
+
+                <Link
+                  href={`/tasks/${task.id}`}
+                  className="mt-3 inline-block text-sm text-blue-400 hover:underline hover:text-blue-300 transition"
+                >
+                  Перейти к задаче →
+                </Link>
+              </motion.li>
+            )
+          })}
         </motion.ul>
       )}
     </div>
