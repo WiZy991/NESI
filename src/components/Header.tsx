@@ -97,21 +97,16 @@ export default function Header() {
 			eventSource.onmessage = event => {
 				try {
 					const data = JSON.parse(event.data)
-					console.log('📨 Получено SSE сообщение:', data)
-
 					if (data.type === 'message') {
 						showNotification(data)
 						fetchUnreadMessages()
-					} else if (data.type === 'heartbeat') {
-						console.log('💓 SSE heartbeat получен')
 					}
 				} catch (error) {
-					console.error('Ошибка парсинга SSE сообщения:', error)
+					console.error('Ошибка SSE:', error)
 				}
 			}
 
-			eventSource.onerror = error => {
-				console.error('❌ Ошибка SSE:', error)
+			eventSource.onerror = () => {
 				setSseConnected(false)
 				setTimeout(() => {
 					if (user && token) connectSSE()
@@ -145,45 +140,15 @@ export default function Header() {
 				} catch {}
 			}
 
-			if ('Notification' in window && Notification.permission === 'granted') {
-				const notification = new Notification(data.title, {
-					body: `${data.sender}: ${data.message}`,
-					icon: '/favicon.ico',
-					tag: data.messageId,
-				})
-
-				notification.onclick = () => {
-					window.focus()
-					if (data.chatType === 'private') {
-						router.push('/chats')
-					} else if (data.chatType === 'task') {
-						router.push(`/tasks/${data.chatId.replace('task_', '')}`)
-					}
-					notification.close()
-				}
-				setTimeout(() => notification.close(), 5000)
-			}
-
 			setNotifications(prev => [data, ...prev.slice(0, 4)])
-		}
-
-		if ('Notification' in window && Notification.permission === 'default') {
-			Notification.requestPermission()
 		}
 
 		fetchUnreadMessages()
 		connectSSE()
 
 		const interval = setInterval(fetchUnreadMessages, 30000)
-		const handleChatOpened = () => fetchUnreadMessages()
-		const handleMessageSent = () => fetchUnreadMessages()
-		window.addEventListener('chatOpened', handleChatOpened)
-		window.addEventListener('messageSent', handleMessageSent)
-
 		return () => {
 			clearInterval(interval)
-			window.removeEventListener('chatOpened', handleChatOpened)
-			window.removeEventListener('messageSent', handleMessageSent)
 			if (eventSourceRef.current) eventSourceRef.current.close()
 		}
 	}, [user, token])
@@ -198,35 +163,19 @@ export default function Header() {
 			})
 			setUnreadCount(0)
 		} catch (err) {
-			console.error('Ошибка при отметке уведомлений как прочитанных', err)
+			console.error('Ошибка при отметке уведомлений', err)
 		}
 	}
 
 	const handleNotificationClick = async (notif: any) => {
 		setNotifOpen(false)
 		await markAllRead()
-
 		if (notif.userId || notif.senderId) {
 			const targetId = notif.userId || notif.senderId
 			router.push(`/chats?open=${targetId}`)
 			return
 		}
-
-		if (notif.link && notif.link.includes('/messages/')) {
-			router.push('/chats')
-			return
-		}
-
-		if (notif.link) {
-			router.push(notif.link)
-			return
-		}
-
-		if (notif.chatType === 'private') {
-			router.push('/chats')
-		} else if (notif.chatType === 'task' && notif.chatId) {
-			router.push(`/tasks/${notif.chatId.replace('task_', '')}`)
-		}
+		if (notif.link) router.push(notif.link)
 	}
 
 	const handleGoToNotifications = async () => {
@@ -235,24 +184,23 @@ export default function Header() {
 		router.push('/notifications')
 	}
 
-	// ========== 🎨 Красивые стили ==========
+	// 🌿 Универсальный стиль ссылок
 	const linkStyle =
-		'font-[500] text-[15px] tracking-wide px-2 py-1 relative transition-all duration-200 hover:text-emerald-400 hover:drop-shadow-[0_0_6px_rgba(16,185,129,0.6)]'
-	// =====================================
+		'font-medium text-[15px] tracking-wide px-2 py-1 relative transition-all duration-300 hover:text-emerald-400 hover:drop-shadow-[0_0_6px_rgba(16,185,129,0.6)] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-emerald-400 after:transition-all after:duration-300 hover:after:w-full'
 
 	return (
-		<header className="w-full px-8 py-4 flex justify-between items-center bg-black/80 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] font-[Poppins] relative z-50">
+		<header className="w-full px-8 py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50">
 			<Link
 				href="/"
-				className="text-2xl font-bold text-emerald-400 tracking-wider hover:scale-105 hover:drop-shadow-[0_0_12px_rgba(16,185,129,0.6)] transition-all duration-200"
+				className="text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]"
 			>
 				NESI
 			</Link>
 
-			<nav className="flex gap-7 items-center text-gray-200">
+			<nav className="flex gap-7 items-center text-gray-200 font-poppins">
 				{user ? (
 					<>
-						{/* Уведомления */}
+						{/* 🔔 Уведомления */}
 						<div className="relative" ref={notifRef}>
 							<button
 								onClick={() => setNotifOpen(v => !v)}
@@ -270,7 +218,7 @@ export default function Header() {
 							</button>
 
 							{notifOpen && (
-								<div className="absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden">
+								<div className="absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden animate-fadeIn">
 									<div className="max-h-64 overflow-y-auto custom-scrollbar">
 										{notifications.length === 0 ? (
 											<div className="p-4 text-center text-gray-400">
@@ -281,7 +229,7 @@ export default function Header() {
 											notifications.map((notif, index) => (
 												<div
 													key={index}
-													className="p-3 border-b border-gray-700 hover:bg-gray-800 transition cursor-pointer"
+													className="p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer"
 													onClick={() => handleNotificationClick(notif)}
 												>
 													<div className="flex items-start space-x-3">
@@ -300,9 +248,6 @@ export default function Header() {
 																	📋 {notif.taskTitle}
 																</p>
 															)}
-															<p className="text-xs text-gray-500 mt-1">
-																{new Date(notif.timestamp).toLocaleTimeString()}
-															</p>
 														</div>
 													</div>
 												</div>
@@ -321,7 +266,7 @@ export default function Header() {
 							)}
 						</div>
 
-						{/* Остальная навигация */}
+						{/* 🧭 Основная навигация */}
 						{user.role === 'admin' ? (
 							<>
 								<Link href="/admin" className={linkStyle}>
@@ -370,6 +315,7 @@ export default function Header() {
 									Профиль
 								</Link>
 
+								{/* 📂 Выпадающее меню */}
 								<div className="relative" ref={menuRef}>
 									<button
 										onClick={() => setMenuOpen(v => !v)}
@@ -378,10 +324,10 @@ export default function Header() {
 										Ещё ▾
 									</button>
 									{menuOpen && (
-										<div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+										<div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-emerald-500/30 rounded-lg shadow-lg z-50 animate-fadeIn">
 											<Link
 												href="/chats"
-												className="block px-4 py-2 hover:bg-gray-700 transition relative"
+												className="block px-4 py-2 hover:bg-gray-700/60 transition relative"
 												onClick={() => setMenuOpen(false)}
 											>
 												💬 Чаты
@@ -393,27 +339,26 @@ export default function Header() {
 											</Link>
 											<Link
 												href="/community"
-												className="block px-4 py-2 hover:bg-gray-700 transition"
+												className="block px-4 py-2 hover:bg-gray-700/60 transition"
 												onClick={() => setMenuOpen(false)}
 											>
 												🏘️ Сообщество
 											</Link>
 											<Link
 												href="/hire"
-												className="block px-4 py-2 hover:bg-gray-700 transition"
+												className="block px-4 py-2 hover:bg-gray-700/60 transition"
 												onClick={() => setMenuOpen(false)}
 											>
 												📑 Запросы найма
 											</Link>
 
-											{/* 👇 Кнопка выхода теперь внизу */}
 											<div className="border-t border-gray-700 mt-1">
 												<button
 													onClick={() => {
 														setMenuOpen(false)
 														handleLogout()
 													}}
-													className="block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 transition"
+													className="block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700/60 transition"
 												>
 													🚪 Выйти
 												</button>
@@ -428,7 +373,7 @@ export default function Header() {
 					<>
 						<Link
 							href="/login"
-							className="px-5 py-2 rounded-full border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-[500]"
+							className="px-5 py-2 rounded-full border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-medium"
 						>
 							Вход
 						</Link>
