@@ -18,50 +18,30 @@ export async function GET(req: Request) {
 					task: true,
 				},
 			},
-			avatarFile: true, // 👈 подтягиваем аватар
-			level: true, // уровень пользователя
+			avatarFile: true,
+			level: true,
 			badges: {
-				include: {
-					badge: true,
-				},
-				orderBy: {
-					earnedAt: 'desc',
-				},
+				include: { badge: true },
+				orderBy: { earnedAt: 'desc' },
 			},
 			certifications: {
-				include: {
-					subcategory: true,
-				},
-				orderBy: {
-					grantedAt: 'desc',
-				},
+				include: { subcategory: true },
+				orderBy: { grantedAt: 'desc' },
 			},
 			executedTasks: {
-				where: {
-					status: 'completed',
-				},
+				where: { status: 'completed' },
 				include: {
 					customer: {
-						select: {
-							id: true,
-							fullName: true,
-							email: true,
-						},
+						select: { id: true, fullName: true, email: true },
 					},
 					review: true,
 				},
-				orderBy: {
-					completedAt: 'desc',
-				},
-				take: 10, // последние 10 выполненных задач
+				orderBy: { completedAt: 'desc' },
+				take: 10,
 			},
 			_count: {
 				select: {
-					executedTasks: {
-						where: {
-							status: 'completed',
-						},
-					},
+					executedTasks: { where: { status: 'completed' } },
 					reviewsReceived: true,
 					responses: true,
 				},
@@ -69,12 +49,28 @@ export async function GET(req: Request) {
 		},
 	})
 
-	// Если есть avatarFileId — добавляем ссылку на API
+	if (!fullUser)
+		return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
+
+	// === Расчёт среднего рейтинга ===
+	const reviews = await prisma.review.findMany({
+		where: { toUserId: user.id },
+		select: { rating: true },
+	})
+
+	const avgRating =
+		reviews.length > 0
+			? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+			: null
+
+	// Аватар
 	const avatarUrl = fullUser?.avatarFileId
 		? `/api/files/${fullUser.avatarFileId}`
 		: null
 
-	return NextResponse.json({ user: { ...fullUser, avatarUrl } })
+	return NextResponse.json({
+		user: { ...fullUser, avatarUrl, avgRating },
+	})
 }
 
 export async function PATCH(req: Request) {
@@ -87,7 +83,6 @@ export async function PATCH(req: Request) {
 		let dataToUpdate: any = {}
 
 		if (contentType.includes('multipart/form-data')) {
-			// === multipart/form-data ===
 			const formData = await req.formData()
 
 			const fullName = formData.get('fullName') as string
@@ -121,8 +116,6 @@ export async function PATCH(req: Request) {
 
 			if (avatar && avatar.size > 0) {
 				const bytes = Buffer.from(await avatar.arrayBuffer())
-
-				// сохраняем в File
 				const savedFile = await prisma.file.create({
 					data: {
 						id: randomUUID(),
@@ -132,11 +125,9 @@ export async function PATCH(req: Request) {
 						data: bytes,
 					},
 				})
-
 				dataToUpdate.avatarFileId = savedFile.id
 			}
 		} else {
-			// === JSON ===
 			const body = await req.json()
 			const { fullName, role, password, description, location, skills } = body
 

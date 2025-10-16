@@ -536,4 +536,4 @@ export default function EditProfilePage() {
       </div>
     </ProtectedPage>
   )
-}
+} 
