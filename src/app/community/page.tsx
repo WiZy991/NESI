@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import ReportModal from '@/components/ReportModal'
 import {
   Flame,
   User,
@@ -14,8 +15,6 @@ import {
   Plus,
   Compass,
   Home,
-  Send,
-  X,
 } from 'lucide-react'
 
 /* ===============================
@@ -26,101 +25,6 @@ function resolveAvatarUrl(avatar?: string | null) {
   if (!avatar.startsWith('http') && !avatar.startsWith('/'))
     return `/api/files/${avatar}`
   return avatar
-}
-
-/* ===============================
-   📋 Модалка жалобы
-=============================== */
-function ReportModal({
-  target,
-  onClose,
-}: {
-  target: { type: 'post'; id: string }
-  onClose: () => void
-}) {
-  const [reason, setReason] = useState('')
-  const [text, setText] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const sendReport = async () => {
-    if (!reason) return alert('Выберите причину')
-    setLoading(true)
-    try {
-      const res = await fetch('/api/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: target.type,
-          reason,
-          description: text,
-          postId: target.id,
-        }),
-      })
-      if (res.ok) {
-        alert('✅ Жалоба отправлена. Спасибо!')
-        onClose()
-      } else {
-        const err = await res.json().catch(() => ({}))
-        alert('Ошибка: ' + (err.error || 'не удалось отправить'))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-900 p-6 rounded-xl w-full max-w-md relative border border-gray-700">
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-white"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        <h2 className="text-xl font-semibold text-emerald-400 mb-4">
-          ⚠️ Сообщить о нарушении
-        </h2>
-
-        <div className="space-y-3">
-          <label className="block text-sm text-gray-300">Причина жалобы:</label>
-          <select
-            className="w-full bg-black/40 border border-gray-700 rounded-md p-2 text-white"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          >
-            <option value="">-- выберите --</option>
-            <option value="spam">Спам или реклама</option>
-            <option value="insult">Оскорбление / агрессия</option>
-            <option value="nsfw">Неприемлемый контент (NSFW, насилие)</option>
-            <option value="politics">Политика / дискриминация</option>
-            <option value="other">Другое</option>
-          </select>
-
-          <textarea
-            placeholder="Опишите подробнее (необязательно)"
-            className="w-full bg-black/40 border border-gray-700 rounded-md p-2 text-white"
-            rows={3}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-
-          <button
-            onClick={sendReport}
-            disabled={loading}
-            className="mt-3 flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 rounded-md py-2 font-semibold disabled:opacity-50"
-          >
-            {loading ? (
-              'Отправка...'
-            ) : (
-              <>
-                <Send className="w-4 h-4" /> Отправить жалобу
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 /* ===============================
@@ -136,6 +40,7 @@ export default function CommunityPage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [reportTarget, setReportTarget] = useState<{ type: 'post'; id: string } | null>(null)
 
+  // загрузка фильтра из URL
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
@@ -144,6 +49,7 @@ export default function CommunityPage() {
     else setFilter('new')
   }, [])
 
+  // загрузка постов
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -159,6 +65,7 @@ export default function CommunityPage() {
     fetchPosts()
   }, [])
 
+  // изменение фильтра с обновлением URL
   const changeFilter = (type: 'new' | 'popular' | 'my') => {
     setFilter(type)
     if (type === 'popular') router.push('/community?sort=popular')
@@ -168,29 +75,28 @@ export default function CommunityPage() {
 
   if (loading) return <LoadingSpinner />
 
+  // фильтрация постов
   const filtered =
     filter === 'my'
       ? posts.filter((p) => p.author.id === user?.id)
       : filter === 'popular'
       ? [...posts].sort(
           (a, b) =>
-            b._count.likes + b._count.comments -
-            (a._count.likes + a._count.comments)
+            b._count.likes + b._count.comments - (a._count.likes + a._count.comments)
         )
       : [...posts].sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() -
-            new Date(a.createdAt).getTime()
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )
 
+  // топ 5 постов справа
   const topPosts = [...posts]
     .sort(
       (a, b) =>
-        b._count.comments + b._count.likes -
-        (a._count.comments + a._count.likes)
+        b._count.comments + b._count.likes - (a._count.comments + a._count.likes)
     )
     .slice(0, 5)
 
+  // лайк
   const toggleLike = async (postId: string) => {
     if (!token) return
     setLikeLoading(postId)
@@ -209,9 +115,7 @@ export default function CommunityPage() {
                   liked: data.liked,
                   _count: {
                     ...p._count,
-                    likes: data.liked
-                      ? p._count.likes + 1
-                      : p._count.likes - 1,
+                    likes: data.liked ? p._count.likes + 1 : p._count.likes - 1,
                   },
                 }
               : p
@@ -225,11 +129,13 @@ export default function CommunityPage() {
     }
   }
 
+  // копировать ссылку
   const copyLink = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/community/${id}`)
     alert('📋 Ссылка на пост скопирована!')
   }
 
+  // удаление поста
   const deletePost = async (id: string) => {
     if (!confirm('Удалить этот пост?')) return
     try {
@@ -270,6 +176,7 @@ export default function CommunityPage() {
             >
               <Home className="w-4 h-4" /> Новые
             </button>
+
             <button
               onClick={() => changeFilter('popular')}
               className={`flex items-center gap-2 px-3 py-2 rounded-md transition ${
@@ -280,6 +187,7 @@ export default function CommunityPage() {
             >
               <Flame className="w-4 h-4" /> Популярные
             </button>
+
             {user && (
               <button
                 onClick={() => changeFilter('my')}
@@ -292,6 +200,7 @@ export default function CommunityPage() {
                 <User className="w-4 h-4" /> Мои темы
               </button>
             )}
+
             <Link
               href="/community/new"
               className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 justify-center font-medium transition"
@@ -299,6 +208,7 @@ export default function CommunityPage() {
               <Plus className="w-4 h-4" /> Создать тему
             </Link>
           </nav>
+
           <div className="mt-10 border-t border-gray-800 pt-4 text-xs text-gray-500 space-y-1">
             <p>NESI Community © 🌿{new Date().getFullYear()}</p>
           </div>
@@ -317,7 +227,7 @@ export default function CommunityPage() {
                   key={post.id}
                   className="group border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative"
                 >
-                  {/* Автор и меню */}
+                  {/* Автор */}
                   <div className="flex items-start justify-between text-sm text-gray-400 relative">
                     <Link
                       href={`/users/${post.author.id}`}
@@ -361,6 +271,7 @@ export default function CommunityPage() {
                       >
                         <MoreHorizontal className="w-5 h-5" />
                       </button>
+
                       {openMenu === post.id && (
                         <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
                           <button
@@ -372,6 +283,7 @@ export default function CommunityPage() {
                           >
                             📋 Копировать ссылку
                           </button>
+
                           <button
                             onClick={() => {
                               setReportTarget({ type: 'post', id: post.id })
@@ -381,6 +293,7 @@ export default function CommunityPage() {
                           >
                             🚨 Пожаловаться
                           </button>
+
                           {user?.id === post.author.id && (
                             <button
                               onClick={() => {
@@ -446,8 +359,7 @@ export default function CommunityPage() {
                       onClick={(e) => e.stopPropagation()}
                       className="flex items-center gap-1 hover:text-blue-400 transition"
                     >
-                      <MessageSquare className="w-4 h-4" />{' '}
-                      {post._count.comments}
+                      <MessageSquare className="w-4 h-4" /> {post._count.comments}
                     </Link>
                   </div>
                 </div>
@@ -493,7 +405,7 @@ export default function CommunityPage() {
         </aside>
       </div>
 
-      {/* модалка жалобы */}
+      {/* Модалка жалобы */}
       {reportTarget && (
         <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
       )}
