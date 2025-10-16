@@ -206,7 +206,7 @@ export default function Starfield() {
       }
 
       // Новый метеор каждые 10–14 секунд
-      if (performance.now() - lastMeteor > 10000 + Math.random() * 4000) {
+      if (performance.now() - lastMeteor > 6000 + Math.random() * 4000) {
         createMeteor()
         lastMeteor = performance.now()
       }
