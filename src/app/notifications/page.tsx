@@ -86,14 +86,20 @@ export default function NotificationsPage() {
                 <p className="text-xs text-gray-500">
                   {new Date(n.createdAt).toLocaleString()}
                 </p>
-                {n.link ? (
-                  <Link href={n.link} className="text-blue-400 text-sm hover:underline mt-2 inline-block">
-                    Перейти →
-                  </Link>
-                ) : n.userId ? (
-                  <Link href={`/chats?open=${n.userId}`} className="text-blue-400 text-sm hover:underline mt-2 inline-block">
+                {n.userId ? (
+                <Link
+                  href={`/chats?open=${n.userId}`}
+                  className="text-blue-400 text-sm hover:underline mt-2 inline-block"
+                  >
                     Перейти в чат →
                   </Link>
+                  ) : n.link ? (
+                  <Link
+                      href={n.link}
+                      className="text-blue-400 text-sm hover:underline mt-2 inline-block"
+                      >
+                          Перейти →
+                      </Link>
                 ) : null}
               </div>
             </li>
