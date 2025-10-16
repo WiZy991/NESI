@@ -327,7 +327,7 @@ export default function CommunityPage() {
                     </Link>
                   </div>
                 </div>
-              ))}
+              ))
             </div>
           )}
         </main>
@@ -340,35 +340,35 @@ export default function CommunityPage() {
 
           <div className="space-y-3">
             {topPosts.map((p) => (
-              <Link
-                href={`/community/${p.id}`}
-                key={p.id}
-                className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
-              >
-                {p.imageUrl ? (
-                  <img
-                    src={p.imageUrl}
-                    alt=""
-                    className="w-14 h-14 object-cover rounded-md border border-gray-800"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
-                    нет фото
-                  </div>
-                )}
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-200 line-clamp-2">
-                    {p.title || p.content.slice(0, 60)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    ❤️ {p._count.likes} • 💬 {p._count.comments}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </aside>
+  <Link
+    href={`/community/${p.id}`}
+    key={p.id}
+    className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
+  >
+    {p.imageUrl ? (
+      <img
+        src={p.imageUrl}
+        alt=""
+        className="w-14 h-14 object-cover rounded-md border border-gray-800"
+      />
+    ) : (
+      <div className="w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
+        нет фото
       </div>
+    )}
+    <div className="flex-1">
+      <p className="text-sm font-medium text-gray-200 line-clamp-2">
+        {p.title || p.content.slice(0, 60)}
+      </p>
+      <p className="text-xs text-gray-500 mt-1">
+        ❤️ {p._count.likes} • 💬 {p._count.comments}
+      </p>
     </div>
-  )
+  </Link>
+))} {/* ← закрыли map */}
+</div> {/* ← закрыли контейнер div */}
+</aside> {/* ← закрыли правую колонку */}
+</div> {/* ← закрыли max-w-7xl */}
+</div> {/* ← закрыли min-h-screen */}
+) // ← конец return
 }
