@@ -57,7 +57,6 @@ export default function CommunityPage() {
 
   if (loading) return <LoadingSpinner />
 
-  // 🔄 сортировка / фильтры
   const filtered =
     filter === 'my'
       ? posts.filter((p) => p.author.id === user?.id)
@@ -77,7 +76,6 @@ export default function CommunityPage() {
     )
     .slice(0, 5)
 
-  // ❤️ обработчик лайка
   const toggleLike = async (postId: string) => {
     if (!token) return
     setLikeLoading(postId)
@@ -162,7 +160,7 @@ export default function CommunityPage() {
           </div>
         </aside>
 
-        {/* ───── ЦЕНТРАЛЬНАЯ КОЛОНКА ───── */}
+        {/* ───── ЦЕНТР ───── */}
         <main className="flex-1 max-w-2xl">
           {filtered.length === 0 ? (
             <p className="text-gray-400 text-center mt-20">
@@ -171,79 +169,88 @@ export default function CommunityPage() {
           ) : (
             <div className="flex flex-col gap-4">
               {filtered.map((post) => (
-                <Link
+                <div
                   key={post.id}
-                  href={`/community/${post.id}`}
-                  className="block group border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative"
+                  className="group border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative"
                 >
-                  {/* верхняя строка */}
-                  <div className="flex items-center justify-between text-sm text-gray-400">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-emerald-300">
-                        {post.author.fullName || post.author.email}
-                      </span>
-                      <span>•</span>
-                      <span>
-                        {new Date(post.createdAt).toLocaleDateString('ru-RU', {
-                          day: '2-digit',
-                          month: 'short',
-                        })}
-                      </span>
-                    </div>
-                    <MoreHorizontal className="w-4 h-4 text-gray-500" />
-                  </div>
-
-                  {/* контент */}
-                  <div className="mt-2">
-                    {post.title && (
-                      <h2 className="block text-lg font-semibold text-white group-hover:text-emerald-400 transition">
-                        {post.title}
-                      </h2>
-                    )}
-                    <p className="text-gray-300 mt-1 whitespace-pre-line line-clamp-3">
-                      {post.content}
-                    </p>
-                    {post.imageUrl && (
-                      <div className="mt-3">
-                        <img
-                          src={post.imageUrl}
-                          alt=""
-                          className="rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[450px]"
-                        />
+                  {/* кликабельная зона поста */}
+                  <Link
+                    href={`/community/${post.id}`}
+                    className="block cursor-pointer"
+                  >
+                    {/* верх */}
+                    <div className="flex items-center justify-between text-sm text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-emerald-300">
+                          {post.author.fullName || post.author.email}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          {new Date(post.createdAt).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </span>
                       </div>
-                    )}
+                      <MoreHorizontal className="w-4 h-4 text-gray-500" />
+                    </div>
+
+                    {/* контент */}
+                    <div className="mt-2">
+                      {post.title && (
+                        <h2 className="block text-lg font-semibold text-white group-hover:text-emerald-400 transition">
+                          {post.title}
+                        </h2>
+                      )}
+                      <p className="text-gray-300 mt-1 whitespace-pre-line line-clamp-3">
+                        {post.content}
+                      </p>
+                      {post.imageUrl && (
+                        <div className="mt-3">
+                          <img
+                            src={post.imageUrl}
+                            alt=""
+                            className="rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[450px]"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+
+                  {/* нижняя панель */}
+                  <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
+                    {/* ❤️ лайк */}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleLike(post.id)
+                      }}
+                      disabled={likeLoading === post.id}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md border border-transparent cursor-pointer transition ${
+                        post.liked
+                          ? 'text-pink-500 bg-pink-500/10 border-pink-500/40 hover:bg-pink-500/20'
+                          : 'hover:text-pink-400 hover:border-pink-400/30 hover:bg-pink-500/10'
+                      }`}
+                    >
+                      <Heart
+                        className={`w-4 h-4 ${
+                          post.liked ? 'fill-pink-500 text-pink-500' : ''
+                        }`}
+                      />
+                      {post._count.likes}
+                    </button>
+
+                    {/* 💬 комментарии */}
+                    <Link
+                      href={`/community/${post.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 hover:text-blue-400 transition"
+                    >
+                      <MessageSquare className="w-4 h-4" /> {post._count.comments}
+                    </Link>
                   </div>
-
-                 {/* нижняя панель действий */}
-<div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
-  {/* ❤️ лайк — отдельная кнопка, не срабатывает переход */}
-  <button
-    onClick={(e) => {
-      e.stopPropagation(); // блокируем клик по ссылке
-      toggleLike(post.id);
-    }}
-    disabled={likeLoading === post.id}
-    className={`flex items-center gap-1 transition ${
-      post.liked
-        ? 'text-pink-500 hover:text-pink-400'
-        : 'hover:text-pink-400'
-    }`}
-  >
-    <Heart className="w-4 h-4" />
-    {post._count.likes}
-  </button>
-
-  {/* 💬 переход по клику на комментарии */}
-  <Link
-    href={`/community/${post.id}`}
-    onClick={(e) => e.stopPropagation()}
-    className="flex items-center gap-1 hover:text-blue-400 transition"
-  >
-    <MessageSquare className="w-4 h-4" /> {post._count.comments}
-  </Link>
-</div>
-
-                </Link>
+                </div>
               ))}
             </div>
           )}
