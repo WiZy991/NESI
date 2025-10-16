@@ -4,274 +4,248 @@ import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import {
-  FaAward,
-  FaCalendarAlt,
-  FaCertificate,
-  FaChartLine,
-  FaDatabase,
-  FaGlobe,
-  FaJs,
-  FaPython,
-  FaStar,
-  FaTasks,
-  FaToolbox,
-  FaTrophy,
-  FaUserCircle,
+	FaAward,
+	FaCalendarAlt,
+	FaCertificate,
+	FaChartLine,
+	FaDatabase,
+	FaGlobe,
+	FaJs,
+	FaPython,
+	FaStar,
+	FaTasks,
+	FaToolbox,
+	FaTrophy,
+	FaUserCircle,
 } from 'react-icons/fa'
 
 type Review = {
-  id: string
-  rating: number
-  comment: string
-  createdAt: string
-  task: { title: string }
-  fromUser: { fullName?: string; email: string }
+	id: string
+	rating: number
+	comment: string
+	createdAt: string
+	task: { title: string }
+	fromUser: { fullName?: string; email: string }
 }
 
 type FullUser = {
-  id: string
-  fullName?: string
-  email: string
-  role: string
-  description?: string
-  location?: string
-  skills?: string[]
-  avatarUrl?: string
-  balance?: number
-  xp?: number
-  completedTasksCount?: number
-  avgRating?: number
-  level?: {
-    id: string
-    name: string
-    description: string
-    slug: string
-  }
-  badges?: Array<{
-    id: string
-    earnedAt: string
-    badge: {
-      id: string
-      name: string
-      description: string
-      icon: string
-    }
-  }>
-  certifications?: Array<{
-    id: string
-    level: string
-    grantedAt: string
-    subcategory: {
-      id: string
-      name: string
-    }
-  }>
-  executedTasks?: Array<{
-    id: string
-    title: string
-    description: string
-    price?: number
-    completedAt?: string
-    customer: {
-      id: string
-      fullName?: string
-      email: string
-    }
-    review?: {
-      id: string
-      rating: number
-      comment: string
-    }
-  }>
-  _count?: {
-    executedTasks: number
-    reviewsReceived: number
-    responses: number
-  }
+	id: string
+	fullName?: string
+	email: string
+	role: string
+	description?: string
+	location?: string
+	skills?: string[]
+	avatarUrl?: string
+	balance?: number
+	xp?: number
+	completedTasksCount?: number
+	avgRating?: number
+	level?: {
+		id: string
+		name: string
+		description: string
+		slug: string
+	}
+	badges?: Array<{
+		id: string
+		earnedAt: string
+		badge: {
+			id: string
+			name: string
+			description: string
+			icon: string
+		}
+	}>
+	certifications?: Array<{
+		id: string
+		level: string
+		grantedAt: string
+		subcategory: {
+			id: string
+			name: string
+		}
+	}>
+	executedTasks?: Array<{
+		id: string
+		title: string
+		description: string
+		price?: number
+		completedAt?: string
+		customer: {
+			id: string
+			fullName?: string
+			email: string
+		}
+		review?: {
+			id: string
+			rating: number
+			comment: string
+		}
+	}>
+	_count?: {
+		executedTasks: number
+		reviewsReceived: number
+		responses: number
+	}
 }
 
 const getSkillIcon = (skill: string) => {
-  const lower = skill.toLowerCase()
-  if (lower.includes('python')) return <FaPython className='mr-1 text-emerald-400' />
-  if (lower.includes('js') || lower.includes('javascript')) return <FaJs className='mr-1 text-yellow-400' />
-  if (lower.includes('sql') || lower.includes('db')) return <FaDatabase className='mr-1 text-blue-400' />
-  if (lower.includes('dns') || lower.includes('network')) return <FaGlobe className='mr-1 text-indigo-400' />
-  return <FaToolbox className='mr-1 text-gray-400' />
+	const lower = skill.toLowerCase()
+	if (lower.includes('python')) return <FaPython className='mr-1 text-emerald-400' />
+	if (lower.includes('js') || lower.includes('javascript')) return <FaJs className='mr-1 text-yellow-400' />
+	if (lower.includes('sql') || lower.includes('db')) return <FaDatabase className='mr-1 text-blue-400' />
+	if (lower.includes('dns') || lower.includes('network')) return <FaGlobe className='mr-1 text-indigo-400' />
+	return <FaToolbox className='mr-1 text-gray-400' />
 }
 
 export default function ProfilePageContent() {
-  const { user, token, loading, login } = useUser()
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [profile, setProfile] = useState<FullUser | null>(null)
-  const [loadingProfile, setLoadingProfile] = useState(true)
+	const { user, token, loading, login } = useUser()
+	const [reviews, setReviews] = useState<Review[]>([])
+	const [profile, setProfile] = useState<FullUser | null>(null)
+	const [loadingProfile, setLoadingProfile] = useState(true)
+	const [transactions, setTransactions] = useState<any[]>([])
+	const [amount, setAmount] = useState(100)
 
-  const [transactions, setTransactions] = useState<any[]>([])
-  const [amount, setAmount] = useState(100)
+	useEffect(() => {
+		if (!token) return
+		const fetchProfile = async () => {
+			try {
+				const res = await fetch('/api/profile', {
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				if (!res.ok) throw new Error('Ошибка загрузки профиля')
+				const data = await res.json()
+				setProfile(data.user)
+				login(data.user, token)
+				const txRes = await fetch('/api/wallet/transactions', {
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				const txData = await txRes.json()
+				setTransactions(txData.transactions || [])
+			} catch (err) {
+				console.error('Ошибка загрузки профиля:', err)
+			} finally {
+				setLoadingProfile(false)
+			}
+		}
+		fetchProfile()
+	}, [token])
 
-  useEffect(() => {
-    if (!token) return
+	useEffect(() => {
+		const fetchReviews = async () => {
+			if (!user || user.role !== 'executor') return
+			try {
+				const res = await fetch('/api/reviews/me', {
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+				})
+				const data = await res.json()
+				setReviews(data.reviews || [])
+			} catch (err) {
+				console.error('Ошибка загрузки отзывов:', err)
+			}
+		}
+		fetchReviews()
+	}, [user, token])
 
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch('/api/profile', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) throw new Error('Ошибка загрузки профиля')
-        const data = await res.json()
-        setProfile(data.user)
-        login(data.user, token)
+	const handleDeposit = async () => {
+		await fetch('/api/wallet/deposit', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({ amount }),
+		})
+		location.reload()
+	}
 
-        // Баланс
-        const txRes = await fetch('/api/wallet/transactions', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        const txData = await txRes.json()
-        setTransactions(txData.transactions || [])
-      } catch (err) {
-        console.error('Ошибка загрузки профиля:', err)
-      } finally {
-        setLoadingProfile(false)
-      }
-    }
+	const handleWithdraw = async () => {
+		await fetch('/api/wallet/withdraw', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({ amount }),
+		})
+		location.reload()
+	}
 
-    fetchProfile()
-  }, [token])
+	if (loading || !user || loadingProfile || !profile) {
+		return <div className='p-6 text-gray-400'>Загрузка профиля...</div>
+	}
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      if (!user || user.role !== 'executor') return
-      try {
-        const res = await fetch('/api/reviews/me', {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        const data = await res.json()
-        setReviews(data.reviews || [])
-      } catch (err) {
-        console.error('Ошибка загрузки отзывов:', err)
-      }
-    }
+	const avatarSrc = profile.avatarUrl
+		? profile.avatarUrl.startsWith('http')
+			? profile.avatarUrl
+			: `${typeof window !== 'undefined' ? window.location.origin : ''}${profile.avatarUrl}`
+		: null
 
-    fetchReviews()
-  }, [user, token])
+	const getProfileTitle = () => {
+		switch (user.role) {
+			case 'executor':
+				return 'Профиль исполнителя'
+			case 'customer':
+				return 'Профиль заказчика'
+			case 'admin':
+				return 'Профиль администратора'
+			default:
+				return 'Профиль пользователя'
+		}
+	}
 
-  const handleDeposit = async () => {
-    await fetch('/api/wallet/deposit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ amount }),
-    })
-    location.reload()
-  }
+	const roleColors: Record<string, string> = {
+		executor: 'text-emerald-400',
+		customer: 'text-cyan-400',
+		admin: 'text-amber-400',
+	}
 
-  const handleWithdraw = async () => {
-    await fetch('/api/wallet/withdraw', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ amount }),
-    })
-    location.reload()
-  }
+	return (
+		<div className='p-6 max-w-6xl mx-auto space-y-8'>
+			<h1 className={`text-4xl font-bold mb-6 flex items-center gap-3 ${roleColors[user.role] || 'text-emerald-400'}`}>
+				<FaUserCircle className='text-3xl' />
+				{getProfileTitle()}
+			</h1>
 
-  if (loading || !user || loadingProfile || !profile) {
-    return <div className='p-6 text-gray-400'>Загрузка профиля...</div>
-  }
+			{/* Основная информация */}
+			<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+				<div className='lg:col-span-1 space-y-6'>
+					{/* Аватар и основная инфа */}
+					<div className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] text-center'>
+						{avatarSrc ? (
+							<img
+								src={avatarSrc}
+								alt='Avatar'
+								className='w-32 h-32 rounded-full border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)] mx-auto mb-4 object-cover'
+							/>
+						) : (
+							<FaUserCircle className='text-gray-600 w-32 h-32 mx-auto mb-4' />
+						)}
 
-  // Корректируем URL для аватара
-  const avatarSrc = profile.avatarUrl
-    ? profile.avatarUrl.startsWith('http')
-      ? profile.avatarUrl
-      : `${typeof window !== 'undefined' ? window.location.origin : ''}${profile.avatarUrl}`
-    : null
+						<h2 className='text-2xl font-bold text-white mb-2'>{profile.fullName || 'Без имени'}</h2>
+						<p className='text-gray-400 mb-1'>{profile.email}</p>
+						{profile.location && <p className='text-emerald-300 mb-4'>📍 {profile.location}</p>}
 
-  // 🎯 Заголовок и цвет по роли
-  const getProfileTitle = () => {
-    switch (user.role) {
-      case 'executor':
-        return 'Профиль исполнителя'
-      case 'customer':
-        return 'Профиль заказчика'
-      case 'admin':
-        return 'Профиль администратора'
-      default:
-        return 'Профиль пользователя'
-    }
-  }
+						{/* Уровень и опыт - только для исполнителя */}
+						{user.role === 'executor' && profile.level && (
+							<div className='bg-emerald-500/20 p-3 rounded-lg mb-4'>
+								<div className='flex items-center justify-center gap-2 mb-1'>
+									<FaTrophy className='text-yellow-400' />
+									<span className='font-semibold text-emerald-300'>{profile.level.name}</span>
+								</div>
+								<p className='text-sm text-gray-300'>{profile.level.description}</p>
+								<div className='mt-2 flex items-center justify-center gap-2'>
+									<FaChartLine className='text-blue-400' />
+									<span className='text-blue-300 font-medium'>{profile.xp || 0} XP</span>
+								</div>
+							</div>
+						)}
+					</div>
 
-  const roleColors: Record<string, string> = {
-    executor: 'text-emerald-400',
-    customer: 'text-cyan-400',
-    admin: 'text-amber-400',
-  }
-
-  return (
-    <div className='p-6 max-w-6xl mx-auto space-y-8'>
-      <h1
-        className={`text-4xl font-bold mb-6 flex items-center gap-3 ${
-          roleColors[user.role] || 'text-emerald-400'
-        }`}
-      >
-        <FaUserCircle className='text-3xl' />
-        {getProfileTitle()}
-      </h1>
-
-      {/* Основная информация */}
-      <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-        {/* Левая колонка - основная информация */}
-        <div className='lg:col-span-1 space-y-6'>
-          {/* Аватар и основная инфа */}
-          <div
-            className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                          shadow-[0_0_15px_rgba(16,185,129,0.2)] text-center'
-          >
-            {avatarSrc ? (
-              <img
-                src={avatarSrc}
-                alt='Avatar'
-                className='w-32 h-32 rounded-full border-2 border-emerald-500 
-                           shadow-[0_0_20px_rgba(16,185,129,0.5)] mx-auto mb-4 object-cover'
-              />
-            ) : (
-              <FaUserCircle className='text-gray-600 w-32 h-32 mx-auto mb-4' />
-            )}
-
-            <h2 className='text-2xl font-bold text-white mb-2'>
-              {profile.fullName || 'Без имени'}
-            </h2>
-            <p className='text-gray-400 mb-1'>{profile.email}</p>
-            {profile.location && (
-              <p className='text-emerald-300 mb-4'>📍 {profile.location}</p>
-            )}
-
-            {/* Уровень и опыт */}
-            {profile.level && (
-              <div className='bg-emerald-500/20 p-3 rounded-lg mb-4'>
-                <div className='flex items-center justify-center gap-2 mb-1'>
-                  <FaTrophy className='text-yellow-400' />
-                  <span className='font-semibold text-emerald-300'>
-                    {profile.level.name}
-                  </span>
-                </div>
-                <p className='text-sm text-gray-300'>
-                  {profile.level.description}
-                </p>
-                <div className='mt-2 flex items-center justify-center gap-2'>
-                  <FaChartLine className='text-blue-400' />
-                  <span className='text-blue-300 font-medium'>
-                    {profile.xp || 0} XP
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Статистика (только для исполнителя) */}
           {user.role === 'executor' && (
