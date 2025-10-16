@@ -203,18 +203,37 @@ export default function Header() {
 		}
 	}
 
-	// ✅ Исправлено: переход из плашки уведомления работает!
 	const handleNotificationClick = async (notif: any) => {
-		setNotifOpen(false)
-		await markAllRead()
-		if (notif.link) {
-			router.push(notif.link)
-		} else if (notif.chatType === 'private') {
-			router.push('/chats')
-		} else if (notif.chatType === 'task' && notif.chatId) {
-			router.push(`/tasks/${notif.chatId.replace('task_', '')}`)
-		}
-	}
+  setNotifOpen(false)
+  await markAllRead()
+
+  // Приоритет маршрутов:
+  if (notif.userId || notif.senderId) {
+    const targetId = notif.userId || notif.senderId
+    router.push(`/chats?open=${targetId}`)
+    return
+  }
+
+  // Если старый link ведёт на /messages/, то заменяем его
+  if (notif.link && notif.link.includes('/messages/')) {
+    router.push('/chats')
+    return
+  }
+
+  // fallback — если есть нормальная ссылка
+  if (notif.link) {
+    router.push(notif.link)
+    return
+  }
+
+  // запасной вариант по типу
+  if (notif.chatType === 'private') {
+    router.push('/chats')
+  } else if (notif.chatType === 'task' && notif.chatId) {
+    router.push(`/tasks/${notif.chatId.replace('task_', '')}`)
+  }
+}
+
 
 	const handleGoToNotifications = async () => {
 		setNotifOpen(false)
