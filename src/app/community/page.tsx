@@ -77,7 +77,6 @@ export default function CommunityPage() {
     )
     .slice(0, 5)
 
-  // ❤️ лайк
   const toggleLike = async (postId: string) => {
     if (!token) return
     setLikeLoading(postId)
@@ -110,10 +109,9 @@ export default function CommunityPage() {
     }
   }
 
-  // ⚙️ действия меню
   const copyLink = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/community/${id}`)
-    alert('Ссылка на пост скопирована!')
+    alert('📋 Ссылка на пост скопирована!')
   }
 
   const reportPost = (id: string) => {
@@ -128,7 +126,7 @@ export default function CommunityPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       setPosts((prev) => prev.filter((p) => p.id !== id))
-    } catch (err) {
+    } catch {
       alert('Ошибка удаления поста')
     }
   }
@@ -136,7 +134,7 @@ export default function CommunityPage() {
   return (
     <div className="min-h-screen text-white">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
-        {/* ───── ЛЕВАЯ КОЛОНКА ───── */}
+        {/* ЛЕВАЯ КОЛОНКА */}
         <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
           <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
           <nav className="flex flex-col gap-2 text-sm">
@@ -185,7 +183,7 @@ export default function CommunityPage() {
           </div>
         </aside>
 
-        {/* ───── ЦЕНТР ───── */}
+        {/* ЦЕНТРАЛЬНЫЙ КОНТЕНТ */}
         <main className="flex-1 max-w-2xl">
           {filtered.length === 0 ? (
             <p className="text-gray-400 text-center mt-20">
@@ -198,81 +196,79 @@ export default function CommunityPage() {
                   key={post.id}
                   className="group border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative"
                 >
+                  {/* Автор и меню */}
                   <div className="flex items-start justify-between text-sm text-gray-400 relative">
-                    <div className="flex items-start justify-between text-sm text-gray-400 relative">
-  {/* 👤 Автор поста */}
-  <Link
-    href={`/users/${post.author.id}`}
-    className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
-  >
-    <div className="relative">
-      <div className="w-10 h-10 rounded-full bg-emerald-700/20 flex items-center justify-center">
-        <User className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition" />
-      </div>
-      <span className="absolute -bottom-1 -right-1 text-[10px] bg-emerald-600 text-black px-1.5 py-[1px] rounded-full font-semibold">
-        Автор
-      </span>
-    </div>
+                    {/* 👤 Автор поста */}
+                    <Link
+                      href={`/users/${post.author.id}`}
+                      className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
+                    >
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-emerald-700/20 flex items-center justify-center">
+                          <User className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition" />
+                        </div>
+                        <span className="absolute -bottom-1 -right-1 text-[10px] bg-emerald-600 text-black px-1.5 py-[1px] rounded-full font-semibold">
+                          Автор
+                        </span>
+                      </div>
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-emerald-300 font-medium group-hover:text-emerald-400 transition">
+                          {post.author.fullName || post.author.email}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(post.createdAt).toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: 'long',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </Link>
 
-    <div className="flex flex-col leading-tight">
-      <span className="text-emerald-300 font-medium group-hover:text-emerald-400 transition">
-        {post.author.fullName || post.author.email}
-      </span>
-      <span className="text-xs text-gray-500">
-        {new Date(post.createdAt).toLocaleString('ru-RU', {
-          day: '2-digit',
-          month: 'long',
-          hour: '2-digit',
-          minute: '2-digit',
-        })}
-      </span>
-    </div>
-  </Link>
-
-  {/* ⋯ Меню действий */}
-  <div className="relative">
-    <button
-      onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)}
-      className="p-1 hover:text-emerald-400 transition"
-    >
-      <MoreHorizontal className="w-5 h-5" />
-    </button>
-
-    {openMenu === post.id && (
-      <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
-        <button
-          onClick={() => {
-            copyLink(post.id)
-            setOpenMenu(null)
-          }}
-          className="block w-full text-left px-4 py-2 hover:bg-gray-800 transition"
-        >
-          📋 Копировать ссылку
-        </button>
-        <button
-          onClick={() => {
-            reportPost(post.id)
-            setOpenMenu(null)
-          }}
-          className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-red-400 transition"
-        >
-          🚨 Пожаловаться
-        </button>
-        {user?.id === post.author.id && (
-          <button
-            onClick={() => {
-              deletePost(post.id)
-              setOpenMenu(null)
-            }}
-            className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-pink-500 transition"
-          >
-            🗑 Удалить пост
-          </button>
-        )}
-      </div>
-    )}
-  </div>
-</div>
+                    {/* ⋯ Меню действий */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)}
+                        className="p-1 hover:text-emerald-400 transition"
+                      >
+                        <MoreHorizontal className="w-5 h-5" />
+                      </button>
+                      {openMenu === post.id && (
+                        <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
+                          <button
+                            onClick={() => {
+                              copyLink(post.id)
+                              setOpenMenu(null)
+                            }}
+                            className="block w-full text-left px-4 py-2 hover:bg-gray-800 transition"
+                          >
+                            📋 Копировать ссылку
+                          </button>
+                          <button
+                            onClick={() => {
+                              reportPost(post.id)
+                              setOpenMenu(null)
+                            }}
+                            className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-red-400 transition"
+                          >
+                            🚨 Пожаловаться
+                          </button>
+                          {user?.id === post.author.id && (
+                            <button
+                              onClick={() => {
+                                deletePost(post.id)
+                                setOpenMenu(null)
+                              }}
+                              className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-pink-500 transition"
+                            >
+                              🗑 Удалить пост
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                   {/* Контент поста */}
                   <Link href={`/community/${post.id}`} className="block mt-3">
@@ -326,48 +322,48 @@ export default function CommunityPage() {
                       <MessageSquare className="w-4 h-4" /> {post._count.comments}
                     </Link>
                   </div>
-              ))
+                </div>
+              ))} {/* закрыли map */}
             </div>
-          )
+          )} {/* закрыли тернарку */}
         </main>
 
-
+        {/* ПРАВАЯ КОЛОНКА */}
         <aside className="hidden lg:flex flex-col w-72 border-l border-gray-800 pl-4">
           <h2 className="text-sm font-semibold text-emerald-400 mb-4 flex items-center gap-2">
             <Compass className="w-4 h-4" /> Последние посты
           </h2>
-
           <div className="space-y-3">
             {topPosts.map((p) => (
-  <Link
-    href={`/community/${p.id}`}
-    key={p.id}
-    className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
-  >
-    {p.imageUrl ? (
-      <img
-        src={p.imageUrl}
-        alt=""
-        className="w-14 h-14 object-cover rounded-md border border-gray-800"
-      />
-    ) : (
-      <div className="w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
-        нет фото
+              <Link
+                href={`/community/${p.id}`}
+                key={p.id}
+                className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
+              >
+                {p.imageUrl ? (
+                  <img
+                    src={p.imageUrl}
+                    alt=""
+                    className="w-14 h-14 object-cover rounded-md border border-gray-800"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
+                    нет фото
+                  </div>
+                )}
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-200 line-clamp-2">
+                    {p.title || p.content.slice(0, 60)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    ❤️ {p._count.likes} • 💬 {p._count.comments}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </aside>
       </div>
-    )}
-    <div className="flex-1">
-      <p className="text-sm font-medium text-gray-200 line-clamp-2">
-        {p.title || p.content.slice(0, 60)}
-      </p>
-      <p className="text-xs text-gray-500 mt-1">
-        ❤️ {p._count.likes} • 💬 {p._count.comments}
-      </p>
     </div>
-  </Link>
-))} {/* ← закрыли map */}
-</div> {/* ← закрыли контейнер div */}
-</aside> {/* ← закрыли правую колонку */}
-</div> {/* ← закрыли max-w-7xl */}
-</div> {/* ← закрыли min-h-screen */}
-) // ← конец return
+  )
 }
