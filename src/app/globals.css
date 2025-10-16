@@ -26,14 +26,51 @@
 
 /* 🧠 Базовый стиль body */
 body {
-	background: var(--background);
 	color: var(--foreground);
 	font-family: 'Poppins', sans-serif;
 	font-weight: 400;
 	letter-spacing: 0.02em;
+	position: relative;
+	min-height: 100vh;
+	overflow-x: hidden;
+
+	/* 🌌 Космический фон сразу на body */
+	background: radial-gradient(circle at 50% 20%, #02150f 0%, #010805 100%);
 }
 
-/* 🌿 Кастомный скроллбар для чатов */
+/* ✨ Звёзды поверх основного фона */
+html::before,
+html::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	background-image:
+		radial-gradient(2px 2px at 20px 30px, rgba(0, 255, 150, 0.6), transparent),
+		radial-gradient(1px 1px at 60px 80px, rgba(0, 255, 150, 0.4), transparent),
+		radial-gradient(2px 2px at 120px 160px, rgba(0, 255, 150, 0.5), transparent),
+		radial-gradient(1px 1px at 200px 300px, rgba(0, 255, 150, 0.4), transparent);
+	background-repeat: repeat;
+	background-size: 250px 250px;
+	animation: moveStars 90s linear infinite;
+	pointer-events: none;
+	z-index: 0;
+}
+
+html::after {
+	animation-duration: 140s;
+	opacity: 0.5;
+}
+
+@keyframes moveStars {
+	from {
+		background-position: 0 0;
+	}
+	to {
+		background-position: -4000px 4000px;
+	}
+}
+
+/* 🌿 Кастомный скроллбар */
 .custom-scrollbar {
 	scrollbar-width: thin;
 	scrollbar-color: rgba(16, 185, 129, 0.3) transparent;
@@ -103,7 +140,7 @@ body {
 	animation: glowPulse 2.5s ease-in-out infinite;
 }
 
-/* 🧊 Стили для неоновых модалок и списков */
+/* 🧊 Неоновые модалки и списки */
 .neon-border {
 	border: 1px solid rgba(16, 185, 129, 0.4);
 	box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
@@ -144,7 +181,7 @@ textarea {
 	font-family: 'Poppins', sans-serif;
 }
 
-/* 🔦 Активные ссылки с подсветкой */
+/* 🔦 Активные ссылки */
 .active-link {
 	color: #10b981;
 	position: relative;
@@ -162,45 +199,6 @@ textarea {
 }
 
 /* === NEON PROFILE STYLES === */
-
-/* 🌌 Звёздный фон */
-.stars-bg {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-	background: radial-gradient(circle at 50% 20%, #02150f 0%, #010805 100%);
-	overflow: hidden;
-	z-index: 0;
-}
-
-.stars-bg::before,
-.stars-bg::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	background-image: radial-gradient(2px 2px at 20px 30px, rgba(0, 255, 150, 0.6), transparent),
-		radial-gradient(1px 1px at 60px 80px, rgba(0, 255, 150, 0.4), transparent),
-		radial-gradient(2px 2px at 120px 160px, rgba(0, 255, 150, 0.5), transparent),
-		radial-gradient(1px 1px at 200px 300px, rgba(0, 255, 150, 0.4), transparent);
-	background-repeat: repeat;
-	background-size: 250px 250px;
-	animation: moveStars 90s linear infinite;
-}
-
-.stars-bg::after {
-	animation-duration: 140s;
-	opacity: 0.5;
-}
-
-@keyframes moveStars {
-	from {
-		background-position: 0 0;
-	}
-	to {
-		background-position: -5000px 5000px;
-	}
-}
 
 /* 🧩 Неоновые поля */
 .neon-box {
@@ -285,6 +283,8 @@ textarea {
 	object-fit: contain;
 	filter: drop-shadow(0 0 25px rgba(0, 255, 150, 0.8));
 	animation: float 5s ease-in-out infinite;
+	position: relative;
+	z-index: 2;
 }
 
 @keyframes float {
@@ -296,11 +296,13 @@ textarea {
 	}
 }
 
-/* 🌟 Градиентный заголовок */
+/* 🌟 Заголовок */
 .title-glow {
 	font-size: 2.5rem;
 	font-weight: 700;
 	color: #34d399;
 	text-shadow: 0 0 20px rgba(0, 255, 150, 0.7);
 	letter-spacing: 0.02em;
+	position: relative;
+	z-index: 2;
 }
