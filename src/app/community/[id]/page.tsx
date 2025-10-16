@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import ReportModal from '@/components/ReportModal'
 import {
   Heart,
   MessageSquare,
@@ -91,6 +92,7 @@ export default function CommunityPostPage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({})
   const [replyText, setReplyText] = useState<Record<string, string>>({})
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment'; id: string } | null>(null)
 
   const fetchPost = async () => {
     try {
@@ -180,8 +182,6 @@ export default function CommunityPostPage() {
     alert('📋 Ссылка скопирована!')
   }
 
-  const reportItem = () => alert('🚨 Жалоба отправлена модераторам')
-
   const deleteItem = async (endpoint: string) => {
     if (!confirm('Удалить пост?')) return
     const res = await fetch(endpoint, {
@@ -204,6 +204,13 @@ export default function CommunityPostPage() {
 
   return (
     <div className="min-h-screen text-white">
+      {reportTarget && (
+        <ReportModal
+          target={reportTarget}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
+
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
         {/* ЛЕВАЯ КОЛОНКА */}
         <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
@@ -298,7 +305,7 @@ export default function CommunityPostPage() {
                     </button>
                     <button
                       onClick={() => {
-                        reportItem()
+                        setReportTarget({ type: 'post', id: post.id })
                         setOpenMenu(null)
                       }}
                       className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
@@ -390,6 +397,7 @@ export default function CommunityPostPage() {
                     setReplyText={setReplyText}
                     sendReply={sendReply}
                     postId={id}
+                    onReport={setReportTarget}
                   />
                 ))}
               </div>
@@ -441,6 +449,7 @@ function CommentNode({
   setReplyText,
   sendReply,
   postId,
+  onReport,
 }: any) {
   const [openMenu, setOpenMenu] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -452,17 +461,14 @@ function CommentNode({
 
   const saveEdit = async () => {
     try {
-      const res = await fetch(
-        `/api/community/${postId}/comment/${node.id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ content: editText }),
-        }
-      )
+      const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: editText }),
+      })
       if (res.ok) {
         setEditing(false)
         fetchPost()
@@ -478,13 +484,10 @@ function CommentNode({
   const deleteComment = async () => {
     if (!confirm('Удалить комментарий?')) return
     try {
-      const res = await fetch(
-        `/api/community/${postId}/comment/${node.id}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      )
+      const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
       if (res.ok) fetchPost()
       else alert('Ошибка удаления комментария')
     } catch {
@@ -569,7 +572,7 @@ function CommentNode({
               ) : (
                 <button
                   onClick={() => {
-                    alert('🚨 Жалоба отправлена')
+                    onReport({ type: 'comment', id: node.id })
                     setOpenMenu(false)
                   }}
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
@@ -663,6 +666,7 @@ function CommentNode({
             setReplyText={setReplyText}
             sendReply={sendReply}
             postId={postId}
+            onReport={onReport}
           />
         ))}
     </div>
