@@ -506,163 +506,165 @@ function CommentNode({
             {node.author.avatarFileId || node.author.avatarUrl ? (
               <img
                 src={resolveAvatarUrl(
-                  node.author.avatarFileId
-|| node.author.avatarUrl
-)}
-alt="avatar"
-className="w-8 h-8 rounded-full object-cover border border-gray-700"
-/>
-) : (
-<User className="w-8 h-8 text-emerald-400 opacity-70" />
-)}
-<div>
-<Link 
-  href={`/users/${node.author.id}`}>
-className="font-medium text-emerald-300 hover:text-emerald-400 transition"
->
-{node.author.fullName || node.author.email}
-</Link>
-<p className="text-xs text-gray-500">{time}</p>
-</div>
-</div>
-              <button
-        onClick={() => setOpenMenu(!openMenu)}
-        className="hover:text-emerald-400"
-      >
-        <MoreHorizontal className="w-4 h-4" />
-      </button>
+                  node.author.avatarFileId || node.author.avatarUrl
+                )}
+                alt="avatar"
+                className="w-8 h-8 rounded-full object-cover border border-gray-700"
+              />
+            ) : (
+              <User className="w-8 h-8 text-emerald-400 opacity-70" />
+            )}
+            <div>
+              <Link
+                href={`/users/${node.author.id}`}
+                className="font-medium text-emerald-300 hover:text-emerald-400 transition"
+              >
+                {node.author.fullName || node.author.email}
+              </Link>
+              <p className="text-xs text-gray-500">{time}</p>
+            </div>
+          </div>
 
-      {openMenu && (
-        <div className="absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
           <button
-            onClick={() => {
-              navigator.clipboard.writeText(
-                window.location.href + '#' + node.id
-              )
-              setOpenMenu(false)
-            }}
-            className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+            onClick={() => setOpenMenu(!openMenu)}
+            className="hover:text-emerald-400"
           >
-            <Copy className="w-4 h-4" /> Копировать ссылку
+            <MoreHorizontal className="w-4 h-4" />
           </button>
-          {userId === node.author.id ? (
-            <>
+
+          {openMenu && (
+            <div className="absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
               <button
                 onClick={() => {
-                  setEditing(true)
+                  navigator.clipboard.writeText(
+                    window.location.href + '#' + node.id
+                  )
                   setOpenMenu(false)
                 }}
                 className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
               >
-                <Edit3 className="w-4 h-4" /> Редактировать
+                <Copy className="w-4 h-4" /> Копировать ссылку
               </button>
-              <button
-                onClick={() => {
-                  deleteComment()
-                  setOpenMenu(false)
-                }}
-                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
-              >
-                <Trash2 className="w-4 h-4" /> Удалить
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => {
-                alert('🚨 Жалоба отправлена')
-                setOpenMenu(false)
-              }}
-              className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
-            >
-              <Flag className="w-4 h-4" /> Пожаловаться
-            </button>
+              {userId === node.author.id ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setEditing(true)
+                      setOpenMenu(false)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+                  >
+                    <Edit3 className="w-4 h-4" /> Редактировать
+                  </button>
+                  <button
+                    onClick={() => {
+                      deleteComment()
+                      setOpenMenu(false)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
+                  >
+                    <Trash2 className="w-4 h-4" /> Удалить
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    alert('🚨 Жалоба отправлена')
+                    setOpenMenu(false)
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
+                >
+                  <Flag className="w-4 h-4" /> Пожаловаться
+                </button>
+              )}
+            </div>
           )}
         </div>
-      )}
-    </div>
 
-    {editing ? (
-      <div className="space-y-2">
-        <textarea
-          value={editText}
-          onChange={(e) => setEditText(e.target.value)}
-          rows={2}
-          className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={saveEdit}
-            className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm"
-          >
-            <Check className="w-4 h-4" />
-            Сохранить
-          </button>
-          <button
-            onClick={() => setEditing(false)}
-            className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm"
-          >
-            <X className="w-4 h-4" />
-            Отмена
-          </button>
-        </div>
-      </div>
-    ) : (
-      <p className="text-gray-200 whitespace-pre-wrap">{node.content}</p>
-    )}
+        {editing ? (
+          <div className="space-y-2">
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={2}
+              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={saveEdit}
+                className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm"
+              >
+                <Check className="w-4 h-4" />
+                Сохранить
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm"
+              >
+                <X className="w-4 h-4" />
+                Отмена
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-200 whitespace-pre-wrap">{node.content}</p>
+        )}
 
-    <button
-      className="mt-3 flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
-      onClick={() =>
-        setReplyOpen((s: any) => ({
-          ...s,
-          [node.id]: !s[node.id],
-        }))
-      }
-    >
-      <Reply className="w-4 h-4" /> Ответить
-    </button>
-
-    {replyOpen[node.id] && (
-      <div className="mt-3">
-        <textarea
-          value={replyText[node.id] || ''}
-          onChange={(e) =>
-            setReplyText((s: any) => ({
+        <button
+          className="mt-3 flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
+          onClick={() =>
+            setReplyOpen((s: any) => ({
               ...s,
-              [node.id]: e.target.value,
+              [node.id]: !s[node.id],
             }))
           }
-          rows={2}
-          placeholder="Ваш ответ…"
-          className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-        />
-        <div className="mt-2">
-          <button
-            onClick={() => sendReply(node.id)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold"
-          >
-            <Send className="w-4 h-4" /> Отправить ответ
-          </button>
-        </div>
-      </div>
-    )}
-  </div>
+        >
+          <Reply className="w-4 h-4" /> Ответить
+        </button>
 
-  {node.children?.length > 0 &&
-    node.children.map((child: any) => (
-      <CommentNode
-        key={child.id}
-        node={{ ...child, children: (child as any).children || [] }}
-        depth={Math.min(depth + 1, 6)}
-        userId={userId}
-        token={token}
-        fetchPost={fetchPost}
-        replyOpen={replyOpen}
-        setReplyOpen={setReplyOpen}
-        replyText={replyText}
-        setReplyText={setReplyText}
-        sendReply={sendReply}
-        postId={postId}
-      />
-    ))}
-</div>
+        {replyOpen[node.id] && (
+          <div className="mt-3">
+            <textarea
+              value={replyText[node.id] || ''}
+              onChange={(e) =>
+                setReplyText((s: any) => ({
+                  ...s,
+                  [node.id]: e.target.value,
+                }))
+              }
+              rows={2}
+              placeholder="Ваш ответ…"
+              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+            />
+            <div className="mt-2">
+              <button
+                onClick={() => sendReply(node.id)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold"
+              >
+                <Send className="w-4 h-4" /> Отправить ответ
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {node.children?.length > 0 &&
+        node.children.map((child: any) => (
+          <CommentNode
+            key={child.id}
+            node={{ ...child, children: (child as any).children || [] }}
+            depth={Math.min(depth + 1, 6)}
+            userId={userId}
+            token={token}
+            fetchPost={fetchPost}
+            replyOpen={replyOpen}
+            setReplyOpen={setReplyOpen}
+            replyText={replyText}
+            setReplyText={setReplyText}
+            sendReply={sendReply}
+            postId={postId}
+          />
+        ))}
+    </div>
+  )
+}
