@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import {
@@ -15,6 +15,14 @@ import {
   Compass,
   Home,
 } from 'lucide-react'
+
+// 🔧 Утилита для подстановки правильного пути к аватару
+function resolveAvatarUrl(avatar?: string | null) {
+  if (!avatar) return null
+  if (!avatar.startsWith('http') && !avatar.startsWith('/'))
+    return `/api/files/${avatar}`
+  return avatar
+}
 
 type Author = {
   id: string
@@ -35,35 +43,25 @@ type Post = {
   _count: { comments: number; likes: number }
 }
 
-function resolveAvatarUrl(fileId?: string | null) {
-  if (!fileId) return null
-  if (!fileId.startsWith('http')) return `/api/files/${fileId}`
-  return fileId
-}
-
 export default function CommunityPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const { user, token } = useUser()
-
+  const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
   const [likeLoading, setLikeLoading] = useState<string | null>(null)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
 
-  // 🔄 фильтр из URL
-  const currentFilter = (searchParams.get('sort') as 'popular' | null)
-    ? 'popular'
-    : (searchParams.get('filter') as 'my' | null)
-    ? 'my'
-    : 'new'
-  const [filter, setFilter] = useState<'new' | 'popular' | 'my'>(currentFilter)
-
+  // 📌 читаем фильтр из URL при монтировании
   useEffect(() => {
-    setFilter(currentFilter)
-  }, [currentFilter])
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('sort') === 'popular') setFilter('popular')
+    else if (params.get('filter') === 'my') setFilter('my')
+    else setFilter('new')
+  }, [])
 
-  // 🚀 Загрузка постов
+  // 📌 загрузка постов
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -79,6 +77,7 @@ export default function CommunityPage() {
     fetchPosts()
   }, [])
 
+  // 📌 изменение фильтра с обновлением URL
   const changeFilter = (type: 'new' | 'popular' | 'my') => {
     setFilter(type)
     if (type === 'popular') router.push('/community?sort=popular')
@@ -86,31 +85,33 @@ export default function CommunityPage() {
     else router.push('/community')
   }
 
-  const filtered = useMemo(() => {
-    if (filter === 'my') return posts.filter((p) => p.author.id === user?.id)
-    if (filter === 'popular')
-      return [...posts].sort(
-        (a, b) =>
-          b._count.likes + b._count.comments - (a._count.likes + a._count.comments)
-      )
-    return [...posts].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-  }, [filter, posts, user])
+  if (loading) return <LoadingSpinner />
 
-  const topPosts = useMemo(
-    () =>
-      [...posts]
-        .sort(
+  // 📊 фильтрация постов
+  const filtered =
+    filter === 'my'
+      ? posts.filter((p) => p.author.id === user?.id)
+      : filter === 'popular'
+      ? [...posts].sort(
           (a, b) =>
-            b._count.comments + b._count.likes -
-            (a._count.comments + a._count.likes)
+            b._count.likes + b._count.comments -
+            (a._count.likes + a._count.comments)
         )
-        .slice(0, 5),
-    [posts]
-  )
+      : [...posts].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime()
+        )
 
+  const topPosts = [...posts]
+    .sort(
+      (a, b) =>
+        b._count.comments + b._count.likes -
+        (a._count.comments + a._count.likes)
+    )
+    .slice(0, 5)
+
+  // ❤️ лайк
   const toggleLike = async (postId: string) => {
     if (!token) return
     setLikeLoading(postId)
@@ -145,14 +146,14 @@ export default function CommunityPage() {
     }
   }
 
+  // 📋 скопировать ссылку
   const copyLink = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/community/${id}`)
     alert('📋 Ссылка на пост скопирована!')
   }
 
-  const reportPost = (id: string) => {
+  const reportPost = (id: string) =>
     alert(`🚨 Жалоба на пост ${id} отправлена модерации`)
-  }
 
   const deletePost = async (id: string) => {
     if (!confirm('Удалить этот пост?')) return
@@ -165,15 +166,12 @@ export default function CommunityPage() {
         setPosts((prev) => prev.filter((p) => p.id !== id))
         alert('✅ Пост удалён')
       } else {
-        const err = await res.json()
-        alert(err?.error || 'Ошибка удаления поста')
+        alert('Ошибка удаления поста')
       }
     } catch {
       alert('Ошибка сети при удалении поста')
     }
   }
-
-  if (loading) return <LoadingSpinner />
 
   return (
     <div className="min-h-screen text-white">
@@ -192,6 +190,7 @@ export default function CommunityPage() {
             >
               <Home className="w-4 h-4" /> Новые
             </button>
+
             <button
               onClick={() => changeFilter('popular')}
               className={`flex items-center gap-2 px-3 py-2 rounded-md transition ${
@@ -202,6 +201,7 @@ export default function CommunityPage() {
             >
               <Flame className="w-4 h-4" /> Популярные
             </button>
+
             {user && (
               <button
                 onClick={() => changeFilter('my')}
@@ -214,9 +214,10 @@ export default function CommunityPage() {
                 <User className="w-4 h-4" /> Мои темы
               </button>
             )}
+
             <Link
               href="/community/new"
-              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 justify-center font-medium transition"
+              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 text-center justify-center font-medium transition"
             >
               <Plus className="w-4 h-4" /> Создать тему
             </Link>
@@ -246,9 +247,11 @@ export default function CommunityPage() {
                       href={`/users/${post.author.id}`}
                       className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
                     >
-                      {post.author.avatarUrl || post.author.avatarFileId ? (
+                      {post.author.avatarFileId || post.author.avatarUrl ? (
                         <img
-                          src={resolveAvatarUrl(post.author.avatarFileId || post.author.avatarUrl)}
+                          src={resolveAvatarUrl(
+                            post.author.avatarFileId || post.author.avatarUrl
+                          )}
                           alt="avatar"
                           className="w-10 h-10 rounded-full object-cover border border-emerald-700/40"
                         />
@@ -272,10 +275,12 @@ export default function CommunityPage() {
                       </div>
                     </Link>
 
-                    {/* ⋯ Меню */}
+                    {/* Меню */}
                     <div className="relative">
                       <button
-                        onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)}
+                        onClick={() =>
+                          setOpenMenu(openMenu === post.id ? null : post.id)
+                        }
                         className="p-1 hover:text-emerald-400 transition"
                       >
                         <MoreHorizontal className="w-5 h-5" />
@@ -353,7 +358,9 @@ export default function CommunityPage() {
                       }`}
                     >
                       <Heart
-                        className={`w-4 h-4 ${post.liked ? 'fill-pink-500 text-pink-500' : ''}`}
+                        className={`w-4 h-4 ${
+                          post.liked ? 'fill-pink-500 text-pink-500' : ''
+                        }`}
                       />
                       {post._count.likes}
                     </button>
@@ -363,7 +370,8 @@ export default function CommunityPage() {
                       onClick={(e) => e.stopPropagation()}
                       className="flex items-center gap-1 hover:text-blue-400 transition"
                     >
-                      <MessageSquare className="w-4 h-4" /> {post._count.comments}
+                      <MessageSquare className="w-4 h-4" />{' '}
+                      {post._count.comments}
                     </Link>
                   </div>
                 </div>
