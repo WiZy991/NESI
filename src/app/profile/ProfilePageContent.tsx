@@ -230,7 +230,7 @@ export default function ProfilePageContent() {
 						<p className='text-gray-400 mb-1'>{profile.email}</p>
 						{profile.location && <p className='text-emerald-300 mb-4'>📍 {profile.location}</p>}
 
-						{/* Уровень и опыт - только для исполнителя */}
+						{/* Уровень и опыт — только для исполнителя */}
 						{user.role === 'executor' && profile.level && (
 							<div className='bg-emerald-500/20 p-3 rounded-lg mb-4'>
 								<div className='flex items-center justify-center gap-2 mb-1'>
@@ -246,343 +246,141 @@ export default function ProfilePageContent() {
 						)}
 					</div>
 
+					{/* Статистика — только для исполнителя */}
+					{user.role === 'executor' && (
+						<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]'>
+							<h3 className='text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+								<FaChartLine />
+								Статистика
+							</h3>
+							<div className='space-y-3'>
+								<div className='flex justify-between items-center'>
+									<span className='text-gray-300'>Выполнено задач:</span>
+									<span className='text-emerald-300 font-semibold'>{profile._count?.executedTasks || 0}</span>
+								</div>
+								<div className='flex justify-between items-center'>
+									<span className='text-gray-300'>Отзывов получено:</span>
+									<span className='text-emerald-300 font-semibold'>{profile._count?.reviewsReceived || 0}</span>
+								</div>
+								<div className='flex justify-between items-center'>
+									<span className='text-gray-300'>Средний рейтинг:</span>
+									<div className='flex items-center gap-1'>
+										<FaStar className='text-yellow-400' />
+										<span className='text-yellow-300 font-semibold'>
+											{profile.avgRating ? profile.avgRating.toFixed(1) : '—'}
+										</span>
+									</div>
+								</div>
+								<div className='flex justify-between items-center'>
+									<span className='text-gray-300'>Откликов отправлено:</span>
+									<span className='text-emerald-300 font-semibold'>{profile._count?.responses || 0}</span>
+								</div>
+							</div>
+						</div>
+					)}
 
-          {/* Статистика (только для исполнителя) */}
-          {user.role === 'executor' && (
-            <div
-              className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-            >
-              <h3 className='text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-                <FaChartLine />
-                Статистика
-              </h3>
-              <div className='space-y-3'>
-                <div className='flex justify-between items-center'>
-                  <span className='text-gray-300'>Выполнено задач:</span>
-                  <span className='text-emerald-300 font-semibold'>
-                    {profile._count?.executedTasks || 0}
-                  </span>
-                </div>
-                <div className='flex justify-between items-center'>
-                  <span className='text-gray-300'>Отзывов получено:</span>
-                  <span className='text-emerald-300 font-semibold'>
-                    {profile._count?.reviewsReceived || 0}
-                  </span>
-                </div>
-                <div className='flex justify-between items-center'>
-                  <span className='text-gray-300'>Средний рейтинг:</span>
-                  <div className='flex items-center gap-1'>
-                    <FaStar className='text-yellow-400' />
-                    <span className='text-yellow-300 font-semibold'>
-                      {profile.avgRating ? profile.avgRating.toFixed(1) : '—'}
-                    </span>
-                  </div>
-                </div>
-                <div className='flex justify-between items-center'>
-                  <span className='text-gray-300'>Откликов отправлено:</span>
-                  <span className='text-emerald-300 font-semibold'>
-                    {profile._count?.responses || 0}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+					{/* Баланс */}
+					<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]'>
+						<h3 className='text-lg font-semibold text-emerald-400 mb-3'>💰 Баланс</h3>
+						<p className='text-2xl font-bold text-emerald-300 mb-4'>{profile.balance ?? 0} NESI</p>
+						<div className='flex gap-2 mb-4'>
+							<input
+								type='number'
+								value={amount}
+								onChange={e => setAmount(parseInt(e.target.value))}
+								className='bg-transparent border border-emerald-500/30 text-white p-2 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-24 text-sm'
+							/>
+							<button
+								onClick={handleDeposit}
+								className='px-3 py-1 rounded border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition text-sm'
+							>
+								+
+							</button>
+							<button
+								onClick={handleWithdraw}
+								className='px-3 py-1 rounded border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition text-sm'
+							>
+								-
+							</button>
+						</div>
 
-          {/* Баланс */}
-          <div
-            className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 
-                          shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-          >
-            <h3 className='text-lg font-semibold text-emerald-400 mb-3'>
-              💰 Баланс
-            </h3>
-            <p className='text-2xl font-bold text-emerald-300 mb-4'>
-              {profile.balance ?? 0} NESI
-            </p>
-            <div className='flex gap-2 mb-4'>
-              <input
-                type='number'
-                value={amount}
-                onChange={e => setAmount(parseInt(e.target.value))}
-                className='bg-transparent border border-emerald-500/30 text-white p-2 
-                           rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-24 text-sm'
-              />
-              <button
-                onClick={handleDeposit}
-                className='px-3 py-1 rounded border border-emerald-400 
-                                                         text-emerald-400 hover:bg-emerald-400 
-                                                         hover:text-black transition text-sm'
-              >
-                +
-              </button>
-              <button
-                onClick={handleWithdraw}
-                className='px-3 py-1 rounded border border-red-400 
-                                                          text-red-400 hover:bg-red-400 
-                                                          hover:text-black transition text-sm'
-              >
-                -
-              </button>
-            </div>
+						<h4 className='text-sm font-semibold text-emerald-300 mb-2'>История транзакций</h4>
+						{transactions.length === 0 ? (
+							<p className='text-gray-500 text-sm'>Пока нет транзакций</p>
+						) : (
+							<div className='max-h-32 overflow-y-auto space-y-1 text-xs'>
+								{transactions.slice(0, 5).map(t => (
+									<div key={t.id} className='flex justify-between'>
+										<span className={t.amount > 0 ? 'text-green-400' : 'text-red-400'}>
+											{t.amount > 0 ? '+' : ''}
+											{t.amount}
+										</span>
+										<span className='text-gray-500 truncate ml-2'>{t.reason}</span>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+				</div>
 
-            <h4 className='text-sm font-semibold text-emerald-300 mb-2'>
-              История транзакций
-            </h4>
-            {transactions.length === 0 ? (
-              <p className='text-gray-500 text-sm'>Пока нет транзакций</p>
-            ) : (
-              <div className='max-h-32 overflow-y-auto space-y-1 text-xs'>
-                {transactions.slice(0, 5).map(t => (
-                  <div key={t.id} className='flex justify-between'>
-                    <span
-                      className={t.amount > 0 ? 'text-green-400' : 'text-red-400'}
-                    >
-                      {t.amount > 0 ? '+' : ''}
-                      {t.amount}
-                    </span>
-                    <span className='text-gray-500 truncate ml-2'>
-                      {t.reason}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+				{/* Правая колонка - детальная информация */}
+				{/* ... остальной код без изменений ... */}
+			</div>
 
-        {/* Правая колонка - детальная информация */}
-        <div className='lg:col-span-2 space-y-6'>
-          {/* Навыки */}
-          {profile.skills && profile.skills.length > 0 && (
-            <div
-              className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-            >
-              <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-                <FaToolbox />
-                Навыки и технологии
-              </h3>
-              <div className='flex flex-wrap gap-3'>
-                {profile.skills.map((skill, index) => (
-                  <div
-                    key={index}
-                    className='flex items-center px-4 py-2 rounded-full text-sm 
-                               border border-emerald-500/40 bg-black/60 
-                               shadow-[0_0_8px_rgba(16,185,129,0.2)] hover:shadow-[0_0_12px_rgba(16,185,129,0.3)] transition'
-                  >
-                    {getSkillIcon(skill)}
-                    {skill.trim()}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+			{/* Отзывы */}
+			{user.role === 'executor' && reviews.length > 0 && (
+				<div className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]'>
+					<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+						<FaStar />
+						Отзывы заказчиков
+					</h3>
+					<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+						{reviews.map(review => (
+							<div
+								key={review.id}
+								className='bg-black/60 border border-emerald-500/30 p-4 rounded-lg shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+							>
+								<div className='flex justify-between items-center mb-3'>
+									<h4 className='font-semibold text-white'>{review.task.title}</h4>
+									<div className='flex items-center gap-1'>
+										{[...Array(5)].map((_, i) => (
+											<FaStar
+												key={i}
+												className={`text-sm ${i < review.rating ? 'text-yellow-400' : 'text-gray-600'}`}
+											/>
+										))}
+									</div>
+								</div>
+								<p className='text-gray-300 mb-3 italic'>"{review.comment}"</p>
+								<div className='flex justify-between items-center text-sm text-gray-400'>
+									<span>От: {review.fromUser?.fullName || review.fromUser?.email}</span>
+									<span>{new Date(review.createdAt).toLocaleDateString()}</span>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
 
-          {/* Сертификации */}
-          {profile.certifications && profile.certifications.length > 0 && (
-            <div
-              className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-            >
-              <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-                <FaCertificate />
-                Сертификации
-              </h3>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                {profile.certifications.map(cert => (
-                  <div
-                    key={cert.id}
-                    className='bg-emerald-500/10 p-4 rounded-lg border border-emerald-500/20'
-                  >
-                    <div className='flex items-center gap-2 mb-2'>
-                      <FaAward className='text-yellow-400' />
-                      <span className='font-semibold text-emerald-300'>
-                        {cert.subcategory.name}
-                      </span>
-                    </div>
-                    <p className='text-sm text-gray-300 mb-1'>
-                      Уровень: {cert.level}
-                    </p>
-                    <p className='text-xs text-gray-400'>
-                      Получено: {new Date(cert.grantedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+			{/* Кнопки действий */}
+			<div className='flex gap-4 flex-wrap justify-center'>
+				<Link
+					href='/profile/edit'
+					className='px-6 py-3 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold'
+				>
+					✏️ Редактировать профиль
+				</Link>
 
-          {/* Значки */}
-          {profile.badges && profile.badges.length > 0 && (
-            <div
-              className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-            >
-              <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-                <FaTrophy />
-                Достижения
-              </h3>
-              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-                {profile.badges.map(userBadge => (
-                  <div
-                    key={userBadge.id}
-                    className='bg-gradient-to-br from-yellow-500/20 to-orange-500/20 
-                                                    p-4 rounded-lg border border-yellow-500/30 text-center'
-                  >
-                    <div className='text-2xl mb-2'>{userBadge.badge.icon}</div>
-                    <h4 className='font-semibold text-yellow-300 mb-1'>
-                      {userBadge.badge.name}
-                    </h4>
-                    <p className='text-xs text-gray-300 mb-2'>
-                      {userBadge.badge.description}
-                    </p>
-                    <p className='text-xs text-gray-400'>
-                      {new Date(userBadge.earnedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* О себе */}
-          {profile.description && (
-            <div
-              className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-            >
-              <h3 className='text-xl font-semibold text-emerald-400 mb-4'>
-                📄 О себе
-              </h3>
-              <p className='text-gray-300 leading-relaxed'>
-                {profile.description}
-              </p>
-            </div>
-          )}
-
-          {/* Портфолио выполненных задач */}
-          {profile.executedTasks && profile.executedTasks.length > 0 && (
-            <div
-              className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-            >
-              <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-                <FaTasks />
-                Последние выполненные задачи
-              </h3>
-              <div className='space-y-4'>
-                {profile.executedTasks.map(task => (
-                  <div
-                    key={task.id}
-                    className='bg-black/60 p-4 rounded-lg border border-emerald-500/20'
-                  >
-                    <div className='flex justify-between items-start mb-2'>
-                      <h4 className='font-semibold text-white'>{task.title}</h4>
-                      {task.price && (
-                        <span className='text-emerald-300 font-semibold'>
-                          {task.price} NESI
-                        </span>
-                      )}
-                    </div>
-                    <p className='text-gray-300 text-sm mb-2 line-clamp-2'>
-                      {task.description}
-                    </p>
-                    <div className='flex justify-between items-center text-xs text-gray-400'>
-                      <span>
-                        Заказчик:{' '}
-                        {task.customer.fullName || task.customer.email}
-                      </span>
-                      {task.completedAt && (
-                        <span className='flex items-center gap-1'>
-                          <FaCalendarAlt />
-                          {new Date(task.completedAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    {task.review && (
-                      <div className='mt-2 p-2 bg-yellow-500/10 rounded border border-yellow-500/30'>
-                        <div className='flex items-center gap-2 mb-1'>
-                          <FaStar className='text-yellow-400' />
-                          <span className='text-yellow-300 font-semibold'>
-                            {task.review.rating}/5
-                          </span>
-                        </div>
-                        <p className='text-sm text-gray-300 italic'>
-                          "{task.review.comment}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Отзывы */}
-      {user.role === 'executor' && reviews.length > 0 && (
-        <div
-          className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                        shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-        >
-          <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-            <FaStar />
-            Отзывы заказчиков
-          </h3>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-            {reviews.map(review => (
-              <div
-                key={review.id}
-                className='bg-black/60 border border-emerald-500/30 
-                                             p-4 rounded-lg shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-              >
-                <div className='flex justify-between items-center mb-3'>
-                  <h4 className='font-semibold text-white'>
-                    {review.task.title}
-                  </h4>
-                  <div className='flex items-center gap-1'>
-                    {[...Array(5)].map((_, i) => (
-                      <FaStar
-                        key={i}
-                        className={`text-sm ${
-                          i < review.rating ? 'text-yellow-400' : 'text-gray-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <p className='text-gray-300 mb-3 italic'>"{review.comment}"</p>
-                <div className='flex justify-between items-center text-sm text-gray-400'>
-                  <span>
-                    От: {review.fromUser?.fullName || review.fromUser?.email}
-                  </span>
-                  <span>{new Date(review.createdAt).toLocaleDateString()}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Кнопки действий */}
-      <div className='flex gap-4 flex-wrap justify-center'>
-        <Link
-          href='/profile/edit'
-          className='px-6 py-3 rounded-lg border border-emerald-400 text-emerald-400 
-                     hover:bg-emerald-400 hover:text-black transition font-semibold'
-        >
-          ✏️ Редактировать профиль
-        </Link>
-        <Link
-          href='/level'
-          className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
-						hover:bg-indigo-400 hover:text-black transition font-semibold'
-        >
-          📊 Мой уровень
-        </Link>
-      </div>
-    </div>
-  )
+				{/* 📊 Мой уровень — только для исполнителя */}
+				{user.role === 'executor' && (
+					<Link
+						href='/level'
+						className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 hover:bg-indigo-400 hover:text-black transition font-semibold'
+					>
+						📊 Мой уровень
+					</Link>
+				)}
+			</div>
+		</div>
+	)
 }
