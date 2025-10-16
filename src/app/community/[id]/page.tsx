@@ -338,9 +338,12 @@ function CommentNode({
   return (
     <div>
       <div
-        className="p-4 rounded-xl border border-gray-800 bg-transparent"
-        style={{ marginLeft: depth ? depth * 24 : 0 }}
-      >
+  className={`p-4 rounded-xl border bg-gradient-to-br from-[#001a12]/70 to-[#002a22]/60 shadow-[0_0_15px_rgba(0,255,180,0.08)] transition hover:shadow-[0_0_25px_rgba(0,255,180,0.15)]`}
+  style={{
+    marginLeft: depth ? depth * 24 : 0,
+    borderColor: 'rgba(0,255,180,0.25)',
+  }}
+>
         <div className="flex items-center justify-between mb-2">
           <p className="font-medium text-emerald-300">
             {node.author.fullName || node.author.email}
