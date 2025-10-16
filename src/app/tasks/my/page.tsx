@@ -56,11 +56,16 @@ export default function MyTasksPage() {
     fetchTasks()
   }, [token, user])
 
-  if (loading) return <p className="text-center mt-10 text-gray-400">Загрузка задач...</p>
-  if (error)   return <p className="text-center mt-10 text-red-400">Ошибка: {error}</p>
+  if (loading)
+    return <p className="text-center mt-10 text-gray-400">Загрузка задач...</p>
+
+  if (error)
+    return <p className="text-center mt-10 text-red-400">Ошибка: {error}</p>
 
   const stats = { open: 0, in_progress: 0, completed: 0, cancelled: 0 }
-  tasks.forEach((t) => { if (stats[t.status] !== undefined) stats[t.status]++ })
+  tasks.forEach((t) => {
+    if (stats[t.status] !== undefined) stats[t.status]++
+  })
 
   const total = tasks.length || 1
   const percentages = {
@@ -72,7 +77,7 @@ export default function MyTasksPage() {
 
   return (
     <div className="max-w-6xl mx-auto mt-12 p-6 text-white">
-      {/* Заголовок */}
+      {/* 🔰 Заголовок */}
       <motion.h1
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -83,31 +88,66 @@ export default function MyTasksPage() {
         Мои задачи
       </motion.h1>
 
-      {/* Статистика */}
+      {/* 📊 Статистика */}
       <div className="bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(0,255,150,0.15)] p-6 mb-10 backdrop-blur-md">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-emerald-400">📊 Статистика</h2>
+          <h2 className="text-lg font-semibold text-emerald-400">
+            📈 Статистика
+          </h2>
           <div className="text-sm text-gray-400">Всего: {tasks.length}</div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mb-5">
-          <div><span className="text-yellow-400 font-semibold">{stats.open}</span><p className="text-xs text-gray-400">Открытые</p></div>
-          <div><span className="text-blue-400 font-semibold">{stats.in_progress}</span><p className="text-xs text-gray-400">В работе</p></div>
-          <div><span className="text-emerald-400 font-semibold">{stats.completed}</span><p className="text-xs text-gray-400">Выполнено</p></div>
-          <div><span className="text-red-400 font-semibold">{stats.cancelled}</span><p className="text-xs text-gray-400">Отменено</p></div>
+          <div>
+            <span className="text-yellow-400 font-semibold">{stats.open}</span>
+            <p className="text-xs text-gray-400">Открытые</p>
+          </div>
+          <div>
+            <span className="text-blue-400 font-semibold">
+              {stats.in_progress}
+            </span>
+            <p className="text-xs text-gray-400">В работе</p>
+          </div>
+          <div>
+            <span className="text-emerald-400 font-semibold">
+              {stats.completed}
+            </span>
+            <p className="text-xs text-gray-400">Выполнено</p>
+          </div>
+          <div>
+            <span className="text-red-400 font-semibold">
+              {stats.cancelled}
+            </span>
+            <p className="text-xs text-gray-400">Отменено</p>
+          </div>
         </div>
 
+        {/* Прогресс-бар */}
         <div className="h-3 rounded-full bg-gray-900 overflow-hidden flex">
-          <div style={{ width: `${percentages.open}%` }} className="bg-yellow-400/70" />
-          <div style={{ width: `${percentages.in_progress}%` }} className="bg-blue-500/70" />
-          <div style={{ width: `${percentages.completed}%` }} className="bg-emerald-500/80 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
-          <div style={{ width: `${percentages.cancelled}%` }} className="bg-red-600/70" />
+          <div
+            style={{ width: `${percentages.open}%` }}
+            className="bg-yellow-400/70"
+          />
+          <div
+            style={{ width: `${percentages.in_progress}%` }}
+            className="bg-blue-500/70"
+          />
+          <div
+            style={{ width: `${percentages.completed}%` }}
+            className="bg-emerald-500/80 shadow-[0_0_12px_rgba(16,185,129,0.8)]"
+          />
+          <div
+            style={{ width: `${percentages.cancelled}%` }}
+            className="bg-red-600/70"
+          />
         </div>
       </div>
 
-      {/* Список задач (Grid) */}
+      {/* 🧩 Список задач (Grid) */}
       {tasks.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">У вас пока нет задач.</div>
+        <div className="text-center py-16 text-gray-500">
+          У вас пока нет задач.
+        </div>
       ) : (
         <motion.ul
           className="grid gap-6 md:grid-cols-2"
@@ -115,7 +155,10 @@ export default function MyTasksPage() {
           animate="visible"
           variants={{
             hidden: { opacity: 0 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+            visible: {
+              opacity: 1,
+              transition: { staggerChildren: 0.08 },
+            },
           }}
         >
           {tasks.map((task) => {
@@ -126,8 +169,13 @@ export default function MyTasksPage() {
             return (
               <motion.li
                 key={task.id}
-                variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
-                className={`relative bg-black/40 border-l-4 ${statusColorMap[task.status]} rounded-xl p-5 hover:shadow-[0_0_18px_rgba(0,255,150,0.2)] transition backdrop-blur-sm`}
+                variants={{
+                  hidden: { opacity: 0, y: 10 },
+                  visible: { opacity: 1, y: 0 },
+                }}
+                className={`relative bg-black/40 border-l-4 ${
+                  statusColorMap[task.status]
+                } rounded-xl p-5 hover:shadow-[0_0_18px_rgba(0,255,150,0.2)] transition backdrop-blur-sm pointer-events-auto`}
               >
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-semibold text-emerald-400 mb-1">
@@ -138,27 +186,32 @@ export default function MyTasksPage() {
                   </p>
                 </div>
 
+                {/* 🧍 Заказчик */}
                 <p className="text-sm text-gray-400 mt-1">
                   Заказчик:{' '}
                   {customerId ? (
                     <Link
                       href={`/users/${customerId}`}
-                      className="text-blue-400 hover:text-blue-300 hover:underline transition"
+                      className="relative z-10 inline-flex text-blue-400 hover:text-blue-300 hover:underline transition pointer-events-auto"
                     >
                       {customerName}
                     </Link>
                   ) : (
-                    <span className="text-blue-300/70 cursor-default">{customerName}</span>
+                    <span className="text-blue-300/70 cursor-default">
+                      {customerName}
+                    </span>
                   )}
                 </p>
 
+                {/* 📝 Описание */}
                 <p className="text-sm text-gray-300 mt-2 italic">
                   {task.description || 'Без описания'}
                 </p>
 
+                {/* 🔗 Ссылка на задачу */}
                 <Link
                   href={`/tasks/${task.id}`}
-                  className="mt-3 inline-block text-sm text-blue-400 hover:underline hover:text-blue-300 transition"
+                  className="mt-3 inline-block text-sm text-blue-400 hover:underline hover:text-blue-300 transition relative z-10 pointer-events-auto"
                 >
                   Перейти к задаче →
                 </Link>
