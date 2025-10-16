@@ -236,7 +236,7 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-2 p-3 bg-[#0a0f0e]/70 rounded-xl border border-emerald-800 hover:border-emerald-600 transition-all duration-300 shadow-[0_0_10px_rgba(0,255,150,0.15)]">
+      <div className="flex flex-wrap gap-2 p-3 neon-box">
         {skills.map((skill) => (
           <span
             key={skill}
@@ -355,14 +355,17 @@ export default function EditProfilePage() {
 
   return (
     <ProtectedPage>
-      <div className="relative min-h-screen overflow-hidden text-white bg-[#050a07]">
-        <div className="stars-bg" />
-
+      {/* ✅ убрал bg-[#050a07] и stars-bg */}
+      <div className="relative min-h-screen overflow-hidden text-white">
         <div className="max-w-4xl mx-auto p-8 relative z-10 space-y-10">
           {/* Заголовок */}
           <div className="flex items-center gap-5 mb-10">
-            <img src="/astro.png" alt="Космонавт" className="w-24 h-24 object-contain drop-shadow-[0_0_20px_rgba(0,255,150,0.8)]" />
-            <h1 className="text-4xl font-bold text-emerald-400 drop-shadow-[0_0_15px_rgba(0,255,150,0.7)]">
+            <img
+              src="/astro.png"
+              alt="Космонавт"
+              className="astro-icon"
+            />
+            <h1 className="title-glow">
               Редактировать профиль
             </h1>
           </div>
