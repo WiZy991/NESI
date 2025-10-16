@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useUser } from '@/context/UserContext'
 import { useRouter } from 'next/navigation'
 import ProtectedPage from '@/components/ProtectedPage'
@@ -212,7 +213,6 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
-
 // --- Навыки
 const skillCategories: Record<string, string[]> = {
   'IT и программирование': [
@@ -290,87 +290,121 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
   )
 }
 
-// --- Неоновый поиск города
-function NeonCitySelect({ value, options, onChange }: {
+// --- Неоновый поиск города с порталом (исправленный)
+function NeonCitySelect({
+  value,
+  options,
+  onChange,
+}: {
   value: string
   options: { value: string; label: string }[]
   onChange: (val: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [rect, setRect] = useState<DOMRect | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const filtered = options.filter(opt =>
-    opt.label.toLowerCase().includes(query.toLowerCase())
+  const filtered = options.filter((o) =>
+    o.label.toLowerCase().includes(query.toLowerCase())
   )
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  const measure = () => {
+    if (buttonRef.current) setRect(buttonRef.current.getBoundingClientRect())
+  }
 
   useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus()
+    if (open) {
+      measure()
+      inputRef.current?.focus()
+    }
+  }, [open])
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onScrollResize = () => open && measure()
+    document.addEventListener('mousedown', handleClick)
+    window.addEventListener('resize', onScrollResize)
+    window.addEventListener('scroll', onScrollResize, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('resize', onScrollResize)
+      window.removeEventListener('scroll', onScrollResize, true)
+    }
   }, [open])
 
   return (
-    <div className="relative z-50 overflow-visible" ref={containerRef}>
+    <div ref={containerRef} className="relative z-[200]">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen((v) => !v)}
         className={`neon-select-btn w-full flex justify-between items-center ${
           open ? 'border-emerald-500 shadow-[0_0_15px_rgba(0,255,150,0.3)]' : ''
         }`}
       >
-        <span>{value || 'Выберите или введите город...'}</span>
+        <span className={value ? '' : 'text-emerald-600/70'}>
+          {value || 'Выберите или введите город...'}
+        </span>
         <FaCity className="text-emerald-400" />
       </button>
 
-      {open && (
-        <div className="absolute left-0 right-0 mt-2 bg-[#00120c]/95 border border-emerald-700 rounded-lg shadow-[0_0_25px_rgba(0,255,150,0.2)] z-[9999]">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-800">
-            <FaSearch className="text-emerald-400" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Начните вводить город..."
-              className="w-full bg-transparent text-emerald-200 focus:outline-none placeholder-emerald-600"
-            />
-          </div>
+      {open &&
+        rect &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              left: rect.left,
+              top: rect.bottom + 6,
+              width: rect.width,
+              zIndex: 10000,
+            }}
+            className="bg-[#00120c]/95 border border-emerald-700 rounded-lg shadow-[0_0_25px_rgba(0,255,150,0.2)]"
+          >
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-800">
+              <FaSearch className="text-emerald-400 shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Начните вводить город..."
+                className="w-full bg-transparent text-emerald-200 placeholder-emerald-600 focus:outline-none"
+              />
+            </div>
 
-          <div className="max-h-56 overflow-y-auto custom-scrollbar">
-            {filtered.length > 0 ? (
-              filtered.map(opt => (
-                <div
-                  key={opt.value}
-                  onClick={() => {
-                    onChange(opt.value)
-                    setQuery('')
-                    setOpen(false)
-                  }}
-                  className={`px-4 py-2 cursor-pointer transition ${
-                    opt.value === value
-                      ? 'bg-emerald-700/40 text-white'
-                      : 'text-emerald-200 hover:bg-emerald-700/20'
-                  }`}
-                >
-                  {opt.label}
-                </div>
-              ))
-            ) : (
-              <div className="px-4 py-3 text-emerald-500 text-sm">Не найдено</div>
-            )}
-          </div>
-        </div>
-      )}
+            <div className="max-h-56 overflow-y-auto custom-scrollbar">
+              {filtered.length ? (
+                filtered.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value)
+                      setQuery('')
+                      setOpen(false)
+                    }}
+                    className={`w-full text-left px-4 py-2 transition ${
+                      opt.value === value
+                        ? 'bg-emerald-700/40 text-white'
+                        : 'text-emerald-200 hover:bg-emerald-700/20'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-emerald-500 text-sm">Не найдено</div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
@@ -488,19 +522,20 @@ export default function EditProfilePage() {
             )}
           </div>
 
-          {/* === КАСТОМНЫЙ SELECT С ПОИСКОМ === */}
-          <div className="neon-box relative z-50 overflow-visible">
+          {/* === НАВЫКИ === */}
+          <div className="neon-box">
+            <label className="label"><FaCode /> Навыки</label>
+            <SkillsSelector skills={skills} setSkills={setSkills} />
+          </div>
+
+          {/* === ГОРОД === */}
+          <div className="neon-box relative z-40 overflow-visible">
             <label className="label"><FaCity /> Город</label>
             <NeonCitySelect
               value={location}
               options={cityOptions}
               onChange={(val) => setLocation(val)}
             />
-          </div>
-
-          <div className="neon-box">
-            <label className="label"><FaCode /> Навыки</label>
-            <SkillsSelector skills={skills} setSkills={setSkills} />
           </div>
 
           <div className="text-center">
