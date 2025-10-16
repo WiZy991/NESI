@@ -5,13 +5,7 @@ import ProtectedPage from '@/components/ProtectedPage'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import {
-  FaUserEdit,
-  FaCity,
-  FaCode,
-  FaImage,
-  FaFileSignature
-} from 'react-icons/fa'
+import { FaUserEdit, FaCity, FaCode, FaImage, FaFileSignature } from 'react-icons/fa'
 
 // 🔹 Города
 const cityOptions = [
@@ -212,21 +206,20 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
-// 🔹 Категории навыков
+
 const skillCategories: Record<string, string[]> = {
   'IT и программирование': [
-    'JavaScript', 'TypeScript', 'React', 'Next.js', 'Node.js',
-    'Python', 'Django', 'Bitrix', 'PostgreSQL', 'REST API', 'Docker', 'Git', 'Linux'
+    'JavaScript', 'TypeScript', 'React', 'Next.js', 'Node.js', 'Python', 'Django', 'Bitrix', 'PostgreSQL', 'REST API', 'Docker', 'Git', 'Linux'
   ],
   'Дизайн': ['UI/UX', 'Figma', 'Photoshop', 'Illustrator', 'Адаптив'],
   'Контент и копирайтинг': ['SEO', 'Маркетинг', 'Копирайтинг', 'Редактура', 'SMM'],
 }
 
-// 🔹 Навыки
 function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s: string[]) => void }) {
   const addSkill = (skill: string) => {
     if (!skills.includes(skill)) setSkills([...skills, skill])
   }
+
   const removeSkill = (skill: string) => {
     const updated = skills.filter((s) => s !== skill)
     setSkills(updated)
@@ -234,11 +227,11 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-2 p-3 bg-[#0a0f0d]/70 rounded-xl border border-emerald-800 transition-all duration-300 hover:shadow-[0_0_15px_rgba(15,118,110,0.25)]">
+      <div className="flex flex-wrap gap-2 p-3 bg-[#030a07]/80 rounded-xl border border-[#00ffa2]/30 backdrop-blur-sm transition-all duration-500 hover:shadow-[0_0_25px_rgba(0,255,162,0.2)]">
         {skills.map((skill) => (
           <span
             key={skill}
-            className="px-3 py-1 bg-emerald-800/40 text-emerald-200 text-sm rounded-full border border-emerald-700 flex items-center gap-2"
+            className="px-3 py-1 bg-[#00ffa2]/20 text-[#00ffa2] text-sm rounded-full border border-[#00ffa2]/50 flex items-center gap-2"
           >
             {skill}
             <button
@@ -252,8 +245,8 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
         ))}
         <input
           type="text"
-          placeholder="Добавить..."
-          className="bg-transparent text-emerald-200 focus:outline-none px-2 w-28"
+          placeholder="+ Добавить..."
+          className="bg-transparent text-[#00ffa2]/70 focus:outline-none px-2 w-32 placeholder-[#00ffa2]/40"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && e.currentTarget.value.trim()) {
               addSkill(e.currentTarget.value.trim())
@@ -265,7 +258,7 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
 
       {Object.entries(skillCategories).map(([category, items]) => (
         <div key={category}>
-          <h3 className="text-emerald-500 text-sm mb-2 font-medium">{category}</h3>
+          <h3 className="text-[#00ffa2]/80 text-sm mb-2 font-medium">{category}</h3>
           <div className="flex flex-wrap gap-2">
             {items.map((skill) => (
               <button
@@ -274,8 +267,8 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
                 onClick={() => addSkill(skill)}
                 className={`px-3 py-1 text-sm rounded-full border transition-all duration-300 ${
                   skills.includes(skill)
-                    ? 'bg-emerald-700 text-white border-emerald-600 shadow-[0_0_10px_rgba(15,118,110,0.4)]'
-                    : 'bg-[#0a0f0d]/70 text-emerald-300 border-emerald-800 hover:bg-emerald-900/50 hover:text-white'
+                    ? 'bg-[#00ffa2]/30 text-white border-[#00ffa2] shadow-[0_0_10px_rgba(0,255,162,0.4)]'
+                    : 'bg-black/40 text-[#00ffa2]/70 border-[#00ffa2]/30 hover:bg-[#00ffa2]/10 hover:text-[#00ffa2]'
                 }`}
               >
                 {skill}
@@ -291,7 +284,6 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
 export default function EditProfilePage() {
   const { user, token, login, loading } = useUser()
   const router = useRouter()
-
   const [fullName, setFullName] = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
@@ -352,101 +344,162 @@ export default function EditProfilePage() {
     setAvatarPreview(URL.createObjectURL(file))
   }
 
+  const filteredCities = cityOptions.filter(c =>
+    c.label.toLowerCase().includes(citySearch.toLowerCase())
+  )
+
   if (loading || !user) return <div className="p-6 text-gray-400">Загрузка...</div>
 
   return (
     <ProtectedPage>
-      <div className="max-w-4xl mx-auto p-6 space-y-10 animate-[fadeIn_0.8s_ease]">
-        <h1 className="text-3xl font-bold flex items-center gap-3 text-emerald-500">
-          <FaUserEdit className="text-2xl" /> Редактировать профиль
-        </h1>
+      <div className="relative overflow-hidden min-h-screen bg-[#020a07] text-white">
+        {/* 🔹 Космический фон */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-[#021a14] to-black opacity-90" />
+        <div className="absolute inset-0 pointer-events-none animate-pulse bg-[radial-gradient(circle_at_30%_30%,rgba(0,255,162,0.08),transparent_60%)]" />
 
-        {/* Имя */}
-        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 shadow-[0_0_20px_rgba(15,118,110,0.15)] transition-all duration-500">
-          <label className="flex items-center gap-2 text-gray-300 mb-2">
-            <FaFileSignature className="text-emerald-500" /> Имя
-          </label>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-3 py-2 bg-black/60 border border-emerald-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
-          />
-        </div>
-
-        {/* Описание */}
-        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 shadow-[0_0_20px_rgba(15,118,110,0.15)] transition-all duration-500">
-          <label className="block mb-2 text-gray-300">Описание</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            placeholder="Расскажите немного о себе..."
-            className="w-full px-3 py-2 bg-black/60 border border-emerald-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
-          />
-        </div>
-
-        {/* Аватар */}
-        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 flex flex-col sm:flex-row items-center gap-6 transition-all duration-500">
-          <div className="flex flex-col flex-1">
-            <label className="flex items-center gap-2 text-gray-300 mb-2">
-              <FaImage className="text-emerald-500" /> Аватар
-            </label>
-            <label
-              htmlFor="avatar-upload"
-              className="cursor-pointer inline-block px-4 py-2 rounded-lg border border-emerald-600 text-emerald-400 hover:bg-emerald-700/40 transition"
+        {/* 🔹 Контент */}
+        <div className="relative max-w-4xl mx-auto p-8 space-y-10 z-10">
+          {/* Космонавт с карандашом */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-[#00ffa2]">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 512 512"
+              className="w-24 h-24 text-[#00ffa2] animate-[float_4s_ease-in-out_infinite]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="18"
             >
-              📷 Загрузить
+              <path d="M256 16c-110.5 0-200 89.5-200 200s89.5 200 200 200 200-89.5 200-200S366.5 16 256 16z" />
+              <circle cx="256" cy="216" r="80" />
+              <path d="M320 320l80 80-32 32-80-80" />
+            </svg>
+            <h1 className="text-4xl sm:text-5xl font-bold text-[#00ffa2] drop-shadow-[0_0_20px_rgba(0,255,162,0.5)]">
+              Редактировать профиль
+            </h1>
+          </div>
+
+          {/* Имя */}
+          <div className="bg-black/50 border border-[#00ffa2]/30 rounded-2xl p-6 shadow-[0_0_30px_rgba(0,255,162,0.15)] hover:shadow-[0_0_50px_rgba(0,255,162,0.25)] transition-all">
+            <label className="flex items-center gap-2 text-[#00ffa2]/90 mb-2">
+              <FaFileSignature /> Имя
             </label>
             <input
-              id="avatar-upload"
-              type="file"
-              accept="image/*"
-              onChange={(e) => e.target.files?.[0] && handleAvatarChange(e.target.files[0])}
-              className="hidden"
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full bg-black/60 border border-[#00ffa2]/30 rounded-lg px-3 py-2 text-[#00ffa2] focus:ring-2 focus:ring-[#00ffa2]/60 focus:outline-none"
             />
           </div>
-          {avatarPreview && (
-            <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-emerald-700 shadow-[0_0_20px_rgба(15,118,110,0.3)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={avatarPreview} alt="Аватар" className="w-full h-full object-cover" />
+
+          {/* Описание */}
+          <div className="bg-black/50 border border-[#00ffa2]/30 rounded-2xl p-6 shadow-[0_0_30px_rgba(0,255,162,0.15)] transition-all">
+            <label className="text-[#00ffa2]/90 mb-2 block">Описание</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Расскажите немного о себе..."
+              className="w-full bg-black/60 border border-[#00ffa2]/30 rounded-lg px-3 py-2 text-[#00ffa2] focus:ring-2 focus:ring-[#00ffa2]/60 focus:outline-none"
+            />
+          </div>
+
+          {/* Аватар */}
+          <div className="bg-black/50 border border-[#00ffa2]/30 rounded-2xl p-6 shadow-[0_0_30px_rgба(0,255,162,0.15)] flex flex-col sm:flex-row items-center gap-6 transition-all">
+            <div className="flex flex-col flex-1">
+              <label className="flex items-center gap-2 text-[#00ffa2]/90 mb-2">
+                <FaImage /> Аватар
+              </label>
+              <label
+                htmlFor="avatar-upload"
+                className="cursor-pointer inline-block px-4 py-2 rounded-lg border border-[#00ffa2]/40 text-[#00ffa2]/80 hover:bg-[#00ffa2]/20 transition"
+              >
+                📷 Загрузить
+              </label>
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={(e) => e.target.files?.[0] && handleAvatarChange(e.target.files[0])}
+                className="hidden"
+              />
             </div>
-          )}
+            {avatarPreview && (
+              <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-[#00ffa2]/50 shadow-[0_0_25px_rgба(0,255,162,0.3)]">
+                <img src={avatarPreview} alt="Аватар" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+
+          {/* Город */}
+          <div className="bg-black/50 border border-[#00ffa2]/30 rounded-2xl p-6 shadow-[0_0_30px_rgба(0,255,162,0.15)] transition-all">
+            <label className="flex items-center gap-2 text-[#00ffa2]/90 mb-2">
+              <FaCity /> Город
+            </label>
+            <button
+              type="button"
+              onClick={() => setCityModalOpen(true)}
+              className="w-full px-3 py-2 bg-black/60 border border-[#00ffa2]/30 rounded-lg text-[#00ffa2]/80 text-left hover:border-[#00ffa2]/60 transition"
+            >
+              {location || 'Выберите город...'}
+            </button>
+          </div>
+
+          {/* Навыки */}
+          <div className="bg-black/50 border border-[#00ffa2]/30 rounded-2xl p-6 shadow-[0_0_30px_rgба(0,255,162,0.15)]">
+            <label className="flex items-center gap-2 text-[#00ffa2]/90 mb-2">
+              <FaCode /> Навыки
+            </label>
+            <SkillsSelector skills={skills} setSkills={setSkills} />
+          </div>
+
+          {/* Сохранить */}
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full py-3 text-lg rounded-lg border border-[#00ffa2]/40 text-[#00ffa2]/80 hover:bg-[#00ffa2]/20 hover:text-white transition-all duration-300 font-semibold shadow-[0_0_25px_rgба(0,255,162,0.2)]"
+            >
+              {saving ? '💾 Сохраняем...' : '✅ Сохранить изменения'}
+            </button>
+          </div>
         </div>
 
-        {/* Город */}
-        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 shadow-[0_0_20px_rgба(15,118,110,0.15)] transition-all duration-500">
-          <label className="flex items-center gap-2 text-gray-300 mb-2">
-            <FaCity className="text-emerald-500" /> Город
-          </label>
-          <button
-            type="button"
-            onClick={() => setCityModalOpen(true)}
-            className="w-full px-3 py-2 bg-black/60 border border-emerald-800 rounded-lg text-white text-left hover:border-emerald-600 transition"
-          >
-            {location || 'Выберите город...'}
-          </button>
-        </div>
-
-        {/* Навыки */}
-        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 shadow-[0_0_20px_rgба(15,118,110,0.15)] transition-all duration-500">
-          <label className="flex items-center gap-2 text-gray-300 mb-2">
-            <FaCode className="text-emerald-500" /> Навыки
-          </label>
-          <SkillsSelector skills={skills} setSkills={setSkills} />
-        </div>
-
-        {/* Сохранить */}
-        <div className="pt-4">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full py-3 text-lg rounded-lg border border-emerald-700 text-emerald-300 hover:bg-emerald-800/40 hover:text-white transition-all duration-400 font-semibold disabled:opacity-50 shadow-[0_0_15px_rgба(15,118,110,0.3)]"
-          >
-            {saving ? '💾 Сохраняем...' : '✅ Сохранить изменения'}
-          </button>
-        </div>
+        {/* Модалка выбора города */}
+        {cityModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-[#030a07]/95 border border-[#00ffa2]/40 rounded-xl p-6 max-w-md w-full shadow-[0_0_40px_rgба(0,255,162,0.3)]">
+              <h2 className="text-xl font-semibold text-[#00ffa2] mb-4">Выберите город</h2>
+              <input
+                type="text"
+                placeholder="Поиск..."
+                value={citySearch}
+                onChange={(e) => setCitySearch(e.target.value)}
+                className="w-full mb-4 bg-black/50 border border-[#00ffa2]/30 rounded-lg px-3 py-2 text-[#00ffa2] focus:outline-none focus:ring-2 focus:ring-[#00ffa2]/60"
+              />
+              <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-[#00ffa2]/40 scrollbar-track-transparent">
+                {filteredCities.map((city) => (
+                  <button
+                    key={city.value}
+                    onClick={() => {
+                      setLocation(city.label)
+                      setCityModalOpen(false)
+                    }}
+                    className="block w-full text-left px-3 py-2 rounded-md hover:bg-[#00ffa2]/20 text-[#00ffa2]/80 transition"
+                  >
+                    {city.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCityModalOpen(false)}
+                className="mt-4 w-full py-2 rounded-lg border border-[#00ffa2]/30 text-[#00ffa2]/70 hover:bg-[#00ffa2]/10"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </ProtectedPage>
   )
