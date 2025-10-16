@@ -158,8 +158,7 @@ export default function CommunityPage() {
           </nav>
 
           <div className="mt-10 border-t border-gray-800 pt-4 text-xs text-gray-500 space-y-1">
-            <p>NESI Community © {new Date().getFullYear()}</p>
-            <p className="text-gray-600">Вдохновлено Reddit 🌿</p>
+            <p>NESI Community © 🌿{new Date().getFullYear()}</p>
           </div>
         </aside>
 
@@ -172,9 +171,10 @@ export default function CommunityPage() {
           ) : (
             <div className="flex flex-col gap-4">
               {filtered.map((post) => (
-                <article
+                <Link
                   key={post.id}
-                  className="border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm"
+                  href={`/community/${post.id}`}
+                  className="block group border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative"
                 >
                   {/* верхняя строка */}
                   <div className="flex items-center justify-between text-sm text-gray-400">
@@ -196,14 +196,11 @@ export default function CommunityPage() {
                   {/* контент */}
                   <div className="mt-2">
                     {post.title && (
-                      <Link
-                        href={`/community/${post.id}`}
-                        className="block text-lg font-semibold text-white hover:text-emerald-400 transition"
-                      >
+                      <h2 className="block text-lg font-semibold text-white group-hover:text-emerald-400 transition">
                         {post.title}
-                      </Link>
+                      </h2>
                     )}
-                    <p className="text-gray-300 mt-1 whitespace-pre-line">
+                    <p className="text-gray-300 mt-1 whitespace-pre-line line-clamp-3">
                       {post.content}
                     </p>
                     {post.imageUrl && (
@@ -211,14 +208,17 @@ export default function CommunityPage() {
                         <img
                           src={post.imageUrl}
                           alt=""
-                          className="rounded-md border border-gray-800 hover:border-emerald-600/40 transition w-full object-cover max-h-[450px]"
+                          className="rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[450px]"
                         />
                       </div>
                     )}
                   </div>
 
                   {/* кнопки действий */}
-                  <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
+                  <div
+                    className="mt-3 flex items-center gap-4 text-sm text-gray-400"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={() => toggleLike(post.id)}
                       disabled={likeLoading === post.id}
@@ -234,12 +234,13 @@ export default function CommunityPage() {
 
                     <Link
                       href={`/community/${post.id}`}
+                      onClick={(e) => e.stopPropagation()}
                       className="flex items-center gap-1 hover:text-blue-400 transition"
                     >
                       <MessageSquare className="w-4 h-4" /> {post._count.comments}
                     </Link>
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}
