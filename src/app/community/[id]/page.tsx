@@ -254,12 +254,27 @@ export default function CommunityPostPage() {
             )}
 
             <footer className="mt-6 flex items-center gap-4 text-sm">
-              <button onClick={toggleLike} className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${liked ? 'bg-emerald-600 border-emerald-500 text-black' : 'border-emerald-500/40 text-gray-300 hover:bg-emerald-700/20'}`}>
-                <Heart className={`w-4 h-4 ${liked ? 'fill-black text-black' : 'text-emerald-400'}`} /> {post._count.likes}
-              </button>
-              <div className="flex items-center gap-2 text-gray-400"><MessageSquare className="w-4 h-4" /> {post.comments.length}</div>
-            </footer>
-          </article>
+  <button
+    onClick={toggleLike}
+    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
+      liked
+        ? 'bg-emerald-600 border-emerald-500 text-black'
+        : 'border-emerald-500/40 text-gray-300 hover:bg-emerald-700/20'
+    }`}
+  >
+    <Heart
+      className={`w-4 h-4 ${liked ? 'fill-black text-black' : 'text-emerald-400'}`}
+    />
+    {post._count.likes}
+  </button>
+
+  <div className="flex items-center gap-2 text-gray-400">
+    <MessageSquare className="w-4 h-4" />
+    {post.comments.length}
+  </div>
+</footer>
+</div>
+</article>
 
           {/* Комментарии */}
           <section>
