@@ -275,6 +275,7 @@ export default function CommunityPostPage() {
 </footer>
 </article>
 
+
           {/* Комментарии */}
           <section>
             <h2 className="text-2xl font-semibold text-emerald-400 mb-5 flex items-center gap-2">💬 Комментарии</h2>
