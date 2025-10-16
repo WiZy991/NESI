@@ -493,9 +493,9 @@ export default function CommunityPage() {
 <div className="space-y-3">
 {topPosts.map((p) => (
 <Link
-href={/community/${p.id}}
-key={p.id}
-className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
+  href={`/community/${p.id}`}
+  key={p.id}
+  className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
 >
 {p.imageUrl ? (
 <img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-md border border-gray-800" />
