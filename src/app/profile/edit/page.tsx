@@ -355,19 +355,13 @@ export default function EditProfilePage() {
 
   return (
     <ProtectedPage>
-      {/* ✅ убрал bg-[#050a07] и stars-bg */}
       <div className="relative min-h-screen overflow-hidden text-white">
         <div className="max-w-4xl mx-auto p-8 relative z-10 space-y-10">
+
           {/* Заголовок */}
           <div className="flex items-center gap-5 mb-10">
-            <img
-              src="/astro.png"
-              alt="Космонавт"
-              className="astro-icon"
-            />
-            <h1 className="title-glow">
-              Редактировать профиль
-            </h1>
+            <img src="/astro.png" alt="Космонавт" className="astro-icon" />
+            <h1 className="title-glow">Редактировать профиль</h1>
           </div>
 
           {/* Поля */}
@@ -411,18 +405,24 @@ export default function EditProfilePage() {
             )}
           </div>
 
+          {/* === КАСТОМНЫЙ SELECT === */}
           <div className="neon-box">
             <label className="label"><FaCity /> Город</label>
-            <select
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="input cursor-pointer"
-            >
-              <option value="">Выберите город...</option>
-              {cityOptions.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="neon-select w-full"
+              >
+                <option value="">Выберите город...</option>
+                {cityOptions.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none text-lg">
+                ▼
+              </span>
+            </div>
           </div>
 
           <div className="neon-box">
@@ -431,11 +431,7 @@ export default function EditProfilePage() {
           </div>
 
           <div className="text-center">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="save-btn"
-            >
+            <button onClick={handleSave} disabled={saving} className="save-btn">
               {saving ? '💾 Сохраняем...' : '✅ Сохранить изменения'}
             </button>
           </div>
