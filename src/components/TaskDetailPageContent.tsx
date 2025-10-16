@@ -14,9 +14,11 @@ import TaskActionsClient from './TaskActionsClient'
 function DisputeForm({
 	taskId,
 	onSuccess,
+	token,
 }: {
 	taskId: string
 	onSuccess: () => void
+	token: string
 }) {
 	const [isOpen, setIsOpen] = useState(false)
 	const [reason, setReason] = useState('')
@@ -34,14 +36,20 @@ function DisputeForm({
 		try {
 			const res = await fetch('/api/disputes', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
 				body: JSON.stringify({ taskId, reason, details }),
 			})
 			if (res.ok) {
 				setIsOpen(false)
 				setReason('')
 				setDetails('')
-				onSuccess()
+				// Добавляем небольшую задержку перед обновлением состояния
+				setTimeout(() => {
+					onSuccess()
+				}, 100)
 			} else {
 				const data = await res.json().catch(() => ({}))
 				setError((data as any)?.error || 'Ошибка при создании спора')
@@ -158,8 +166,10 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	const [disputeInfo, setDisputeInfo] = useState<any>(null)
 
 	const loadDispute = async () => {
+		if (!token) return
 		try {
 			const res = await fetch(`/api/disputes/by-task/${taskId}`, {
+				headers: { Authorization: `Bearer ${token}` },
 				cache: 'no-store',
 			})
 			if (res.ok) {
@@ -174,7 +184,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 
 	useEffect(() => {
 		loadDispute()
-	}, [taskId])
+	}, [taskId, token])
 
 	useEffect(() => {
 		if (!token) return
@@ -699,7 +709,11 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 						<h3 className='text-lg font-semibold text-red-400 mb-3'>
 							Возникла проблема?
 						</h3>
-						<DisputeForm taskId={task.id} onSuccess={loadDispute} />
+						<DisputeForm
+							taskId={task.id}
+							onSuccess={loadDispute}
+							token={token!}
+						/>
 					</div>
 				)}
 
