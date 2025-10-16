@@ -11,85 +11,91 @@ import ResponseForm from './ResponseForm'
 import ReviewForm from './ReviewForm'
 import TaskActionsClient from './TaskActionsClient'
 
-function DisputeForm({ taskId, onSuccess }: { taskId: string; onSuccess: () => void }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [reason, setReason] = useState('')
-  const [details, setDetails] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+function DisputeForm({
+	taskId,
+	onSuccess,
+}: {
+	taskId: string
+	onSuccess: () => void
+}) {
+	const [isOpen, setIsOpen] = useState(false)
+	const [reason, setReason] = useState('')
+	const [details, setDetails] = useState('')
+	const [loading, setLoading] = useState(false)
+	const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async () => {
-    if (!reason.trim()) {
-      setError('Укажите причину спора')
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/disputes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, reason, details }),
-      })
-      if (res.ok) {
-        setIsOpen(false)
-        setReason('')
-        setDetails('')
-        onSuccess()
-      } else {
-        const data = await res.json().catch(() => ({}))
-        setError((data as any)?.error || 'Ошибка при создании спора')
-      }
-    } catch (err) {
-      console.error(err)
-      setError('Ошибка соединения с сервером')
-    } finally {
-      setLoading(false)
-    }
-  }
+	const handleSubmit = async () => {
+		if (!reason.trim()) {
+			setError('Укажите причину спора')
+			return
+		}
+		setLoading(true)
+		setError(null)
+		try {
+			const res = await fetch('/api/disputes', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ taskId, reason, details }),
+			})
+			if (res.ok) {
+				setIsOpen(false)
+				setReason('')
+				setDetails('')
+				onSuccess()
+			} else {
+				const data = await res.json().catch(() => ({}))
+				setError((data as any)?.error || 'Ошибка при создании спора')
+			}
+		} catch (err) {
+			console.error(err)
+			setError('Ошибка соединения с сервером')
+		} finally {
+			setLoading(false)
+		}
+	}
 
-  if (!isOpen)
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="px-4 py-2 bg-red-700 hover:bg-red-800 rounded text-white transition"
-      >
-        ⚖️ Открыть спор
-      </button>
-    )
+	if (!isOpen)
+		return (
+			<button
+				onClick={() => setIsOpen(true)}
+				className='px-4 py-2 bg-red-700 hover:bg-red-800 rounded text-white transition'
+			>
+				⚖️ Открыть спор
+			</button>
+		)
 
-  return (
-    <div>
-      <textarea
-        placeholder="Причина спора..."
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        className="w-full p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 mb-2"
-      />
-      <textarea
-        placeholder="Дополнительные детали (опционально)"
-        value={details}
-        onChange={(e) => setDetails(e.target.value)}
-        className="w-full p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 mb-3"
-      />
-      {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
-      <div className="flex gap-2">
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="px-4 py-2 bg-green-700 hover:bg-green-800 rounded text-white disabled:opacity-50"
-        >
-          {loading ? 'Отправка...' : 'Отправить'}
-        </button>
-        <button
-          onClick={() => setIsOpen(false)}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded text-gray-200"
-        >
-          Отмена
-        </button>
-      </div>
-    </div>
-  )
+	return (
+		<div>
+			<textarea
+				placeholder='Причина спора...'
+				value={reason}
+				onChange={e => setReason(e.target.value)}
+				className='w-full p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 mb-2'
+			/>
+			<textarea
+				placeholder='Дополнительные детали (опционально)'
+				value={details}
+				onChange={e => setDetails(e.target.value)}
+				className='w-full p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 mb-3'
+			/>
+			{error && <p className='text-red-400 text-sm mb-2'>{error}</p>}
+			<div className='flex gap-2'>
+				<button
+					onClick={handleSubmit}
+					disabled={loading}
+					className='px-4 py-2 bg-green-700 hover:bg-green-800 rounded text-white disabled:opacity-50'
+				>
+					{loading ? 'Отправка...' : 'Отправить'}
+				</button>
+				<button
+					onClick={() => setIsOpen(false)}
+					className='px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded text-gray-200'
+				>
+					Отмена
+				</button>
+			</div>
+		</div>
+	)
 }
 
 // Цвета статусов
@@ -152,21 +158,23 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	const [disputeInfo, setDisputeInfo] = useState<any>(null)
 
 	const loadDispute = async () => {
-  		try {
-    const res = await fetch(`/api/disputes/by-task/${taskId}`, { cache: 'no-store' })
-    	if (res.ok) {
-     	 const data = await res.json()
-      		setHasDispute(Boolean(data?.dispute))
-      		setDisputeInfo(data?.dispute)
-    	}
-  } catch (err) {
-    console.error('Ошибка загрузки спора:', err)
-  }
-}
+		try {
+			const res = await fetch(`/api/disputes/by-task/${taskId}`, {
+				cache: 'no-store',
+			})
+			if (res.ok) {
+				const data = await res.json()
+				setHasDispute(Boolean(data?.dispute))
+				setDisputeInfo(data?.dispute)
+			}
+		} catch (err) {
+			console.error('Ошибка загрузки спора:', err)
+		}
+	}
 
-useEffect(() => {
-  loadDispute()
-}, [taskId])
+	useEffect(() => {
+		loadDispute()
+	}, [taskId])
 
 	useEffect(() => {
 		if (!token) return
@@ -631,66 +639,69 @@ useEffect(() => {
 			)}
 
 			{/* ⚖️ Отображение статуса спора */}
-{hasDispute && disputeInfo?.status === "open" && (
-  <div className="mt-6 p-5 rounded-xl bg-yellow-900/20 border border-yellow-700/40 backdrop-blur-sm shadow-[0_0_15px_rgba(234,179,8,0.1)]">
-    <h2 className="text-lg font-semibold text-yellow-400 mb-2 flex items-center gap-2">
-      ⚖️ Спор на рассмотрении
-    </h2>
-    <p className="text-gray-300 leading-relaxed">
-      Администратор изучает материалы по задаче.  
-      Пожалуйста, ожидайте решения — как только оно будет принято, вы увидите его здесь.
-    </p>
-  </div>
-)}
+			{hasDispute && disputeInfo?.status === 'open' && (
+				<div className='mt-6 p-5 rounded-xl bg-yellow-900/20 border border-yellow-700/40 backdrop-blur-sm shadow-[0_0_15px_rgba(234,179,8,0.1)]'>
+					<h2 className='text-lg font-semibold text-yellow-400 mb-2 flex items-center gap-2'>
+						⚖️ Спор на рассмотрении
+					</h2>
+					<p className='text-gray-300 leading-relaxed'>
+						Администратор изучает материалы по задаче. Пожалуйста, ожидайте
+						решения — как только оно будет принято, вы увидите его здесь.
+					</p>
+				</div>
+			)}
 
-{hasDispute && disputeInfo?.status === "resolved" && (
-  <div className="mt-6 p-5 rounded-xl bg-emerald-900/20 border border-emerald-600/40 backdrop-blur-sm shadow-[0_0_20px_rgba(16,185,129,0.25)]">
-    <h2 className="text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2">
-      ✅ Решение администратора
-    </h2>
-    <p className="text-gray-200 mb-1">
-      Спор решён{" "}
-      <span className="font-semibold text-emerald-400">
-        {disputeInfo.adminDecision === "customer"
-          ? "в пользу заказчика"
-          : "в пользу исполнителя"}
-      </span>
-    </p>
-    {disputeInfo.resolution ? (
-      <blockquote className="text-gray-300 italic border-l-4 border-emerald-500/60 pl-3 mt-2">
-        «{disputeInfo.resolution}»
-      </blockquote>
-    ) : (
-      <p className="text-gray-500 italic mt-2">
-        Комментарий администратора отсутствует.
-      </p>
-    )}
-    <p className="text-xs text-gray-500 mt-3 italic">
-      Система автоматически обновила статус задачи на основании решения администратора.
-    </p>
-  </div>
-)}
+			{hasDispute && disputeInfo?.status === 'resolved' && (
+				<div className='mt-6 p-5 rounded-xl bg-emerald-900/20 border border-emerald-600/40 backdrop-blur-sm shadow-[0_0_20px_rgba(16,185,129,0.25)]'>
+					<h2 className='text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2'>
+						✅ Решение администратора
+					</h2>
+					<p className='text-gray-200 mb-1'>
+						Спор решён{' '}
+						<span className='font-semibold text-emerald-400'>
+							{disputeInfo.adminDecision === 'customer'
+								? 'в пользу заказчика'
+								: 'в пользу исполнителя'}
+						</span>
+					</p>
+					{disputeInfo.resolution ? (
+						<blockquote className='text-gray-300 italic border-l-4 border-emerald-500/60 pl-3 mt-2'>
+							«{disputeInfo.resolution}»
+						</blockquote>
+					) : (
+						<p className='text-gray-500 italic mt-2'>
+							Комментарий администратора отсутствует.
+						</p>
+					)}
+					<p className='text-xs text-gray-500 mt-3 italic'>
+						Система автоматически обновила статус задачи на основании решения
+						администратора.
+					</p>
+				</div>
+			)}
 
-{hasDispute && disputeInfo?.status === "rejected" && (
-  <div className="mt-6 p-5 rounded-xl bg-red-900/20 border border-red-700/40 backdrop-blur-sm shadow-[0_0_15px_rgba(239,68,68,0.15)]">
-    <h2 className="text-lg font-semibold text-red-400 mb-2 flex items-center gap-2">
-      ❌ Спор отклонён
-    </h2>
-    <p className="text-gray-300 leading-relaxed">
-      Администратор отклонил спор.  
-      Решение считается окончательным.
-    </p>
-  </div>
-)}
+			{hasDispute && disputeInfo?.status === 'rejected' && (
+				<div className='mt-6 p-5 rounded-xl bg-red-900/20 border border-red-700/40 backdrop-blur-sm shadow-[0_0_15px_rgba(239,68,68,0.15)]'>
+					<h2 className='text-lg font-semibold text-red-400 mb-2 flex items-center gap-2'>
+						❌ Спор отклонён
+					</h2>
+					<p className='text-gray-300 leading-relaxed'>
+						Администратор отклонил спор. Решение считается окончательным.
+					</p>
+				</div>
+			)}
 
-{/* 💥 Кнопка открытия спора */}
-{!hasDispute && task.status === "completed" && (isCustomer || isExecutor) && (
-  <div className="mt-6 bg-black/40 p-5 rounded-xl border border-red-800/40">
-    <h3 className="text-lg font-semibold text-red-400 mb-3">Возникла проблема?</h3>
-    <DisputeForm taskId={task.id} onSuccess={loadDispute} />
-  </div>
-)}
-
+			{/* 💥 Кнопка открытия спора */}
+			{!hasDispute &&
+				task.status === 'completed' &&
+				(isCustomer || isExecutor) && (
+					<div className='mt-6 bg-black/40 p-5 rounded-xl border border-red-800/40'>
+						<h3 className='text-lg font-semibold text-red-400 mb-3'>
+							Возникла проблема?
+						</h3>
+						<DisputeForm taskId={task.id} onSuccess={loadDispute} />
+					</div>
+				)}
 
 			{/* Навигация */}
 			<div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pt-6 border-t border-gray-700/50'>

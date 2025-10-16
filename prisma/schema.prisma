@@ -8,91 +8,77 @@ datasource db {
 }
 
 model User {
-  id          String               @id @default(cuid())
-  email       String               @unique
-  password    String
-  resetTokens PasswordResetToken[]
-  role        Role                 @default(user)
-  verified    Boolean              @default(false)
-  blocked     Boolean              @default(false)
-  fullName    String?
-  createdAt   DateTime             @default(now())
-
-  description  String?
-  avatarUrl    String?
-  avatarFileId String? @unique
-  avatarFile   File?   @relation("UserAvatar", fields: [avatarFileId], references: [id])
-  last_private_message_read_at DateTime?
-
-  location String?
-  skills   String[]
-
-  tasks           Task[]         @relation("Customer")
-  executedTasks   Task[]         @relation("Executor")
-  responses       TaskResponse[]
-  reviewsAuthored Review[]       @relation("FromUser")
-  reviewsReceived Review[]       @relation("ToUser")
-  messages        Message[]      @relation("MessageSender")
-  notifications   Notification[]
-
-  certificationAttempts CertificationAttempt[]
-  certifications        UserCertification[]
-
-  levelId             String?    @map("level_id")
-  level               UserLevel? @relation(fields: [levelId], references: [id])
-  xp                  Int        @default(0)
-  completedTasksCount Int        @default(0)
-  avgRating           Float      @default(0)
-
-  badges               UserBadge[]
-  hireRequestsSent     HireRequest[] @relation("HireCustomer")
-  hireRequestsReceived HireRequest[] @relation("HireExecutor")
-
-  privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
-  privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
-
-  balance       Int           @default(100)
-  transactions  Transaction[]
-  frozenBalance Int           @default(0)
-
-  communityPosts          CommunityPost[]
-  communityComments       CommunityComment[]
-  communityLikes          CommunityLike[]
-  emailVerificationTokens EmailVerificationToken[]
-  adminLogs               AdminActionLog[]
-  disputes    Dispute[]
+  id                           String                   @id @default(cuid())
+  email                        String                   @unique
+  password                     String
+  fullName                     String?
+  createdAt                    DateTime                 @default(now())
+  avatarUrl                    String?
+  description                  String?
+  location                     String?
+  skills                       String[]
+  avgRating                    Float                    @default(0)
+  completedTasksCount          Int                      @default(0)
+  levelId                      String?                  @map("level_id")
+  xp                           Int                      @default(0)
+  blocked                      Boolean                  @default(false)
+  role                         Role                     @default(user)
+  balance                      Int                      @default(100)
+  frozenBalance                Int                      @default(0)
+  avatarFileId                 String?                  @unique
+  verified                     Boolean                  @default(false)
+  lastPrivateMessageReadAt DateTime?
+  adminLogs                    AdminActionLog[]
+  certificationAttempts        CertificationAttempt[]
+  communityComments            CommunityComment[]
+  communityLikes               CommunityLike[]
+  communityPosts               CommunityPost[]
+  Dispute                      Dispute[]
+  emailVerificationTokens      EmailVerificationToken[]
+  hireRequestsSent             HireRequest[]            @relation("HireCustomer")
+  hireRequestsReceived         HireRequest[]            @relation("HireExecutor")
+  messages                     Message[]                @relation("MessageSender")
+  notifications                Notification[]
+  resetTokens                  PasswordResetToken[]
+  privateMessagesReceived      PrivateMessage[]         @relation("PrivateMessageRecipient")
+  privateMessagesSent          PrivateMessage[]         @relation("PrivateMessageSender")
+  reviewsAuthored              Review[]                 @relation("FromUser")
+  reviewsReceived              Review[]                 @relation("ToUser")
+  tasks                        Task[]                   @relation("Customer")
+  executedTasks                Task[]                   @relation("Executor")
+  responses                    TaskResponse[]
+  transactions                 Transaction[]
+  avatarFile                   File?                    @relation("UserAvatar", fields: [avatarFileId], references: [id])
+  level                        UserLevel?               @relation(fields: [levelId], references: [id])
+  badges                       UserBadge[]
+  certifications               UserCertification[]
 }
 
 model Task {
-  id           String    @id @default(uuid())
-  title        String
-  description  String
-  price        Int?
-  deadline     DateTime?
-  status       String    @default("open")
-  escrowAmount Int       @default(0)
-
-  customerId String
-  customer   User   @relation("Customer", fields: [customerId], references: [id])
-
-  executorId String?
-  executor   User?   @relation("Executor", fields: [executorId], references: [id])
-
+  id            String         @id @default(uuid())
+  title         String
+  description   String
+  price         Int?
+  deadline      DateTime?
+  status        String         @default("open")
+  customerId    String
+  executorId    String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  completedAt   DateTime?
   subcategoryId String?
-  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  completedAt DateTime?
-
-  responses TaskResponse[]
-  review    Review?
-  messages  Message[]
-  files     File[] @relation("TaskFiles")
-
-  transactions Transaction[] @relation("TaskTransactions")
-
-  disputes Dispute[]
+  escrowAmount  Int            @default(0)
+  Dispute       Dispute[]
+  files         File[]         @relation("TaskFiles")
+  messages      Message[]
+  review        Review?
+  customer      User           @relation("Customer", fields: [customerId], references: [id])
+  executor      User?          @relation("Executor", fields: [executorId], references: [id])
+  subcategory   Subcategory?   @relation(fields: [subcategoryId], references: [id])
+  responses     TaskResponse[]
+  Transaction   Transaction[]
+  customerLastReadAt DateTime?
+  executorLastReadAt DateTime?
 
   @@index([status])
   @@index([customerId])
@@ -109,11 +95,10 @@ model TaskResponse {
   taskId    String
   userId    String
   message   String?
-  price     Int?
   createdAt DateTime @default(now())
-
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id])
+  price     Int?
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([taskId, userId], name: "taskId_userId")
   @@index([taskId])
@@ -122,34 +107,29 @@ model TaskResponse {
 }
 
 model Review {
-  id        String   @id @default(cuid())
-  rating    Int
-  comment   String
-  createdAt DateTime @default(now())
-
+  id         String   @id @default(cuid())
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+  taskId     String   @unique
   fromUserId String?
   toUserId   String?
-
-  taskId String @unique
-
-  fromUser User? @relation("FromUser", fields: [fromUserId], references: [id])
-  toUser   User? @relation("ToUser", fields: [toUserId], references: [id])
-  task     Task  @relation(fields: [taskId], references: [id])
+  fromUser   User?    @relation("FromUser", fields: [fromUserId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id])
+  toUser     User?    @relation("ToUser", fields: [toUserId], references: [id])
 }
 
 model Message {
   id        String   @id @default(uuid())
-  content   String
-  fileUrl   String?
   createdAt DateTime @default(now())
   taskId    String
   senderId  String
+  content   String
+  fileUrl   String?
   fileId    String?
-
-  task   Task @relation(fields: [taskId], references: [id])
-  sender User @relation("MessageSender", fields: [senderId], references: [id])
-
-  file File? @relation("MessageFile", fields: [fileId], references: [id])
+  file      File?    @relation("MessageFile", fields: [fileId], references: [id])
+  sender    User     @relation("MessageSender", fields: [senderId], references: [id])
+  task      Task     @relation(fields: [taskId], references: [id])
 
   @@index([taskId])
   @@index([senderId])
@@ -165,8 +145,7 @@ model Notification {
   link      String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([isRead])
@@ -186,52 +165,45 @@ model PasswordResetToken {
 model Category {
   id            String        @id @default(uuid())
   name          String        @unique
-  subcategories Subcategory[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  subcategories Subcategory[]
 }
 
 model Subcategory {
-  id         String   @id @default(uuid())
-  name       String   @unique
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id])
-  tasks      Task[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  minPrice Int @default(500)
-
+  id                 String              @id @default(uuid())
+  name               String              @unique
+  categoryId         String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  minPrice           Int                 @default(500)
   certificationTest  CertificationTest?
+  category           Category            @relation(fields: [categoryId], references: [id])
+  tasks              Task[]
   userCertifications UserCertification[]
 }
 
 model CertificationTest {
-  id            String      @id @default(uuid())
-  subcategoryId String      @unique
-  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
-
+  id            String                  @id @default(uuid())
+  subcategoryId String                  @unique
   title         String
   timeLimitSec  Int
   passScore     Int
   questionCount Int
-
-  questions CertificationQuestion[]
-  attempts  CertificationAttempt[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  attempts      CertificationAttempt[]
+  questions     CertificationQuestion[]
+  subcategory   Subcategory             @relation(fields: [subcategoryId], references: [id])
 }
 
 model CertificationQuestion {
-  id     String            @id @default(uuid())
-  testId String
-  test   CertificationTest @relation(fields: [testId], references: [id])
-
-  text    String
-  options CertificationOption[]
-
-  createdAt DateTime @default(now())
+  id        String                @id @default(uuid())
+  testId    String
+  text      String
+  createdAt DateTime              @default(now())
+  options   CertificationOption[]
+  test      CertificationTest     @relation(fields: [testId], references: [id])
 
   @@index([testId])
 }
@@ -239,26 +211,23 @@ model CertificationQuestion {
 model CertificationOption {
   id         String                @id @default(uuid())
   questionId String
+  text       String
+  isCorrect  Boolean               @default(false)
   question   CertificationQuestion @relation(fields: [questionId], references: [id])
-
-  text      String
-  isCorrect Boolean @default(false)
 
   @@index([questionId])
 }
 
 model CertificationAttempt {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
-  testId String
-  test   CertificationTest @relation(fields: [testId], references: [id])
-
-  startedAt  DateTime  @default(now())
+  id         String            @id @default(uuid())
+  userId     String
+  testId     String
+  startedAt  DateTime          @default(now())
   finishedAt DateTime?
   score      Int?
   passed     Boolean?
+  test       CertificationTest @relation(fields: [testId], references: [id])
+  user       User              @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([testId])
@@ -266,15 +235,13 @@ model CertificationAttempt {
 }
 
 model UserCertification {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
+  id            String      @id @default(uuid())
+  userId        String
   subcategoryId String
+  level         String      @default("CERTIFIED")
+  grantedAt     DateTime    @default(now())
   subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
-
-  level     String   @default("CERTIFIED")
-  grantedAt DateTime @default(now())
+  user          User        @relation(fields: [userId], references: [id])
 
   @@unique([userId, subcategoryId], name: "userId_subcategoryId")
   @@index([subcategoryId])
@@ -286,8 +253,7 @@ model UserLevel {
   name        String
   description String
   minScore    Int
-
-  users User[]
+  users       User[]
 }
 
 model Badge {
@@ -304,9 +270,8 @@ model UserBadge {
   userId   String
   badgeId  String
   earnedAt DateTime @default(now())
-
-  user  User  @relation(fields: [userId], references: [id])
-  badge Badge @relation(fields: [badgeId], references: [id])
+  badge    Badge    @relation(fields: [badgeId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
 }
 
 model HireRequest {
@@ -316,9 +281,8 @@ model HireRequest {
   createdAt  DateTime @default(now())
   paid       Boolean  @default(false)
   status     String   @default("pending")
-
-  customer User @relation("HireCustomer", fields: [customerId], references: [id])
-  executor User @relation("HireExecutor", fields: [executorId], references: [id])
+  customer   User     @relation("HireCustomer", fields: [customerId], references: [id])
+  executor   User     @relation("HireExecutor", fields: [executorId], references: [id])
 }
 
 model PrivateMessage {
@@ -326,17 +290,15 @@ model PrivateMessage {
   senderId    String
   recipientId String
   content     String?
-  // устаревшие поля
   fileUrl     String?
   mimeType    String?
   fileName    String?
   size        Int?
   createdAt   DateTime @default(now())
   fileId      String?
-
-  sender    User  @relation("PrivateMessageSender", fields: [senderId], references: [id])
-  recipient User  @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
-  file      File? @relation("PrivateMessageFile", fields: [fileId], references: [id])
+  file        File?    @relation("PrivateMessageFile", fields: [fileId], references: [id])
+  recipient   User     @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
+  sender      User     @relation("PrivateMessageSender", fields: [senderId], references: [id])
 }
 
 model AdminInvite {
@@ -348,26 +310,18 @@ model AdminInvite {
   usedBy    String?  @db.Uuid
 }
 
-enum Role {
-  user
-  executor
-  customer
-  admin
-}
-
 model Transaction {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  amount    Int
-  type      String
-  reason    String
-  status    String   @default("pending")
+  id         String   @id @default(cuid())
+  userId     String
+  amount     Int
+  type       String
+  reason     String
+  createdAt  DateTime @default(now())
   reviewedBy String?
-  createdAt DateTime @default(now())
-
-  taskId      String?
-  task        Task?     @relation("TaskTransactions", fields: [taskId], references: [id])
+  status     String   @default("pending")
+  taskId     String?
+  Task       Task?    @relation(fields: [taskId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
@@ -375,35 +329,32 @@ model Transaction {
 }
 
 model File {
-  id        String   @id @default(cuid())
-  filename  String
-  mimetype  String
-  size      Int
-  data      Bytes?
-  url       String?
-  createdAt DateTime @default(now())
-
-  userAvatar  User?            @relation("UserAvatar")
+  id          String           @id @default(cuid())
+  filename    String
+  mimetype    String
+  size        Int
+  data        Bytes?
+  url         String?
+  createdAt   DateTime         @default(now())
+  taskId      String?
+  task        Task?            @relation("TaskFiles", fields: [taskId], references: [id])
   messages    Message[]        @relation("MessageFile")
   privateMsgs PrivateMessage[] @relation("PrivateMessageFile")
-
-  task   Task?   @relation("TaskFiles", fields: [taskId], references: [id])
-  taskId String?
+  userAvatar  User?            @relation("UserAvatar")
 }
 
 model CommunityPost {
-  id        String   @id @default(cuid())
+  id        String             @id @default(cuid())
+  authorId  String
   title     String
   content   String
-  imageUrl  String? // для картинок/мемов
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  comments CommunityComment[]
-  likes    CommunityLike[]
-  views    CommunityView[]
+  imageUrl  String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  comments  CommunityComment[]
+  likes     CommunityLike[]
+  author    User               @relation(fields: [authorId], references: [id])
+  views     CommunityView[]
 
   @@index([authorId])
   @@index([createdAt])
@@ -412,14 +363,14 @@ model CommunityPost {
 
 model CommunityComment {
   id        String        @id @default(cuid())
+  postId    String
+  authorId  String
   content   String
+  createdAt DateTime      @default(now())
+  parentId  String?
   imageUrl  String?
   author    User          @relation(fields: [authorId], references: [id])
-  authorId  String
   post      CommunityPost @relation(fields: [postId], references: [id])
-  postId    String
-  parentId  String?
-  createdAt DateTime      @default(now())
 
   @@index([postId])
   @@index([authorId])
@@ -429,28 +380,28 @@ model CommunityComment {
 
 model CommunityLike {
   id     String        @id @default(cuid())
-  user   User          @relation(fields: [userId], references: [id])
+  postId String
   userId String
   post   CommunityPost @relation(fields: [postId], references: [id])
-  postId String
+  user   User          @relation(fields: [userId], references: [id])
 
   @@unique([postId, userId], name: "postId_userId")
 }
 
 model CommunityView {
   id        String        @id @default(cuid())
-  post      CommunityPost @relation(fields: [postId], references: [id])
   postId    String
   userId    String?
   createdAt DateTime      @default(now())
+  post      CommunityPost @relation(fields: [postId], references: [id])
 }
 
 model EmailVerificationToken {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
   expiresAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AdminActionLog {
@@ -461,8 +412,7 @@ model AdminActionLog {
   entityId   String?
   details    String?
   createdAt  DateTime @default(now())
-
-  admin User @relation(fields: [adminId], references: [id])
+  admin      User     @relation(fields: [adminId], references: [id])
 }
 
 model SystemMetric {
@@ -473,22 +423,28 @@ model SystemMetric {
   createdAt DateTime @default(now())
 }
 
-
 model Dispute {
-  id          String   @id @default(uuid())
-  taskId      String
-  task        Task     @relation(fields: [taskId], references: [id])
-  userId      String   // кто открыл спор
-  user        User     @relation(fields: [userId], references: [id])
-  reason      String
-  details     String?
-  status      String   @default("open") // open | resolved | rejected
-  resolution  String?
-  createdAt   DateTime @default(now())
-  resolvedAt  DateTime?
-  adminDecision String? // "customer" | "executor"
+  id            String    @id
+  taskId        String
+  userId        String
+  reason        String
+  details       String?
+  status        String    @default("open")
+  resolution    String?
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
+  adminDecision String?
+  Task          Task      @relation(fields: [taskId], references: [id])
+  User          User      @relation(fields: [userId], references: [id])
 
+  @@index([status])
   @@index([taskId])
   @@index([userId])
-  @@index([status])
+}
+
+enum Role {
+  user
+  executor
+  admin
+  customer
 }
