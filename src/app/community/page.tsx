@@ -199,75 +199,80 @@ export default function CommunityPage() {
                   className="group border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative"
                 >
                   <div className="flex items-start justify-between text-sm text-gray-400 relative">
-                    {/* 👤 Автор */}
-                    <Link
-                      href={`/profile/${post.author.id}`}
-                      className="flex items-center gap-2 hover:text-emerald-400 transition"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-emerald-700/20 flex items-center justify-center">
-                        <User className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <div className="flex flex-col leading-tight">
-                        <span className="text-emerald-300 font-medium">
-                          {post.author.fullName || post.author.email}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(post.createdAt).toLocaleDateString('ru-RU', {
-                            day: '2-digit',
-                            month: 'long',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                    </Link>
+                    <div className="flex items-start justify-between text-sm text-gray-400 relative">
+  {/* 👤 Автор поста */}
+  <Link
+    href={`/users/${post.author.id}`}
+    className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
+  >
+    <div className="relative">
+      <div className="w-10 h-10 rounded-full bg-emerald-700/20 flex items-center justify-center">
+        <User className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition" />
+      </div>
+      <span className="absolute -bottom-1 -right-1 text-[10px] bg-emerald-600 text-black px-1.5 py-[1px] rounded-full font-semibold">
+        Автор
+      </span>
+    </div>
 
-                    {/* ⋯ Меню */}
-                    <div className="relative">
-                      <button
-                        onClick={() =>
-                          setOpenMenu(openMenu === post.id ? null : post.id)
-                        }
-                        className="p-1 hover:text-emerald-400 transition"
-                      >
-                        <MoreHorizontal className="w-5 h-5" />
-                      </button>
+    <div className="flex flex-col leading-tight">
+      <span className="text-emerald-300 font-medium group-hover:text-emerald-400 transition">
+        {post.author.fullName || post.author.email}
+      </span>
+      <span className="text-xs text-gray-500">
+        {new Date(post.createdAt).toLocaleString('ru-RU', {
+          day: '2-digit',
+          month: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </span>
+    </div>
+  </Link>
 
-                      {openMenu === post.id && (
-                        <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
-                          <button
-                            onClick={() => {
-                              copyLink(post.id)
-                              setOpenMenu(null)
-                            }}
-                            className="block w-full text-left px-4 py-2 hover:bg-gray-800 transition"
-                          >
-                            📋 Копировать ссылку
-                          </button>
-                          <button
-                            onClick={() => {
-                              reportPost(post.id)
-                              setOpenMenu(null)
-                            }}
-                            className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-red-400 transition"
-                          >
-                            🚨 Пожаловаться
-                          </button>
-                          {user?.id === post.author.id && (
-                            <button
-                              onClick={() => {
-                                deletePost(post.id)
-                                setOpenMenu(null)
-                              }}
-                              className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-pink-500 transition"
-                            >
-                              🗑 Удалить пост
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+  {/* ⋯ Меню действий */}
+  <div className="relative">
+    <button
+      onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)}
+      className="p-1 hover:text-emerald-400 transition"
+    >
+      <MoreHorizontal className="w-5 h-5" />
+    </button>
+
+    {openMenu === post.id && (
+      <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
+        <button
+          onClick={() => {
+            copyLink(post.id)
+            setOpenMenu(null)
+          }}
+          className="block w-full text-left px-4 py-2 hover:bg-gray-800 transition"
+        >
+          📋 Копировать ссылку
+        </button>
+        <button
+          onClick={() => {
+            reportPost(post.id)
+            setOpenMenu(null)
+          }}
+          className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-red-400 transition"
+        >
+          🚨 Пожаловаться
+        </button>
+        {user?.id === post.author.id && (
+          <button
+            onClick={() => {
+              deletePost(post.id)
+              setOpenMenu(null)
+            }}
+            className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-pink-500 transition"
+          >
+            🗑 Удалить пост
+          </button>
+        )}
+      </div>
+    )}
+  </div>
+</div>
 
                   {/* Контент поста */}
                   <Link href={`/community/${post.id}`} className="block mt-3">
