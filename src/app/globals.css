@@ -26,7 +26,7 @@ body {
 	font-family: 'Poppins', sans-serif;
 }
 
-/* Кастомный скроллбар для чатов */
+/* 🌿 Кастомный скроллбар для чатов */
 .custom-scrollbar {
 	scrollbar-width: thin;
 	scrollbar-color: rgba(16, 185, 129, 0.3) transparent;
@@ -47,4 +47,73 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
 	background: rgba(16, 185, 129, 0.5);
+}
+
+/* 🌈 Анимации и эффекты NESI UI */
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(-5px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes fadeOut {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(-5px);
+	}
+}
+
+@keyframes glowPulse {
+	0% {
+		box-shadow: 0 0 10px rgba(0, 255, 180, 0.3);
+	}
+	50% {
+		box-shadow: 0 0 25px rgba(0, 255, 180, 0.6);
+	}
+	100% {
+		box-shadow: 0 0 10px rgba(0, 255, 180, 0.3);
+	}
+}
+
+.animate-fadeIn {
+	animation: fadeIn 0.15s ease-out forwards;
+}
+
+.animate-fadeOut {
+	animation: fadeOut 0.15s ease-in forwards;
+}
+
+.glow-emerald {
+	animation: glowPulse 2.5s ease-in-out infinite;
+}
+
+/* 🧊 Стили для неоновых модалок и списков */
+.neon-border {
+	border: 1px solid rgba(16, 185, 129, 0.4);
+	box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+}
+
+.neon-focus:focus {
+	outline: none;
+	border-color: rgba(16, 185, 129, 0.7);
+	box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+}
+
+.dropdown-item {
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+	background-color: rgba(16, 185, 129, 0.15);
+	color: rgba(16, 185, 129, 0.95);
 }
