@@ -61,7 +61,7 @@ export default function Header() {
 		fetchNotifications()
 	}, [user, token])
 
-	// Загрузка количества непрочитанных сообщений и подключение к SSE
+	// Загрузка количества непрочитанных сообщений и SSE
 	useEffect(() => {
 		if (!user || !token) return
 
@@ -82,11 +82,8 @@ export default function Header() {
 			}
 		}
 
-		// Подключение к Server-Sent Events
 		const connectSSE = () => {
-			if (eventSourceRef.current) {
-				eventSourceRef.current.close()
-			}
+			if (eventSourceRef.current) eventSourceRef.current.close()
 
 			const eventSource = new EventSource(
 				`/api/notifications/stream?token=${encodeURIComponent(token)}`
@@ -103,10 +100,7 @@ export default function Header() {
 					console.log('📨 Получено SSE сообщение:', data)
 
 					if (data.type === 'message') {
-						// Показываем уведомление
 						showNotification(data)
-
-						// Обновляем счетчик непрочитанных сообщений
 						fetchUnreadMessages()
 					} else if (data.type === 'heartbeat') {
 						console.log('💓 SSE heartbeat получен')
@@ -119,39 +113,24 @@ export default function Header() {
 			eventSource.onerror = error => {
 				console.error('❌ Ошибка SSE:', error)
 				setSseConnected(false)
-
-				// Переподключение через 5 секунд
 				setTimeout(() => {
-					if (user && token) {
-						connectSSE()
-					}
+					if (user && token) connectSSE()
 				}, 5000)
 			}
 
 			eventSourceRef.current = eventSource
 		}
 
-		// Функция для показа уведомления
 		const showNotification = (data: any) => {
-			// Воспроизводим звук уведомления только если указано playSound: true
 			if (data.playSound) {
 				try {
 					const audioContext = new (window.AudioContext ||
 						window.webkitAudioContext)()
-
-					// Создаем осциллятор для генерации звука
 					const oscillator = audioContext.createOscillator()
 					const gainNode = audioContext.createGain()
-
-					// Подключаем узлы
 					oscillator.connect(gainNode)
 					gainNode.connect(audioContext.destination)
-
-					// Настраиваем звук
 					oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
-					oscillator.type = 'sine'
-
-					// Настраиваем громкость (envelope)
 					gainNode.gain.setValueAtTime(0, audioContext.currentTime)
 					gainNode.gain.linearRampToValueAtTime(
 						0.2,
@@ -161,18 +140,11 @@ export default function Header() {
 						0.01,
 						audioContext.currentTime + 0.3
 					)
-
-					// Воспроизводим звук
 					oscillator.start(audioContext.currentTime)
 					oscillator.stop(audioContext.currentTime + 0.3)
-
-					console.log('🔊 Звук уведомления воспроизведен')
-				} catch (error) {
-					console.log('🔊 Звук уведомления недоступен:', error)
-				}
+				} catch {}
 			}
 
-			// Проверяем поддержку уведомлений
 			if ('Notification' in window && Notification.permission === 'granted') {
 				const notification = new Notification(data.title, {
 					body: `${data.sender}: ${data.message}`,
@@ -189,16 +161,12 @@ export default function Header() {
 					}
 					notification.close()
 				}
-
-				// Автоматически закрываем уведомление через 5 секунд
 				setTimeout(() => notification.close(), 5000)
 			}
 
-			// Также показываем встроенное уведомление в интерфейсе
 			setNotifications(prev => [data, ...prev.slice(0, 4)])
 		}
 
-		// Запрашиваем разрешение на уведомления
 		if ('Notification' in window && Notification.permission === 'default') {
 			Notification.requestPermission()
 		}
@@ -206,19 +174,9 @@ export default function Header() {
 		fetchUnreadMessages()
 		connectSSE()
 
-		// Обновляем каждые 30 секунд
 		const interval = setInterval(fetchUnreadMessages, 30000)
-
-		// Слушаем события открытия чата
-		const handleChatOpened = () => {
-			fetchUnreadMessages()
-		}
-
-		// Слушаем события отправки сообщений
-		const handleMessageSent = () => {
-			fetchUnreadMessages()
-		}
-
+		const handleChatOpened = () => fetchUnreadMessages()
+		const handleMessageSent = () => fetchUnreadMessages()
 		window.addEventListener('chatOpened', handleChatOpened)
 		window.addEventListener('messageSent', handleMessageSent)
 
@@ -226,9 +184,7 @@ export default function Header() {
 			clearInterval(interval)
 			window.removeEventListener('chatOpened', handleChatOpened)
 			window.removeEventListener('messageSent', handleMessageSent)
-			if (eventSourceRef.current) {
-				eventSourceRef.current.close()
-			}
+			if (eventSourceRef.current) eventSourceRef.current.close()
 		}
 	}, [user, token])
 
@@ -238,9 +194,7 @@ export default function Header() {
 		try {
 			await fetch('/api/notifications/mark-all-read', {
 				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
+				headers: { Authorization: `Bearer ${token}` },
 			})
 			setUnreadCount(0)
 		} catch (err) {
@@ -248,11 +202,16 @@ export default function Header() {
 		}
 	}
 
+	// ✅ Исправлено: переход из плашки уведомления работает!
 	const handleNotificationClick = async (notif: any) => {
+		setNotifOpen(false)
+		await markAllRead()
 		if (notif.link) {
-			setNotifOpen(false)
-			await markAllRead()
 			router.push(notif.link)
+		} else if (notif.chatType === 'private') {
+			router.push('/chats')
+		} else if (notif.chatType === 'task' && notif.chatId) {
+			router.push(`/tasks/${notif.chatId.replace('task_', '')}`)
 		}
 	}
 
@@ -264,7 +223,6 @@ export default function Header() {
 
 	return (
 		<header className='w-full px-8 py-4 flex justify-between items-center bg-black border-b border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.4)] relative'>
-			{/* Логотип */}
 			<Link
 				href='/'
 				className='text-2xl font-bold text-emerald-400 tracking-widest hover:scale-105 transition'
@@ -287,16 +245,11 @@ export default function Header() {
 										{unreadCount}
 									</span>
 								)}
-								{/* Индикатор подключения к SSE */}
 								{sseConnected && (
-									<span
-										className='absolute -bottom-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse'
-										title='Подключено к уведомлениям'
-									></span>
+									<span className='absolute -bottom-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse'></span>
 								)}
 							</button>
 
-							{/* Всплывающее окно уведомлений */}
 							{notifOpen && (
 								<div className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.25)] z-50 overflow-hidden'>
 									<div className='max-h-64 overflow-y-auto custom-scrollbar'>
@@ -310,16 +263,7 @@ export default function Header() {
 												<div
 													key={index}
 													className='p-3 border-b border-gray-700 hover:bg-gray-800 transition cursor-pointer'
-													onClick={() => {
-														if (notif.chatType === 'private') {
-															router.push('/chats')
-														} else if (notif.chatType === 'task') {
-															router.push(
-																`/tasks/${notif.chatId.replace('task_', '')}`
-															)
-														}
-														setNotifOpen(false)
-													}}
+													onClick={() => handleNotificationClick(notif)}
 												>
 													<div className='flex items-start space-x-3'>
 														<div className='w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold'>
@@ -341,9 +285,6 @@ export default function Header() {
 																{new Date(notif.timestamp).toLocaleTimeString()}
 															</p>
 														</div>
-														{notif.hasFile && (
-															<div className='text-xs text-blue-400'>📎</div>
-														)}
 													</div>
 												</div>
 											))
@@ -364,88 +305,49 @@ export default function Header() {
 						{/* Остальная навигация */}
 						{user.role === 'admin' ? (
 							<>
-								<Link
-									href='/admin'
-									className='hover:text-emerald-400 transition'
-								>
+								<Link href='/admin' className='hover:text-emerald-400 transition'>
 									Админ-панель
 								</Link>
-								<Link
-									href='/profile'
-									className='hover:text-emerald-400 transition'
-								>
+								<Link href='/profile' className='hover:text-emerald-400 transition'>
 									Профиль
 								</Link>
-								<button
-									onClick={handleLogout}
-									className='px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:brightness-110 transition'
-								>
-									Выйти
-								</button>
 							</>
 						) : (
 							<>
 								{user.role === 'executor' && (
 									<>
-										<Link
-											href='/specialists'
-											className='hover:text-emerald-400 transition'
-										>
+										<Link href='/specialists' className='hover:text-emerald-400 transition'>
 											Подиум исполнителей
 										</Link>
-										<Link
-											href='/tasks'
-											className='hover:text-emerald-400 transition'
-										>
+										<Link href='/tasks' className='hover:text-emerald-400 transition'>
 											Каталог задач
 										</Link>
-										<Link
-											href='/tasks/my'
-											className='hover:text-emerald-400 transition'
-										>
+										<Link href='/tasks/my' className='hover:text-emerald-400 transition'>
 											Мои задачи
 										</Link>
-										<Link
-											href='/responses/my'
-											className='hover:text-emerald-400 transition'
-										>
+										<Link href='/responses/my' className='hover:text-emerald-400 transition'>
 											Мои отклики
 										</Link>
 									</>
 								)}
 								{user.role === 'customer' && (
 									<>
-										<Link
-											href='/specialists'
-											className='hover:text-emerald-400 transition'
-										>
+										<Link href='/specialists' className='hover:text-emerald-400 transition'>
 											Подиум исполнителей
 										</Link>
-										<Link
-											href='/tasks'
-											className='hover:text-emerald-400 transition'
-										>
+										<Link href='/tasks' className='hover:text-emerald-400 transition'>
 											Каталог задач
 										</Link>
-										<Link
-											href='/my-tasks'
-											className='hover:text-emerald-400 transition'
-										>
+										<Link href='/my-tasks' className='hover:text-emerald-400 transition'>
 											Мои задачи
 										</Link>
-										<Link
-											href='/tasks/new'
-											className='hover:text-emerald-400 transition'
-										>
+										<Link href='/tasks/new' className='hover:text-emerald-400 transition'>
 											Создать задачу
 										</Link>
 									</>
 								)}
 
-								<Link
-									href='/profile'
-									className='hover:text-emerald-400 transition'
-								>
+								<Link href='/profile' className='hover:text-emerald-400 transition'>
 									Профиль
 								</Link>
 
@@ -484,16 +386,22 @@ export default function Header() {
 											>
 												📑 Запросы найма
 											</Link>
+
+											{/* 👇 Кнопка выхода теперь внизу */}
+											<div className='border-t border-gray-700 mt-1'>
+												<button
+													onClick={() => {
+														setMenuOpen(false)
+														handleLogout()
+													}}
+													className='block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 transition'
+												>
+													🚪 Выйти
+												</button>
+											</div>
 										</div>
 									)}
 								</div>
-
-								<button
-									onClick={handleLogout}
-									className='px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:brightness-110 transition'
-								>
-									Выйти
-								</button>
 							</>
 						)}
 					</>
