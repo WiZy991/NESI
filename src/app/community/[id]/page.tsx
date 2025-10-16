@@ -2,9 +2,21 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { Heart, MessageSquare, Send, Loader2, UserCircle2, Reply } from 'lucide-react'
+import {
+  Heart,
+  MessageSquare,
+  Send,
+  Loader2,
+  UserCircle2,
+  Reply,
+  Flame,
+  Plus,
+  Home,
+  User,
+} from 'lucide-react'
 
 type Post = {
   id: string
@@ -112,11 +124,9 @@ export default function CommunityPostPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ content: text, parentId }), // ✅ parentId — для ответа
+        body: JSON.stringify({ content: text, parentId }),
       })
-      if (res.ok) {
-        fetchPost()
-      }
+      if (res.ok) fetchPost()
     } catch (e) {
       console.error('Ошибка ответа на комментарий:', e)
     }
@@ -142,116 +152,162 @@ export default function CommunityPostPage() {
   if (!post) return <p className="text-center text-gray-400 mt-20 text-lg">Пост не найден 😕</p>
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4 text-white space-y-10">
-      {/* Пост */}
-      <article className="p-6 rounded-2xl border border-gray-800 bg-gradient-to-br from-[#0b0b0b]/80 to-[#002a2a]/90 shadow-[0_0_25px_rgba(0,255,180,0.15)]">
-        <header className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-full bg-gray-800 border border-emerald-700/40 flex items-center justify-center overflow-hidden">
-            <UserCircle2 className="w-8 h-8 text-emerald-400" />
-          </div>
-          <div>
-            <h2 className="text-emerald-300 font-semibold">
-              {post.author.fullName || post.author.email}
-            </h2>
-            <p className="text-xs text-gray-500">
-              {new Date(post.createdAt).toLocaleString('ru-RU', {
-                day: '2-digit',
-                month: 'long',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </p>
-          </div>
-        </header>
-
-        {post.title && (
-          <h1 className="text-2xl font-bold text-emerald-400 mb-3">{post.title}</h1>
-        )}
-
-        <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{post.content}</p>
-
-        {/* 🖼 Изображение поста (если есть) */}
-        {post.imageUrl && (
-          <div className="mt-4 overflow-hidden rounded-xl border border-gray-800">
-            {/* если у тебя ссылка типа /api/files/:id — оставляем как есть */}
-            <img
-              src={post.imageUrl}
-              alt="post"
-              className="w-full h-auto object-cover"
-              loading="lazy"
-            />
-          </div>
-        )}
-
-        <footer className="mt-6 flex items-center gap-4 text-sm">
-          <button
-            onClick={toggleLike}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-              liked
-                ? 'bg-emerald-600 border-emerald-500 text-black'
-                : 'border-emerald-500/40 text-gray-300 hover:bg-emerald-700/20'
-            }`}
-          >
-            <Heart className={`w-4 h-4 ${liked ? 'fill-black text-black' : 'text-emerald-400'}`} />
-            {post._count.likes}
-          </button>
-
-          <div className="flex items-center gap-2 text-gray-400">
-            <MessageSquare className="w-4 h-4" />
-            {post.comments.length}
-          </div>
-        </footer>
-      </article>
-
-      {/* Комментарии (дерево) */}
-      <section>
-        <h2 className="text-2xl font-semibold text-emerald-400 mb-5 flex items-center gap-2">
-          💬 Комментарии
-        </h2>
-
-        {tree.length === 0 && (
-          <p className="text-gray-500 text-center py-8 border border-gray-800 rounded-lg bg-black/30">
-            Комментариев пока нет. Будь первым!
-          </p>
-        )}
-
-        <div className="space-y-4">
-          {tree.map((root) => (
-            <CommentNode
-              key={root.id}
-              node={root}
-              depth={0}
-              replyOpen={replyOpen}
-              setReplyOpen={setReplyOpen}
-              replyText={replyText}
-              setReplyText={setReplyText}
-              sendReply={sendReply}
-            />
-          ))}
-        </div>
-
-        {/* Форма добавления корневого комментария */}
-        {user && (
-          <div className="mt-8 border-t border-gray-800 pt-6">
-            <h3 className="text-lg font-semibold text-emerald-300 mb-3">Добавить комментарий</h3>
-            <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              rows={3}
-              placeholder="Напиши что-нибудь..."
-              className="w-full p-3 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-            />
-            <button
-              onClick={sendComment}
-              disabled={sending}
-              className="mt-3 flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50"
+    <div className="min-h-screen text-white">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
+        {/* ───── ЛЕВАЯ КОЛОНКА ───── */}
+        <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
+          <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
+          <nav className="flex flex-col gap-2 text-sm">
+            <Link
+              href="/community"
+              className="flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-600/20 text-emerald-300"
             >
-              {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-              {sending ? 'Отправка...' : 'Отправить'}
-            </button>
+              <Home className="w-4 h-4" /> Новые
+            </Link>
+            <Link
+              href="/community?sort=popular"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800/50 transition"
+            >
+              <Flame className="w-4 h-4" /> Популярные
+            </Link>
+            {user && (
+              <Link
+                href="/community?filter=my"
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800/50 transition"
+              >
+                <User className="w-4 h-4" /> Мои темы
+              </Link>
+            )}
+            <Link
+              href="/community/new"
+              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 text-center justify-center font-medium transition"
+            >
+              <Plus className="w-4 h-4" /> Создать тему
+            </Link>
+          </nav>
+
+          <div className="mt-10 border-t border-gray-800 pt-4 text-xs text-gray-500 space-y-1">
+            <p>NESI Community © {new Date().getFullYear()}</p>
+            <p className="text-gray-600">Вдохновлено Reddit 🌿</p>
           </div>
-        )}
-      </section>
+        </aside>
+
+        {/* ───── ЦЕНТРАЛЬНЫЙ КОНТЕНТ ───── */}
+        <main className="flex-1 max-w-3xl mx-auto space-y-10">
+          {/* Пост */}
+          <article className="p-6 rounded-2xl border border-gray-800 bg-transparent shadow-[0_0_25px_rgba(0,255,180,0.05)]">
+            <header className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-gray-800 border border-emerald-700/40 flex items-center justify-center overflow-hidden">
+                <UserCircle2 className="w-8 h-8 text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-emerald-300 font-semibold">
+                  {post.author.fullName || post.author.email}
+                </h2>
+                <p className="text-xs text-gray-500">
+                  {new Date(post.createdAt).toLocaleString('ru-RU', {
+                    day: '2-digit',
+                    month: 'long',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            </header>
+
+            {post.title && (
+              <h1 className="text-2xl font-bold text-emerald-400 mb-3">{post.title}</h1>
+            )}
+
+            <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+
+            {post.imageUrl && (
+              <div className="mt-4 overflow-hidden rounded-xl border border-gray-800">
+                <img
+                  src={post.imageUrl}
+                  alt="post"
+                  className="w-full h-auto object-cover"
+                  loading="lazy"
+                />
+              </div>
+            )}
+
+            <footer className="mt-6 flex items-center gap-4 text-sm">
+              <button
+                onClick={toggleLike}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
+                  liked
+                    ? 'bg-emerald-600 border-emerald-500 text-black'
+                    : 'border-emerald-500/40 text-gray-300 hover:bg-emerald-700/20'
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${liked ? 'fill-black text-black' : 'text-emerald-400'}`} />
+                {post._count.likes}
+              </button>
+
+              <div className="flex items-center gap-2 text-gray-400">
+                <MessageSquare className="w-4 h-4" />
+                {post.comments.length}
+              </div>
+            </footer>
+          </article>
+
+          {/* Комментарии */}
+          <section>
+            <h2 className="text-2xl font-semibold text-emerald-400 mb-5 flex items-center gap-2">
+              💬 Комментарии
+            </h2>
+
+            {tree.length === 0 && (
+              <p className="text-gray-500 text-center py-8 border border-gray-800 rounded-lg bg-transparent">
+                Комментариев пока нет. Будь первым!
+              </p>
+            )}
+
+            <div className="space-y-4">
+              {tree.map((root) => (
+                <CommentNode
+                  key={root.id}
+                  node={root}
+                  depth={0}
+                  replyOpen={replyOpen}
+                  setReplyOpen={setReplyOpen}
+                  replyText={replyText}
+                  setReplyText={setReplyText}
+                  sendReply={sendReply}
+                />
+              ))}
+            </div>
+
+            {user && (
+              <div className="mt-8 border-t border-gray-800 pt-6">
+                <h3 className="text-lg font-semibold text-emerald-300 mb-3">
+                  Добавить комментарий
+                </h3>
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={3}
+                  placeholder="Напиши что-нибудь..."
+                  className="w-full p-3 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                />
+                <button
+                  onClick={sendComment}
+                  disabled={sending}
+                  className="mt-3 flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50"
+                >
+                  {sending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                  {sending ? 'Отправка...' : 'Отправить'}
+                </button>
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
     </div>
   )
 }
@@ -282,7 +338,7 @@ function CommentNode({
   return (
     <div>
       <div
-        className="p-4 rounded-xl border border-gray-800 bg-gradient-to-br from-[#0b0b0b]/60 to-[#001818]/70"
+        className="p-4 rounded-xl border border-gray-800 bg-transparent"
         style={{ marginLeft: depth ? depth * 24 : 0 }}
       >
         <div className="flex items-center justify-between mb-2">
@@ -305,7 +361,9 @@ function CommentNode({
           <div className="mt-3">
             <textarea
               value={replyText[node.id] || ''}
-              onChange={(e) => setReplyText((s) => ({ ...s, [node.id]: e.target.value }))}
+              onChange={(e) =>
+                setReplyText((s) => ({ ...s, [node.id]: e.target.value }))
+              }
               rows={2}
               placeholder="Ваш ответ…"
               className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
@@ -327,7 +385,7 @@ function CommentNode({
           <CommentNode
             key={child.id}
             node={{ ...child, children: (child as any).children || [] }}
-            depth={Math.min(depth + 1, 6)} // защита от безумной глубины
+            depth={Math.min(depth + 1, 6)}
             replyOpen={replyOpen}
             setReplyOpen={setReplyOpen}
             replyText={replyText}
