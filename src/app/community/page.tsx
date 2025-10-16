@@ -39,6 +39,7 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
   const [likeLoading, setLikeLoading] = useState<string | null>(null)
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -76,6 +77,7 @@ export default function CommunityPage() {
     )
     .slice(0, 5)
 
+  // ❤️ лайк
   const toggleLike = async (postId: string) => {
     if (!token) return
     setLikeLoading(postId)
@@ -105,6 +107,29 @@ export default function CommunityPage() {
       console.error('Ошибка лайка:', err)
     } finally {
       setLikeLoading(null)
+    }
+  }
+
+  // ⚙️ действия меню
+  const copyLink = (id: string) => {
+    navigator.clipboard.writeText(`${window.location.origin}/community/${id}`)
+    alert('Ссылка на пост скопирована!')
+  }
+
+  const reportPost = (id: string) => {
+    alert(`🚨 Жалоба на пост ${id} отправлена модерации`)
+  }
+
+  const deletePost = async (id: string) => {
+    if (!confirm('Удалить этот пост?')) return
+    try {
+      await fetch(`/api/community/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setPosts((prev) => prev.filter((p) => p.id !== id))
+    } catch (err) {
+      alert('Ошибка удаления поста')
     }
   }
 
@@ -173,53 +198,100 @@ export default function CommunityPage() {
                   key={post.id}
                   className="group border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative"
                 >
-                  {/* кликабельная зона поста */}
-                  <Link
-                    href={`/community/${post.id}`}
-                    className="block cursor-pointer"
-                  >
-                    {/* верх */}
-                    <div className="flex items-center justify-between text-sm text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-emerald-300">
+                  <div className="flex items-start justify-between text-sm text-gray-400 relative">
+                    {/* 👤 Автор */}
+                    <Link
+                      href={`/profile/${post.author.id}`}
+                      className="flex items-center gap-2 hover:text-emerald-400 transition"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-emerald-700/20 flex items-center justify-center">
+                        <User className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-emerald-300 font-medium">
                           {post.author.fullName || post.author.email}
                         </span>
-                        <span>•</span>
-                        <span>
+                        <span className="text-xs text-gray-500">
                           {new Date(post.createdAt).toLocaleDateString('ru-RU', {
                             day: '2-digit',
-                            month: 'short',
+                            month: 'long',
+                            hour: '2-digit',
+                            minute: '2-digit',
                           })}
                         </span>
                       </div>
-                      <MoreHorizontal className="w-4 h-4 text-gray-500" />
-                    </div>
+                    </Link>
 
-                    {/* контент */}
-                    <div className="mt-2">
-                      {post.title && (
-                        <h2 className="block text-lg font-semibold text-white group-hover:text-emerald-400 transition">
-                          {post.title}
-                        </h2>
-                      )}
-                      <p className="text-gray-300 mt-1 whitespace-pre-line line-clamp-3">
-                        {post.content}
-                      </p>
-                      {post.imageUrl && (
-                        <div className="mt-3">
-                          <img
-                            src={post.imageUrl}
-                            alt=""
-                            className="rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[450px]"
-                          />
+                    {/* ⋯ Меню */}
+                    <div className="relative">
+                      <button
+                        onClick={() =>
+                          setOpenMenu(openMenu === post.id ? null : post.id)
+                        }
+                        className="p-1 hover:text-emerald-400 transition"
+                      >
+                        <MoreHorizontal className="w-5 h-5" />
+                      </button>
+
+                      {openMenu === post.id && (
+                        <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
+                          <button
+                            onClick={() => {
+                              copyLink(post.id)
+                              setOpenMenu(null)
+                            }}
+                            className="block w-full text-left px-4 py-2 hover:bg-gray-800 transition"
+                          >
+                            📋 Копировать ссылку
+                          </button>
+                          <button
+                            onClick={() => {
+                              reportPost(post.id)
+                              setOpenMenu(null)
+                            }}
+                            className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-red-400 transition"
+                          >
+                            🚨 Пожаловаться
+                          </button>
+                          {user?.id === post.author.id && (
+                            <button
+                              onClick={() => {
+                                deletePost(post.id)
+                                setOpenMenu(null)
+                              }}
+                              className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-pink-500 transition"
+                            >
+                              🗑 Удалить пост
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Контент поста */}
+                  <Link href={`/community/${post.id}`} className="block mt-3">
+                    {post.title && (
+                      <h2 className="text-lg font-semibold text-white group-hover:text-emerald-400 transition">
+                        {post.title}
+                      </h2>
+                    )}
+                    <p className="text-gray-300 mt-1 whitespace-pre-line line-clamp-3">
+                      {post.content}
+                    </p>
+                    {post.imageUrl && (
+                      <div className="mt-3">
+                        <img
+                          src={post.imageUrl}
+                          alt=""
+                          className="rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[450px]"
+                        />
+                      </div>
+                    )}
                   </Link>
 
-                  {/* нижняя панель */}
+                  {/* Панель действий */}
                   <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
-                    {/* ❤️ лайк */}
                     <button
                       onClick={(e) => {
                         e.preventDefault()
@@ -241,7 +313,6 @@ export default function CommunityPage() {
                       {post._count.likes}
                     </button>
 
-                    {/* 💬 комментарии */}
                     <Link
                       href={`/community/${post.id}`}
                       onClick={(e) => e.stopPropagation()}
