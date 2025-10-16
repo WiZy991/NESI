@@ -214,32 +214,35 @@ export default function CommunityPage() {
                     )}
                   </div>
 
-                  {/* кнопки действий */}
-                  <div
-                    className="mt-3 flex items-center gap-4 text-sm text-gray-400"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => toggleLike(post.id)}
-                      disabled={likeLoading === post.id}
-                      className={`flex items-center gap-1 transition ${
-                        post.liked
-                          ? 'text-pink-500 hover:text-pink-400'
-                          : 'hover:text-pink-400'
-                      }`}
-                    >
-                      <Heart className="w-4 h-4" />
-                      {post._count.likes}
-                    </button>
+                 {/* нижняя панель действий */}
+<div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
+  {/* ❤️ лайк — отдельная кнопка, не срабатывает переход */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation(); // блокируем клик по ссылке
+      toggleLike(post.id);
+    }}
+    disabled={likeLoading === post.id}
+    className={`flex items-center gap-1 transition ${
+      post.liked
+        ? 'text-pink-500 hover:text-pink-400'
+        : 'hover:text-pink-400'
+    }`}
+  >
+    <Heart className="w-4 h-4" />
+    {post._count.likes}
+  </button>
 
-                    <Link
-                      href={`/community/${post.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1 hover:text-blue-400 transition"
-                    >
-                      <MessageSquare className="w-4 h-4" /> {post._count.comments}
-                    </Link>
-                  </div>
+  {/* 💬 переход по клику на комментарии */}
+  <Link
+    href={`/community/${post.id}`}
+    onClick={(e) => e.stopPropagation()}
+    className="flex items-center gap-1 hover:text-blue-400 transition"
+  >
+    <MessageSquare className="w-4 h-4" /> {post._count.comments}
+  </Link>
+</div>
+
                 </Link>
               ))}
             </div>
