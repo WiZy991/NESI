@@ -61,25 +61,33 @@ const groupByDate = (notifications: Notification[]) => {
   return groups
 }
 
-// Определяем ссылку назначения по типу уведомления
 const getLinkByType = (n: Notification) => {
-  if (n.type === 'message') {
-    return n.userId ? `/chats?open=${n.userId}` : '/chats'
+  switch (n.type) {
+    case 'message':
+      return n.userId ? `/chats?open=${n.userId}` : '/chats'
+
+    case 'task':
+      return n.relatedId ? `/tasks/${n.relatedId}` : '/tasks'
+
+    case 'assign':
+      return n.relatedId ? `/tasks/${n.relatedId}` : '/tasks'
+
+    case 'hire':
+      return n.relatedId ? `/hire/${n.relatedId}` : '/hire`
+
+    case 'like':
+    case 'comment':
+    case 'reply':
+      return n.relatedId ? `/community/${n.relatedId}` : '/community'
+
+    case 'system':
+      return '/notifications'
+
+    default:
+      return '/profile'
   }
-  if (n.type === 'task') {
-    return n.relatedId ? `/tasks/${n.relatedId}` : '/tasks'
-  }
-  if (n.type === 'assign') {
-    return n.relatedId ? `/tasks/${n.relatedId}` : '/tasks'
-  }
-  if (n.type === 'like' || n.type === 'comment' || n.type === 'reply') {
-    return n.relatedId ? `/community/${n.relatedId}` : '/community'
-  }
-  if (n.type === 'system') {
-    return '/notifications'
-  }
-  return '/profile'
 }
+
 
 export default function NotificationsPage() {
   const { token, setUnreadCount } = useUser()
