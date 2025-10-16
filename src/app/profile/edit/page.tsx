@@ -213,6 +213,7 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
+
 // --- Навыки
 const skillCategories: Record<string, string[]> = {
   'IT и программирование': [
@@ -230,8 +231,7 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
   }
 
   const removeSkill = (skill: string) => {
-    const updated = skills.filter((s) => s !== skill)
-    setSkills(updated)
+    setSkills(skills.filter((s) => s !== skill))
   }
 
   return (
@@ -290,7 +290,7 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
   )
 }
 
-// --- Неоновый поиск города с порталом (исправленный)
+// --- Неоновый поиск города (исправленный, не уезжает вниз)
 function NeonCitySelect({
   value,
   options,
@@ -358,11 +358,11 @@ function NeonCitySelect({
         createPortal(
           <div
             style={{
-              position: 'fixed',
-              left: rect.left,
-              top: rect.bottom + 6,
+              position: 'absolute',
+              left: rect.left + window.scrollX,
+              top: rect.bottom + window.scrollY + 6,
               width: rect.width,
-              zIndex: 10000,
+              zIndex: 9999,
             }}
             className="bg-[#00120c]/95 border border-emerald-700 rounded-lg shadow-[0_0_25px_rgba(0,255,150,0.2)]"
           >
@@ -425,7 +425,13 @@ export default function EditProfilePage() {
       setFullName(user.fullName || '')
       setDescription(user.description || '')
       setLocation(user.location || '')
-      setSkills(Array.isArray(user.skills) ? user.skills : (user.skills || '').split(',').map((s: string) => s.trim()))
+      setSkills(
+        Array.isArray(user.skills)
+          ? user.skills
+          : (user.skills || '')
+              .split(',')
+              .map((s: string) => s.trim())
+      )
       if (user.avatarUrl) setAvatarPreview(user.avatarUrl)
     }
   }, [user])
