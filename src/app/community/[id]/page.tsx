@@ -44,7 +44,7 @@ type Comment = {
   author: { id: string; fullName: string | null; email: string }
 }
 
-/** Древовидные комментарии */
+/** Построение дерева комментариев */
 function buildTree(comments: Comment[]) {
   const byId = new Map<string, Comment & { children: Comment[] }>()
   const roots: (Comment & { children: Comment[] })[] = []
@@ -66,7 +66,6 @@ export default function CommunityPostPage() {
   const [sending, setSending] = useState(false)
   const [liked, setLiked] = useState(false)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
-
   const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({})
   const [replyText, setReplyText] = useState<Record<string, string>>({})
 
@@ -150,13 +149,13 @@ export default function CommunityPostPage() {
     }
   }
 
-  // ─── Меню действий ───
   const copyLink = (link: string) => {
     navigator.clipboard.writeText(link)
     alert('📋 Ссылка скопирована!')
   }
 
   const reportItem = () => alert('🚨 Жалоба отправлена модераторам')
+
   const deleteItem = async (endpoint: string) => {
     if (!confirm('Удалить?')) return
     await fetch(endpoint, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
@@ -193,56 +192,57 @@ export default function CommunityPostPage() {
           </div>
         </aside>
 
-        <header className="flex items-center gap-4 mb-4">
-  <Link
-    href={`/users/${post.author.id}`}
-    className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
-  >
-    <div className="relative">
-      <UserCircle2 className="w-12 h-12 text-emerald-400 group-hover:text-emerald-300 transition" />
-      <span className="absolute -bottom-2 -right-2 text-[10px] bg-emerald-600 text-black px-1.5 py-[1px] rounded-full font-semibold">
-        Автор
-      </span>
-    </div>
+        {/* ОСНОВНОЙ КОНТЕНТ */}
+        <main className="flex-1 max-w-3xl mx-auto space-y-10">
+          <article className="p-6 rounded-2xl border border-gray-800 bg-transparent shadow-[0_0_25px_rgba(0,255,180,0.05)] relative">
+            <header className="flex items-center justify-between mb-4">
+              <Link
+                href={`/users/${post.author.id}`}
+                className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
+              >
+                <div className="relative">
+                  <UserCircle2 className="w-12 h-12 text-emerald-400 group-hover:text-emerald-300 transition" />
+                  <span className="absolute -bottom-2 -right-2 text-[10px] bg-emerald-600 text-black px-1.5 py-[1px] rounded-full font-semibold">
+                    Автор
+                  </span>
+                </div>
+                <div>
+                  <h2 className="text-emerald-300 font-semibold group-hover:text-emerald-400 transition">
+                    {post.author.fullName || post.author.email}
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    {new Date(post.createdAt).toLocaleString('ru-RU', {
+                      day: '2-digit',
+                      month: 'long',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </Link>
 
-    <div>
-      <h2 className="text-emerald-300 font-semibold group-hover:text-emerald-400 transition">
-        {post.author.fullName || post.author.email}
-      </h2>
-      <p className="text-xs text-gray-500">
-        {new Date(post.createdAt).toLocaleString('ru-RU', {
-          day: '2-digit',
-          month: 'long',
-          hour: '2-digit',
-          minute: '2-digit',
-        })}
-      </p>
-    </div>
-  </Link>
-</header>
-
-
+              {/* Меню */}
               <div className="relative">
                 <button onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)} className="p-1 hover:text-emerald-400">
                   <MoreHorizontal className="w-5 h-5" />
                 </button>
                 {openMenu === post.id && (
                   <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
-                    <button onClick={() => { copyLink(window.location.href); setOpenMenu(null); }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
+                    <button onClick={() => { copyLink(window.location.href); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
                       <Copy className="w-4 h-4" /> Копировать ссылку
                     </button>
-                    <button onClick={() => { reportItem(); setOpenMenu(null); }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full">
+                    <button onClick={() => { reportItem(); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full">
                       <Flag className="w-4 h-4" /> Пожаловаться
                     </button>
                     {user?.id === post.author.id && (
-                      <button onClick={() => { deleteItem(`/api/community/${post.id}`); setOpenMenu(null); }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full">
+                      <button onClick={() => { deleteItem(`/api/community/${post.id}`); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full">
                         <Trash2 className="w-4 h-4" /> Удалить
                       </button>
                     )}
                   </div>
                 )}
               </div>
-            </div>
+            </header>
 
             {post.title && <h1 className="text-2xl font-bold text-emerald-400 mb-3">{post.title}</h1>}
             <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{post.content}</p>
@@ -254,53 +254,69 @@ export default function CommunityPostPage() {
             )}
 
             <footer className="mt-6 flex items-center gap-4 text-sm">
-  <button
-    onClick={toggleLike}
-    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-      liked
-        ? 'bg-emerald-600 border-emerald-500 text-black'
-        : 'border-emerald-500/40 text-gray-300 hover:bg-emerald-700/20'
-    }`}
-  >
-    <Heart
-      className={`w-4 h-4 ${liked ? 'fill-black text-black' : 'text-emerald-400'}`}
-    />
-    {post._count.likes}
-  </button>
+              <button
+                onClick={toggleLike}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
+                  liked
+                    ? 'bg-emerald-600 border-emerald-500 text-black'
+                    : 'border-emerald-500/40 text-gray-300 hover:bg-emerald-700/20'
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${liked ? 'fill-black text-black' : 'text-emerald-400'}`} />
+                {post._count.likes}
+              </button>
 
-  <div className="flex items-center gap-2 text-gray-400">
-    <MessageSquare className="w-4 h-4" />
-    {post.comments.length}
-  </div>
-</footer>
+              <div className="flex items-center gap-2 text-gray-400">
+                <MessageSquare className="w-4 h-4" />
+                {post.comments.length}
+              </div>
+            </footer>
+          </article>
 
-          {/* Комментарии */}
+          {/* КОММЕНТАРИИ */}
           <section>
             <h2 className="text-2xl font-semibold text-emerald-400 mb-5 flex items-center gap-2">💬 Комментарии</h2>
-            {tree.length === 0 && <p className="text-gray-500 text-center py-8 border border-gray-800 rounded-lg bg-transparent">Комментариев пока нет. Будь первым!</p>}
-            <div className="space-y-4">
-              {tree.map((root) => (
-                <CommentNode
-                  key={root.id}
-                  node={root}
-                  depth={0}
-                  userId={user?.id}
-                  token={token}
-                  fetchPost={fetchPost}
-                  replyOpen={replyOpen}
-                  setReplyOpen={setReplyOpen}
-                  replyText={replyText}
-                  setReplyText={setReplyText}
-                  sendReply={sendReply}
-                />
-              ))}
-            </div>
+            {tree.length === 0 ? (
+              <p className="text-gray-500 text-center py-8 border border-gray-800 rounded-lg bg-transparent">
+                Комментариев пока нет. Будь первым!
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {tree.map((root) => (
+                  <CommentNode
+                    key={root.id}
+                    node={root}
+                    depth={0}
+                    userId={user?.id}
+                    token={token}
+                    fetchPost={fetchPost}
+                    replyOpen={replyOpen}
+                    setReplyOpen={setReplyOpen}
+                    replyText={replyText}
+                    setReplyText={setReplyText}
+                    sendReply={sendReply}
+                  />
+                ))}
+              </div>
+            )}
+
             {user && (
               <div className="mt-8 border-t border-gray-800 pt-6">
                 <h3 className="text-lg font-semibold text-emerald-300 mb-3">Добавить комментарий</h3>
-                <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} rows={3} placeholder="Напиши что-нибудь..." className="w-full p-3 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition" />
-                <button onClick={sendComment} disabled={sending} className="mt-3 flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50">
-                  {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} {sending ? 'Отправка...' : 'Отправить'}
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={3}
+                  placeholder="Напиши что-нибудь..."
+                  className="w-full p-3 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                />
+                <button
+                  onClick={sendComment}
+                  disabled={sending}
+                  className="mt-3 flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50"
+                >
+                  {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {sending ? 'Отправка...' : 'Отправить'}
                 </button>
               </div>
             )}
@@ -311,7 +327,7 @@ export default function CommunityPostPage() {
   )
 }
 
-/** Узел комментария */
+/** Компонент комментария */
 function CommentNode({
   node,
   depth,
@@ -327,7 +343,6 @@ function CommentNode({
   const [openMenu, setOpenMenu] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(node.content)
-
   const time = new Date(node.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 
   const saveEdit = async () => {
@@ -356,7 +371,7 @@ function CommentNode({
         style={{ marginLeft: depth ? depth * 24 : 0, borderColor: 'rgba(0,255,180,0.25)' }}
       >
         <div className="flex items-start justify-between mb-2">
-          <Link href={`/profile/${node.author.id}`} className="font-medium text-emerald-300 hover:text-emerald-400 transition">
+          <Link href={`/users/${node.author.id}`} className="font-medium text-emerald-300 hover:text-emerald-400 transition">
             {node.author.fullName || node.author.email}
           </Link>
           <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -368,20 +383,20 @@ function CommentNode({
 
           {openMenu && (
             <div className="absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
-              <button onClick={() => { navigator.clipboard.writeText(window.location.href + '#' + node.id); setOpenMenu(false); }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
+              <button onClick={() => { navigator.clipboard.writeText(window.location.href + '#' + node.id); setOpenMenu(false) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
                 <Copy className="w-4 h-4" /> Копировать ссылку
               </button>
               {userId === node.author.id ? (
                 <>
-                  <button onClick={() => { setEditing(true); setOpenMenu(false); }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
+                  <button onClick={() => { setEditing(true); setOpenMenu(false) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
                     <Edit3 className="w-4 h-4" /> Редактировать
                   </button>
-                  <button onClick={() => { deleteComment(); setOpenMenu(false); }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full">
+                  <button onClick={() => { deleteComment(); setOpenMenu(false) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full">
                     <Trash2 className="w-4 h-4" /> Удалить
                   </button>
                 </>
               ) : (
-                <button onClick={() => { alert('🚨 Жалоба отправлена'); setOpenMenu(false); }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full">
+                <button onClick={() => { alert('🚨 Жалоба отправлена'); setOpenMenu(false) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full">
                   <Flag className="w-4 h-4" /> Пожаловаться
                 </button>
               )}
@@ -390,80 +405,69 @@ function CommentNode({
         </div>
 
         {editing ? (
-  <div className="space-y-2">
-    <textarea
-      value={editText}
-      onChange={(e) => setEditText(e.target.value)}
-      rows={2}
-      className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-    />
-    <div className="flex gap-2">
-      <button
-        onClick={saveEdit}
-        className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm"
-      >
-        <Check className="w-4 h-4" />
-        Сохранить
-      </button>
-      <button
-        onClick={() => setEditing(false)}
-        className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm"
-      >
-        <X className="w-4 h-4" />
-        Отмена
-      </button>
+          <div className="space-y-2">
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={2}
+              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+            />
+            <div className="flex gap-2">
+              <button onClick={saveEdit} className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm">
+                <Check className="w-4 h-4" />
+                Сохранить
+              </button>
+              <button onClick={() => setEditing(false)} className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm">
+                <X className="w-4 h-4" />
+                Отмена
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-200 whitespace-pre-wrap">{node.content}</p>
+        )}
+
+        <button
+          className="mt-3 flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
+          onClick={() => setReplyOpen((s: any) => ({ ...s, [node.id]: !s[node.id] }))}
+        >
+          <Reply className="w-4 h-4" /> Ответить
+        </button>
+
+        {replyOpen[node.id] && (
+          <div className="mt-3">
+            <textarea
+              value={replyText[node.id] || ''}
+              onChange={(e) => setReplyText((s: any) => ({ ...s, [node.id]: e.target.value }))}
+              rows={2}
+              placeholder="Ваш ответ…"
+              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+            />
+            <div className="mt-2">
+              <button onClick={() => sendReply(node.id)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold">
+                <Send className="w-4 h-4" /> Отправить ответ
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {node.children?.length > 0 &&
+        node.children.map((child: any) => (
+          <CommentNode
+            key={child.id}
+            node={{ ...child, children: (child as any).children || [] }}
+            depth={Math.min(depth + 1, 6)}
+            userId={userId}
+            token={token}
+            fetchPost={fetchPost}
+            replyOpen={replyOpen}
+            setReplyOpen={setReplyOpen}
+            replyText={replyText}
+            setReplyText={setReplyText}
+            sendReply={sendReply}
+          />
+        ))}
     </div>
-  </div>
-) : (
-  <p className="text-gray-200 whitespace-pre-wrap">{node.content}</p>
-)}
-
-<button
-  className="mt-3 flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
-  onClick={() => setReplyOpen((s: any) => ({ ...s, [node.id]: !s[node.id] }))}
->
-  <Reply className="w-4 h-4" /> Ответить
-</button>
-
-{replyOpen[node.id] && (
-  <div className="mt-3">
-    <textarea
-      value={replyText[node.id] || ''}
-      onChange={(e) =>
-        setReplyText((s: any) => ({ ...s, [node.id]: e.target.value }))
-      }
-      rows={2}
-      placeholder="Ваш ответ…"
-      className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-    />
-    <div className="mt-2">
-      <button
-        onClick={() => sendReply(node.id)}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold"
-      >
-        <Send className="w-4 h-4" /> Отправить ответ
-      </button>
-    </div>
-  </div>
-)}
-</div>
-
-{node.children?.length > 0 &&
-  node.children.map((child: any) => (
-    <CommentNode
-      key={child.id}
-      node={{ ...child, children: (child as any).children || [] }}
-      depth={Math.min(depth + 1, 6)}
-      userId={userId}
-      token={token}
-      fetchPost={fetchPost}
-      replyOpen={replyOpen}
-      setReplyOpen={setReplyOpen}
-      replyText={replyText}
-      setReplyText={setReplyText}
-      sendReply={sendReply}
-    />
-  ))}
-</div>
-)
+  )
 }
