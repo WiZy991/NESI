@@ -311,3 +311,44 @@ textarea {
 	position: relative;
 	z-index: 2;
 }
+
+/* === НЕОНОВЫЙ SELECT === */
+.neon-select {
+  appearance: none;
+  background: rgba(0, 15, 10, 0.7);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #a7f3d0;
+  outline: none;
+  width: 100%;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px rgba(0, 255, 150, 0.1);
+  font-family: 'Poppins', sans-serif;
+  font-size: 15px;
+  cursor: pointer;
+  background-image: linear-gradient(to right, rgba(0,255,150,0.15), rgba(0,255,150,0.05));
+}
+
+.neon-select:hover {
+  border-color: rgba(16, 185, 129, 0.7);
+  box-shadow: 0 0 15px rgba(0, 255, 150, 0.3);
+}
+
+.neon-select:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 20px rgba(0, 255, 150, 0.4);
+}
+
+/* Вариант опций */
+.neon-select option {
+  background: #00120c;
+  color: #a7f3d0;
+  border: none;
+}
+
+.neon-select option:hover,
+.neon-select option:checked {
+  background: rgba(16, 185, 129, 0.3);
+  color: #fff;
+}
