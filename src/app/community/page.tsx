@@ -14,9 +14,12 @@ import {
   Plus,
   Compass,
   Home,
+  Flag,
+  Send,
+  X,
 } from 'lucide-react'
 
-// 🔧 Утилита для подстановки правильного пути к аватару
+// ✅ Утилита для подстановки правильного пути к аватару
 function resolveAvatarUrl(avatar?: string | null) {
   if (!avatar) return null
   if (!avatar.startsWith('http') && !avatar.startsWith('/'))
@@ -24,6 +27,7 @@ function resolveAvatarUrl(avatar?: string | null) {
   return avatar
 }
 
+// 🧩 Типы
 type Author = {
   id: string
   fullName: string | null
@@ -43,6 +47,102 @@ type Post = {
   _count: { comments: number; likes: number }
 }
 
+/* ===============================
+    📋 Компонент модалки жалобы
+=============================== */
+function ReportModal({
+  target,
+  onClose,
+}: {
+  target: { type: 'post'; id: string }
+  onClose: () => void
+}) {
+  const [reason, setReason] = useState('')
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const sendReport = async () => {
+    if (!reason) return alert('Выберите причину')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: target.type,
+          reason,
+          description: text,
+          postId: target.id,
+        }),
+      })
+      if (res.ok) {
+        alert('✅ Жалоба отправлена. Спасибо!')
+        onClose()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert('Ошибка: ' + (err.error || 'не удалось отправить'))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-gray-900 p-6 rounded-xl w-full max-w-md relative border border-gray-700">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 text-gray-400 hover:text-white"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <h2 className="text-xl font-semibold text-emerald-400 mb-4">
+          ⚠️ Сообщить о нарушении
+        </h2>
+
+        <div className="space-y-3">
+          <label className="block text-sm text-gray-300">Причина жалобы:</label>
+          <select
+            className="w-full bg-black/40 border border-gray-700 rounded-md p-2 text-white"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          >
+            <option value="">-- выберите --</option>
+            <option value="spam">Спам или реклама</option>
+            <option value="insult">Оскорбление / агрессия</option>
+            <option value="nsfw">Неприемлемый контент (NSFW, насилие)</option>
+            <option value="politics">Политика / дискриминация</option>
+            <option value="other">Другое</option>
+          </select>
+
+          <textarea
+            placeholder="Опишите подробнее (необязательно)"
+            className="w-full bg-black/40 border border-gray-700 rounded-md p-2 text-white"
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+
+          <button
+            onClick={sendReport}
+            disabled={loading}
+            className="mt-3 flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 rounded-md py-2 font-semibold disabled:opacity-50"
+          >
+            {loading ? 'Отправка...' : (
+              <>
+                <Send className="w-4 h-4" /> Отправить жалобу
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ===============================
+    📄 Основная страница
+=============================== */
 export default function CommunityPage() {
   const { user, token } = useUser()
   const router = useRouter()
@@ -51,8 +151,9 @@ export default function CommunityPage() {
   const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
   const [likeLoading, setLikeLoading] = useState<string | null>(null)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [reportTarget, setReportTarget] = useState<{ type: 'post'; id: string } | null>(null)
 
-  // 📌 читаем фильтр из URL при монтировании
+  // читаем фильтр из URL
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
@@ -61,7 +162,7 @@ export default function CommunityPage() {
     else setFilter('new')
   }, [])
 
-  // 📌 загрузка постов
+  // загрузка постов
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -77,7 +178,7 @@ export default function CommunityPage() {
     fetchPosts()
   }, [])
 
-  // 📌 изменение фильтра с обновлением URL
+  // изменение фильтра с обновлением URL
   const changeFilter = (type: 'new' | 'popular' | 'my') => {
     setFilter(type)
     if (type === 'popular') router.push('/community?sort=popular')
@@ -87,7 +188,7 @@ export default function CommunityPage() {
 
   if (loading) return <LoadingSpinner />
 
-  // 📊 фильтрация постов
+  // фильтрация постов
   const filtered =
     filter === 'my'
       ? posts.filter((p) => p.author.id === user?.id)
@@ -152,31 +253,34 @@ export default function CommunityPage() {
     alert('📋 Ссылка на пост скопирована!')
   }
 
-  const reportPost = (id: string) =>
-    alert(`🚨 Жалоба на пост ${id} отправлена модерации`)
-
+  // 🗑 Удаление поста (исправлено)
   const deletePost = async (id: string) => {
     if (!confirm('Удалить этот пост?')) return
     try {
       const res = await fetch(`/api/community/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       })
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== id))
         alert('✅ Пост удалён')
       } else {
-        alert('Ошибка удаления поста')
+        const err = await res.json().catch(() => ({}))
+        alert('Ошибка удаления: ' + (err.error || res.statusText))
       }
-    } catch {
+    } catch (e) {
       alert('Ошибка сети при удалении поста')
+      console.error(e)
     }
   }
 
   return (
     <div className="min-h-screen text-white">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
-        {/* ЛЕВАЯ КОЛОНКА */}
+        {/* левая колонка */}
         <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
           <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
           <nav className="flex flex-col gap-2 text-sm">
@@ -228,7 +332,7 @@ export default function CommunityPage() {
           </div>
         </aside>
 
-        {/* ЦЕНТРАЛЬНЫЙ КОНТЕНТ */}
+        {/* контент */}
         <main className="flex-1 max-w-2xl">
           {filtered.length === 0 ? (
             <p className="text-gray-400 text-center mt-20">
@@ -298,7 +402,7 @@ export default function CommunityPage() {
                           </button>
                           <button
                             onClick={() => {
-                              reportPost(post.id)
+                              setReportTarget({ type: 'post', id: post.id })
                               setOpenMenu(null)
                             }}
                             className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-red-400 transition"
@@ -380,42 +484,46 @@ export default function CommunityPage() {
           )}
         </main>
 
-        {/* ПРАВАЯ КОЛОНКА */}
+        {/* правая колонка */}
         <aside className="hidden lg:flex flex-col w-72 border-l border-gray-800 pl-4">
-          <h2 className="text-sm font-semibold text-emerald-400 mb-4 flex items-center gap-2">
-            <Compass className="w-4 h-4" /> Последние посты
-          </h2>
-          <div className="space-y-3">
-            {topPosts.map((p) => (
-              <Link
-                href={`/community/${p.id}`}
-                key={p.id}
-                className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
-              >
-                {p.imageUrl ? (
-                  <img
-                    src={p.imageUrl}
-                    alt=""
-                    className="w-14 h-14 object-cover rounded-md border border-gray-800"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
-                    нет фото
-                  </div>
-                )}
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-200 line-clamp-2">
-                    {p.title || p.content.slice(0, 60)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    ❤️ {p._count.likes} • 💬 {p._count.comments}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </aside>
-      </div>
-    </div>
-  )
+          <h2 className="text-sm font-semibold text-emerald-400 mb-4 flex items
+-center gap-2">
+<Compass className="w-4 h-4" /> Последние посты
+</h2>
+<div className="space-y-3">
+{topPosts.map((p) => (
+<Link
+href={/community/${p.id}}
+key={p.id}
+className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
+>
+{p.imageUrl ? (
+<img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-md border border-gray-800" />
+) : (
+<div className="w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
+нет фото
+</div>
+)}
+<div className="flex-1">
+<p className="text-sm font-medium text-gray-200 line-clamp-2">
+{p.title || p.content.slice(0, 60)}
+</p>
+<p className="text-xs text-gray-500 mt-1">
+❤️ {p._count.likes} • 💬 {p._count.comments}
+</p>
+</div>
+</Link>
+))}
+</div>
+</aside>
+</div>
+
+  {/* модалка жалобы */}
+  {reportTarget && (
+    <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
+  )}
+</div>
+
+
+)
 }
