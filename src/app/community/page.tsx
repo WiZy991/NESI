@@ -121,13 +121,18 @@ export default function CommunityPage() {
   const deletePost = async (id: string) => {
     if (!confirm('Удалить этот пост?')) return
     try {
-      await fetch(`/api/community/${id}`, {
+      const res = await fetch(`/api/community/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
-      setPosts((prev) => prev.filter((p) => p.id !== id))
+      if (res.ok) {
+        setPosts((prev) => prev.filter((p) => p.id !== id))
+        alert('✅ Пост удалён')
+      } else {
+        alert('Ошибка удаления поста')
+      }
     } catch {
-      alert('Ошибка удаления поста')
+      alert('Ошибка сети при удалении поста')
     }
   }
 
@@ -198,19 +203,21 @@ export default function CommunityPage() {
                 >
                   {/* Автор и меню */}
                   <div className="flex items-start justify-between text-sm text-gray-400 relative">
-                    {/* 👤 Автор поста */}
                     <Link
                       href={`/users/${post.author.id}`}
                       className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
                     >
-                      <div className="relative">
+                      {post.author.avatarUrl ? (
+                        <img
+                          src={post.author.avatarUrl}
+                          alt="avatar"
+                          className="w-10 h-10 rounded-full object-cover border border-emerald-700/40"
+                        />
+                      ) : (
                         <div className="w-10 h-10 rounded-full bg-emerald-700/20 flex items-center justify-center">
                           <User className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition" />
                         </div>
-                        <span className="absolute -bottom-1 -right-1 text-[10px] bg-emerald-600 text-black px-1.5 py-[1px] rounded-full font-semibold">
-                          Автор
-                        </span>
-                      </div>
+                      )}
                       <div className="flex flex-col leading-tight">
                         <span className="text-emerald-300 font-medium group-hover:text-emerald-400 transition">
                           {post.author.fullName || post.author.email}
@@ -226,7 +233,7 @@ export default function CommunityPage() {
                       </div>
                     </Link>
 
-                    {/* ⋯ Меню действий */}
+                    {/* ⋯ Меню */}
                     <div className="relative">
                       <button
                         onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)}
@@ -307,9 +314,7 @@ export default function CommunityPage() {
                       }`}
                     >
                       <Heart
-                        className={`w-4 h-4 ${
-                          post.liked ? 'fill-pink-500 text-pink-500' : ''
-                        }`}
+                        className={`w-4 h-4 ${post.liked ? 'fill-pink-500 text-pink-500' : ''}`}
                       />
                       {post._count.likes}
                     </button>
@@ -323,9 +328,9 @@ export default function CommunityPage() {
                     </Link>
                   </div>
                 </div>
-              ))} {/* закрыли map */}
+              ))}
             </div>
-          )} {/* закрыли тернарку */}
+          )}
         </main>
 
         {/* ПРАВАЯ КОЛОНКА */}
