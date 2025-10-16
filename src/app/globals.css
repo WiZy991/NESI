@@ -12,7 +12,6 @@
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 
-	/* ✅ Исправлено: теперь используется Poppins и JetBrains */
 	--font-sans: 'Poppins', sans-serif;
 	--font-mono: 'JetBrains Mono', monospace;
 }
@@ -160,4 +159,148 @@ textarea {
 	height: 2px;
 	background-color: #10b981;
 	box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+/* === NEON PROFILE STYLES === */
+
+/* 🌌 Звёздный фон */
+.stars-bg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	background: radial-gradient(circle at 50% 20%, #02150f 0%, #010805 100%);
+	overflow: hidden;
+	z-index: 0;
+}
+
+.stars-bg::before,
+.stars-bg::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background-image: radial-gradient(2px 2px at 20px 30px, rgba(0, 255, 150, 0.6), transparent),
+		radial-gradient(1px 1px at 60px 80px, rgba(0, 255, 150, 0.4), transparent),
+		radial-gradient(2px 2px at 120px 160px, rgba(0, 255, 150, 0.5), transparent),
+		radial-gradient(1px 1px at 200px 300px, rgba(0, 255, 150, 0.4), transparent);
+	background-repeat: repeat;
+	background-size: 250px 250px;
+	animation: moveStars 90s linear infinite;
+}
+
+.stars-bg::after {
+	animation-duration: 140s;
+	opacity: 0.5;
+}
+
+@keyframes moveStars {
+	from {
+		background-position: 0 0;
+	}
+	to {
+		background-position: -5000px 5000px;
+	}
+}
+
+/* 🧩 Неоновые поля */
+.neon-box {
+	position: relative;
+	background: rgba(0, 15, 10, 0.7);
+	border: 1px solid rgba(16, 185, 129, 0.25);
+	border-radius: 16px;
+	padding: 1.5rem;
+	box-shadow: 0 0 15px rgba(0, 255, 150, 0.15);
+	transition: all 0.3s ease;
+	backdrop-filter: blur(4px);
+}
+
+.neon-box:hover {
+	border-color: rgba(16, 185, 129, 0.6);
+	box-shadow: 0 0 30px rgba(0, 255, 150, 0.3);
+}
+
+.label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: #6ee7b7;
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+.input {
+	width: 100%;
+	padding: 10px 14px;
+	background: rgba(0, 0, 0, 0.4);
+	border: 1px solid rgba(16, 185, 129, 0.25);
+	border-radius: 8px;
+	color: #e0fff4;
+	outline: none;
+	transition: 0.3s;
+}
+
+.input:focus {
+	border-color: #10b981;
+	box-shadow: 0 0 12px rgba(0, 255, 150, 0.3);
+}
+
+/* 🚀 Кнопки */
+.upload-btn {
+	display: inline-block;
+	padding: 8px 16px;
+	border: 1px solid #10b981;
+	border-radius: 8px;
+	color: #34d399;
+	cursor: pointer;
+	background: rgba(16, 185, 129, 0.1);
+	transition: all 0.3s;
+}
+
+.upload-btn:hover {
+	background: rgba(16, 185, 129, 0.3);
+	color: white;
+	box-shadow: 0 0 10px rgba(0, 255, 150, 0.4);
+}
+
+.save-btn {
+	background: rgba(16, 185, 129, 0.15);
+	border: 1px solid #059669;
+	border-radius: 10px;
+	color: #a7f3d0;
+	padding: 12px 36px;
+	font-weight: 600;
+	transition: all 0.3s;
+}
+
+.save-btn:hover {
+	background: rgba(16, 185, 129, 0.3);
+	color: white;
+	box-shadow: 0 0 30px rgba(0, 255, 150, 0.4);
+}
+
+/* 💫 Космонавт */
+.astro-icon {
+	width: 100px;
+	height: 100px;
+	object-fit: contain;
+	filter: drop-shadow(0 0 25px rgba(0, 255, 150, 0.8));
+	animation: float 5s ease-in-out infinite;
+}
+
+@keyframes float {
+	0%, 100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
+/* 🌟 Градиентный заголовок */
+.title-glow {
+	font-size: 2.5rem;
+	font-weight: 700;
+	color: #34d399;
+	text-shadow: 0 0 20px rgba(0, 255, 150, 0.7);
+	letter-spacing: 0.02em;
 }
