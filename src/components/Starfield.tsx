@@ -16,16 +16,16 @@ export default function Starfield() {
     canvas.width = width
     canvas.height = height
 
-    // === Основные звёзды ===
+    // === Звезды ===
     const stars = Array.from({ length: 250 }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      r: Math.random() * 1.2 + 0.3,
+      r: Math.random() * 1.3 + 0.4,
       alpha: Math.random(),
-      speed: Math.random() * 0.3 + 0.05,
+      speed: Math.random() * 0.25 + 0.05,
     }))
 
-    // === Метеоры ===
+    // === Метеоры и дым ===
     const meteors: {
       x: number
       y: number
@@ -36,15 +36,41 @@ export default function Starfield() {
       hue: number
     }[] = []
 
+    const smokeTrails: {
+      x: number
+      y: number
+      opacity: number
+      radius: number
+    }[] = []
+
+    // === Параллакс-эффект ===
+    let mouseX = 0
+    let mouseY = 0
+    let targetX = 0
+    let targetY = 0
+
+    const handleMouseMove = (e: MouseEvent) => {
+      targetX = (e.clientX / width - 0.5) * 30
+      targetY = (e.clientY / height - 0.5) * 30
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+
+    // === Создание метеора ===
     const createMeteor = () => {
+      const startX = Math.random() * width
+      const startY = Math.random() * height * 0.4
+      const direction =
+        Math.random() * Math.PI * 0.8 + Math.PI / 5 // 36°–144° в разные стороны
+
       meteors.push({
-        x: Math.random() * width,
-        y: Math.random() * height * 0.5,
-        len: Math.random() * 250 + 150,
-        speed: Math.random() * 10 + 8,
-        angle: Math.PI / 4,
+        x: startX,
+        y: startY,
+        len: Math.random() * 200 + 150,
+        speed: Math.random() * 6 + 6,
+        angle: direction,
         opacity: 1,
-        hue: Math.random() * 30 + 20, // от жёлтого до оранжевого
+        hue: Math.random() * 30 + 15,
       })
     }
 
@@ -52,25 +78,59 @@ export default function Starfield() {
 
     const draw = () => {
       if (!ctx) return
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
+
+      // полностью очищаем экран, без остаточных полос
+      ctx.fillStyle = '#000'
       ctx.fillRect(0, 0, width, height)
 
-      // === Звёзды ===
+      // плавно двигаем параллакс
+      mouseX += (targetX - mouseX) * 0.05
+      mouseY += (targetY - mouseY) * 0.05
+
+      // === Звезды ===
       for (const s of stars) {
         s.y += s.speed
         if (s.y > height) s.y = 0
-        s.alpha += Math.random() * 0.05 - 0.025
-        if (s.alpha < 0.3) s.alpha = 0.3
-        if (s.alpha > 1) s.alpha = 1
 
-        const gradient = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 4)
+        s.alpha += Math.random() * 0.05 - 0.025
+        s.alpha = Math.max(0.3, Math.min(1, s.alpha))
+
+        const px = s.x + mouseX * (s.r * 0.8)
+        const py = s.y + mouseY * (s.r * 0.8)
+
+        const gradient = ctx.createRadialGradient(px, py, 0, px, py, s.r * 4)
         gradient.addColorStop(0, `rgba(0,255,150,${0.9 * s.alpha})`)
         gradient.addColorStop(1, 'transparent')
 
         ctx.beginPath()
         ctx.fillStyle = gradient
-        ctx.arc(s.x, s.y, s.r * 3, 0, Math.PI * 2)
+        ctx.arc(px, py, s.r * 3, 0, Math.PI * 2)
         ctx.fill()
+      }
+
+      // === Дымовые следы ===
+      for (let i = smokeTrails.length - 1; i >= 0; i--) {
+        const smoke = smokeTrails[i]
+        smoke.opacity -= 0.002
+        smoke.radius += 0.2
+
+        const gradient = ctx.createRadialGradient(
+          smoke.x,
+          smoke.y,
+          0,
+          smoke.x,
+          smoke.y,
+          smoke.radius
+        )
+        gradient.addColorStop(0, `rgba(80,80,80,${smoke.opacity})`)
+        gradient.addColorStop(1, 'transparent')
+
+        ctx.beginPath()
+        ctx.fillStyle = gradient
+        ctx.arc(smoke.x, smoke.y, smoke.radius, 0, Math.PI * 2)
+        ctx.fill()
+
+        if (smoke.opacity <= 0) smokeTrails.splice(i, 1)
       }
 
       // === Метеоры ===
@@ -80,6 +140,13 @@ export default function Starfield() {
         m.y += Math.sin(m.angle) * m.speed
         m.opacity -= 0.008
 
+        smokeTrails.push({
+          x: m.x - Math.cos(m.angle) * m.len * 0.8,
+          y: m.y - Math.sin(m.angle) * m.len * 0.8,
+          opacity: 0.25,
+          radius: 8,
+        })
+
         const grad = ctx.createLinearGradient(
           m.x,
           m.y,
@@ -87,9 +154,10 @@ export default function Starfield() {
           m.y - Math.sin(m.angle) * m.len
         )
 
-        grad.addColorStop(0, `hsla(${m.hue}, 100%, 70%, ${m.opacity})`) // яркий жёлто-оранжевый
-        grad.addColorStop(0.5, `hsla(${m.hue + 20}, 100%, 50%, ${m.opacity * 0.7})`)
-        grad.addColorStop(1, `rgba(0,0,0,0)`)
+        grad.addColorStop(0, `hsla(${m.hue}, 100%, 70%, ${m.opacity})`)
+        grad.addColorStop(0.4, `hsla(${m.hue + 15}, 100%, 50%, ${m.opacity * 0.8})`)
+        grad.addColorStop(0.8, `rgba(255,80,0,${m.opacity * 0.5})`)
+        grad.addColorStop(1, 'transparent')
 
         ctx.beginPath()
         ctx.strokeStyle = grad
@@ -104,8 +172,8 @@ export default function Starfield() {
         if (m.opacity <= 0) meteors.splice(i, 1)
       }
 
-      // === Создаём новый метеор каждые 2–5 секунд ===
-      if (performance.now() - lastMeteor > 2000 + Math.random() * 3000) {
+      // === Новый метеор каждые 8–12 секунд ===
+      if (performance.now() - lastMeteor > 8000 + Math.random() * 4000) {
         createMeteor()
         lastMeteor = performance.now()
       }
@@ -123,13 +191,11 @@ export default function Starfield() {
     }
 
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('mousemove', handleMouseMove)
+    }
   }, [])
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 z-0 pointer-events-none"
-    />
-  )
+  return <canvas ref={canvasRef} className="fixed inset-0 z-0 pointer-events-none" />
 }
