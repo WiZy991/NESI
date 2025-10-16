@@ -14,12 +14,13 @@ import {
   Plus,
   Compass,
   Home,
-  Flag,
   Send,
   X,
 } from 'lucide-react'
 
-// ✅ Утилита для подстановки правильного пути к аватару
+/* ===============================
+   🔧 Утилита для корректных аватаров
+=============================== */
 function resolveAvatarUrl(avatar?: string | null) {
   if (!avatar) return null
   if (!avatar.startsWith('http') && !avatar.startsWith('/'))
@@ -27,28 +28,8 @@ function resolveAvatarUrl(avatar?: string | null) {
   return avatar
 }
 
-// 🧩 Типы
-type Author = {
-  id: string
-  fullName: string | null
-  email: string
-  avatarFileId?: string | null
-  avatarUrl?: string | null
-}
-
-type Post = {
-  id: string
-  title: string
-  content: string
-  imageUrl?: string | null
-  createdAt: string
-  author: Author
-  liked?: boolean
-  _count: { comments: number; likes: number }
-}
-
 /* ===============================
-    📋 Компонент модалки жалобы
+   📋 Модалка жалобы
 =============================== */
 function ReportModal({
   target,
@@ -128,7 +109,9 @@ function ReportModal({
             disabled={loading}
             className="mt-3 flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 rounded-md py-2 font-semibold disabled:opacity-50"
           >
-            {loading ? 'Отправка...' : (
+            {loading ? (
+              'Отправка...'
+            ) : (
               <>
                 <Send className="w-4 h-4" /> Отправить жалобу
               </>
@@ -141,19 +124,18 @@ function ReportModal({
 }
 
 /* ===============================
-    📄 Основная страница
+   📄 Основная страница Community
 =============================== */
 export default function CommunityPage() {
   const { user, token } = useUser()
   const router = useRouter()
-  const [posts, setPosts] = useState<Post[]>([])
+  const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
   const [likeLoading, setLikeLoading] = useState<string | null>(null)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [reportTarget, setReportTarget] = useState<{ type: 'post'; id: string } | null>(null)
 
-  // читаем фильтр из URL
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
@@ -162,7 +144,6 @@ export default function CommunityPage() {
     else setFilter('new')
   }, [])
 
-  // загрузка постов
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -178,7 +159,6 @@ export default function CommunityPage() {
     fetchPosts()
   }, [])
 
-  // изменение фильтра с обновлением URL
   const changeFilter = (type: 'new' | 'popular' | 'my') => {
     setFilter(type)
     if (type === 'popular') router.push('/community?sort=popular')
@@ -188,7 +168,6 @@ export default function CommunityPage() {
 
   if (loading) return <LoadingSpinner />
 
-  // фильтрация постов
   const filtered =
     filter === 'my'
       ? posts.filter((p) => p.author.id === user?.id)
@@ -212,7 +191,6 @@ export default function CommunityPage() {
     )
     .slice(0, 5)
 
-  // ❤️ лайк
   const toggleLike = async (postId: string) => {
     if (!token) return
     setLikeLoading(postId)
@@ -247,13 +225,11 @@ export default function CommunityPage() {
     }
   }
 
-  // 📋 скопировать ссылку
   const copyLink = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/community/${id}`)
     alert('📋 Ссылка на пост скопирована!')
   }
 
-  // 🗑 Удаление поста (исправлено)
   const deletePost = async (id: string) => {
     if (!confirm('Удалить этот пост?')) return
     try {
@@ -280,7 +256,7 @@ export default function CommunityPage() {
   return (
     <div className="min-h-screen text-white">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
-        {/* левая колонка */}
+        {/* ЛЕВАЯ КОЛОНКА */}
         <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
           <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
           <nav className="flex flex-col gap-2 text-sm">
@@ -294,7 +270,6 @@ export default function CommunityPage() {
             >
               <Home className="w-4 h-4" /> Новые
             </button>
-
             <button
               onClick={() => changeFilter('popular')}
               className={`flex items-center gap-2 px-3 py-2 rounded-md transition ${
@@ -305,7 +280,6 @@ export default function CommunityPage() {
             >
               <Flame className="w-4 h-4" /> Популярные
             </button>
-
             {user && (
               <button
                 onClick={() => changeFilter('my')}
@@ -318,21 +292,19 @@ export default function CommunityPage() {
                 <User className="w-4 h-4" /> Мои темы
               </button>
             )}
-
             <Link
               href="/community/new"
-              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 text-center justify-center font-medium transition"
+              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 justify-center font-medium transition"
             >
               <Plus className="w-4 h-4" /> Создать тему
             </Link>
           </nav>
-
           <div className="mt-10 border-t border-gray-800 pt-4 text-xs text-gray-500 space-y-1">
             <p>NESI Community © 🌿{new Date().getFullYear()}</p>
           </div>
         </aside>
 
-        {/* контент */}
+        {/* КОНТЕНТ */}
         <main className="flex-1 max-w-2xl">
           {filtered.length === 0 ? (
             <p className="text-gray-400 text-center mt-20">
@@ -446,7 +418,7 @@ export default function CommunityPage() {
                     )}
                   </Link>
 
-                  {/* Панель действий */}
+                  {/* Панель */}
                   <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
                     <button
                       onClick={(e) => {
@@ -484,46 +456,47 @@ export default function CommunityPage() {
           )}
         </main>
 
-        {/* правая колонка */}
+        {/* ПРАВАЯ КОЛОНКА */}
         <aside className="hidden lg:flex flex-col w-72 border-l border-gray-800 pl-4">
-          <h2 className="text-sm font-semibold text-emerald-400 mb-4 flex items
--center gap-2">
-<Compass className="w-4 h-4" /> Последние посты
-</h2>
-<div className="space-y-3">
-{topPosts.map((p) => (
-<Link
-  href={`/community/${p.id}`}
-  key={p.id}
-  className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
->
-{p.imageUrl ? (
-<img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-md border border-gray-800" />
-) : (
-<div className="w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
-нет фото
-</div>
-)}
-<div className="flex-1">
-<p className="text-sm font-medium text-gray-200 line-clamp-2">
-{p.title || p.content.slice(0, 60)}
-</p>
-<p className="text-xs text-gray-500 mt-1">
-❤️ {p._count.likes} • 💬 {p._count.comments}
-</p>
-</div>
-</Link>
-))}
-</div>
-</aside>
-</div>
+          <h2 className="text-sm font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+            <Compass className="w-4 h-4" /> Последние посты
+          </h2>
+          <div className="space-y-3">
+            {topPosts.map((p) => (
+              <Link
+                href={`/community/${p.id}`}
+                key={p.id}
+                className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
+              >
+                {p.imageUrl ? (
+                  <img
+                    src={p.imageUrl}
+                    alt=""
+                    className="w-14 h-14 object-cover rounded-md border border-gray-800"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
+                    нет фото
+                  </div>
+                )}
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-200 line-clamp-2">
+                    {p.title || p.content.slice(0, 60)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    ❤️ {p._count.likes} • 💬 {p._count.comments}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </aside>
+      </div>
 
-  {/* модалка жалобы */}
-  {reportTarget && (
-    <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
-  )}
-</div>
-
-
-)
+      {/* модалка жалобы */}
+      {reportTarget && (
+        <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
+      )}
+    </div>
+  )
 }
