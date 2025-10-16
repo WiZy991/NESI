@@ -6,11 +6,9 @@ import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import {
   Flame,
-  Clock,
   User,
   Heart,
   MessageSquare,
-  Share2,
   MoreHorizontal,
   Plus,
   Compass,
@@ -36,10 +34,11 @@ type Post = {
 }
 
 export default function CommunityPage() {
-  const { user } = useUser()
+  const { user, token } = useUser()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
+  const [likeLoading, setLikeLoading] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -58,6 +57,7 @@ export default function CommunityPage() {
 
   if (loading) return <LoadingSpinner />
 
+  // 🔄 сортировка / фильтры
   const filtered =
     filter === 'my'
       ? posts.filter((p) => p.author.id === user?.id)
@@ -77,17 +77,43 @@ export default function CommunityPage() {
     )
     .slice(0, 5)
 
+  // ❤️ обработчик лайка
+  const toggleLike = async (postId: string) => {
+    if (!token) return
+    setLikeLoading(postId)
+    try {
+      const res = await fetch(`/api/community/${postId}/like`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? {
+                  ...p,
+                  liked: data.liked,
+                  _count: {
+                    ...p._count,
+                    likes: data.liked ? p._count.likes + 1 : p._count.likes - 1,
+                  },
+                }
+              : p
+          )
+        )
+      }
+    } catch (err) {
+      console.error('Ошибка лайка:', err)
+    } finally {
+      setLikeLoading(null)
+    }
+  }
+
   return (
-    <div
-      className="min-h-screen text-white"
-      style={{
-        background:
-          'radial-gradient(circle at 30% 20%, rgba(0,255,150,0.15), transparent 50%), radial-gradient(circle at 70% 80%, rgba(0,255,180,0.1), transparent 60%), linear-gradient(180deg, #001a12 0%, #000000 100%)',
-        backgroundAttachment: 'fixed',
-      }}
-    >
+    <div className="min-h-screen text-white">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
-        {/* ───── ЛЕВАЯ КОЛОНКА (НАВИГАЦИЯ) ───── */}
+        {/* ───── ЛЕВАЯ КОЛОНКА ───── */}
         <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
           <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
           <nav className="flex flex-col gap-2 text-sm">
@@ -137,7 +163,7 @@ export default function CommunityPage() {
           </div>
         </aside>
 
-        {/* ───── ЦЕНТРАЛЬНАЯ КОЛОНКА (ЛЕНТА ПОСТОВ) ───── */}
+        {/* ───── ЦЕНТРАЛЬНАЯ КОЛОНКА ───── */}
         <main className="flex-1 max-w-2xl">
           {filtered.length === 0 ? (
             <p className="text-gray-400 text-center mt-20">
@@ -148,7 +174,7 @@ export default function CommunityPage() {
               {filtered.map((post) => (
                 <article
                   key={post.id}
-                  className="bg-black/40 backdrop-blur-sm border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 shadow-[0_0_20px_rgba(0,255,180,0.05)] transition-all"
+                  className="border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm"
                 >
                   {/* верхняя строка */}
                   <div className="flex items-center justify-between text-sm text-gray-400">
@@ -177,7 +203,9 @@ export default function CommunityPage() {
                         {post.title}
                       </Link>
                     )}
-                    <p className="text-gray-300 mt-1 line-clamp-3">{post.content}</p>
+                    <p className="text-gray-300 mt-1 whitespace-pre-line">
+                      {post.content}
+                    </p>
                     {post.imageUrl && (
                       <div className="mt-3">
                         <img
@@ -191,18 +219,25 @@ export default function CommunityPage() {
 
                   {/* кнопки действий */}
                   <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
-                    <button className="flex items-center gap-1 hover:text-pink-400 transition">
-                      <Heart className="w-4 h-4" /> {post._count.likes}
+                    <button
+                      onClick={() => toggleLike(post.id)}
+                      disabled={likeLoading === post.id}
+                      className={`flex items-center gap-1 transition ${
+                        post.liked
+                          ? 'text-pink-500 hover:text-pink-400'
+                          : 'hover:text-pink-400'
+                      }`}
+                    >
+                      <Heart className="w-4 h-4" />
+                      {post._count.likes}
                     </button>
+
                     <Link
                       href={`/community/${post.id}`}
                       className="flex items-center gap-1 hover:text-blue-400 transition"
                     >
                       <MessageSquare className="w-4 h-4" /> {post._count.comments}
                     </Link>
-                    <button className="flex items-center gap-1 hover:text-emerald-400 transition">
-                      <Share2 className="w-4 h-4" /> Поделиться
-                    </button>
                   </div>
                 </article>
               ))}
@@ -210,7 +245,7 @@ export default function CommunityPage() {
           )}
         </main>
 
-        {/* ───── ПРАВАЯ КОЛОНКА (ПОСЛЕДНИЕ) ───── */}
+        {/* ───── ПРАВАЯ КОЛОНКА ───── */}
         <aside className="hidden lg:flex flex-col w-72 border-l border-gray-800 pl-4">
           <h2 className="text-sm font-semibold text-emerald-400 mb-4 flex items-center gap-2">
             <Compass className="w-4 h-4" /> Последние посты
