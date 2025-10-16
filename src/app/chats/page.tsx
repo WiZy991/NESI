@@ -5,6 +5,7 @@ import FilePreview from '@/components/FilePreview'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 type Chat = {
 	id: string
@@ -73,6 +74,8 @@ export default function ChatsPage() {
 	const [typingUser, setTypingUser] = useState<string | null>(null)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
+	const searchParams = useSearchParams()
+	const openUserId = searchParams.get('open')
 
 	// Загрузка списка чатов и подключение к SSE
 	useEffect(() => {
@@ -266,6 +269,47 @@ export default function ChatsPage() {
 		}
 	}, [token, selectedChat])
 
+	// --- ✅ Обработка ?open=USER_ID ---
+	useEffect(() => {
+		if (!openUserId || !chats.length || !token) return
+
+		const existingChat = chats.find(
+			c => c.type === 'private' && c.otherUser?.id === openUserId
+		)
+
+		if (existingChat) {
+			console.log('✅ Автооткрытие чата с пользователем:', openUserId)
+			setSelectedChat(existingChat)
+		} else {
+			console.log('⚙️ Чат с пользователем не найден, создаём новый...')
+			createPrivateChat(openUserId)
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [openUserId, chats])
+
+	// --- Создание приватного чата при необходимости ---
+	const createPrivateChat = async (userId: string) => {
+		try {
+			const res = await fetch('/api/chats', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ participantId: userId }),
+			})
+			const data = await res.json()
+			if (res.ok && data.chat) {
+				console.log('✅ Новый чат создан:', data.chat)
+				setChats(prev => [...prev, data.chat])
+				setSelectedChat(data.chat)
+			} else {
+				console.error('❌ Ошибка при создании чата:', data)
+			}
+		} catch (err) {
+			console.error('Ошибка создания приватного чата:', err)
+		}
+	}
 	// Загрузка сообщений для выбранного чата
 	useEffect(() => {
 		if (!selectedChat || !token) return
