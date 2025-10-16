@@ -212,7 +212,6 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
-
 // 🔹 Категории навыков
 const skillCategories: Record<string, string[]> = {
   'IT и программирование': [
@@ -223,20 +222,23 @@ const skillCategories: Record<string, string[]> = {
   'Контент и копирайтинг': ['SEO', 'Маркетинг', 'Копирайтинг', 'Редактура', 'SMM'],
 }
 
-// 🔹 Компонент выбора навыков
+// 🔹 Навыки
 function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s: string[]) => void }) {
   const addSkill = (skill: string) => {
     if (!skills.includes(skill)) setSkills([...skills, skill])
   }
-  const removeSkill = (skill: string) => setSkills(skills.filter((s) => s !== skill))
+  const removeSkill = (skill: string) => {
+    const updated = skills.filter((s) => s !== skill)
+    setSkills(updated)
+  }
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-2 p-3 bg-black/50 rounded-xl border border-emerald-600 transition-all duration-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+      <div className="flex flex-wrap gap-2 p-3 bg-[#0a0f0d]/70 rounded-xl border border-emerald-800 transition-all duration-300 hover:shadow-[0_0_15px_rgba(15,118,110,0.25)]">
         {skills.map((skill) => (
           <span
             key={skill}
-            className="px-3 py-1 bg-emerald-600/20 text-emerald-300 text-sm rounded-full border border-emerald-400 flex items-center gap-2 animate-[fadeIn_0.4s_ease]"
+            className="px-3 py-1 bg-emerald-800/40 text-emerald-200 text-sm rounded-full border border-emerald-700 flex items-center gap-2"
           >
             {skill}
             <button
@@ -263,7 +265,7 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
 
       {Object.entries(skillCategories).map(([category, items]) => (
         <div key={category}>
-          <h3 className="text-emerald-400 text-sm mb-2 font-semibold tracking-wide">{category}</h3>
+          <h3 className="text-emerald-500 text-sm mb-2 font-medium">{category}</h3>
           <div className="flex flex-wrap gap-2">
             {items.map((skill) => (
               <button
@@ -272,8 +274,8 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
                 onClick={() => addSkill(skill)}
                 className={`px-3 py-1 text-sm rounded-full border transition-all duration-300 ${
                   skills.includes(skill)
-                    ? 'bg-emerald-500 text-black border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.6)]'
-                    : 'bg-black/40 text-emerald-300 border-emerald-600 hover:bg-emerald-700/40 hover:text-white'
+                    ? 'bg-emerald-700 text-white border-emerald-600 shadow-[0_0_10px_rgba(15,118,110,0.4)]'
+                    : 'bg-[#0a0f0d]/70 text-emerald-300 border-emerald-800 hover:bg-emerald-900/50 hover:text-white'
                 }`}
               >
                 {skill}
@@ -355,149 +357,96 @@ export default function EditProfilePage() {
   return (
     <ProtectedPage>
       <div className="max-w-4xl mx-auto p-6 space-y-10 animate-[fadeIn_0.8s_ease]">
-        <h1 className="text-3xl font-bold flex items-center gap-3 text-emerald-400 tracking-wide">
-          <FaUserEdit className="text-2xl animate-pulse" /> Редактировать профиль
+        <h1 className="text-3xl font-bold flex items-center gap-3 text-emerald-500">
+          <FaUserEdit className="text-2xl" /> Редактировать профиль
         </h1>
 
-        <div className="space-y-10">
-          {/* Имя */}
-          <div className="group bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-700 shadow-[0_0_15px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgба(16,185,129,0.35)] hover:-translate-y-1 transition-all duration-500">
+        {/* Имя */}
+        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 shadow-[0_0_20px_rgba(15,118,110,0.15)] transition-all duration-500">
+          <label className="flex items-center gap-2 text-gray-300 mb-2">
+            <FaFileSignature className="text-emerald-500" /> Имя
+          </label>
+          <input
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="w-full px-3 py-2 bg-black/60 border border-emerald-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+          />
+        </div>
+
+        {/* Описание */}
+        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 shadow-[0_0_20px_rgba(15,118,110,0.15)] transition-all duration-500">
+          <label className="block mb-2 text-gray-300">Описание</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            placeholder="Расскажите немного о себе..."
+            className="w-full px-3 py-2 bg-black/60 border border-emerald-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+          />
+        </div>
+
+        {/* Аватар */}
+        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 flex flex-col sm:flex-row items-center gap-6 transition-all duration-500">
+          <div className="flex flex-col flex-1">
             <label className="flex items-center gap-2 text-gray-300 mb-2">
-              <FaFileSignature className="text-emerald-400 group-hover:scale-110 transition" /> Имя
+              <FaImage className="text-emerald-500" /> Аватар
+            </label>
+            <label
+              htmlFor="avatar-upload"
+              className="cursor-pointer inline-block px-4 py-2 rounded-lg border border-emerald-600 text-emerald-400 hover:bg-emerald-700/40 transition"
+            >
+              📷 Загрузить
             </label>
             <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3 py-2 bg-black/50 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all duration-300"
+              id="avatar-upload"
+              type="file"
+              accept="image/*"
+              onChange={(e) => e.target.files?.[0] && handleAvatarChange(e.target.files[0])}
+              className="hidden"
             />
           </div>
-
-          {/* Описание */}
-          <div className="group bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-700 shadow-[0_0_15px_rgба(16,185,129,0.15)] hover:shadow-[0_0_25px_rgба(16,185,129,0.35)] hover:-translate-y-1 transition-all duration-500">
-            <label className="block mb-2 text-gray-300">Описание</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Расскажите немного о себе..."
-              className="w-full px-3 py-2 bg-black/50 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all duration-300"
-            />
-          </div>
-
-          {/* Аватар с превью */}
-          <div className="group bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-700 shadow-[0_0_15px_rgба(16,185,129,0.15)] hover:shadow-[0_0_25px_rgба(16,185,129,0.35)] hover:-translate-y-1 transition-all duration-500 flex flex-col sm:flex-row items-center gap-6">
-            <div className="flex flex-col flex-1">
-              <label className="flex items-center gap-2 text-gray-300 mb-2">
-                <FaImage className="text-emerald-400 group-hover:scale-110 transition" /> Аватар
-              </label>
-              <label
-                htmlFor="avatar-upload"
-                className="cursor-pointer inline-block px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition-all duration-300 text-center"
-              >
-                📷 Загрузить
-              </label>
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                onChange={(e) => e.target.files?.[0] && handleAvatarChange(e.target.files[0])}
-                className="hidden"
-              />
-              {avatarFile && <p className="text-xs text-emerald-400 mt-2">Выбран: {avatarFile.name}</p>}
+          {avatarPreview && (
+            <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-emerald-700 shadow-[0_0_20px_rgба(15,118,110,0.3)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarPreview} alt="Аватар" className="w-full h-full object-cover" />
             </div>
-            {avatarPreview && (
-              <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-emerald-400 shadow-[0_0_20px_rgба(16,185,129,0.3)] animate-[fadeIn_0.5s_ease]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={avatarPreview}
-                  alt="Предпросмотр аватара"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-          </div>
+          )}
+        </div>
 
-          {/* Город */}
-          <div className="group bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-700 shadow-[0_0_15px_rgба(16,185,129,0.15)] hover:shadow-[0_0_25px_rgба(16,185,129,0.35)] hover:-translate-y-1 transition-all duration-500">
-            <label className="flex items-center gap-2 text-gray-300 mb-2">
-              <FaCity className="text-emerald-400 group-hover:scale-110 transition" /> Город
-            </label>
-            <button
-              type="button"
-              onClick={() => setCityModalOpen(true)}
-              className="w-full px-3 py-2 bg-black/50 border border-emerald-500/30 rounded-lg text-white text-left hover:border-emerald-400 transition-all duration-300"
-            >
-              {location || 'Выберите город...'}
-            </button>
-          </div>
+        {/* Город */}
+        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 shadow-[0_0_20px_rgба(15,118,110,0.15)] transition-all duration-500">
+          <label className="flex items-center gap-2 text-gray-300 mb-2">
+            <FaCity className="text-emerald-500" /> Город
+          </label>
+          <button
+            type="button"
+            onClick={() => setCityModalOpen(true)}
+            className="w-full px-3 py-2 bg-black/60 border border-emerald-800 rounded-lg text-white text-left hover:border-emerald-600 transition"
+          >
+            {location || 'Выберите город...'}
+          </button>
+        </div>
 
-          {/* Навыки */}
-          <div className="group bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-700 shadow-[0_0_15px_rgба(16,185,129,0.15)] hover:shadow-[0_0_25px_rgба(16,185,129,0.35)] hover:-translate-y-1 transition-all duration-500">
-            <label className="flex items-center gap-2 text-gray-300 mb-2">
-              <FaCode className="text-emerald-400 group-hover:scale-110 transition" /> Навыки
-            </label>
-            <SkillsSelector skills={skills} setSkills={setSkills} />
-          </div>
+        {/* Навыки */}
+        <div className="bg-[#0b0f0e]/80 p-6 rounded-xl border border-emerald-900 hover:border-emerald-700 shadow-[0_0_20px_rgба(15,118,110,0.15)] transition-all duration-500">
+          <label className="flex items-center gap-2 text-gray-300 mb-2">
+            <FaCode className="text-emerald-500" /> Навыки
+          </label>
+          <SkillsSelector skills={skills} setSkills={setSkills} />
         </div>
 
         {/* Сохранить */}
-        <div className="pt-4 animate-[fadeUp_0.6s_ease]">
+        <div className="pt-4">
           <button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="w-full py-3 text-lg rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition-all duration-500 font-semibold disabled:opacity-50 shadow-[0_0_15px_rgба(16,185,129,0.3)] hover:shadow-[0_0_25px_rgба(16,185,129,0.5)] animate-[pulse_3s_ease-in-out_infinite]"
+            className="w-full py-3 text-lg rounded-lg border border-emerald-700 text-emerald-300 hover:bg-emerald-800/40 hover:text-white transition-all duration-400 font-semibold disabled:opacity-50 shadow-[0_0_15px_rgба(15,118,110,0.3)]"
           >
             {saving ? '💾 Сохраняем...' : '✅ Сохранить изменения'}
           </button>
         </div>
-
-        {/* Модалка выбора города */}
-        {cityModalOpen && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-[fadeIn_0.3s_ease]">
-            <div className="bg-black/90 p-6 rounded-xl border border-emerald-600 w-full max-w-lg shadow-[0_0_25px_rgба(16,185,129,0.4)]">
-              <h2 className="text-xl text-emerald-400 mb-4 font-semibold flex items-center gap-2">
-                <FaCity /> Выберите город
-              </h2>
-              <input
-                type="text"
-                placeholder="Поиск..."
-                value={citySearch}
-                onChange={(e) => setCitySearch(e.target.value)}
-                className="w-full mb-4 px-3 py-2 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all duration-300"
-              />
-              <div className="max-h-64 overflow-y-auto space-y-1">
-                {cityOptions
-                  .filter((c) => c.label.toLowerCase().includes(citySearch.toLowerCase()))
-                  .map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => {
-                        setLocation(c.value)
-                        setCityModalOpen(false)
-                      }}
-                      className={`block w-full text-left px-3 py-2 rounded-lg transition-all duration-200 ${
-                        location === c.value
-                          ? 'bg-emerald-600/40 text-white'
-                          : 'hover:bg-emerald-700/30 text-emerald-200'
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setCityModalOpen(false)}
-                className="mt-5 px-4 py-2 rounded-lg border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition-all duration-300"
-              >
-                Закрыть
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </ProtectedPage>
   )
