@@ -352,6 +352,13 @@ export default function Header() {
 												📑 Запросы найма
 											</Link>
 
+											<Link
+  												href="/settings"
+  												className="block px-4 py-2 text-sm text-gray-300 hover:text-emerald-400 transition"
+											>
+  												⚙️ Настройки
+											</Link>
+
 											<div className="border-t border-gray-700 mt-1">
 												<button
 													onClick={() => {
