@@ -22,22 +22,30 @@ export default function MyTasksPage() {
   const { token, user } = useUser()
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token || !user) return
 
     const fetchTasks = async () => {
       try {
-        const res = await fetch('/api/tasks', {
+        setLoading(true)
+        setError(null)
+
+        const res = await fetch('/api/my-tasks', {
           headers: { Authorization: `Bearer ${token}` },
         })
+
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || `Ошибка ${res.status}`)
+        }
+
         const data = await res.json()
-        const myTasks = data.tasks.filter(
-          (task: any) => task.executorId === user.id
-        )
-        setTasks(myTasks)
-      } catch (err) {
+        setTasks(data.tasks || [])
+      } catch (err: any) {
         console.error('Ошибка при загрузке задач:', err)
+        setError(err.message)
       } finally {
         setLoading(false)
       }
@@ -48,6 +56,14 @@ export default function MyTasksPage() {
 
   if (loading) {
     return <p className="text-center mt-10 text-gray-400">Загрузка задач...</p>
+  }
+
+  if (error) {
+    return (
+      <p className="text-center mt-10 text-red-400">
+        Ошибка: {error}
+      </p>
+    )
   }
 
   const stats = {
@@ -124,7 +140,7 @@ export default function MyTasksPage() {
                 Статус: {statusMap[task.status] || task.status}
               </p>
               <p className="text-sm text-gray-400 mb-1">
-                Заказчик: {task.customer?.fullName || task.customer?.email}
+                Заказчик: {task.customer?.fullName || task.customer?.email || '—'}
               </p>
               <p className="text-sm text-gray-300 mb-2">{task.description}</p>
               <Link
