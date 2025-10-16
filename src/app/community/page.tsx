@@ -326,13 +326,12 @@ export default function CommunityPage() {
                       <MessageSquare className="w-4 h-4" /> {post._count.comments}
                     </Link>
                   </div>
-              ))}
+              ))
             </div>
-          )}
+          )
         </main>
 
 
-        {/* ───── ПРАВАЯ КОЛОНКА ───── */}
         <aside className="hidden lg:flex flex-col w-72 border-l border-gray-800 pl-4">
           <h2 className="text-sm font-semibold text-emerald-400 mb-4 flex items-center gap-2">
             <Compass className="w-4 h-4" /> Последние посты
