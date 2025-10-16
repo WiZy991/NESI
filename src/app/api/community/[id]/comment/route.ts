@@ -23,7 +23,16 @@ async function getReplies(commentId: string) {
     ;(reply as any).replies = await getReplies(reply.id)
   }
 
-  return replies
+  // добавляем avatarUrl для каждого ответа
+  return replies.map((r) => ({
+    ...r,
+    author: {
+      ...r.author,
+      avatarUrl: r.author.avatarFileId
+        ? `/api/files/${r.author.avatarFileId}`
+        : null,
+    },
+  }))
 }
 
 // 📌 Получить комментарии к посту
@@ -50,6 +59,12 @@ export async function GET(
     const commentsWithReplies = await Promise.all(
       comments.map(async (comment) => ({
         ...comment,
+        author: {
+          ...comment.author,
+          avatarUrl: comment.author.avatarFileId
+            ? `/api/files/${comment.author.avatarFileId}`
+            : null,
+        },
         replies: await getReplies(comment.id),
       }))
     )
@@ -116,9 +131,87 @@ export async function POST(
       },
     })
 
-    return NextResponse.json({ ok: true, comment }, { status: 201 })
+    const formattedComment = {
+      ...comment,
+      author: {
+        ...comment.author,
+        avatarUrl: comment.author.avatarFileId
+          ? `/api/files/${comment.author.avatarFileId}`
+          : null,
+      },
+    }
+
+    return NextResponse.json({ ok: true, comment: formattedComment }, { status: 201 })
   } catch (err) {
     console.error('🔥 Ошибка создания комментария:', err)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
+}
+
+// ✏️ PATCH — редактировать комментарий
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const me = await getUserFromRequest(req).catch(() => null)
+    if (!me)
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+
+    const { commentId, content } = await req.json()
+    if (!commentId || !content?.trim())
+      return NextResponse.json(
+        { error: 'Некорректные данные' },
+        { status: 400 }
+      )
+
+    const comment = await prisma.communityComment.findUnique({
+      where: { id: commentId },
+    })
+    if (!comment)
+      return NextResponse.json({ error: 'Комментарий не найден' }, { status: 404 })
+    if (comment.authorId !== me.id)
+      return NextResponse.json({ error: 'Нет прав' }, { status: 403 })
+
+    await prisma.communityComment.update({
+      where: { id: commentId },
+      data: { content: content.trim() },
+    })
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('Ошибка PATCH комментария:', err)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
+}
+
+// 🗑 DELETE — удалить комментарий
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const me = await getUserFromRequest(req).catch(() => null)
+    if (!me)
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+
+    const { commentId } = await req.json()
+    if (!commentId)
+      return NextResponse.json({ error: 'Не указан commentId' }, { status: 400 })
+
+    const comment = await prisma.communityComment.findUnique({
+      where: { id: commentId },
+    })
+    if (!comment)
+      return NextResponse.json({ error: 'Комментарий не найден' }, { status: 404 })
+    if (comment.authorId !== me.id)
+      return NextResponse.json({ error: 'Нет прав' }, { status: 403 })
+
+    await prisma.communityComment.delete({ where: { id: commentId } })
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('Ошибка DELETE комментария:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
