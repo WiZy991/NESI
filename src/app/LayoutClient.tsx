@@ -19,26 +19,26 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }, [pathname])
 
   const isHome = pathname === '/'
-  const hideHeader = ['/login', '/register'].includes(pathname)
+  const isAuthPage = ['/login', '/register', '/forgot-password'].includes(pathname)
 
   return (
     <UserProvider>
-      {/* Хедер */}
-      {!isHome && !hideHeader && <Header />}
+      {/* Звёздный фон — всегда активен */}
+      <Starfield />
+
+      {/* Хедер показываем только там, где нужно */}
+      {!isHome && !isAuthPage && <Header />}
 
       <main className="relative min-h-screen w-full overflow-hidden text-white">
-        {/* Новый звёздный фон */}
-        <Starfield />
-
-        {/* Дополнительный градиентный слой — оставляем слегка, чтобы не мешал */}
-        {!isHome && !hideHeader && (
+        {/* Градиент — только для обычных страниц (не авторизация, не главная) */}
+        {!isHome && !isAuthPage && (
           <>
             <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0a] to-[#04382A] opacity-40 z-0" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.25),transparent_70%)] opacity-40 z-0" />
           </>
         )}
 
-        {/* Лоадер */}
+        {/* Лоадер при смене страницы */}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-50">
             <LoadingSpinner />
@@ -48,8 +48,8 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         {/* Контент */}
         <div
           className={`relative z-10 ${
-            isHome
-              ? 'w-full px-0 py-0'
+            isHome || isAuthPage
+              ? 'flex items-center justify-center w-full px-0 py-0'
               : 'max-w-screen-xl mx-auto px-4 py-10 md:px-8'
           } animate-fade-in`}
         >
@@ -57,7 +57,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         </div>
       </main>
 
-      {/* Тосты */}
+      {/* Уведомления */}
       <Toaster position="top-center" richColors />
     </UserProvider>
   )
