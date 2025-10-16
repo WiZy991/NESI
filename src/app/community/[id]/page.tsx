@@ -516,8 +516,8 @@ className="w-8 h-8 rounded-full object-cover border border-gray-700"
 <User className="w-8 h-8 text-emerald-400 opacity-70" />
 )}
 <div>
-<Link
-href={/users/${node.author.id}}
+<Link 
+  href={`/users/${node.author.id}`}>
 className="font-medium text-emerald-300 hover:text-emerald-400 transition"
 >
 {node.author.fullName || node.author.email}
