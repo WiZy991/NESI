@@ -320,7 +320,7 @@ function NeonCitySelect({ value, options, onChange }: {
   }, [open])
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative z-50 overflow-visible" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -333,7 +333,7 @@ function NeonCitySelect({ value, options, onChange }: {
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 mt-2 bg-[#00120c]/95 border border-emerald-700 rounded-lg shadow-[0_0_25px_rgba(0,255,150,0.2)] z-50">
+        <div className="absolute left-0 right-0 mt-2 bg-[#00120c]/95 border border-emerald-700 rounded-lg shadow-[0_0_25px_rgba(0,255,150,0.2)] z-[9999]">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-800">
             <FaSearch className="text-emerald-400" />
             <input
@@ -489,7 +489,7 @@ export default function EditProfilePage() {
           </div>
 
           {/* === КАСТОМНЫЙ SELECT С ПОИСКОМ === */}
-          <div className="neon-box">
+          <div className="neon-box relative z-50 overflow-visible">
             <label className="label"><FaCity /> Город</label>
             <NeonCitySelect
               value={location}
