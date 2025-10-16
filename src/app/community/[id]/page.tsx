@@ -351,7 +351,7 @@ function CommentNode({
 
   const saveEdit = async () => {
     try {
-      const res = await fetch(`/api/community/comment/${node.id}`, {
+      await fetch(`/api/community/${node.postId || id}/comment/${node.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ content: editText }),
@@ -371,7 +371,7 @@ function CommentNode({
   const deleteComment = async () => {
     if (!confirm('Удалить комментарий?')) return
     try {
-      const res = await fetch(`/api/community/comment/${node.id}`, {
+      await fetch(`/api/community/${node.postId || id}/comment/${node.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
