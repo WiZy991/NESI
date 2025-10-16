@@ -304,15 +304,6 @@ function SkillsSelector({
   )
 }
 
-// 🔹 Города
-const cityOptions = [
-  { value: 'Москва', label: 'Москва' },
-  { value: 'Санкт-Петербург', label: 'Санкт-Петербург' },
-  { value: 'Казань', label: 'Казань' },
-  { value: 'Новосибирск', label: 'Новосибирск' },
-  { value: 'Екатеринбург', label: 'Екатеринбург' },
-]
-
 export default function EditProfilePage() {
   const { user, token, login, loading } = useUser()
   const router = useRouter()
