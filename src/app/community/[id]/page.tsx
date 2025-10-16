@@ -273,7 +273,6 @@ export default function CommunityPostPage() {
     {post.comments.length}
   </div>
 </footer>
-</div>
 </article>
 
           {/* Комментарии */}
