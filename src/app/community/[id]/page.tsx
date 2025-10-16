@@ -31,7 +31,7 @@ type Post = {
   content: string
   imageUrl?: string | null
   createdAt: string
-  author: { id: string; fullName: string | null; email: string }
+  author: { id: string; fullName: string | null; email: string; avatarUrl?: string | null }
   comments: Comment[]
   _count: { likes: number }
 }
@@ -41,7 +41,7 @@ type Comment = {
   content: string
   createdAt: string
   parentId?: string | null
-  author: { id: string; fullName: string | null; email: string }
+  author: { id: string; fullName: string | null; email: string; avatarUrl?: string | null }
 }
 
 /** Построение дерева комментариев */
@@ -158,8 +158,9 @@ export default function CommunityPostPage() {
 
   const deleteItem = async (endpoint: string) => {
     if (!confirm('Удалить?')) return
-    await fetch(endpoint, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    fetchPost()
+    const res = await fetch(endpoint, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) fetchPost()
+    else alert('Ошибка при удалении поста')
   }
 
   if (loading) return <LoadingSpinner />
@@ -200,12 +201,15 @@ export default function CommunityPostPage() {
                 href={`/users/${post.author.id}`}
                 className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
               >
-                <div className="relative">
+                {post.author.avatarUrl ? (
+                  <img
+                    src={post.author.avatarUrl}
+                    alt="avatar"
+                    className="w-12 h-12 rounded-full object-cover border border-emerald-700/40"
+                  />
+                ) : (
                   <UserCircle2 className="w-12 h-12 text-emerald-400 group-hover:text-emerald-300 transition" />
-                  <span className="absolute -bottom-2 -right-2 text-[10px] bg-emerald-600 text-black px-1.5 py-[1px] rounded-full font-semibold">
-                    Автор
-                  </span>
-                </div>
+                )}
                 <div>
                   <h2 className="text-emerald-300 font-semibold group-hover:text-emerald-400 transition">
                     {post.author.fullName || post.author.email}
@@ -346,22 +350,36 @@ function CommentNode({
   const time = new Date(node.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 
   const saveEdit = async () => {
-    await fetch(`/api/community/comment/${node.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ content: editText }),
-    })
-    setEditing(false)
-    fetchPost()
+    try {
+      const res = await fetch(`/api/community/comment/${node.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content: editText }),
+      })
+      if (res.ok) {
+        setEditing(false)
+        fetchPost()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert('Ошибка сохранения: ' + (err.error || res.statusText))
+      }
+    } catch (e) {
+      alert('Ошибка сети при сохранении комментария')
+    }
   }
 
   const deleteComment = async () => {
     if (!confirm('Удалить комментарий?')) return
-    await fetch(`/api/community/comment/${node.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchPost()
+    try {
+      const res = await fetch(`/api/community/comment/${node.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) fetchPost()
+      else alert('Ошибка удаления комментария')
+    } catch {
+      alert('Ошибка сети при удалении комментария')
+    }
   }
 
   return (
@@ -371,32 +389,68 @@ function CommentNode({
         style={{ marginLeft: depth ? depth * 24 : 0, borderColor: 'rgba(0,255,180,0.25)' }}
       >
         <div className="flex items-start justify-between mb-2">
-          <Link href={`/users/${node.author.id}`} className="font-medium text-emerald-300 hover:text-emerald-400 transition">
-            {node.author.fullName || node.author.email}
-          </Link>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span>{time}</span>
-            <button onClick={() => setOpenMenu(!openMenu)} className="hover:text-emerald-400">
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
+          <div className="flex items-start gap-3">
+            {node.author.avatarUrl ? (
+              <img
+                src={node.author.avatarUrl}
+                alt="avatar"
+                className="w-8 h-8 rounded-full object-cover border border-gray-700"
+              />
+            ) : (
+              <User className="w-8 h-8 text-emerald-400 opacity-70" />
+            )}
+            <div>
+              <Link href={`/users/${node.author.id}`} className="font-medium text-emerald-300 hover:text-emerald-400 transition">
+                {node.author.fullName || node.author.email}
+              </Link>
+              <p className="text-xs text-gray-500">{time}</p>
+            </div>
           </div>
+
+          <button onClick={() => setOpenMenu(!openMenu)} className="hover:text-emerald-400">
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
 
           {openMenu && (
             <div className="absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
-              <button onClick={() => { navigator.clipboard.writeText(window.location.href + '#' + node.id); setOpenMenu(false) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href + '#' + node.id)
+                  setOpenMenu(false)
+                }}
+                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+              >
                 <Copy className="w-4 h-4" /> Копировать ссылку
               </button>
               {userId === node.author.id ? (
                 <>
-                  <button onClick={() => { setEditing(true); setOpenMenu(false) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
+                  <button
+                    onClick={() => {
+                      setEditing(true)
+                      setOpenMenu(false)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+                  >
                     <Edit3 className="w-4 h-4" /> Редактировать
                   </button>
-                  <button onClick={() => { deleteComment(); setOpenMenu(false) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full">
+                  <button
+                    onClick={() => {
+                      deleteComment()
+                      setOpenMenu(false)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
+                  >
                     <Trash2 className="w-4 h-4" /> Удалить
                   </button>
                 </>
               ) : (
-                <button onClick={() => { alert('🚨 Жалоба отправлена'); setOpenMenu(false) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full">
+                <button
+                  onClick={() => {
+                    alert('🚨 Жалоба отправлена')
+                    setOpenMenu(false)
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
+                >
                   <Flag className="w-4 h-4" /> Пожаловаться
                 </button>
               )}
