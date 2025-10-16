@@ -6,6 +6,7 @@ import { UserProvider } from '@/context/UserContext'
 import Header from '@/components/Header'
 import { Toaster } from 'sonner'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import Starfield from '@/components/Starfield'
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -22,15 +23,18 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
   return (
     <UserProvider>
-      {/* Хедер отображаем только если не главная и не логин/регистрация */}
+      {/* Хедер */}
       {!isHome && !hideHeader && <Header />}
 
       <main className="relative min-h-screen w-full overflow-hidden text-white">
-        {/* Фон (оставляем для внутренних страниц, но на главной можно убрать если мешает) */}
+        {/* Новый звёздный фон */}
+        <Starfield />
+
+        {/* Дополнительный градиентный слой — оставляем слегка, чтобы не мешал */}
         {!isHome && !hideHeader && (
           <>
-            <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0a] to-[#04382A] z-0" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.25),transparent_70%)] z-0" />
+            <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0a] to-[#04382A] opacity-40 z-0" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.25),transparent_70%)] opacity-40 z-0" />
           </>
         )}
 
@@ -45,7 +49,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         <div
           className={`relative z-10 ${
             isHome
-              ? 'w-full px-0 py-0' // На главной — svg займёт всё
+              ? 'w-full px-0 py-0'
               : 'max-w-screen-xl mx-auto px-4 py-10 md:px-8'
           } animate-fade-in`}
         >
