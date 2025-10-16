@@ -193,27 +193,34 @@ export default function CommunityPostPage() {
           </div>
         </aside>
 
-        {/* ЦЕНТР */}
-        <main className="flex-1 max-w-3xl mx-auto space-y-10">
-          {/* Пост */}
-          <article className="p-6 rounded-2xl border border-gray-800 bg-transparent shadow-[0_0_25px_rgba(0,255,180,0.05)] relative">
-            <div className="flex justify-between items-start mb-4">
-              <Link href={`/profile/${post.author.id}`} className="flex items-center gap-3 hover:text-emerald-400 transition">
-                <UserCircle2 className="w-10 h-10 text-emerald-400" />
-                <div>
-                  <h2 className="text-emerald-300 font-semibold">
-                    {post.author.fullName || post.author.email}
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    {new Date(post.createdAt).toLocaleString('ru-RU', {
-                      day: '2-digit',
-                      month: 'long',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                </div>
-              </Link>
+        <header className="flex items-center gap-4 mb-4">
+  <Link
+    href={`/users/${post.author.id}`}
+    className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
+  >
+    <div className="relative">
+      <UserCircle2 className="w-12 h-12 text-emerald-400 group-hover:text-emerald-300 transition" />
+      <span className="absolute -bottom-2 -right-2 text-[10px] bg-emerald-600 text-black px-1.5 py-[1px] rounded-full font-semibold">
+        Автор
+      </span>
+    </div>
+
+    <div>
+      <h2 className="text-emerald-300 font-semibold group-hover:text-emerald-400 transition">
+        {post.author.fullName || post.author.email}
+      </h2>
+      <p className="text-xs text-gray-500">
+        {new Date(post.createdAt).toLocaleString('ru-RU', {
+          day: '2-digit',
+          month: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </p>
+    </div>
+  </Link>
+</header>
+
 
               <div className="relative">
                 <button onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)} className="p-1 hover:text-emerald-400">
