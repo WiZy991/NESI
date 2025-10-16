@@ -73,7 +73,7 @@ const getLinkByType = (n: Notification) => {
       return n.relatedId ? `/tasks/${n.relatedId}` : '/tasks'
 
     case 'hire':
-      return n.relatedId ? `/hire/${n.relatedId}` : '/hire`
+      return n.relatedId ? `/hire/${n.relatedId}` : '/hire'
 
     case 'like':
     case 'comment':
