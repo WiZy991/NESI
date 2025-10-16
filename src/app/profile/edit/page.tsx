@@ -5,7 +5,7 @@ import ProtectedPage from '@/components/ProtectedPage'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import Select from 'react-select'
+import { FaUserEdit, FaCity, FaCode, FaImage, FaLock, FaFileSignature } from 'react-icons/fa'
 
 // 🔹 Города
 const cityOptions = [
@@ -220,57 +220,41 @@ const skillCategories: Record<string, string[]> = {
     'Python', 'Django', 'Flask', 'Bitrix', 'PostgreSQL',
     'REST API', 'Prisma ORM', 'JWT', 'Docker', 'Git', 'Linux',
   ],
-  'Дизайн': [
-    'UI/UX', 'Figma', 'Photoshop', 'Illustrator', 'Адаптив',
-  ],
-  'Контент и копирайтинг': [
-    'SEO', 'Маркетинг', 'Копирайтинг', 'Редактура', 'SMM',
-  ],
+  'Дизайн': ['UI/UX', 'Figma', 'Photoshop', 'Illustrator', 'Адаптив'],
+  'Контент и копирайтинг': ['SEO', 'Маркетинг', 'Копирайтинг', 'Редактура', 'SMM'],
 }
 
 // 🔹 Кастомный селектор навыков
-function SkillsSelector({
-  skills,
-  setSkills,
-}: {
-  skills: string[]
-  setSkills: (s: string[]) => void
-}) {
+function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s: string[]) => void }) {
   const addSkill = (skill: string) => {
-    if (!skills.includes(skill)) {
-      setSkills([...skills, skill])
-    }
+    if (!skills.includes(skill)) setSkills([...skills, skill])
   }
-
-  const removeSkill = (skill: string) => {
-    setSkills(skills.filter((s) => s !== skill))
-  }
+  const removeSkill = (skill: string) => setSkills(skills.filter((s) => s !== skill))
 
   return (
-    <div className="space-y-4">
-      {/* Выбранные навыки */}
-      <div className="flex flex-wrap gap-2 p-2 bg-[#0d1b14] rounded-lg border border-emerald-700">
+    <div className='space-y-5'>
+      <div className='flex flex-wrap gap-2 p-3 bg-black/40 rounded-xl border border-emerald-600'>
         {skills.map((skill) => (
           <span
             key={skill}
-            className="px-3 py-1 bg-emerald-700/20 text-emerald-300 text-sm rounded-full border border-emerald-600 flex items-center gap-2"
+            className='px-3 py-1 bg-emerald-600/20 text-emerald-300 text-sm rounded-full border border-emerald-400 flex items-center gap-2'
           >
             {skill}
             <button
-              type="button"
+              type='button'
               onClick={() => removeSkill(skill)}
-              className="text-red-400 hover:text-red-600"
+              className='text-red-400 hover:text-red-500 transition'
             >
               ✕
             </button>
           </span>
         ))}
         <input
-          type="text"
-          placeholder="Добавить..."
-          className="bg-transparent text-emerald-200 focus:outline-none px-2"
+          type='text'
+          placeholder='Добавить...'
+          className='bg-transparent text-emerald-200 focus:outline-none px-2 w-24'
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.currentTarget.value.trim() !== '') {
+            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
               addSkill(e.currentTarget.value.trim())
               e.currentTarget.value = ''
             }
@@ -278,20 +262,19 @@ function SkillsSelector({
         />
       </div>
 
-      {/* Категории с кнопками */}
-      {Object.entries(skillCategories).map(([category, categorySkills]) => (
+      {Object.entries(skillCategories).map(([category, items]) => (
         <div key={category}>
-          <h3 className="text-emerald-400 text-sm mb-2">{category}</h3>
-          <div className="flex flex-wrap gap-2">
-            {categorySkills.map((skill) => (
+          <h3 className='text-emerald-400 text-sm mb-2'>{category}</h3>
+          <div className='flex flex-wrap gap-2'>
+            {items.map((skill) => (
               <button
                 key={skill}
-                type="button"
+                type='button'
                 onClick={() => addSkill(skill)}
-                className={`px-3 py-1 text-sm rounded-full border ${
+                className={`px-3 py-1 text-sm rounded-full border transition ${
                   skills.includes(skill)
-                    ? 'bg-emerald-600 text-black border-emerald-400'
-                    : 'bg-emerald-900/30 text-emerald-300 border-emerald-600 hover:bg-emerald-700/40'
+                    ? 'bg-emerald-500 text-black border-emerald-400'
+                    : 'bg-black/40 text-emerald-300 border-emerald-600 hover:bg-emerald-700/30'
                 }`}
               >
                 {skill}
@@ -323,11 +306,7 @@ export default function EditProfilePage() {
       setFullName(user.fullName || '')
       setDescription(user.description || '')
       setLocation(user.location || '')
-      if (Array.isArray(user.skills)) {
-        setSkills(user.skills)
-      } else if (typeof user.skills === 'string') {
-        setSkills(user.skills.split(',').map((s: string) => s.trim()))
-      }
+      setSkills(Array.isArray(user.skills) ? user.skills : (user.skills || '').split(',').map((s: string) => s.trim()))
     }
   }, [user])
 
@@ -341,7 +320,7 @@ export default function EditProfilePage() {
     try {
       const formData = new FormData()
       formData.append('fullName', fullName)
-      formData.append('role', user.role) // Роль фиксированная!
+      formData.append('role', user.role)
       if (password) formData.append('password', password)
       formData.append('description', description)
       formData.append('location', location)
@@ -367,114 +346,148 @@ export default function EditProfilePage() {
     }
   }
 
-  if (loading || !user) return <div className="p-6 text-gray-400">Загрузка...</div>
+  if (loading || !user) return <div className='p-6 text-gray-400'>Загрузка...</div>
 
   return (
     <ProtectedPage>
-      <div className="p-6 max-w-xl mx-auto space-y-6 bg-black/40 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-        <h1 className="text-2xl font-bold text-emerald-400 mb-4">✏️ Редактировать профиль</h1>
+      <div className='max-w-3xl mx-auto p-6 space-y-8'>
+        {/* Заголовок */}
+        <h1 className='text-3xl font-bold flex items-center gap-3 text-emerald-400'>
+          <FaUserEdit className='text-2xl' />
+          Редактировать профиль
+        </h1>
 
-        {/* Имя */}
-        <div>
-          <label className="block mb-1 text-gray-300">Имя</label>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          />
-        </div>
+        {/* Панель формы */}
+        <div className='bg-black/40 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] p-8 space-y-6'>
 
-        {/* Пароль */}
-        <div>
-          <label className="block mb-1 text-gray-300">Новый пароль</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          />
-        </div>
+          {/* Имя */}
+          <div>
+            <label className='flex items-center gap-2 text-gray-300 mb-2'>
+              <FaFileSignature className='text-emerald-400' /> Имя
+            </label>
+            <input
+              type='text'
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className='w-full px-3 py-2 bg-black/50 border border-emerald-500/30 rounded-lg text-white 
+                        focus:outline-none focus:ring-2 focus:ring-emerald-400'
+            />
+          </div>
 
-        {/* Описание */}
-        <div>
-          <label className="block mb-1 text-gray-300">Описание</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          />
-        </div>
+          {/* Пароль */}
+          <div>
+            <label className='flex items-center gap-2 text-gray-300 mb-2'>
+              <FaLock className='text-emerald-400' /> Новый пароль
+            </label>
+            <input
+              type='password'
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className='w-full px-3 py-2 bg-black/50 border border-emerald-500/30 rounded-lg text-white 
+                        focus:outline-none focus:ring-2 focus:ring-emerald-400'
+            />
+          </div>
 
-        {/* Аватар */}
-        <div>
-          <label className="block mb-1 text-gray-300">Аватар (изображение)</label>
-          <label
-            htmlFor="avatar-upload"
-            className="cursor-pointer inline-block px-3 py-2 rounded-lg border border-emerald-400 
-                       text-emerald-400 hover:bg-emerald-400 hover:text-black transition"
-          >
-            📷 Загрузить аватар
-          </label>
-          <input
-            id="avatar-upload"
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              if (e.target.files?.[0]) {
-                setAvatarFile(e.target.files[0])
-              }
-            }}
-            className="hidden"
-          />
-          {avatarFile && (
-            <p className="text-xs text-emerald-400 mt-1">Выбран: {avatarFile.name}</p>
-          )}
-        </div>
+          {/* Описание */}
+          <div>
+            <label className='block mb-2 text-gray-300'>Описание</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className='w-full px-3 py-2 bg-black/50 border border-emerald-500/30 rounded-lg text-white 
+                        focus:outline-none focus:ring-2 focus:ring-emerald-400'
+            />
+          </div>
 
-        {/* Город */}
-        <div>
-          <label className="block mb-1 text-gray-300">Город</label>
-          <button
-            type="button"
-            onClick={() => setCityModalOpen(true)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white text-left
-                       hover:border-emerald-400 transition"
-          >
-            {location || 'Выберите город...'}
-          </button>
+          {/* Аватар */}
+          <div>
+            <label className='flex items-center gap-2 text-gray-300 mb-2'>
+              <FaImage className='text-emerald-400' /> Аватар
+            </label>
+            <label
+              htmlFor='avatar-upload'
+              className='cursor-pointer inline-block px-4 py-2 rounded-lg border border-emerald-400 
+                       text-emerald-400 hover:bg-emerald-400 hover:text-black transition'
+            >
+              📷 Загрузить
+            </label>
+            <input
+              id='avatar-upload'
+              type='file'
+              accept='image/*'
+              onChange={(e) => e.target.files?.[0] && setAvatarFile(e.target.files[0])}
+              className='hidden'
+            />
+            {avatarFile && <p className='text-xs text-emerald-400 mt-2'>Выбран: {avatarFile.name}</p>}
+          </div>
+
+          {/* Город */}
+          <div>
+            <label className='flex items-center gap-2 text-gray-300 mb-2'>
+              <FaCity className='text-emerald-400' /> Город
+            </label>
+            <button
+              type='button'
+              onClick={() => setCityModalOpen(true)}
+              className='w-full px-3 py-2 bg-black/50 border border-emerald-500/30 rounded-lg text-white text-left
+                         hover:border-emerald-400 transition'
+            >
+              {location || 'Выберите город...'}
+            </button>
+          </div>
+
+          {/* Навыки */}
+          <div>
+            <label className='flex items-center gap-2 text-gray-300 mb-2'>
+              <FaCode className='text-emerald-400' /> Навыки
+            </label>
+            <SkillsSelector skills={skills} setSkills={setSkills} />
+          </div>
+
+          {/* Сохранить */}
+          <div className='pt-4'>
+            <button
+              type='button'
+              onClick={handleSave}
+              disabled={saving}
+              className='w-full py-3 text-lg rounded-lg border border-emerald-400 text-emerald-400 
+                         hover:bg-emerald-400 hover:text-black transition font-semibold disabled:opacity-50'
+            >
+              {saving ? '💾 Сохраняем...' : '✅ Сохранить изменения'}
+            </button>
+          </div>
         </div>
 
         {/* Модалка выбора города */}
         {cityModalOpen && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-            <div className="bg-[#0d1b14] p-6 rounded-lg border border-emerald-600 w-full max-w-lg">
-              <h2 className="text-xl text-emerald-400 mb-4">Выберите город</h2>
+          <div className='fixed inset-0 bg-black/80 flex items-center justify-center z-50'>
+            <div className='bg-black/90 p-6 rounded-xl border border-emerald-600 w-full max-w-lg shadow-[0_0_25px_rgba(16,185,129,0.4)]'>
+              <h2 className='text-xl text-emerald-400 mb-4 font-semibold flex items-center gap-2'>
+                <FaCity /> Выберите город
+              </h2>
               <input
-                type="text"
-                placeholder="Поиск..."
+                type='text'
+                placeholder='Поиск...'
                 value={citySearch}
                 onChange={(e) => setCitySearch(e.target.value)}
-                className="w-full mb-4 px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                           focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                className='w-full mb-4 px-3 py-2 bg-black/60 border border-emerald-500/30 rounded-lg text-white 
+                           focus:outline-none focus:ring-2 focus:ring-emerald-400'
               />
-              <div className="max-h-64 overflow-y-auto space-y-1">
+              <div className='max-h-64 overflow-y-auto space-y-1'>
                 {cityOptions
                   .filter((c) => c.label.toLowerCase().includes(citySearch.toLowerCase()))
                   .map((c) => (
                     <button
                       key={c.value}
-                      type="button"
+                      type='button'
                       onClick={() => {
                         setLocation(c.value)
                         setCityModalOpen(false)
                       }}
-                      className={`block w-full text-left px-3 py-2 rounded-lg ${
+                      className={`block w-full text-left px-3 py-2 rounded-lg transition ${
                         location === c.value
-                          ? 'bg-emerald-700/50 text-white'
+                          ? 'bg-emerald-600/40 text-white'
                           : 'hover:bg-emerald-700/30 text-emerald-200'
                       }`}
                     >
@@ -483,32 +496,15 @@ export default function EditProfilePage() {
                   ))}
               </div>
               <button
-                type="button"
+                type='button'
                 onClick={() => setCityModalOpen(false)}
-                className="mt-4 px-4 py-2 rounded-lg border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition"
+                className='mt-5 px-4 py-2 rounded-lg border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition'
               >
                 Закрыть
               </button>
             </div>
           </div>
         )}
-
-        {/* Навыки */}
-        <div>
-          <label className="block mb-1 text-gray-300">Навыки</label>
-          <SkillsSelector skills={skills} setSkills={setSkills} />
-        </div>
-
-        {/* Сохранить */}
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2 rounded-lg border border-emerald-400 text-emerald-400 
-                     hover:bg-emerald-400 hover:text-black transition disabled:opacity-50"
-        >
-          {saving ? 'Сохраняем...' : '💾 Сохранить'}
-        </button>
       </div>
     </ProtectedPage>
   )
