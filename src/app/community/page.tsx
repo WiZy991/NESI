@@ -58,7 +58,6 @@ export default function CommunityPage() {
 
   if (loading) return <LoadingSpinner />
 
-  // 🔄 сортировка / фильтры
   const filtered =
     filter === 'my'
       ? posts.filter((p) => p.author.id === user?.id)
@@ -79,11 +78,18 @@ export default function CommunityPage() {
     .slice(0, 5)
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white">
+    <div
+      className="min-h-screen text-white"
+      style={{
+        background:
+          'radial-gradient(circle at 30% 20%, rgba(0,255,150,0.15), transparent 50%), radial-gradient(circle at 70% 80%, rgba(0,255,180,0.1), transparent 60%), linear-gradient(180deg, #001a12 0%, #000000 100%)',
+        backgroundAttachment: 'fixed',
+      }}
+    >
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
         {/* ───── ЛЕВАЯ КОЛОНКА (НАВИГАЦИЯ) ───── */}
         <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
-          <h2 className="text-sm text-gray-400 uppercase mb-4">Разделы</h2>
+          <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
           <nav className="flex flex-col gap-2 text-sm">
             <button
               onClick={() => setFilter('new')}
@@ -127,13 +133,14 @@ export default function CommunityPage() {
 
           <div className="mt-10 border-t border-gray-800 pt-4 text-xs text-gray-500 space-y-1">
             <p>NESI Community © {new Date().getFullYear()}</p>
+            <p className="text-gray-600">Вдохновлено Reddit 🌿</p>
           </div>
         </aside>
 
         {/* ───── ЦЕНТРАЛЬНАЯ КОЛОНКА (ЛЕНТА ПОСТОВ) ───── */}
         <main className="flex-1 max-w-2xl">
           {filtered.length === 0 ? (
-            <p className="text-gray-500 text-center mt-20">
+            <p className="text-gray-400 text-center mt-20">
               Постов пока нет. Будь первым, кто создаст тему 🚀
             </p>
           ) : (
@@ -141,7 +148,7 @@ export default function CommunityPage() {
               {filtered.map((post) => (
                 <article
                   key={post.id}
-                  className="bg-[#111]/80 border border-gray-800 rounded-lg p-4 hover:border-emerald-600/40 transition-all"
+                  className="bg-black/40 backdrop-blur-sm border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 shadow-[0_0_20px_rgba(0,255,180,0.05)] transition-all"
                 >
                   {/* верхняя строка */}
                   <div className="flex items-center justify-between text-sm text-gray-400">
@@ -203,7 +210,7 @@ export default function CommunityPage() {
           )}
         </main>
 
-        {/* ───── ПРАВАЯ КОЛОНКА (ТОП ПОСТОВ) ───── */}
+        {/* ───── ПРАВАЯ КОЛОНКА (ПОСЛЕДНИЕ) ───── */}
         <aside className="hidden lg:flex flex-col w-72 border-l border-gray-800 pl-4">
           <h2 className="text-sm font-semibold text-emerald-400 mb-4 flex items-center gap-2">
             <Compass className="w-4 h-4" /> Последние посты
@@ -214,7 +221,7 @@ export default function CommunityPage() {
               <Link
                 href={`/community/${p.id}`}
                 key={p.id}
-                className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-900/60 transition"
+                className="flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition"
               >
                 {p.imageUrl ? (
                   <img
