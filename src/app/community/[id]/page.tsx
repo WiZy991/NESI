@@ -299,6 +299,7 @@ export default function CommunityPostPage() {
                     replyText={replyText}
                     setReplyText={setReplyText}
                     sendReply={sendReply}
+                    postId={id}
                   />
                 ))}
               </div>
@@ -343,6 +344,7 @@ function CommentNode({
   replyText,
   setReplyText,
   sendReply,
+  postId,
 }: any) {
   const [openMenu, setOpenMenu] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -351,7 +353,7 @@ function CommentNode({
 
   const saveEdit = async () => {
     try {
-      await fetch(`/api/community/${node.postId || id}/comment/${node.id}`, {
+      const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ content: editText }),
@@ -371,7 +373,7 @@ function CommentNode({
   const deleteComment = async () => {
     if (!confirm('Удалить комментарий?')) return
     try {
-      await fetch(`/api/community/${node.postId || id}/comment/${node.id}`, {
+      const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -520,6 +522,7 @@ function CommentNode({
             replyText={replyText}
             setReplyText={setReplyText}
             sendReply={sendReply}
+            postId={postId}
           />
         ))}
     </div>
