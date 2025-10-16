@@ -304,6 +304,15 @@ function SkillsSelector({
   )
 }
 
+// 🔹 Города
+const cityOptions = [
+  { value: 'Москва', label: 'Москва' },
+  { value: 'Санкт-Петербург', label: 'Санкт-Петербург' },
+  { value: 'Казань', label: 'Казань' },
+  { value: 'Новосибирск', label: 'Новосибирск' },
+  { value: 'Екатеринбург', label: 'Екатеринбург' },
+]
+
 export default function EditProfilePage() {
   const { user, token, login, loading } = useUser()
   const router = useRouter()
@@ -312,11 +321,9 @@ export default function EditProfilePage() {
   const [password, setPassword] = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
-  const [role, setRole] = useState('user')
   const [skills, setSkills] = useState<string[]>([])
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
-
   const [cityModalOpen, setCityModalOpen] = useState(false)
   const [citySearch, setCitySearch] = useState('')
 
@@ -325,8 +332,6 @@ export default function EditProfilePage() {
       setFullName(user.fullName || '')
       setDescription(user.description || '')
       setLocation(user.location || '')
-      setRole(user.role || 'user')
-
       if (Array.isArray(user.skills)) {
         setSkills(user.skills)
       } else if (typeof user.skills === 'string') {
@@ -338,7 +343,6 @@ export default function EditProfilePage() {
   const handleSave = async () => {
     if (!token) return toast.error('Нет токена авторизации')
     if (!fullName.trim()) return toast.error('Имя не может быть пустым')
-    if (!role.trim()) return toast.error('Роль обязательна')
 
     setSaving(true)
     const toastId = toast.loading('Сохраняем профиль...')
@@ -346,7 +350,7 @@ export default function EditProfilePage() {
     try {
       const formData = new FormData()
       formData.append('fullName', fullName)
-      formData.append('role', role)
+      formData.append('role', user.role) // Роль фиксированная!
       if (password) formData.append('password', password)
       formData.append('description', description)
       formData.append('location', location)
@@ -389,23 +393,6 @@ export default function EditProfilePage() {
             className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
                        focus:outline-none focus:ring-2 focus:ring-emerald-400"
           />
-        </div>
-
-        {/* Роль */}
-        <div>
-          <label className="block mb-1 text-gray-300">Роль</label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          >
-            {roleOptions.map((r) => (
-              <option key={r.value} value={r.value} className="bg-black">
-                {r.label}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Пароль */}
@@ -485,9 +472,7 @@ export default function EditProfilePage() {
               />
               <div className="max-h-64 overflow-y-auto space-y-1">
                 {cityOptions
-                  .filter((c) =>
-                    c.label.toLowerCase().includes(citySearch.toLowerCase())
-                  )
+                  .filter((c) => c.label.toLowerCase().includes(citySearch.toLowerCase()))
                   .map((c) => (
                     <button
                       key={c.value}
@@ -536,4 +521,4 @@ export default function EditProfilePage() {
       </div>
     </ProtectedPage>
   )
-} 
+}
