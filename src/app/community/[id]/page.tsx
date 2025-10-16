@@ -370,13 +370,80 @@ function CommentNode({
         </div>
 
         {editing ? (
-          <div className="space-y-2">
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              rows={2}
-              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-            />
-            <div className="flex gap-2">
-              <button onClick={saveEdit} className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm">
-                <Check className="w
+  <div className="space-y-2">
+    <textarea
+      value={editText}
+      onChange={(e) => setEditText(e.target.value)}
+      rows={2}
+      className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+    />
+    <div className="flex gap-2">
+      <button
+        onClick={saveEdit}
+        className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm"
+      >
+        <Check className="w-4 h-4" />
+        Сохранить
+      </button>
+      <button
+        onClick={() => setEditing(false)}
+        className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm"
+      >
+        <X className="w-4 h-4" />
+        Отмена
+      </button>
+    </div>
+  </div>
+) : (
+  <p className="text-gray-200 whitespace-pre-wrap">{node.content}</p>
+)}
+
+<button
+  className="mt-3 flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
+  onClick={() => setReplyOpen((s: any) => ({ ...s, [node.id]: !s[node.id] }))}
+>
+  <Reply className="w-4 h-4" /> Ответить
+</button>
+
+{replyOpen[node.id] && (
+  <div className="mt-3">
+    <textarea
+      value={replyText[node.id] || ''}
+      onChange={(e) =>
+        setReplyText((s: any) => ({ ...s, [node.id]: e.target.value }))
+      }
+      rows={2}
+      placeholder="Ваш ответ…"
+      className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+    />
+    <div className="mt-2">
+      <button
+        onClick={() => sendReply(node.id)}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold"
+      >
+        <Send className="w-4 h-4" /> Отправить ответ
+      </button>
+    </div>
+  </div>
+)}
+</div>
+
+{node.children?.length > 0 &&
+  node.children.map((child: any) => (
+    <CommentNode
+      key={child.id}
+      node={{ ...child, children: (child as any).children || [] }}
+      depth={Math.min(depth + 1, 6)}
+      userId={userId}
+      token={token}
+      fetchPost={fetchPost}
+      replyOpen={replyOpen}
+      setReplyOpen={setReplyOpen}
+      replyText={replyText}
+      setReplyText={setReplyText}
+      sendReply={sendReply}
+    />
+  ))}
+</div>
+)
+}
