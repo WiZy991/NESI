@@ -1,5 +1,3 @@
-Вот код src/app/profile/ProfilePageContent.tsx, значит добавь в него эту адаптивность, и дай мне полный код в ответ!
-
 'use client'
 
 import { useUser } from '@/context/UserContext'
