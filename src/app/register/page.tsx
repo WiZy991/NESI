@@ -36,17 +36,13 @@ export default function RegisterPage() {
         return
       }
 
-      // ✅ Теперь API возвращает message, а не token
       toast.success(
         data?.message ||
           'Регистрация прошла успешно! Проверьте почту и подтвердите адрес.',
         { id: toastId }
       )
 
-      // ⚙️ Не логиним пользователя сразу — ждём подтверждения почты
-      setTimeout(() => {
-        router.push('/check-email')
-      }, 800)
+      setTimeout(() => router.push('/check-email'), 800)
     } catch (err: any) {
       console.error('Ошибка регистрации:', err)
       toast.error('Ошибка сервера. Попробуйте позже.', { id: toastId })
@@ -56,12 +52,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 text-white">
       <form
         onSubmit={handleSubmit}
-        className="bg-black/40 border border-emerald-500/40 rounded-2xl shadow-[0_0_35px_rgba(16,185,129,0.4)] p-8 w-full max-w-md"
+        className="w-full max-w-md space-y-5 text-center animate-fadeIn"
       >
-        <h1 className="text-3xl font-bold text-emerald-400 text-center mb-6">
+        <h1 className="text-4xl font-bold text-emerald-400 mb-4 drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
           Регистрация
         </h1>
 
@@ -70,7 +66,7 @@ export default function RegisterPage() {
           placeholder="Имя"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className="w-full p-3 mb-4 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          className="w-full p-3 bg-transparent border-b border-emerald-400/50 focus:border-emerald-400 outline-none text-lg placeholder-gray-400 transition-all"
         />
 
         <input
@@ -78,7 +74,7 @@ export default function RegisterPage() {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 mb-4 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          className="w-full p-3 bg-transparent border-b border-emerald-400/50 focus:border-emerald-400 outline-none text-lg placeholder-gray-400 transition-all"
         />
 
         <input
@@ -86,13 +82,13 @@ export default function RegisterPage() {
           placeholder="Пароль"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 mb-4 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          className="w-full p-3 bg-transparent border-b border-emerald-400/50 focus:border-emerald-400 outline-none text-lg placeholder-gray-400 transition-all"
         />
 
         <select
           value={role}
           onChange={(e) => setRole(e.target.value as 'customer' | 'executor')}
-          className="w-full p-3 mb-6 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          className="w-full p-3 bg-transparent border-b border-emerald-400/50 focus:border-emerald-400 outline-none text-lg text-emerald-300 transition-all"
         >
           <option value="customer">Заказчик</option>
           <option value="executor">Исполнитель</option>
@@ -101,7 +97,7 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold"
+          className="mt-4 w-full py-3 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold shadow-[0_0_15px_rgba(16,185,129,0.4)]"
         >
           {loading ? 'Регистрируем...' : 'Зарегистрироваться'}
         </button>
@@ -109,7 +105,7 @@ export default function RegisterPage() {
 
       <Link
         href="/"
-        className="text-sm text-center mt-6 text-emerald-400 hover:underline"
+        className="mt-8 inline-block text-emerald-400 hover:underline"
       >
         ← Назад
       </Link>
