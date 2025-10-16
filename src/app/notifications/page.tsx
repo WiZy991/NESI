@@ -11,6 +11,7 @@ interface Notification {
   message: string
   link?: string
   userId?: string
+  senderId?: string
   isRead: boolean
   createdAt: string
 }
@@ -71,39 +72,50 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <ul className="space-y-4">
-          {notifications.map((n) => (
-            <li
-              key={n.id}
-              className={`p-4 rounded-lg flex items-start gap-3 shadow transition ${
-                n.isRead
-                  ? 'bg-black/40 border border-gray-800 text-gray-400'
-                  : 'bg-black/60 border border-blue-500/50 shadow-[0_0_12px_rgba(0,150,255,0.3)] text-white'
-              }`}
-            >
-              <div className="mt-1">{typeIcon(n.type)}</div>
-              <div className="flex-1">
-                <p className="text-sm mb-1">{n.message}</p>
-                <p className="text-xs text-gray-500">
-                  {new Date(n.createdAt).toLocaleString()}
-                </p>
-                {n.userId ? (
-                <Link
-                  href={`/chats?open=${n.userId}`}
-                  className="text-blue-400 text-sm hover:underline mt-2 inline-block"
-                  >
-                    Перейти в чат →
-                  </Link>
-                  ) : n.link ? (
-                  <Link
-                      href={n.link}
+          {notifications.map((n) => {
+            // 🧭 Определяем корректную ссылку
+            let linkTo = null
+
+            if (n.userId || n.senderId) {
+              // если есть userId/senderId — ведём в chats
+              const user = n.userId || n.senderId
+              linkTo = `/chats?open=${user}`
+            } else if (n.link) {
+              // если старый линк — подменяем /messages/ на /chats
+              linkTo = n.link.includes('/messages/')
+                ? '/chats'
+                : n.link
+            }
+
+            return (
+              <li
+                key={n.id}
+                className={`p-4 rounded-lg flex items-start gap-3 shadow transition ${
+                  n.isRead
+                    ? 'bg-black/40 border border-gray-800 text-gray-400'
+                    : 'bg-black/60 border border-blue-500/50 shadow-[0_0_12px_rgba(0,150,255,0.3)] text-white'
+                }`}
+              >
+                <div className="mt-1">{typeIcon(n.type)}</div>
+                <div className="flex-1">
+                  <p className="text-sm mb-1">{n.message}</p>
+                  {n.createdAt && !isNaN(new Date(n.createdAt).getTime()) && (
+                    <p className="text-xs text-gray-500">
+                      {new Date(n.createdAt).toLocaleString()}
+                    </p>
+                  )}
+                  {linkTo && (
+                    <Link
+                      href={linkTo}
                       className="text-blue-400 text-sm hover:underline mt-2 inline-block"
-                      >
-                          Перейти →
-                      </Link>
-                ) : null}
-              </div>
-            </li>
-          ))}
+                    >
+                      {linkTo.startsWith('/chats') ? 'Перейти в чат →' : 'Перейти →'}
+                    </Link>
+                  )}
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
