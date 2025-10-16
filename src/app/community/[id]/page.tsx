@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -25,21 +25,16 @@ import {
   X,
 } from 'lucide-react'
 
-/** 🔧 Утилита для корректных ссылок на аватары */
-function resolveAvatarUrl(avatar?: string | null) {
-  if (!avatar) return null
-  if (!avatar.startsWith('http') && !avatar.startsWith('/'))
-    return `/api/files/${avatar}`
-  return avatar
-}
-
+/* ===============================
+    TYPES
+=============================== */
 type Post = {
   id: string
   title: string
   content: string
   imageUrl?: string | null
   createdAt: string
-  author: { id: string; fullName: string | null; email: string; avatarUrl?: string | null; avatarFileId?: string | null }
+  author: { id: string; fullName: string | null; email: string; avatarUrl?: string | null }
   comments: Comment[]
   _count: { likes: number }
 }
@@ -49,10 +44,95 @@ type Comment = {
   content: string
   createdAt: string
   parentId?: string | null
-  author: { id: string; fullName: string | null; email: string; avatarUrl?: string | null; avatarFileId?: string | null }
+  author: { id: string; fullName: string | null; email: string; avatarUrl?: string | null }
 }
 
-/** 🧩 Построение дерева комментариев */
+/* ===============================
+    REPORT MODAL
+=============================== */
+function ReportModal({ target, onClose }: { target: { type: 'post' | 'comment', id: string }, onClose: () => void }) {
+  const [reason, setReason] = useState('')
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const sendReport = async () => {
+    if (!reason) return alert('Выберите причину')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: target.type,
+          reason,
+          description: text,
+          postId: target.type === 'post' ? target.id : null,
+          commentId: target.type === 'comment' ? target.id : null,
+        }),
+      })
+      if (res.ok) {
+        alert('✅ Жалоба отправлена. Спасибо!')
+        onClose()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert('Ошибка: ' + (err.error || 'не удалось отправить'))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-gray-900 p-6 rounded-xl w-full max-w-md relative border border-gray-700">
+        <button onClick={onClose} className="absolute right-4 top-4 text-gray-400 hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
+        <h2 className="text-xl font-semibold text-emerald-400 mb-4">⚠️ Сообщить о нарушении</h2>
+
+        <div className="space-y-3">
+          <label className="block text-sm text-gray-300">Причина жалобы:</label>
+          <select
+            className="w-full bg-black/40 border border-gray-700 rounded-md p-2 text-white"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          >
+            <option value="">-- выберите --</option>
+            <option value="spam">Спам или реклама</option>
+            <option value="insult">Оскорбление / агрессия</option>
+            <option value="nsfw">Неприемлемый контент (NSFW, насилие)</option>
+            <option value="politics">Политика / дискриминация</option>
+            <option value="other">Другое</option>
+          </select>
+
+          <textarea
+            placeholder="Опишите подробнее (необязательно)"
+            className="w-full bg-black/40 border border-gray-700 rounded-md p-2 text-white"
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+
+          <button
+            onClick={sendReport}
+            disabled={loading}
+            className="mt-3 flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 rounded-md py-2 font-semibold disabled:opacity-50"
+          >
+            {loading ? 'Отправка...' : (
+              <>
+                <Send className="w-4 h-4" /> Отправить жалобу
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ===============================
+    HELPER: buildTree
+=============================== */
 function buildTree(comments: Comment[]) {
   const byId = new Map<string, Comment & { children: Comment[] }>()
   const roots: (Comment & { children: Comment[] })[] = []
@@ -65,11 +145,12 @@ function buildTree(comments: Comment[]) {
   return roots
 }
 
+/* ===============================
+    MAIN PAGE
+=============================== */
 export default function CommunityPostPage() {
   const { user, token } = useUser()
   const { id } = useParams()
-  const router = useRouter()
-
   const [post, setPost] = useState<Post | null>(null)
   const [loading, setLoading] = useState(true)
   const [commentText, setCommentText] = useState('')
@@ -78,6 +159,7 @@ export default function CommunityPostPage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({})
   const [replyText, setReplyText] = useState<Record<string, string>>({})
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment', id: string } | null>(null)
 
   const fetchPost = async () => {
     try {
@@ -164,15 +246,11 @@ export default function CommunityPostPage() {
     alert('📋 Ссылка скопирована!')
   }
 
-  const reportItem = () => alert('🚨 Жалоба отправлена модераторам')
-
   const deleteItem = async (endpoint: string) => {
     if (!confirm('Удалить?')) return
     const res = await fetch(endpoint, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    if (res.ok) {
-      alert('✅ Успешно удалено')
-      router.push('/community')
-    } else alert('Ошибка при удалении поста')
+    if (res.ok) fetchPost()
+    else alert('Ошибка при удалении')
   }
 
   if (loading) return <LoadingSpinner />
@@ -181,7 +259,6 @@ export default function CommunityPostPage() {
   return (
     <div className="min-h-screen text-white">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
-
         {/* ЛЕВАЯ КОЛОНКА */}
         <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
           <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
@@ -208,15 +285,16 @@ export default function CommunityPostPage() {
 
         {/* ОСНОВНОЙ КОНТЕНТ */}
         <main className="flex-1 max-w-3xl mx-auto space-y-10">
+          {/* Пост */}
           <article className="p-6 rounded-2xl border border-gray-800 bg-transparent shadow-[0_0_25px_rgba(0,255,180,0.05)] relative">
             <header className="flex items-center justify-between mb-4">
               <Link
                 href={`/users/${post.author.id}`}
                 className="group flex items-center gap-3 hover:bg-emerald-900/10 p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition"
               >
-                {post.author.avatarFileId || post.author.avatarUrl ? (
+                {post.author.avatarUrl ? (
                   <img
-                    src={resolveAvatarUrl(post.author.avatarFileId || post.author.avatarUrl)}
+                    src={post.author.avatarUrl}
                     alt="avatar"
                     className="w-12 h-12 rounded-full object-cover border border-emerald-700/40"
                   />
@@ -238,7 +316,7 @@ export default function CommunityPostPage() {
                 </div>
               </Link>
 
-              {/* Меню */}
+              {/* Меню поста */}
               <div className="relative">
                 <button onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)} className="p-1 hover:text-emerald-400">
                   <MoreHorizontal className="w-5 h-5" />
@@ -248,7 +326,7 @@ export default function CommunityPostPage() {
                     <button onClick={() => { copyLink(window.location.href); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
                       <Copy className="w-4 h-4" /> Копировать ссылку
                     </button>
-                    <button onClick={() => { reportItem(); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full">
+                    <button onClick={() => { setReportTarget({ type: 'post', id: post.id }); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full">
                       <Flag className="w-4 h-4" /> Пожаловаться
                     </button>
                     {user?.id === post.author.id && (
@@ -290,7 +368,7 @@ export default function CommunityPostPage() {
             </footer>
           </article>
 
-          {/* КОММЕНТАРИИ */}
+          {/* Комментарии */}
           <section>
             <h2 className="text-2xl font-semibold text-emerald-400 mb-5 flex items-center gap-2">💬 Комментарии</h2>
             {tree.length === 0 ? (
@@ -313,6 +391,7 @@ export default function CommunityPostPage() {
                     setReplyText={setReplyText}
                     sendReply={sendReply}
                     postId={id}
+                    onReport={setReportTarget}
                   />
                 ))}
               </div>
@@ -341,191 +420,141 @@ export default function CommunityPostPage() {
           </section>
         </main>
       </div>
+
+      {/* модалка жалобы */}
+      {reportTarget && <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />}
     </div>
   )
 }
 
-/** Компонент комментария */
-function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setReplyOpen, replyText, setReplyText, sendReply, postId }: any) {
-  const [openMenu, setOpenMenu] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [editText, setEditText] = useState(node.content)
-  const time = new Date(node.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+/* ===============================
+    Вложенный компонент комментария
+=============================== */
+function CommentNode({
+  node,
+  depth,
+  userId,
+  token,
+  fetchPost,
+  replyOpen,
+  setReplyOpen,
+  replyText,
+  setReplyText,
+  sendReply,
+  postId,
+  onReport,
+}: any) {
+  const [menuOpen, setMenuOpen] = useState(false)
 
-  const saveEdit = async () => {
-    try {
-      const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content: editText }),
-      })
-      if (res.ok) {
-        setEditing(false)
-        fetchPost()
-      } else {
-        const err = await res.json().catch(() => ({}))
-        alert('Ошибка сохранения: ' + (err.error || res.statusText))
-      }
-    } catch (e) {
-      alert('Ошибка сети при сохранении комментария')
-    }
-  }
-
-  const deleteComment = async () => {
+  const handleDelete = async () => {
     if (!confirm('Удалить комментарий?')) return
-    try {
-      const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) fetchPost()
-      else alert('Ошибка удаления комментария')
-    } catch {
-      alert('Ошибка сети при удалении комментария')
-    }
+    const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) fetchPost()
+    else alert('Ошибка удаления комментария')
   }
 
   return (
-    <div>
-      <div
-        className="p-4 rounded-xl border bg-gradient-to-br from-[#001a12]/70 to-[#002a22]/60 shadow-[0_0_15px_rgba(0,255,180,0.08)] transition hover:shadow-[0_0_25px_rgba(0,255,180,0.15)] relative"
-        style={{ marginLeft: depth ? depth * 24 : 0, borderColor: 'rgba(0,255,180,0.25)' }}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-start gap-3">
-            {node.author.avatarFileId || node.author.avatarUrl ? (
-              <img
-                src={resolveAvatarUrl(node.author.avatarFileId || node.author.avatarUrl)}
-                alt="avatar"
-                className="w-8 h-8 rounded-full object-cover border border-gray-700"
-              />
-            ) : (
-              <User className="w-8 h-8 text-emerald-400 opacity-70" />
-            )}
-            <div>
-              <Link href={`/users/${node.author.id}`} className="font-medium text-emerald-300 hover:text-emerald-400 transition">
-                {node.author.fullName || node.author.email}
-              </Link>
-              <p className="text-xs text-gray-500">{time}</p>
-            </div>
+    <div style={{ marginLeft: depth * 24 }} className="p-3 border border-gray-800 rounded-lg bg-black/40">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          {node.author.avatarUrl ? (
+            <img src={node.author.avatarUrl} className="w-10 h-10 rounded-full border border-emerald-700/40" />
+          ) : (
+            <UserCircle2 className="w-10 h-10 text-emerald-400" />
+          )}
+          <div>
+            <p className="text-emerald-300 font-medium">{node.author.fullName || node.author.email}</p>
+            <p className="text-xs text-gray-500">{new Date(node.createdAt).toLocaleString('ru-RU')}</p>
           </div>
+        </div>
 
-          <button onClick={() => setOpenMenu(!openMenu)} className="hover:text-emerald-400">
-            <MoreHorizontal className="w-4 h-4" />
+        {/* Меню комментария */}
+        <div className="relative">
+          <button onClick={() => setMenuOpen(!menuOpen)} className="text-gray-400 hover:text-white p-1">
+            <MoreHorizontal className="w-5 h-5" />
           </button>
-
-          {openMenu && (
-            <div className="absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
+          {menuOpen && (
+            <div className="absolute right-0 mt-1 w-44 bg-gray-900 border border-gray-700 rounded-lg z-10">
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href + '#' + node.id)
-                  setOpenMenu(false)
-                }}
-                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+                onClick={() => { onReport({ type: 'comment', id: node.id }); setMenuOpen(false) }}
+                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
               >
-                <Copy className="w-4 h-4" /> Копировать ссылку
+                <Flag className="w-4 h-4" /> Пожаловаться
               </button>
-              {userId === node.author.id ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setEditing(true)
-                      setOpenMenu(false)
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
-                  >
-                    <Edit3 className="w-4 h-4" /> Редактировать
-                  </button>
-                  <button
-                    onClick={() => {
-                      deleteComment()
-                      setOpenMenu(false)
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
-                  >
-                    <Trash2 className="w-4 h-4" /> Удалить
-                  </button>
-                </>
-              ) : (
+              {userId === node.author.id && (
                 <button
-                  onClick={() => {
-                    alert('🚨 Жалоба отправлена')
-                    setOpenMenu(false)
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
+                  onClick={handleDelete}
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
                 >
-                  <Flag className="w-4 h-4" /> Пожаловаться
+                  <Trash2 className="w-4 h-4" /> Удалить
                 </button>
               )}
             </div>
           )}
         </div>
-
-        {editing ? (
-          <div className="space-y-2">
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              rows={2}
-              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-            />
-            <div className="flex gap-2">
-              <button onClick={saveEdit} className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm">
-                <Check className="w-4 h-4" />
-                Сохранить
-              </button>
-              <button onClick={() => setEditing(false)} className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm">
-                <X className="w-4 h-4" />
-                Отмена
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="text-gray-200 whitespace-pre-wrap">{node.content}</p>
-        )}
-
-        <button
-          className="mt-3 flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
-          onClick={() => setReplyOpen((s: any) => ({ ...s, [node.id]: !s[node.id] }))}
-        >
-          <Reply className="w-4 h-4" /> Ответить
-        </button>
-
-        {replyOpen[node.id] && (
-          <div className="mt-3">
-            <textarea
-              value={replyText[node.id] || ''}
-              onChange={(e) => setReplyText((s: any) => ({ ...s, [node.id]: e.target.value }))}
-              rows={2}
-              placeholder="Ваш ответ…"
-              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-            />
-            <div className="mt-2">
-              <button onClick={() => sendReply(node.id)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold">
-                <Send className="w-4 h-4" /> Отправить ответ
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {node.children?.length > 0 &&
-        node.children.map((child: any) => (
-          <CommentNode
-            key={child.id}
-            node={{ ...child, children: (child as any).children || [] }}
-            depth={Math.min(depth + 1, 6)}
-            userId={userId}
-            token={token}
-            fetchPost={fetchPost}
-            replyOpen={replyOpen}
-            setReplyOpen={setReplyOpen}
-            replyText={replyText}
-            setReplyText={setReplyText}
-            sendReply={sendReply}
-            postId={postId}
+      <p className="text-gray-200 mt-3 whitespace-pre-wrap">{node.content}</p>
+
+      {/* кнопка ответить */}
+      <button
+        onClick={() => setReplyOpen((s: any) => ({ ...s, [node.id]: !s[node.id] }))}
+        className="mt-3 flex items-center gap-1 text-sm text-emerald-400 hover:text-emerald-300"
+      >
+        <Reply className="w-4 h-4" /> Ответить
+      </button>
+
+      {replyOpen[node.id] && (
+        <div className="mt-3">
+          <textarea
+            value={replyText[node.id] || ''}
+            onChange={(e) => setReplyText((s: any) => ({ ...s, [node.id]: e.target.value }))}
+            rows={2}
+            className="w-full p-2 rounded-md bg-black/40 border border-gray-700 text-white text-sm"
+            placeholder="Ваш ответ..."
           />
-        ))}
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={() => sendReply(node.id)}
+              className="px-4 py-1 bg-emerald-600 hover:bg-emerald-700 rounded-md text-sm font-semibold"
+            >
+              Отправить
+            </button>
+            <button
+              onClick={() => setReplyOpen((s: any) => ({ ...s, [node.id]: false }))}
+              className="px-4 py-1 bg-gray-800 hover:bg-gray-700 rounded-md text-sm"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* вложенные ответы */}
+      {node.children.length > 0 && (
+        <div className="mt-3 space-y-3">
+          {node.children.map((child: Comment) => (
+            <CommentNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              userId={userId}
+              token={token}
+              fetchPost={fetchPost}
+              replyOpen={replyOpen}
+              setReplyOpen={setReplyOpen}
+              replyText={replyText}
+              setReplyText={setReplyText}
+              sendReply={sendReply}
+              postId={postId}
+              onReport={onReport}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
