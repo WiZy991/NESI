@@ -1,9 +1,12 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function Starfield() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [showMeteor, setShowMeteor] = useState(false)
+  const [meteorKey, setMeteorKey] = useState(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -32,7 +35,7 @@ export default function Starfield() {
       const startX = Math.random() * width
       const startY = Math.random() * height * 0.3
       const angle = isFar
-        ? Math.random() * Math.PI * 0.15 + Math.PI / 2.8 // мягкий угол
+        ? Math.random() * Math.PI * 0.15 + Math.PI / 2.8
         : Math.random() * Math.PI * 0.25 + Math.PI / 3
       const len = isFar ? width * 0.7 : Math.random() * 250 + 200
 
@@ -74,7 +77,6 @@ export default function Starfield() {
       for (let i = meteors.length - 1; i >= 0; i--) {
         const m = meteors[i]
 
-        // движение
         m.x += Math.cos(m.angle) * m.speed
         m.y += Math.sin(m.angle) * m.speed
         if (m.far) {
@@ -84,7 +86,6 @@ export default function Starfield() {
           m.opacity -= 0.003
         }
 
-        // дым
         m.smoke.push({
           x: m.x - Math.cos(m.angle) * 10,
           y: m.y - Math.sin(m.angle) * 10,
@@ -106,7 +107,6 @@ export default function Starfield() {
           if (s.opacity <= 0) m.smoke.splice(j, 1)
         }
 
-        // хвост
         const grad = ctx.createLinearGradient(
           m.x,
           m.y,
@@ -127,7 +127,6 @@ export default function Starfield() {
         )
         ctx.stroke()
 
-        // голова
         const head = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.size * 2)
         head.addColorStop(0, `rgba(255,255,255,${m.opacity})`)
         head.addColorStop(0.3, `rgba(255,200,100,${m.opacity * 0.8})`)
@@ -137,7 +136,6 @@ export default function Starfield() {
         ctx.arc(m.x, m.y, m.size, 0, Math.PI * 2)
         ctx.fill()
 
-        // если вышел за экран — убираем
         if (
           m.x > width + 200 ||
           m.y > height + 200 ||
@@ -150,14 +148,11 @@ export default function Starfield() {
       }
 
       const now = performance.now()
-
-      // обычные метеоры
       if (now - lastMeteor > 8000 + Math.random() * 4000) {
         createMeteor(false)
         lastMeteor = now
       }
 
-      // дальний метеор (в глубину)
       if (now - lastFarMeteor > 15000 + Math.random() * 8000) {
         createMeteor(true)
         lastFarMeteor = now
@@ -181,5 +176,45 @@ export default function Starfield() {
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="fixed inset-0 z-0 pointer-events-none" />
+  // 💫 Реальный метеорит с PNG
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMeteorKey((k) => k + 1)
+      setShowMeteor(true)
+      setTimeout(() => setShowMeteor(false), 5000)
+    }, 12000)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <>
+      <canvas ref={canvasRef} className="fixed inset-0 z-0 pointer-events-none" />
+      <AnimatePresence>
+        {showMeteor && (
+          <motion.img
+            key={meteorKey}
+            src="/meteor.png"
+            alt="meteor"
+            className="fixed pointer-events-none z-10 w-[180px] opacity-80"
+            initial={{
+              x: -200,
+              y: Math.random() * window.innerHeight * 0.3,
+              scale: 1.2,
+              rotate: -35,
+            }}
+            animate={{
+              x: window.innerWidth + 200,
+              y: window.innerHeight + 200,
+              opacity: [0, 1, 1, 0],
+              scale: [1.2, 0.9],
+            }}
+            transition={{
+              duration: 5.5,
+              ease: 'easeInOut',
+            }}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  )
 }
