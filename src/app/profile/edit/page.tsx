@@ -1,16 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useUser } from '@/context/UserContext'
 import { useRouter } from 'next/navigation'
 import ProtectedPage from '@/components/ProtectedPage'
 import { toast } from 'sonner'
 import {
-  FaUserEdit,
   FaCity,
   FaCode,
   FaImage,
-  FaFileSignature
+  FaFileSignature,
+  FaSearch
 } from 'react-icons/fa'
 
 // 🔹 Города
@@ -290,6 +290,91 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
   )
 }
 
+// --- Неоновый поиск города
+function NeonCitySelect({ value, options, onChange }: {
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (val: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const filtered = options.filter(opt =>
+    opt.label.toLowerCase().includes(query.toLowerCase())
+  )
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (open && inputRef.current) inputRef.current.focus()
+  }, [open])
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`neon-select-btn w-full flex justify-between items-center ${
+          open ? 'border-emerald-500 shadow-[0_0_15px_rgba(0,255,150,0.3)]' : ''
+        }`}
+      >
+        <span>{value || 'Выберите или введите город...'}</span>
+        <FaCity className="text-emerald-400" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 mt-2 bg-[#00120c]/95 border border-emerald-700 rounded-lg shadow-[0_0_25px_rgba(0,255,150,0.2)] z-50">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-800">
+            <FaSearch className="text-emerald-400" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Начните вводить город..."
+              className="w-full bg-transparent text-emerald-200 focus:outline-none placeholder-emerald-600"
+            />
+          </div>
+
+          <div className="max-h-56 overflow-y-auto custom-scrollbar">
+            {filtered.length > 0 ? (
+              filtered.map(opt => (
+                <div
+                  key={opt.value}
+                  onClick={() => {
+                    onChange(opt.value)
+                    setQuery('')
+                    setOpen(false)
+                  }}
+                  className={`px-4 py-2 cursor-pointer transition ${
+                    opt.value === value
+                      ? 'bg-emerald-700/40 text-white'
+                      : 'text-emerald-200 hover:bg-emerald-700/20'
+                  }`}
+                >
+                  {opt.label}
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-3 text-emerald-500 text-sm">Не найдено</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function EditProfilePage() {
   const { user, token, login, loading } = useUser()
   const router = useRouter()
@@ -358,13 +443,11 @@ export default function EditProfilePage() {
       <div className="relative min-h-screen overflow-hidden text-white">
         <div className="max-w-4xl mx-auto p-8 relative z-10 space-y-10">
 
-          {/* Заголовок */}
           <div className="flex items-center gap-5 mb-10">
             <img src="/astro.png" alt="Космонавт" className="astro-icon" />
             <h1 className="title-glow">Редактировать профиль</h1>
           </div>
 
-          {/* Поля */}
           <div className="neon-box">
             <label className="label"><FaFileSignature /> Имя</label>
             <input
@@ -405,24 +488,14 @@ export default function EditProfilePage() {
             )}
           </div>
 
-          {/* === КАСТОМНЫЙ SELECT === */}
+          {/* === КАСТОМНЫЙ SELECT С ПОИСКОМ === */}
           <div className="neon-box">
             <label className="label"><FaCity /> Город</label>
-            <div className="relative">
-              <select
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="neon-select w-full"
-              >
-                <option value="">Выберите город...</option>
-                {cityOptions.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none text-lg">
-                ▼
-              </span>
-            </div>
+            <NeonCitySelect
+              value={location}
+              options={cityOptions}
+              onChange={(val) => setLocation(val)}
+            />
           </div>
 
           <div className="neon-box">
