@@ -22,7 +22,6 @@ export default function Header() {
 		router.push('/login')
 	}
 
-	// Закрытие меню при клике вне
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
 			if (
@@ -39,7 +38,6 @@ export default function Header() {
 		return () => document.removeEventListener('mousedown', handleClickOutside)
 	}, [])
 
-	// Загрузка уведомлений
 	useEffect(() => {
 		if (!user || !token) return
 		const fetchNotifications = async () => {
@@ -61,7 +59,6 @@ export default function Header() {
 		fetchNotifications()
 	}, [user, token])
 
-	// Загрузка количества непрочитанных сообщений и SSE
 	useEffect(() => {
 		if (!user || !token) return
 
@@ -71,12 +68,7 @@ export default function Header() {
 					headers: { Authorization: `Bearer ${token}` },
 				})
 				const data = await res.json()
-				if (res.ok) {
-					setUnreadMessagesCount(data.unreadCount || 0)
-				} else {
-					console.error('Ошибка получения непрочитанных сообщений:', data)
-					setUnreadMessagesCount(0)
-				}
+				if (res.ok) setUnreadMessagesCount(data.unreadCount || 0)
 			} catch (err) {
 				console.error('Ошибка получения непрочитанных сообщений:', err)
 			}
@@ -84,7 +76,6 @@ export default function Header() {
 
 		const connectSSE = () => {
 			if (eventSourceRef.current) eventSourceRef.current.close()
-
 			const eventSource = new EventSource(
 				`/api/notifications/stream?token=${encodeURIComponent(token)}`
 			)
@@ -97,25 +88,19 @@ export default function Header() {
 			eventSource.onmessage = event => {
 				try {
 					const data = JSON.parse(event.data)
-					console.log('📨 Получено SSE сообщение:', data)
-
 					if (data.type === 'message') {
 						showNotification(data)
 						fetchUnreadMessages()
-					} else if (data.type === 'heartbeat') {
-						console.log('💓 SSE heartbeat получен')
 					}
 				} catch (error) {
-					console.error('Ошибка парсинга SSE сообщения:', error)
+					console.error('Ошибка SSE:', error)
 				}
 			}
 
 			eventSource.onerror = error => {
 				console.error('❌ Ошибка SSE:', error)
 				setSseConnected(false)
-				setTimeout(() => {
-					if (user && token) connectSSE()
-				}, 5000)
+				setTimeout(connectSSE, 5000)
 			}
 
 			eventSourceRef.current = eventSource
@@ -124,22 +109,15 @@ export default function Header() {
 		const showNotification = (data: any) => {
 			if (data.playSound) {
 				try {
-					const audioContext = new (window.AudioContext ||
-						window.webkitAudioContext)()
+					const audioContext = new (window.AudioContext || window.webkitAudioContext)()
 					const oscillator = audioContext.createOscillator()
 					const gainNode = audioContext.createGain()
 					oscillator.connect(gainNode)
 					gainNode.connect(audioContext.destination)
 					oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
 					gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-					gainNode.gain.linearRampToValueAtTime(
-						0.2,
-						audioContext.currentTime + 0.01
-					)
-					gainNode.gain.exponentialRampToValueAtTime(
-						0.01,
-						audioContext.currentTime + 0.3
-					)
+					gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.01)
+					gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
 					oscillator.start(audioContext.currentTime)
 					oscillator.stop(audioContext.currentTime + 0.3)
 				} catch {}
@@ -149,15 +127,13 @@ export default function Header() {
 				const notification = new Notification(data.title, {
 					body: `${data.sender}: ${data.message}`,
 					icon: '/favicon.ico',
-					tag: data.messageId,
 				})
-
 				notification.onclick = () => {
 					window.focus()
-					if (data.chatType === 'private') {
+					if (data.userId) {
+						router.push(`/chats?open=${data.userId}`)
+					} else {
 						router.push('/chats')
-					} else if (data.chatType === 'task') {
-						router.push(`/tasks/${data.chatId.replace('task_', '')}`)
 					}
 					notification.close()
 				}
@@ -175,20 +151,17 @@ export default function Header() {
 		connectSSE()
 
 		const interval = setInterval(fetchUnreadMessages, 30000)
-		const handleChatOpened = () => fetchUnreadMessages()
-		const handleMessageSent = () => fetchUnreadMessages()
-		window.addEventListener('chatOpened', handleChatOpened)
-		window.addEventListener('messageSent', handleMessageSent)
+		window.addEventListener('chatOpened', fetchUnreadMessages)
+		window.addEventListener('messageSent', fetchUnreadMessages)
 
 		return () => {
 			clearInterval(interval)
-			window.removeEventListener('chatOpened', handleChatOpened)
-			window.removeEventListener('messageSent', handleMessageSent)
-			if (eventSourceRef.current) eventSourceRef.current.close()
+			window.removeEventListener('chatOpened', fetchUnreadMessages)
+			window.removeEventListener('messageSent', fetchUnreadMessages)
+			eventSourceRef.current?.close()
 		}
 	}, [user, token])
 
-	// 📭 Пометить все уведомления как прочитанные
 	const markAllRead = async () => {
 		if (!token) return
 		try {
@@ -198,20 +171,23 @@ export default function Header() {
 			})
 			setUnreadCount(0)
 		} catch (err) {
-			console.error('Ошибка при отметке уведомлений как прочитанных', err)
+			console.error('Ошибка отметки уведомлений', err)
 		}
 	}
 
-	// ✅ Исправлено: переход из плашки уведомления работает!
+	// ✅ обновлённая логика клика по уведомлению
 	const handleNotificationClick = async (notif: any) => {
 		setNotifOpen(false)
 		await markAllRead()
+
 		if (notif.link) {
 			router.push(notif.link)
-		} else if (notif.chatType === 'private') {
-			router.push('/chats')
+		} else if (notif.userId) {
+			router.push(`/chats?open=${notif.userId}`)
 		} else if (notif.chatType === 'task' && notif.chatId) {
 			router.push(`/tasks/${notif.chatId.replace('task_', '')}`)
+		} else {
+			router.push('/chats')
 		}
 	}
 
@@ -233,7 +209,7 @@ export default function Header() {
 			<nav className='flex gap-6 items-center relative text-gray-200'>
 				{user ? (
 					<>
-						{/* Уведомления */}
+						{/* уведомления */}
 						<div className='relative' ref={notifRef}>
 							<button
 								onClick={() => setNotifOpen(v => !v)}
@@ -251,36 +227,30 @@ export default function Header() {
 							</button>
 
 							{notifOpen && (
-								<div className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.25)] z-50 overflow-hidden'>
+								<div className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-lg z-50 overflow-hidden'>
 									<div className='max-h-64 overflow-y-auto custom-scrollbar'>
 										{notifications.length === 0 ? (
 											<div className='p-4 text-center text-gray-400'>
-												<div className='text-2xl mb-2'>🔔</div>
 												<p>Нет новых уведомлений</p>
 											</div>
 										) : (
 											notifications.map((notif, index) => (
 												<div
 													key={index}
-													className='p-3 border-b border-gray-700 hover:bg-gray-800 transition cursor-pointer'
 													onClick={() => handleNotificationClick(notif)}
+													className='p-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition'
 												>
 													<div className='flex items-start space-x-3'>
 														<div className='w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold'>
 															{notif.sender?.charAt(0) || '?'}
 														</div>
-														<div className='flex-1 min-w-0'>
+														<div className='flex-1'>
 															<p className='text-sm text-white font-medium truncate'>
 																{notif.title}
 															</p>
 															<p className='text-xs text-gray-400 truncate'>
-																<strong>{notif.sender}:</strong> {notif.message}
+																{notif.message}
 															</p>
-															{notif.taskTitle && (
-																<p className='text-xs text-emerald-400 mt-1'>
-																	📋 {notif.taskTitle}
-																</p>
-															)}
 															<p className='text-xs text-gray-500 mt-1'>
 																{new Date(notif.timestamp).toLocaleTimeString()}
 															</p>
@@ -302,121 +272,66 @@ export default function Header() {
 							)}
 						</div>
 
-						{/* Остальная навигация */}
-						{user.role === 'admin' ? (
-							<>
-								<Link href='/admin' className='hover:text-emerald-400 transition'>
-									Админ-панель
-								</Link>
-								<Link href='/profile' className='hover:text-emerald-400 transition'>
-									Профиль
-								</Link>
-							</>
-						) : (
-							<>
-								{user.role === 'executor' && (
-									<>
-										<Link href='/specialists' className='hover:text-emerald-400 transition'>
-											Подиум исполнителей
+						{/* меню */}
+						{user.role !== 'admin' && (
+							<div className='relative' ref={menuRef}>
+								<button
+									onClick={() => setMenuOpen(v => !v)}
+									className='hover:text-emerald-400 transition'
+								>
+									Ещё ▾
+								</button>
+								{menuOpen && (
+									<div className='absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50'>
+										<Link
+											href='/chats'
+											className='block px-4 py-2 hover:bg-gray-700 transition relative'
+											onClick={() => setMenuOpen(false)}
+										>
+											💬 Чаты
+											{unreadMessagesCount > 0 && (
+												<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
+													{unreadMessagesCount}
+												</span>
+											)}
 										</Link>
-										<Link href='/tasks' className='hover:text-emerald-400 transition'>
-											Каталог задач
+										<Link
+											href='/community'
+											className='block px-4 py-2 hover:bg-gray-700 transition'
+											onClick={() => setMenuOpen(false)}
+										>
+											🏘️ Сообщество
 										</Link>
-										<Link href='/tasks/my' className='hover:text-emerald-400 transition'>
-											Мои задачи
+										<Link
+											href='/hire'
+											className='block px-4 py-2 hover:bg-gray-700 transition'
+											onClick={() => setMenuOpen(false)}
+										>
+											📑 Запросы найма
 										</Link>
-										<Link href='/responses/my' className='hover:text-emerald-400 transition'>
-											Мои отклики
-										</Link>
-									</>
-								)}
-								{user.role === 'customer' && (
-									<>
-										<Link href='/specialists' className='hover:text-emerald-400 transition'>
-											Подиум исполнителей
-										</Link>
-										<Link href='/tasks' className='hover:text-emerald-400 transition'>
-											Каталог задач
-										</Link>
-										<Link href='/my-tasks' className='hover:text-emerald-400 transition'>
-											Мои задачи
-										</Link>
-										<Link href='/tasks/new' className='hover:text-emerald-400 transition'>
-											Создать задачу
-										</Link>
-									</>
-								)}
 
-								<Link href='/profile' className='hover:text-emerald-400 transition'>
-									Профиль
-								</Link>
-
-								<div className='relative' ref={menuRef}>
-									<button
-										onClick={() => setMenuOpen(v => !v)}
-										className='hover:text-emerald-400 transition'
-									>
-										Ещё ▾
-									</button>
-									{menuOpen && (
-										<div className='absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50'>
-											<Link
-												href='/chats'
-												className='block px-4 py-2 hover:bg-gray-700 transition relative'
-												onClick={() => setMenuOpen(false)}
+										<div className='border-t border-gray-700 mt-1'>
+											<button
+												onClick={() => {
+													setMenuOpen(false)
+													handleLogout()
+												}}
+												className='block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 transition'
 											>
-												💬 Чаты
-												{unreadMessagesCount > 0 && (
-													<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
-														{unreadMessagesCount}
-													</span>
-												)}
-											</Link>
-											<Link
-												href='/community'
-												className='block px-4 py-2 hover:bg-gray-700 transition'
-												onClick={() => setMenuOpen(false)}
-											>
-												🏘️ Сообщество
-											</Link>
-											<Link
-												href='/hire'
-												className='block px-4 py-2 hover:bg-gray-700 transition'
-												onClick={() => setMenuOpen(false)}
-											>
-												📑 Запросы найма
-											</Link>
-
-											{/* 👇 Кнопка выхода теперь внизу */}
-											<div className='border-t border-gray-700 mt-1'>
-												<button
-													onClick={() => {
-														setMenuOpen(false)
-														handleLogout()
-													}}
-													className='block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 transition'
-												>
-													🚪 Выйти
-												</button>
-											</div>
+												🚪 Выйти
+											</button>
 										</div>
-									)}
-								</div>
-							</>
+									</div>
+								)}
+							</div>
 						)}
 					</>
 				) : (
 					<>
-						<Link
-							href='/login'
-							className='px-5 py-2 rounded-full border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition'
-						>
+						<Link href='/login' className='px-5 py-2 border border-emerald-400 text-emerald-400 rounded-full hover:bg-emerald-400 hover:text-black transition'>
 							Вход
 						</Link>
-						<Link
-							href='/register'
-							className='px-5 py-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-medium hover:brightness-110 transition'
-						>
+						<Link href='/register' className='px-5 py-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-medium hover:brightness-110 transition'>
 							Регистрация
 						</Link>
 					</>
