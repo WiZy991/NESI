@@ -58,11 +58,14 @@ function levelFromXp(xpRaw: number) {
 export default function SpecialistsPage() {
   const { user } = useUser()
 
+  // Фильтры (оставляю базовые поля — они уже работали у тебя)
   const [q, setQ] = useState('')
   const [city, setCity] = useState('')
   const [skill, setSkill] = useState('')
   const [minXp, setMinXp] = useState('')
   const [minRating, setMinRating] = useState('')
+
+  // Пагинация
   const [page, setPage] = useState(1)
   const take = 12
 
@@ -88,6 +91,7 @@ export default function SpecialistsPage() {
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Загрузка
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
@@ -104,7 +108,7 @@ export default function SpecialistsPage() {
           if (!res.ok) throw new Error((data as any)?.error || `${res.status} ${res.statusText}`)
           let specialists = data.items || []
 
-          // === Умная сортировка по “ценности” исполнителя ===
+          // Умная сортировка по “ценности”: уровень > прогресс > рейтинг > отзывы > выполненные
           specialists.sort((a, b) => {
             const aXP = a.xpComputed ?? a.xp ?? 0
             const bXP = b.xpComputed ?? b.xp ?? 0
@@ -141,13 +145,19 @@ export default function SpecialistsPage() {
           setLoading(false)
         }
       })()
-    }, 350)
+    }, 300)
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [queryString])
 
+  // Сброс страницы при изменении фильтров
+  useEffect(() => {
+    setPage(1)
+  }, [q, city, skill, minXp, minRating])
+
+  // Мой уровень для корректного отображения моей карточки
   useEffect(() => {
     let cancelled = false
     if (!user?.id) {
@@ -177,6 +187,13 @@ export default function SpecialistsPage() {
     bounce: 0.25,
   }
 
+  // Плавный скролл к верху списка
+  const listTopRef = useRef<HTMLDivElement | null>(null)
+  const scrollToListTop = () => {
+    const y = (listTopRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY - 80
+    window.scrollTo({ top: y, behavior: 'smooth' })
+  }
+
   const Card = (u: SpecialistItem) => {
     const name = u.fullName || u.email || 'Без имени'
     const letter = (name[0] || '•').toUpperCase()
@@ -184,6 +201,13 @@ export default function SpecialistsPage() {
     let lvl = u.lvl
     let progress = u.progress
     let toNext = u.toNext
+
+    if (user?.id && user.id === u.id && myLevel) {
+      xpValue = myLevel.xp
+      lvl = myLevel.level
+      progress = myLevel.progressPercent
+      toNext = myLevel.xpToNextLevel
+    }
 
     if (lvl == null || progress == null || toNext == null) {
       const calc = levelFromXp(xpValue)
@@ -214,19 +238,19 @@ export default function SpecialistsPage() {
               src={u.avatarUrl}
               alt={name}
               className="w-12 h-12 rounded-full mb-2 object-cover"
-              layout
+              layout="position"
               transition={spring}
             />
           ) : (
             <motion.div
-              layout
+              layout="position"
               className="w-12 h-12 rounded-full bg-gray-700 mb-2 flex items-center justify-center text-base font-bold"
             >
               {letter}
             </motion.div>
           )}
 
-          <motion.h3 layout className="text-lg font-semibold leading-tight">{name}</motion.h3>
+          <motion.h3 layout="position" className="text-lg font-semibold leading-tight">{name}</motion.h3>
           <p className="text-xs text-gray-300 mb-3">{u.location || 'Без города'}</p>
 
           <div className="flex items-center justify-between text-xs mb-1">
@@ -267,38 +291,189 @@ export default function SpecialistsPage() {
     )
   }
 
+  // Номера страниц (короткая полоса типа iOS — центрируем вокруг текущей)
+  const getPageNumbers = () => {
+    const spread = 2 // по 2 слева/справа
+    const start = Math.max(1, page - spread)
+    const end = Math.min(pages, page + spread)
+    const arr: number[] = []
+    for (let p = start; p <= end; p++) arr.push(p)
+    return arr
+  }
+
+  const changePage = (p: number) => {
+    if (p === page || p < 1 || p > pages) return
+    setPage(p)
+    // плавно наверх списка
+    scrollToListTop()
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <h2 className="text-xl font-bold mb-4 text-white">⚡ Подиум исполнителей</h2>
 
+      {/* Фильтры — оставил как было, компактно */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end bg-black/40 backdrop-blur-sm border border-emerald-800/40 rounded-xl p-4 mb-6">
+        <div className="md:col-span-2">
+          <label className="block text-xs text-gray-400 mb-1">Поиск</label>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="имя или почта"
+            className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Город</label>
+          <input
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="например: Москва"
+            className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Навык</label>
+          <input
+            value={skill}
+            onChange={(e) => setSkill(e.target.value)}
+            placeholder="точно из списка навыков"
+            className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Мин. XP</label>
+          <input
+            value={minXp}
+            onChange={(e) => setMinXp(e.target.value)}
+            placeholder="например: 50"
+            className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Мин. рейтинг</label>
+          <input
+            value={minRating}
+            onChange={(e) => setMinRating(e.target.value)}
+            placeholder="например: 4.0"
+            className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
+          />
+        </div>
+      </div>
+
       {loading && <div className="text-gray-300">Загрузка…</div>}
       {error && <div className="text-red-400">{error}</div>}
 
-      {!loading && !error && (
-        <LayoutGroup>
-          <AnimatePresence>
-            <motion.div layout transition={spring} className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              {items.slice(0, 3).map((u, i) => (
-                <motion.div
-                  key={u.id}
-                  layout
-                  transition={spring}
-                  whileHover={{ scale: 1.07, y: -8 }}
-                  className={`relative ${i === 0 ? 'scale-105' : 'opacity-90'}`}
-                >
-                  <Card {...u} />
-                  <div className="absolute -top-2 -right-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)]">🏆 {i + 1}</div>
-                </motion.div>
-              ))}
-            </motion.div>
+      <div ref={listTopRef} />
 
-            <motion.div layout transition={spring} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {items.slice(3).map((u) => (
-                <Card key={u.id} {...u} />
+      {!loading && !error && items.length === 0 && (
+        <div className="text-gray-400">Исполнителей по текущим фильтрам не найдено</div>
+      )}
+
+      {!loading && !error && items.length > 0 && (
+        <>
+          {/* Топ-3 */}
+          <LayoutGroup>
+            <AnimatePresence mode="popLayout">
+              <motion.div
+                key={`top-${page}`} // ключ от страницы — мягкая смена
+                layout
+                transition={spring}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+              >
+                {items.slice(0, 3).map((u, i) => (
+                  <motion.div
+                    key={u.id}
+                    layout
+                    transition={spring}
+                    whileHover={{ scale: 1.07, y: -8 }}
+                    className={`relative ${i === 0 ? 'scale-105' : 'opacity-95'}`}
+                  >
+                    <Card {...u} />
+                    <div className="absolute -top-2 -right-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+                      🏆 {i + 1}
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+
+              {/* Остальные карточки */}
+              <motion.div
+                key={`grid-${page}`} // меняем ключ — будет плавная замена между страницами
+                layout
+                transition={spring}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+              >
+                {items.slice(3).map((u) => (
+                  <Card key={u.id} {...u} />
+                ))}
+              </motion.div>
+            </AnimatePresence>
+          </LayoutGroup>
+
+          {/* Пагинация */}
+          {pages > 1 && (
+            <motion.div
+              layout
+              transition={spring}
+              className="mt-8 flex flex-wrap items-center justify-center gap-2 text-white"
+            >
+              <button
+                className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition"
+                disabled={page <= 1}
+                onClick={() => changePage(1)}
+              >
+                « Первая
+              </button>
+              <button
+                className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition"
+                disabled={page <= 1}
+                onClick={() => changePage(page - 1)}
+              >
+                ← Назад
+              </button>
+
+              {getPageNumbers().map((p) => (
+                <button
+                  key={p}
+                  onClick={() => changePage(p)}
+                  className={`px-3 py-1 rounded-lg border text-sm transition ${
+                    p === page
+                      ? 'border-emerald-500 bg-emerald-600/20 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                      : 'border-emerald-700/40 hover:border-emerald-500/60'
+                  }`}
+                >
+                  {p}
+                </button>
               ))}
+
+              <button
+                className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition"
+                disabled={page >= pages}
+                onClick={() => changePage(page + 1)}
+              >
+                Вперёд →
+              </button>
+              <button
+                className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition"
+                disabled={page >= pages}
+                onClick={() => changePage(pages)}
+              >
+                Последняя »
+              </button>
+
+              <span className="ml-3 text-xs text-gray-400">
+                Стр. {page} из {pages} • всего {total}
+              </span>
             </motion.div>
-          </AnimatePresence>
-        </LayoutGroup>
+          )}
+        </>
       )}
     </div>
   )
