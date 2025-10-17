@@ -52,9 +52,10 @@ export default function TalentsPage() {
           },
         ].map((item, idx) => (
           <div
-            key={idx}
-            className="p-6 bg-black/50 border border-emerald-700/40 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all duration-300"
+          key={idx}
+            className="p-6 border border-emerald-700/40 rounded-2xl bg-transparent shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all duration-300 hover:scale-[1.02]"
           >
+
             <h3 className="text-xl font-semibold text-emerald-400 mb-2">{item.title}</h3>
             <p className="text-gray-300 text-sm leading-relaxed">{item.text}</p>
           </div>
