@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import ReportModal from '@/components/ReportModal'
 import {
   Flame,
   User,
@@ -16,7 +17,9 @@ import {
   Home,
 } from 'lucide-react'
 
-// 🔧 Утилита для подстановки правильного пути к аватару
+/* ===============================
+   🔧 Утилита для корректных аватаров
+=============================== */
 function resolveAvatarUrl(avatar?: string | null) {
   if (!avatar) return null
   if (!avatar.startsWith('http') && !avatar.startsWith('/'))
@@ -24,35 +27,20 @@ function resolveAvatarUrl(avatar?: string | null) {
   return avatar
 }
 
-type Author = {
-  id: string
-  fullName: string | null
-  email: string
-  avatarFileId?: string | null
-  avatarUrl?: string | null
-}
-
-type Post = {
-  id: string
-  title: string
-  content: string
-  imageUrl?: string | null
-  createdAt: string
-  author: Author
-  liked?: boolean
-  _count: { comments: number; likes: number }
-}
-
+/* ===============================
+   📄 Основная страница Community
+=============================== */
 export default function CommunityPage() {
   const { user, token } = useUser()
   const router = useRouter()
-  const [posts, setPosts] = useState<Post[]>([])
+  const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
   const [likeLoading, setLikeLoading] = useState<string | null>(null)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [reportTarget, setReportTarget] = useState<{ type: 'post'; id: string } | null>(null)
 
-  // 📌 читаем фильтр из URL при монтировании
+  // загрузка фильтра из URL
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
@@ -61,7 +49,7 @@ export default function CommunityPage() {
     else setFilter('new')
   }, [])
 
-  // 📌 загрузка постов
+  // загрузка постов
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -77,7 +65,7 @@ export default function CommunityPage() {
     fetchPosts()
   }, [])
 
-  // 📌 изменение фильтра с обновлением URL
+  // изменение фильтра с обновлением URL
   const changeFilter = (type: 'new' | 'popular' | 'my') => {
     setFilter(type)
     if (type === 'popular') router.push('/community?sort=popular')
@@ -87,31 +75,28 @@ export default function CommunityPage() {
 
   if (loading) return <LoadingSpinner />
 
-  // 📊 фильтрация постов
+  // фильтрация постов
   const filtered =
     filter === 'my'
       ? posts.filter((p) => p.author.id === user?.id)
       : filter === 'popular'
       ? [...posts].sort(
           (a, b) =>
-            b._count.likes + b._count.comments -
-            (a._count.likes + a._count.comments)
+            b._count.likes + b._count.comments - (a._count.likes + a._count.comments)
         )
       : [...posts].sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() -
-            new Date(a.createdAt).getTime()
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )
 
+  // топ 5 постов справа
   const topPosts = [...posts]
     .sort(
       (a, b) =>
-        b._count.comments + b._count.likes -
-        (a._count.comments + a._count.likes)
+        b._count.comments + b._count.likes - (a._count.comments + a._count.likes)
     )
     .slice(0, 5)
 
-  // ❤️ лайк
+  // лайк
   const toggleLike = async (postId: string) => {
     if (!token) return
     setLikeLoading(postId)
@@ -130,9 +115,7 @@ export default function CommunityPage() {
                   liked: data.liked,
                   _count: {
                     ...p._count,
-                    likes: data.liked
-                      ? p._count.likes + 1
-                      : p._count.likes - 1,
+                    likes: data.liked ? p._count.likes + 1 : p._count.likes - 1,
                   },
                 }
               : p
@@ -146,30 +129,33 @@ export default function CommunityPage() {
     }
   }
 
-  // 📋 скопировать ссылку
+  // копировать ссылку
   const copyLink = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/community/${id}`)
     alert('📋 Ссылка на пост скопирована!')
   }
 
-  const reportPost = (id: string) =>
-    alert(`🚨 Жалоба на пост ${id} отправлена модерации`)
-
+  // удаление поста
   const deletePost = async (id: string) => {
     if (!confirm('Удалить этот пост?')) return
     try {
       const res = await fetch(`/api/community/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       })
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== id))
         alert('✅ Пост удалён')
       } else {
-        alert('Ошибка удаления поста')
+        const err = await res.json().catch(() => ({}))
+        alert('Ошибка удаления: ' + (err.error || res.statusText))
       }
-    } catch {
+    } catch (e) {
       alert('Ошибка сети при удалении поста')
+      console.error(e)
     }
   }
 
@@ -217,7 +203,7 @@ export default function CommunityPage() {
 
             <Link
               href="/community/new"
-              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 text-center justify-center font-medium transition"
+              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 justify-center font-medium transition"
             >
               <Plus className="w-4 h-4" /> Создать тему
             </Link>
@@ -228,7 +214,7 @@ export default function CommunityPage() {
           </div>
         </aside>
 
-        {/* ЦЕНТРАЛЬНЫЙ КОНТЕНТ */}
+        {/* КОНТЕНТ */}
         <main className="flex-1 max-w-2xl">
           {filtered.length === 0 ? (
             <p className="text-gray-400 text-center mt-20">
@@ -241,7 +227,7 @@ export default function CommunityPage() {
                   key={post.id}
                   className="group border border-gray-800 rounded-lg p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative"
                 >
-                  {/* Автор и меню */}
+                  {/* Автор */}
                   <div className="flex items-start justify-between text-sm text-gray-400 relative">
                     <Link
                       href={`/users/${post.author.id}`}
@@ -285,6 +271,7 @@ export default function CommunityPage() {
                       >
                         <MoreHorizontal className="w-5 h-5" />
                       </button>
+
                       {openMenu === post.id && (
                         <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
                           <button
@@ -296,15 +283,17 @@ export default function CommunityPage() {
                           >
                             📋 Копировать ссылку
                           </button>
+
                           <button
                             onClick={() => {
-                              reportPost(post.id)
+                              setReportTarget({ type: 'post', id: post.id })
                               setOpenMenu(null)
                             }}
                             className="block w-full text-left px-4 py-2 hover:bg-gray-800 text-red-400 transition"
                           >
                             🚨 Пожаловаться
                           </button>
+
                           {user?.id === post.author.id && (
                             <button
                               onClick={() => {
@@ -342,7 +331,7 @@ export default function CommunityPage() {
                     )}
                   </Link>
 
-                  {/* Панель действий */}
+                  {/* Панель */}
                   <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
                     <button
                       onClick={(e) => {
@@ -370,8 +359,7 @@ export default function CommunityPage() {
                       onClick={(e) => e.stopPropagation()}
                       className="flex items-center gap-1 hover:text-blue-400 transition"
                     >
-                      <MessageSquare className="w-4 h-4" />{' '}
-                      {post._count.comments}
+                      <MessageSquare className="w-4 h-4" /> {post._count.comments}
                     </Link>
                   </div>
                 </div>
@@ -416,6 +404,11 @@ export default function CommunityPage() {
           </div>
         </aside>
       </div>
+
+      {/* Модалка жалобы */}
+      {reportTarget && (
+        <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
+      )}
     </div>
   )
 }

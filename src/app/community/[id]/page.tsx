@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import ReportModal from '@/components/ReportModal'
 import {
   Heart,
   MessageSquare,
@@ -25,7 +26,7 @@ import {
   X,
 } from 'lucide-react'
 
-/** 🔧 Утилита для корректных ссылок на аватары */
+// 🔧 Утилита для корректных ссылок на аватары
 function resolveAvatarUrl(avatar?: string | null) {
   if (!avatar) return null
   if (!avatar.startsWith('http') && !avatar.startsWith('/'))
@@ -39,7 +40,13 @@ type Post = {
   content: string
   imageUrl?: string | null
   createdAt: string
-  author: { id: string; fullName: string | null; email: string; avatarUrl?: string | null; avatarFileId?: string | null }
+  author: {
+    id: string
+    fullName: string | null
+    email: string
+    avatarUrl?: string | null
+    avatarFileId?: string | null
+  }
   comments: Comment[]
   _count: { likes: number }
 }
@@ -49,17 +56,24 @@ type Comment = {
   content: string
   createdAt: string
   parentId?: string | null
-  author: { id: string; fullName: string | null; email: string; avatarUrl?: string | null; avatarFileId?: string | null }
+  author: {
+    id: string
+    fullName: string | null
+    email: string
+    avatarUrl?: string | null
+    avatarFileId?: string | null
+  }
 }
 
-/** 🧩 Построение дерева комментариев */
+// 🧩 Построение дерева комментариев
 function buildTree(comments: Comment[]) {
   const byId = new Map<string, Comment & { children: Comment[] }>()
   const roots: (Comment & { children: Comment[] })[] = []
   comments.forEach((c) => byId.set(c.id, { ...c, children: [] }))
   comments.forEach((c) => {
     const node = byId.get(c.id)!
-    if (c.parentId && byId.get(c.parentId)) byId.get(c.parentId)!.children.push(node)
+    if (c.parentId && byId.get(c.parentId))
+      byId.get(c.parentId)!.children.push(node)
     else roots.push(node)
   })
   return roots
@@ -78,6 +92,7 @@ export default function CommunityPostPage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({})
   const [replyText, setReplyText] = useState<Record<string, string>>({})
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment'; id: string } | null>(null)
 
   const fetchPost = async () => {
     try {
@@ -99,7 +114,10 @@ export default function CommunityPostPage() {
     fetchPost()
   }, [id])
 
-  const tree = useMemo(() => (post ? buildTree(post.comments || []) : []), [post])
+  const tree = useMemo(
+    () => (post ? buildTree(post.comments || []) : []),
+    [post]
+  )
 
   const sendComment = async () => {
     if (!commentText.trim()) return
@@ -164,40 +182,64 @@ export default function CommunityPostPage() {
     alert('📋 Ссылка скопирована!')
   }
 
-  const reportItem = () => alert('🚨 Жалоба отправлена модераторам')
-
   const deleteItem = async (endpoint: string) => {
-    if (!confirm('Удалить?')) return
-    const res = await fetch(endpoint, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    if (!confirm('Удалить пост?')) return
+    const res = await fetch(endpoint, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
     if (res.ok) {
-      alert('✅ Успешно удалено')
+      alert('✅ Пост удалён')
       router.push('/community')
     } else alert('Ошибка при удалении поста')
   }
 
   if (loading) return <LoadingSpinner />
-  if (!post) return <p className="text-center text-gray-400 mt-20 text-lg">Пост не найден 😕</p>
+  if (!post)
+    return (
+      <p className="text-center text-gray-400 mt-20 text-lg">
+        Пост не найден 😕
+      </p>
+    )
 
   return (
     <div className="min-h-screen text-white">
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
+      {reportTarget && (
+        <ReportModal
+          target={reportTarget}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
 
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 px-6 py-8">
         {/* ЛЕВАЯ КОЛОНКА */}
         <aside className="hidden lg:flex flex-col w-60 border-r border-gray-800 pr-4">
           <h2 className="text-sm text-gray-400 uppercase mb-4">РАЗДЕЛЫ</h2>
           <nav className="flex flex-col gap-2 text-sm">
-            <Link href="/community" className="flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-600/20 text-emerald-300">
+            <Link
+              href="/community"
+              className="flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-600/20 text-emerald-300"
+            >
               <Home className="w-4 h-4" /> Новые
             </Link>
-            <Link href="/community?sort=popular" className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800/50 transition">
+            <Link
+              href="/community?sort=popular"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800/50 transition"
+            >
               <Flame className="w-4 h-4" /> Популярные
             </Link>
             {user && (
-              <Link href="/community?filter=my" className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800/50 transition">
+              <Link
+                href="/community?filter=my"
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800/50 transition"
+              >
                 <User className="w-4 h-4" /> Мои темы
               </Link>
             )}
-            <Link href="/community/new" className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 justify-center font-medium transition">
+            <Link
+              href="/community/new"
+              className="flex items-center gap-2 px-3 py-2 mt-4 rounded-md bg-emerald-600 hover:bg-emerald-700 justify-center font-medium transition"
+            >
               <Plus className="w-4 h-4" /> Создать тему
             </Link>
           </nav>
@@ -216,7 +258,9 @@ export default function CommunityPostPage() {
               >
                 {post.author.avatarFileId || post.author.avatarUrl ? (
                   <img
-                    src={resolveAvatarUrl(post.author.avatarFileId || post.author.avatarUrl)}
+                    src={resolveAvatarUrl(
+                      post.author.avatarFileId || post.author.avatarUrl
+                    )}
                     alt="avatar"
                     className="w-12 h-12 rounded-full object-cover border border-emerald-700/40"
                   />
@@ -240,19 +284,42 @@ export default function CommunityPostPage() {
 
               {/* Меню */}
               <div className="relative">
-                <button onClick={() => setOpenMenu(openMenu === post.id ? null : post.id)} className="p-1 hover:text-emerald-400">
+                <button
+                  onClick={() =>
+                    setOpenMenu(openMenu === post.id ? null : post.id)
+                  }
+                  className="p-1 hover:text-emerald-400"
+                >
                   <MoreHorizontal className="w-5 h-5" />
                 </button>
                 {openMenu === post.id && (
                   <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
-                    <button onClick={() => { copyLink(window.location.href); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full">
+                    <button
+                      onClick={() => {
+                        copyLink(window.location.href)
+                        setOpenMenu(null)
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+                    >
                       <Copy className="w-4 h-4" /> Копировать ссылку
                     </button>
-                    <button onClick={() => { reportItem(); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full">
+                    <button
+                      onClick={() => {
+                        setReportTarget({ type: 'post', id: post.id })
+                        setOpenMenu(null)
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
+                    >
                       <Flag className="w-4 h-4" /> Пожаловаться
                     </button>
                     {user?.id === post.author.id && (
-                      <button onClick={() => { deleteItem(`/api/community/${post.id}`); setOpenMenu(null) }} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full">
+                      <button
+                        onClick={() => {
+                          deleteItem(`/api/community/${post.id}`)
+                          setOpenMenu(null)
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
+                      >
                         <Trash2 className="w-4 h-4" /> Удалить
                       </button>
                     )}
@@ -261,12 +328,23 @@ export default function CommunityPostPage() {
               </div>
             </header>
 
-            {post.title && <h1 className="text-2xl font-bold text-emerald-400 mb-3">{post.title}</h1>}
-            <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+            {post.title && (
+              <h1 className="text-2xl font-bold text-emerald-400 mb-3">
+                {post.title}
+              </h1>
+            )}
+            <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">
+              {post.content}
+            </p>
 
             {post.imageUrl && (
               <div className="mt-4 overflow-hidden rounded-xl border border-gray-800">
-                <img src={post.imageUrl} alt="post" className="w-full h-auto object-cover" loading="lazy" />
+                <img
+                  src={post.imageUrl}
+                  alt="post"
+                  className="w-full h-auto object-cover"
+                  loading="lazy"
+                />
               </div>
             )}
 
@@ -279,7 +357,11 @@ export default function CommunityPostPage() {
                     : 'border-emerald-500/40 text-gray-300 hover:bg-emerald-700/20'
                 }`}
               >
-                <Heart className={`w-4 h-4 ${liked ? 'fill-black text-black' : 'text-emerald-400'}`} />
+                <Heart
+                  className={`w-4 h-4 ${
+                    liked ? 'fill-black text-black' : 'text-emerald-400'
+                  }`}
+                />
                 {post._count.likes}
               </button>
 
@@ -290,9 +372,11 @@ export default function CommunityPostPage() {
             </footer>
           </article>
 
-          {/* КОММЕНТАРИИ */}
+          {/* Комментарии */}
           <section>
-            <h2 className="text-2xl font-semibold text-emerald-400 mb-5 flex items-center gap-2">💬 Комментарии</h2>
+            <h2 className="text-2xl font-semibold text-emerald-400 mb-5 flex items-center gap-2">
+              💬 Комментарии
+            </h2>
             {tree.length === 0 ? (
               <p className="text-gray-500 text-center py-8 border border-gray-800 rounded-lg bg-transparent">
                 Комментариев пока нет. Будь первым!
@@ -313,6 +397,7 @@ export default function CommunityPostPage() {
                     setReplyText={setReplyText}
                     sendReply={sendReply}
                     postId={id}
+                    onReport={setReportTarget}
                   />
                 ))}
               </div>
@@ -320,7 +405,9 @@ export default function CommunityPostPage() {
 
             {user && (
               <div className="mt-8 border-t border-gray-800 pt-6">
-                <h3 className="text-lg font-semibold text-emerald-300 mb-3">Добавить комментарий</h3>
+                <h3 className="text-lg font-semibold text-emerald-300 mb-3">
+                  Добавить комментарий
+                </h3>
                 <textarea
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
@@ -333,7 +420,11 @@ export default function CommunityPostPage() {
                   disabled={sending}
                   className="mt-3 flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50"
                 >
-                  {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {sending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
                   {sending ? 'Отправка...' : 'Отправить'}
                 </button>
               </div>
@@ -345,18 +436,37 @@ export default function CommunityPostPage() {
   )
 }
 
-/** Компонент комментария */
-function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setReplyOpen, replyText, setReplyText, sendReply, postId }: any) {
+// 🗨️ Компонент комментария
+function CommentNode({
+  node,
+  depth,
+  userId,
+  token,
+  fetchPost,
+  replyOpen,
+  setReplyOpen,
+  replyText,
+  setReplyText,
+  sendReply,
+  postId,
+  onReport,
+}: any) {
   const [openMenu, setOpenMenu] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(node.content)
-  const time = new Date(node.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  const time = new Date(node.createdAt).toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   const saveEdit = async () => {
     try {
       const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ content: editText }),
       })
       if (res.ok) {
@@ -389,13 +499,18 @@ function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setRepl
     <div>
       <div
         className="p-4 rounded-xl border bg-gradient-to-br from-[#001a12]/70 to-[#002a22]/60 shadow-[0_0_15px_rgba(0,255,180,0.08)] transition hover:shadow-[0_0_25px_rgba(0,255,180,0.15)] relative"
-        style={{ marginLeft: depth ? depth * 24 : 0, borderColor: 'rgba(0,255,180,0.25)' }}
+        style={{
+          marginLeft: depth ? depth * 24 : 0,
+          borderColor: 'rgba(0,255,180,0.25)',
+        }}
       >
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-start gap-3">
             {node.author.avatarFileId || node.author.avatarUrl ? (
               <img
-                src={resolveAvatarUrl(node.author.avatarFileId || node.author.avatarUrl)}
+                src={resolveAvatarUrl(
+                  node.author.avatarFileId || node.author.avatarUrl
+                )}
                 alt="avatar"
                 className="w-8 h-8 rounded-full object-cover border border-gray-700"
               />
@@ -403,14 +518,20 @@ function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setRepl
               <User className="w-8 h-8 text-emerald-400 opacity-70" />
             )}
             <div>
-              <Link href={`/users/${node.author.id}`} className="font-medium text-emerald-300 hover:text-emerald-400 transition">
+              <Link
+                href={`/users/${node.author.id}`}
+                className="font-medium text-emerald-300 hover:text-emerald-400 transition"
+              >
                 {node.author.fullName || node.author.email}
               </Link>
               <p className="text-xs text-gray-500">{time}</p>
             </div>
           </div>
 
-          <button onClick={() => setOpenMenu(!openMenu)} className="hover:text-emerald-400">
+          <button
+            onClick={() => setOpenMenu(!openMenu)}
+            className="hover:text-emerald-400"
+          >
             <MoreHorizontal className="w-4 h-4" />
           </button>
 
@@ -418,7 +539,9 @@ function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setRepl
             <div className="absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(window.location.href + '#' + node.id)
+                  navigator.clipboard.writeText(
+                    window.location.href + '#' + node.id
+                  )
                   setOpenMenu(false)
                 }}
                 className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
@@ -449,7 +572,7 @@ function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setRepl
               ) : (
                 <button
                   onClick={() => {
-                    alert('🚨 Жалоба отправлена')
+                    onReport({ type: 'comment', id: node.id })
                     setOpenMenu(false)
                   }}
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
@@ -470,11 +593,17 @@ function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setRepl
               className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
             />
             <div className="flex gap-2">
-              <button onClick={saveEdit} className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm">
+              <button
+                onClick={saveEdit}
+                className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm"
+              >
                 <Check className="w-4 h-4" />
                 Сохранить
               </button>
-              <button onClick={() => setEditing(false)} className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm">
+              <button
+                onClick={() => setEditing(false)}
+                className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm"
+              >
                 <X className="w-4 h-4" />
                 Отмена
               </button>
@@ -486,7 +615,12 @@ function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setRepl
 
         <button
           className="mt-3 flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
-          onClick={() => setReplyOpen((s: any) => ({ ...s, [node.id]: !s[node.id] }))}
+          onClick={() =>
+            setReplyOpen((s: any) => ({
+              ...s,
+              [node.id]: !s[node.id],
+            }))
+          }
         >
           <Reply className="w-4 h-4" /> Ответить
         </button>
@@ -495,13 +629,21 @@ function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setRepl
           <div className="mt-3">
             <textarea
               value={replyText[node.id] || ''}
-              onChange={(e) => setReplyText((s: any) => ({ ...s, [node.id]: e.target.value }))}
+              onChange={(e) =>
+                setReplyText((s: any) => ({
+                  ...s,
+                  [node.id]: e.target.value,
+                }))
+              }
               rows={2}
               placeholder="Ваш ответ…"
               className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
             />
             <div className="mt-2">
-              <button onClick={() => sendReply(node.id)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold">
+              <button
+                onClick={() => sendReply(node.id)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold"
+              >
                 <Send className="w-4 h-4" /> Отправить ответ
               </button>
             </div>
@@ -524,6 +666,7 @@ function CommentNode({ node, depth, userId, token, fetchPost, replyOpen, setRepl
             setReplyText={setReplyText}
             sendReply={sendReply}
             postId={postId}
+            onReport={onReport}
           />
         ))}
     </div>
