@@ -260,7 +260,8 @@ textarea {
 }
 
 @keyframes float {
-	0%, 100% {
+	0%,
+	100% {
 		transform: translateY(0);
 	}
 	50% {
@@ -294,7 +295,11 @@ textarea {
 	font-family: 'Poppins', sans-serif;
 	font-size: 15px;
 	cursor: pointer;
-	background-image: linear-gradient(to right, rgba(0,255,150,0.15), rgba(0,255,150,0.05));
+	background-image: linear-gradient(
+		to right,
+		rgba(0, 255, 150, 0.15),
+		rgba(0, 255, 150, 0.05)
+	);
 }
 
 .neon-select:hover {
