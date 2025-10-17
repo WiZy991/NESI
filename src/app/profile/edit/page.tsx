@@ -14,7 +14,6 @@ import {
   FaSearch
 } from 'react-icons/fa'
 
-// 🔹 Города
 const cityOptions = [
     { "value": "Москва", "label": "Москва" },
     { "value": "Санкт-Петербург", "label": "Санкт-Петербург" },
@@ -213,7 +212,6 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
-
 // --- Навыки
 const skillCategories: Record<string, string[]> = {
   'IT и программирование': [
@@ -290,7 +288,7 @@ function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s
   )
 }
 
-// --- Неоновый поиск города (исправленный, не уезжает вниз)
+// --- Неоновый поиск города (исправленный)
 function NeonCitySelect({
   value,
   options,
@@ -428,9 +426,7 @@ export default function EditProfilePage() {
       setSkills(
         Array.isArray(user.skills)
           ? user.skills
-          : (user.skills || '')
-              .split(',')
-              .map((s: string) => s.trim())
+          : (user.skills || '').split(',').map((s: string) => s.trim())
       )
       if (user.avatarUrl) setAvatarPreview(user.avatarUrl)
     }
@@ -488,6 +484,7 @@ export default function EditProfilePage() {
             <h1 className="title-glow">Редактировать профиль</h1>
           </div>
 
+          {/* === ИМЯ === */}
           <div className="neon-box">
             <label className="label"><FaFileSignature /> Имя</label>
             <input
@@ -498,6 +495,7 @@ export default function EditProfilePage() {
             />
           </div>
 
+          {/* === ОПИСАНИЕ === */}
           <div className="neon-box">
             <label className="label">Описание</label>
             <textarea
@@ -509,6 +507,17 @@ export default function EditProfilePage() {
             />
           </div>
 
+          {/* === ГОРОД (перенесён сюда) === */}
+          <div className="neon-box relative z-40 overflow-visible">
+            <label className="label"><FaCity /> Город</label>
+            <NeonCitySelect
+              value={location}
+              options={cityOptions}
+              onChange={(val) => setLocation(val)}
+            />
+          </div>
+
+          {/* === АВАТАР === */}
           <div className="neon-box flex flex-col sm:flex-row items-center gap-6">
             <div className="flex-1">
               <label className="label"><FaImage /> Аватар</label>
@@ -532,16 +541,6 @@ export default function EditProfilePage() {
           <div className="neon-box">
             <label className="label"><FaCode /> Навыки</label>
             <SkillsSelector skills={skills} setSkills={setSkills} />
-          </div>
-
-          {/* === ГОРОД === */}
-          <div className="neon-box relative z-40 overflow-visible">
-            <label className="label"><FaCity /> Город</label>
-            <NeonCitySelect
-              value={location}
-              options={cityOptions}
-              onChange={(val) => setLocation(val)}
-            />
           </div>
 
           <div className="text-center">
