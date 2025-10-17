@@ -35,9 +35,38 @@ export default function HireDetailsPage() {
   if (error) return <p className="text-red-500">{error}</p>
   if (!hire) return <p>Запрос не найден</p>
 
+  const handleAction = async (action: 'accept' | 'reject') => {
+    try {
+      const res = await fetch(`/api/hire/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        alert(err?.error || 'Ошибка выполнения действия')
+        return
+      }
+
+      // 🔄 обновим данные
+      router.refresh()
+
+      // ✅ Если приняли — переходим сразу в чат
+      if (action === 'accept' && hire?.customer?.id) {
+        router.push(`/chats?open=${hire.customer.id}`)
+      }
+    } catch (err) {
+      console.error('Ошибка при изменении статуса', err)
+      alert('Ошибка сервера')
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 text-white space-y-4">
-      <h1 className="text-2xl font-bold text-emerald-400">Запрос от {hire.customer?.fullName || '—'}</h1>
+      <h1 className="text-2xl font-bold text-emerald-400">
+        Запрос от {hire.customer?.fullName || '—'}
+      </h1>
 
       <p><b>Дата:</b> {new Date(hire.createdAt).toLocaleString()}</p>
       <p><b>Статус:</b> {hire.status}</p>
@@ -45,7 +74,13 @@ export default function HireDetailsPage() {
 
       {hire.status === 'accepted' && (
         <p className="text-green-400">
-          ✅ Вы приняли запрос. <Link href={`/messages/${hire.customer.id}`} className="underline">Перейти в чат</Link>
+          ✅ Вы приняли запрос.{' '}
+          <Link
+            href={`/chats?open=${hire.customer.id}`}
+            className="underline text-emerald-300 hover:text-emerald-200"
+          >
+            Перейти в чат
+          </Link>
         </p>
       )}
 
@@ -53,27 +88,13 @@ export default function HireDetailsPage() {
         <div className="flex gap-3 mt-4">
           <button
             className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg"
-            onClick={async () => {
-              await fetch(`/api/hire/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'accept' }),
-              })
-              router.refresh()
-            }}
+            onClick={() => handleAction('accept')}
           >
             Принять
           </button>
           <button
             className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg"
-            onClick={async () => {
-              await fetch(`/api/hire/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'reject' }),
-              })
-              router.refresh()
-            }}
+            onClick={() => handleAction('reject')}
           >
             Отклонить
           </button>

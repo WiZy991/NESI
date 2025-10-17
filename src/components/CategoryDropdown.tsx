@@ -14,7 +14,7 @@ type Category = {
 }
 
 type Props = {
-  categories?: Category[] // <- добавили `?` чтобы не упасть, если undefined
+  categories?: Category[]
   onSelectSubcategory: (id: string) => void
 }
 
@@ -30,7 +30,7 @@ export default function CategoryDropdown({ categories, onSelectSubcategory }: Pr
   const handleMouseLeave = () => {
     timeoutRef.current = setTimeout(() => {
       setHoveredCategoryId(null)
-    }, 300) // 300 мс задержка перед закрытием
+    }, 250)
   }
 
   const handleSubcategoryClick = (id: string) => {
@@ -38,30 +38,30 @@ export default function CategoryDropdown({ categories, onSelectSubcategory }: Pr
     setHoveredCategoryId(null)
   }
 
-  if (!Array.isArray(categories)) {
-    return null // или можно вернуть прелоадер
-  }
+  if (!Array.isArray(categories)) return null
 
   return (
-    <div className="flex gap-4">
+    <div className="flex flex-wrap gap-3 mb-6">
       {categories.map((category) => (
         <div
           key={category.id}
-          className="relative"
+          className="relative group"
           onMouseEnter={() => handleMouseEnter(category.id)}
           onMouseLeave={handleMouseLeave}
         >
-          <button className="bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-700">
+          <button
+            className={`px-5 py-2 rounded-xl border border-emerald-500/30 bg-black/40 text-emerald-300 font-medium transition-all duration-200 hover:bg-emerald-700/30 hover:text-emerald-100 hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] ${hoveredCategoryId === category.id ? 'bg-emerald-700/40 shadow-[0_0_25px_rgba(16,185,129,0.6)] text-emerald-100' : ''}`}
+          >
             {category.name}
           </button>
 
-          {hoveredCategoryId === category.id && (
-            <div className="absolute left-0 z-20 mt-1 w-56 bg-slate-900 text-white border border-gray-700 rounded shadow-lg">
+          {hoveredCategoryId === category.id && category.subcategories.length > 0 && (
+            <div className="absolute left-0 z-20 mt-2 min-w-[220px] bg-black/80 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.4)] backdrop-blur-md p-2 animate-fadeIn space-y-1">
               {category.subcategories.map((subcat) => (
                 <button
                   key={subcat.id}
                   onClick={() => handleSubcategoryClick(subcat.id)}
-                  className="block w-full text-left px-4 py-2 hover:bg-slate-800"
+                  className="w-full text-left px-4 py-2 rounded-lg text-sm text-emerald-300 hover:bg-emerald-600/30 hover:text-emerald-100 transition-all"
                 >
                   {subcat.name}
                 </button>
@@ -70,6 +70,22 @@ export default function CategoryDropdown({ categories, onSelectSubcategory }: Pr
           )}
         </div>
       ))}
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out forwards;
+        }
+      `}</style>
     </div>
   )
 }

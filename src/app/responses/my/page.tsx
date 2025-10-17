@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { ClipboardList, BarChart3, Filter, Mail, User } from 'lucide-react'
 
 interface Response {
   id: string
@@ -29,10 +31,10 @@ const statusMap: Record<string, string> = {
 }
 
 const statusColorMap: Record<string, string> = {
-  open: 'text-yellow-400',
-  in_progress: 'text-blue-400',
-  completed: 'text-green-400',
-  cancelled: 'text-red-400',
+  open: 'border-yellow-400/70 shadow-[0_0_8px_rgba(250,204,21,0.3)]',
+  in_progress: 'border-blue-400/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]',
+  completed: 'border-emerald-400/80 shadow-[0_0_8px_rgba(16,185,129,0.4)]',
+  cancelled: 'border-red-500/70 shadow-[0_0_8px_rgba(239,68,68,0.3)]',
 }
 
 export default function MyResponsesPage() {
@@ -44,18 +46,15 @@ export default function MyResponsesPage() {
   useEffect(() => {
     const fetchResponses = async () => {
       if (!token) return
-
       try {
         const res = await fetch('/api/responses/my', {
           headers: { Authorization: `Bearer ${token}` },
         })
-
-        if (!res.ok) throw new Error('Не удалось получить отклики')
-
+        if (!res.ok) throw new Error('Ошибка загрузки')
         const data = await res.json()
         setResponses(data.responses || [])
       } catch (err) {
-        console.error('❌ Ошибка загрузки откликов:', err)
+        console.error(err)
       } finally {
         setLoading(false)
       }
@@ -65,45 +64,35 @@ export default function MyResponsesPage() {
   }, [token])
 
   const handleWithdraw = async (responseId: string) => {
-    const confirmed = confirm('Вы уверены, что хотите отозвать отклик?')
-    if (!confirmed || !token) return
-
+    if (!confirm('Отозвать отклик?') || !token) return
     try {
       const res = await fetch(`/api/responses/${responseId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
-
-      if (!res.ok) throw new Error('Не удалось отозвать отклик')
-
+      if (!res.ok) throw new Error('Не удалось удалить')
       setResponses((prev) => prev.filter((r) => r.id !== responseId))
     } catch (err) {
-      console.error('Ошибка при отзыве отклика:', err)
+      console.error(err)
     }
   }
 
-  if (loading) {
-    return <p className="text-center mt-10 text-gray-400">Загрузка откликов...</p>
-  }
+  if (loading)
+    return (
+      <div className="text-center mt-20 text-gray-400 animate-pulse">
+        Загрузка откликов...
+      </div>
+    )
 
-  const filteredResponses =
+  const filtered =
     filterStatus === 'all'
       ? responses
       : responses.filter((r) => r.task.status === filterStatus)
 
-  const stats = {
-    open: 0,
-    in_progress: 0,
-    completed: 0,
-    cancelled: 0,
-  }
-
+  const stats = { open: 0, in_progress: 0, completed: 0, cancelled: 0 }
   responses.forEach((r) => {
-    if (stats[r.task.status] !== undefined) {
-      stats[r.task.status]++
-    }
+    if (stats[r.task.status] !== undefined) stats[r.task.status]++
   })
-
   const total = responses.length || 1
   const percentages = {
     open: (stats.open / total) * 100,
@@ -113,121 +102,134 @@ export default function MyResponsesPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6 text-green-400">📨 Мои отклики</h1>
+    <div className="max-w-6xl mx-auto mt-12 p-6 text-white">
+      {/* Заголовок */}
+      <motion.h1
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="text-3xl font-bold text-emerald-400 mb-8 flex items-center gap-2"
+      >
+        <ClipboardList className="w-7 h-7 text-emerald-400" />
+        Мои отклики
+      </motion.h1>
 
-      {/* 📊 Статистика */}
-      <div className="mb-6 bg-black/40 border border-green-500/30 rounded-lg p-4 shadow-[0_0_10px_rgba(0,255,150,0.2)] text-sm text-gray-300">
-        <p className="mb-2 font-semibold text-green-400">📌 Статистика:</p>
-        <ul className="space-y-1 mb-3">
-          <li>Ожидают ответа: <b>{stats.open}</b></li>
-          <li>В работе: <b>{stats.in_progress}</b></li>
-          <li>Завершённые: <b>{stats.completed}</b></li>
-          <li>Отменённые: <b>{stats.cancelled}</b></li>
-        </ul>
+      {/* Панель статистики */}
+      <div className="bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(0,255,150,0.15)] p-6 mb-10 backdrop-blur-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-emerald-400 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" /> Статистика
+          </h2>
+          <div className="text-sm text-gray-400">Всего: {responses.length}</div>
+        </div>
 
-        {/* Прогресс-бар */}
-        <div className="h-3 rounded-full bg-gray-800 overflow-hidden flex shadow-inner">
-          <div
-            style={{ width: `${percentages.open}%` }}
-            className="bg-gradient-to-r from-yellow-400 to-yellow-500"
-            title={`Открытые: ${stats.open}`}
-          />
-          <div
-            style={{ width: `${percentages.in_progress}%` }}
-            className="bg-gradient-to-r from-blue-500 to-blue-600"
-            title={`В работе: ${stats.in_progress}`}
-          />
-          <div
-            style={{ width: `${percentages.completed}%` }}
-            className="bg-gradient-to-r from-emerald-500 to-emerald-700 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
-            title={`Завершённые: ${stats.completed}`}
-          />
-          <div
-            style={{ width: `${percentages.cancelled}%` }}
-            className="bg-gradient-to-r from-red-500 to-red-700"
-            title={`Отменённые: ${stats.cancelled}`}
-          />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mb-5">
+          <div><span className="text-yellow-400 font-semibold">{stats.open}</span><p className="text-xs text-gray-400">Открытые</p></div>
+          <div><span className="text-blue-400 font-semibold">{stats.in_progress}</span><p className="text-xs text-gray-400">В работе</p></div>
+          <div><span className="text-emerald-400 font-semibold">{stats.completed}</span><p className="text-xs text-gray-400">Выполнено</p></div>
+          <div><span className="text-red-400 font-semibold">{stats.cancelled}</span><p className="text-xs text-gray-400">Отменено</p></div>
+        </div>
+
+        <div className="h-3 rounded-full bg-gray-900 overflow-hidden flex">
+          <div style={{ width: `${percentages.open}%` }} className="bg-yellow-400/70" />
+          <div style={{ width: `${percentages.in_progress}%` }} className="bg-blue-500/70" />
+          <div style={{ width: `${percentages.completed}%` }} className="bg-emerald-500/80 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
+          <div style={{ width: `${percentages.cancelled}%` }} className="bg-red-600/70" />
         </div>
       </div>
 
-      {/* 🔽 Фильтр */}
-      <div className="mb-6">
-        <label className="text-sm text-gray-400 mr-2">Фильтр:</label>
+      {/* Фильтр */}
+      <div className="mb-8 flex items-center gap-3">
+        <Filter className="w-5 h-5 text-emerald-400" />
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="bg-black/60 border border-green-500/30 text-white px-3 py-2 rounded-lg shadow-sm focus:outline-none focus:border-green-400"
+          className="bg-black/60 border border-emerald-500/30 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
         >
           <option value="all">Все</option>
-          <option value="open">Открыта</option>
+          <option value="open">Открытые</option>
           <option value="in_progress">В работе</option>
-          <option value="completed">Выполнена</option>
-          <option value="cancelled">Отменена</option>
+          <option value="completed">Выполненные</option>
+          <option value="cancelled">Отменённые</option>
         </select>
       </div>
 
-      {filteredResponses.length === 0 ? (
-        <div className="flex flex-col items-center text-gray-400 py-12">
-          <svg width="56" height="56" fill="none" viewBox="0 0 56 56">
-            <rect width="56" height="56" rx="28" fill="#111" />
-            <path d="M16 28h24" stroke="#555" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="28" cy="28" r="27" stroke="#333" strokeWidth="2" />
-          </svg>
-          <span className="mt-4 text-lg">Нет откликов по выбранному фильтру</span>
-        </div>
+      {/* Список откликов (Grid) */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-gray-500">Нет откликов по выбранному фильтру</div>
       ) : (
-        <ul className="space-y-4">
-          {filteredResponses.map((response) => (
-            <li
-              key={response.id}
-              className="bg-black/40 border border-gray-800 rounded-lg p-4 shadow hover:shadow-[0_0_12px_rgba(0,255,150,0.3)] transition"
-            >
-              <Link
-                href={`/tasks/${response.task.id}`}
-                className="text-green-400 text-lg font-semibold hover:underline"
+        <motion.ul
+          className="grid gap-6 md:grid-cols-2"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+          }}
+        >
+          {filtered.map((r) => {
+            const customer = r.task.customer
+            const customerName = customer?.fullName || customer?.email || '—'
+
+            return (
+              <motion.li
+                key={r.id}
+                variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+                className={`relative bg-black/40 border-l-4 ${statusColorMap[r.task.status]} rounded-xl p-5 hover:shadow-[0_0_18px_rgba(0,255,150,0.2)] transition backdrop-blur-sm`}
               >
-                {response.task.title}
-              </Link>
-              <p className={`text-sm mt-1 ${statusColorMap[response.task.status]}`}>
-                Статус: {statusMap[response.task.status] || response.task.status}
-              </p>
-              <p className="text-sm text-gray-400 mt-1">
-                Заказчик:{' '}
                 <Link
-                  href={`/users/${response.task.customer.id}`}
-                  className="text-blue-400 hover:underline"
+                  href={`/tasks/${r.task.id}`}
+                  className="text-lg font-semibold text-emerald-400 hover:underline flex items-center gap-2"
                 >
-                  {response.task.customer.fullName || response.task.customer.email}
+                  <Mail className="w-5 h-5 text-emerald-400" />
+                  {r.task.title}
                 </Link>
-              </p>
-              <p className="text-sm text-gray-500">
-                Отклик: {new Date(response.createdAt).toLocaleDateString()}
-              </p>
 
-              {response.price !== null && (
-                <p className="text-sm text-green-400 mt-1">
-                  💰 {response.price} ₽
+                <p className={`text-sm mt-1 ${statusColorMap[r.task.status].replace('border-', 'text-')}`}>
+                  Статус: {statusMap[r.task.status]}
                 </p>
-              )}
 
-              {response.message && (
-                <p className="text-sm text-gray-300 mt-1">
-                  💬 {response.message}
+                <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
+                  <User className="w-4 h-4 text-gray-500" />
+                  Заказчик:{' '}
+                  {customer?.id ? (
+                    <Link
+                      href={`/users/${customer.id}`}
+                      className="text-blue-400 hover:underline hover:text-blue-300 transition"
+                    >
+                      {customerName}
+                    </Link>
+                  ) : (
+                    <span className="text-blue-300/70">{customerName}</span>
+                  )}
                 </p>
-              )}
 
-              {response.task.status === 'open' && (
-                <button
-                  onClick={() => handleWithdraw(response.id)}
-                  className="mt-3 px-3 py-1 rounded bg-red-600/80 hover:bg-red-700 text-white text-sm transition"
-                >
-                  Отозвать отклик
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+                <p className="text-xs text-gray-500 mt-1">
+                  Дата отклика: {new Date(r.createdAt).toLocaleDateString()}
+                </p>
+
+                {r.price && (
+                  <p className="text-sm text-emerald-400 mt-1">💰 {r.price} ₽</p>
+                )}
+
+                {r.message && (
+                  <p className="text-sm text-gray-300 mt-2 border-l-2 border-emerald-400/40 pl-3 italic">
+                    {r.message}
+                  </p>
+                )}
+
+                {r.task.status === 'open' && (
+                  <button
+                    onClick={() => handleWithdraw(r.id)}
+                    className="mt-3 px-3 py-1 rounded bg-red-600/80 hover:bg-red-700 text-white text-sm transition"
+                  >
+                    Отозвать отклик
+                  </button>
+                )}
+              </motion.li>
+            )
+          })}
+        </motion.ul>
       )}
     </div>
   )

@@ -54,7 +54,6 @@ export default function HirePage() {
   const [incoming, setIncoming] = useState<IncomingItem[]>([])
   const [sent, setSent] = useState<SentItem[]>([])
 
-  // вкладка зависит от роли
   const allowedTab: 'incoming' | 'sent' | null = user
     ? user.role === 'executor'
       ? 'incoming'
@@ -140,7 +139,6 @@ export default function HirePage() {
         Запросы найма
       </h1>
 
-      {/* заголовок вкладки */}
       <div className="flex items-center gap-3">
         {user?.role === 'executor' && (
           <span className="px-3 py-1 rounded-lg bg-emerald-900/40 border border-emerald-500/30 text-emerald-300 font-medium">
@@ -164,7 +162,7 @@ export default function HirePage() {
       {loading && <LoadingSpinner />}
       {error && <p className="text-red-500 mb-4">{error}</p>}
 
-      {/* ------------------ Исполнитель: входящие ------------------ */}
+      {/* Исполнитель: входящие */}
       {allowedTab === 'incoming' && !loading && !error && (
         <div className="space-y-4">
           {incoming.length === 0 ? (
@@ -221,7 +219,7 @@ export default function HirePage() {
                   <p className="text-green-400 mt-2">
                     ✅ Вы приняли приглашение. Свяжитесь с заказчиком через{' '}
                     <Link
-                      href={`/messages/${i.customer.id}`}
+                      href={`/chats?open=${i.customer.id}`}
                       className="underline text-emerald-300 hover:text-emerald-200"
                     >
                       чат
@@ -240,7 +238,7 @@ export default function HirePage() {
         </div>
       )}
 
-      {/* ------------------ Заказчик: отправленные ------------------ */}
+      {/* Заказчик: отправленные */}
       {allowedTab === 'sent' && !loading && !error && (
         <div className="space-y-4">
           {sent.length === 0 ? (
@@ -276,11 +274,10 @@ export default function HirePage() {
                   </span>
                 </div>
 
-                {/* чат доступен всегда */}
                 <p className="text-blue-400 mt-2">
                   💬 Перейти в{' '}
                   <Link
-                    href={`/messages/${s.executor.id}`}
+                    href={`/chats?open=${s.executor.id}`}
                     className="underline text-emerald-300 hover:text-emerald-200"
                   >
                     чат
@@ -292,13 +289,11 @@ export default function HirePage() {
                     ✅ Исполнитель принял запрос.
                   </p>
                 )}
-
                 {s.status === 'rejected' && (
                   <p className="text-red-400 mt-2">
                     ❌ Исполнитель отклонил запрос.
                   </p>
                 )}
-
                 {s.status === 'pending' && (
                   <p className="text-yellow-400 mt-2">
                     ⌛ Ожидает ответа исполнителя.

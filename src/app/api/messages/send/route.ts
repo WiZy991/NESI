@@ -1,3 +1,4 @@
+import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
@@ -119,9 +120,65 @@ export async function POST(req: NextRequest) {
 				mimeType,
 				size,
 			},
+			include: {
+				sender: {
+					select: {
+						id: true,
+						fullName: true,
+						email: true,
+						avatarUrl: true,
+					},
+				},
+				recipient: {
+					select: {
+						id: true,
+						fullName: true,
+						email: true,
+						avatarUrl: true,
+					},
+				},
+				file: {
+					select: {
+						id: true,
+						filename: true,
+						mimetype: true,
+					},
+				},
+			},
 		})
 
-		return NextResponse.json(msg, { status: 201 })
+		// Преобразуем данные в нужный формат
+		const result = {
+			id: msg.id,
+			content: msg.content,
+			createdAt: msg.createdAt,
+			sender: msg.sender,
+			fileUrl: msg.fileUrl || (msg.file ? `/api/files/${msg.file.id}` : null),
+			fileName: msg.fileName || msg.file?.filename || null,
+			fileMimetype: msg.mimeType || msg.file?.mimetype || null,
+		}
+
+		// Отправляем уведомление получателю в реальном времени
+		sendNotificationToUser(recipientId, {
+			title: 'Новое сообщение',
+			message: content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение'),
+			sender: msg.sender.fullName || msg.sender.email,
+			senderId: msg.sender.id,
+			chatType: 'private',
+			chatId: `private_${me.id}`,
+			messageId: msg.id,
+			hasFile: !!fileUrl,
+			fileName: fileName,
+			playSound: true, // Указываем, что нужно воспроизвести звук
+		})
+
+		console.log('📨 Сообщение отправлено и уведомление разослано:', {
+			senderId: me.id,
+			recipientId,
+			messageId: msg.id,
+		})
+
+		return NextResponse.json(result, { status: 201 })
 	} catch (err) {
 		console.error('🔥 Ошибка при отправке сообщения:', err)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })

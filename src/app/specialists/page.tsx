@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 
-/* ---------- типы ---------- */
 type SpecialistItem = {
   id: string
   fullName: string | null
@@ -40,7 +39,6 @@ type MyLevel = {
   progressPercent: number
 }
 
-/* ---------- шкала уровней (в точности как в API) ---------- */
 const BOUNDS = [0, 100, 300, 600, 1000, 1500, 2100]
 function levelFromXp(xpRaw: number) {
   const xp = Math.max(0, xpRaw ?? 0)
@@ -59,7 +57,6 @@ function levelFromXp(xpRaw: number) {
 export default function SpecialistsPage() {
   const { user } = useUser()
 
-  /* -------- фильтры/сортировка -------- */
   const [q, setQ] = useState('')
   const [city, setCity] = useState('')
   const [skill, setSkill] = useState('')
@@ -68,21 +65,17 @@ export default function SpecialistsPage() {
   const [sortBy, setSortBy] = useState<'xp' | 'rating' | 'tasks'>('xp')
   const [order, setOrder] = useState<'asc' | 'desc'>('desc')
 
-  /* -------- пагинация -------- */
   const [page, setPage] = useState(1)
   const take = 12
 
-  /* -------- данные -------- */
   const [items, setItems] = useState<SpecialistItem[]>([])
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  /* XP/Level текущего пользователя (для точного совпадения с экраном «Уровень») */
   const [myLevel, setMyLevel] = useState<MyLevel | null>(null)
 
-  /* -------- query строка -------- */
   const queryString = useMemo(() => {
     const p = new URLSearchParams()
     if (q.trim()) p.set('q', q.trim())
@@ -100,7 +93,6 @@ export default function SpecialistsPage() {
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  /* -------- загрузка специалистов -------- */
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
@@ -115,7 +107,22 @@ export default function SpecialistsPage() {
           const res = await fetch(`/api/specialists?${queryString}`, { cache: 'no-store', signal: ctrl.signal })
           const data: ApiResponse = await res.json()
           if (!res.ok) throw new Error((data as any)?.error || `${res.status} ${res.statusText}`)
-          setItems(data.items || [])
+          let specialists = data.items || []
+
+          // сортировка по убыванию: уровень > рейтинг > отзывы
+          specialists.sort((a, b) => {
+            const aLvl = levelFromXp(a.xp ?? 0).lvl
+            const bLvl = levelFromXp(b.xp ?? 0).lvl
+            if (aLvl !== bLvl) return bLvl - aLvl
+            const aRating = a.avgRating ?? 0
+            const bRating = b.avgRating ?? 0
+            if (aRating !== bRating) return bRating - aRating
+            const aReviews = a.reviewsCount ?? a._count?.reviewsReceived ?? 0
+            const bReviews = b.reviewsCount ?? b._count?.reviewsReceived ?? 0
+            return bReviews - aReviews
+          })
+
+          setItems(specialists)
           setTotal(data.total || 0)
           setPages(data.pages || 1)
         } catch (e: any) {
@@ -135,13 +142,10 @@ export default function SpecialistsPage() {
     }
   }, [queryString])
 
-  /* при смене любого фильтра, кроме пагинации, сбрасываем на 1 страницу */
   useEffect(() => {
     setPage(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, city, skill, minXp, minRating, sortBy, order])
 
-  /* -------- подтянуть мой точный XP из /api/users/me/level -------- */
   useEffect(() => {
     let cancelled = false
     if (!user?.id) {
@@ -163,17 +167,14 @@ export default function SpecialistsPage() {
     }
   }, [user?.id])
 
-  /* -------- карточка -------- */
   const Card = (u: SpecialistItem) => {
     const name = u.fullName || u.email || 'Без имени'
     const letter = (name[0] || '•').toUpperCase()
-    // xp из бэка (xpComputed) → иначе xp
     let xpValue = (u.xpComputed ?? u.xp ?? 0) || 0
     let lvl = u.lvl
     let progress = u.progress
     let toNext = u.toNext
 
-    // если это текущий пользователь и есть свежие данные из /users/me/level — подменяем
     if (user?.id && user.id === u.id && myLevel) {
       xpValue = myLevel.xp
       lvl = myLevel.level
@@ -181,7 +182,6 @@ export default function SpecialistsPage() {
       toNext = myLevel.xpToNextLevel
     }
 
-    // если из API не пришло lvl/progress — посчитаем на клиенте (на всякий случай)
     if (lvl == null || progress == null || toNext == null) {
       const calc = levelFromXp(xpValue)
       lvl = calc.lvl
@@ -193,9 +193,10 @@ export default function SpecialistsPage() {
     const skillsStr = Array.isArray(u.skills) ? u.skills.join(', ') : (u.skills || '')
 
     return (
-      <div
+      <Link
+        href={`/users/${u.id}`}
         key={u.id}
-        className="bg-black/50 backdrop-blur-sm text-white p-4 rounded-xl border border-emerald-700/30 hover:border-emerald-500/50 transition shadow-[0_0_30px_rgba(16,185,129,0.12)]"
+        className="block bg-black/50 backdrop-blur-sm text-white p-4 rounded-xl border border-emerald-700/30 hover:border-emerald-500/50 transition shadow-[0_0_30px_rgba(16,185,129,0.12)] hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] cursor-pointer"
       >
         {u.avatarUrl ? (
           <img src={u.avatarUrl} alt={name} className="w-12 h-12 rounded-full mb-2 object-cover" />
@@ -237,20 +238,14 @@ export default function SpecialistsPage() {
         </div>
 
         {skillsStr && <p className="text-[11px] mt-2 text-gray-400 line-clamp-2">Навыки: {skillsStr}</p>}
-
-        <Link href={`/users/${u.id}`} className="inline-block mt-3 text-emerald-300 hover:text-emerald-200 text-sm">
-          Смотреть профиль →
-        </Link>
-      </div>
+      </Link>
     )
   }
 
   return (
-    // ВАЖНО: НИКАКИХ фонов на уровне страницы — убрали «чёрный квадрат»
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <h2 className="text-xl font-bold mb-4 text-white">⚡ Подиум исполнителей</h2>
 
-      {/* Панель фильтров (не растягиваем фоном на всю страницу) */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end bg-black/40 backdrop-blur-sm border border-emerald-800/40 rounded-xl p-4 mb-6">
         <div className="md:col-span-2">
           <label className="block text-xs text-gray-400 mb-1">Поиск</label>
@@ -301,29 +296,6 @@ export default function SpecialistsPage() {
             className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
           />
         </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-xs text-gray-400 mb-1">Сортировка</label>
-          <div className="flex gap-2">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="rounded bg-black/60 text-white px-3 py-2 border border-emerald-800/50 focus:border-emerald-500"
-            >
-              <option value="xp">Опыт</option>
-              <option value="rating">Рейтинг</option>
-              <option value="tasks">Выполненные задачи</option>
-            </select>
-            <select
-              value={order}
-              onChange={(e) => setOrder(e.target.value as any)}
-              className="rounded bg-black/60 text-white px-3 py-2 border border-emerald-800/50 focus:border-emerald-500"
-            >
-              <option value="desc">по убыванию</option>
-              <option value="asc">по возрастанию</option>
-            </select>
-          </div>
-        </div>
       </div>
 
       {loading && <div className="text-gray-300">Загрузка…</div>}
@@ -367,4 +339,3 @@ export default function SpecialistsPage() {
     </div>
   )
 }
- 

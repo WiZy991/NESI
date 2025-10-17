@@ -17,7 +17,12 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
       include: {
         author: {
-          select: { id: true, fullName: true, email: true, avatarFileId: true },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarFileId: true,
+          },
         },
         _count: { select: { comments: true, likes: true } },
         likes: me
@@ -29,6 +34,13 @@ export async function GET(req: NextRequest) {
     const formatted = posts.map((p) => ({
       ...p,
       liked: me ? p.likes.length > 0 : false,
+      // добавим поле avatarUrl для фронта, если в author.avatarFileId есть ID файла
+      author: {
+        ...p.author,
+        avatarUrl: p.author.avatarFileId
+          ? `/api/files/${p.author.avatarFileId}`
+          : null,
+      },
     }))
 
     return NextResponse.json({ posts: formatted })
@@ -66,20 +78,36 @@ export async function POST(req: NextRequest) {
 
     const post = await prisma.communityPost.create({
       data: {
-        title: '', // теперь заголовок пустой
+        title: '',
         content: content?.trim() || '',
         imageUrl: imageUrl || null,
         authorId: me.id,
       },
       include: {
         author: {
-          select: { id: true, fullName: true, email: true, avatarFileId: true },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarFileId: true,
+          },
         },
         _count: { select: { comments: true, likes: true } },
       },
     })
 
-    return NextResponse.json({ ok: true, post }, { status: 201 })
+    // добавим avatarUrl прямо в ответ
+    const formattedPost = {
+      ...post,
+      author: {
+        ...post.author,
+        avatarUrl: post.author.avatarFileId
+          ? `/api/files/${post.author.avatarFileId}`
+          : null,
+      },
+    }
+
+    return NextResponse.json({ ok: true, post: formattedPost }, { status: 201 })
   } catch (err: any) {
     console.error('🔥 Ошибка создания поста:', err)
     return NextResponse.json(

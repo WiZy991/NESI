@@ -36,14 +36,12 @@ export default function RegisterPage() {
         return
       }
 
-      // ✅ Теперь API возвращает message, а не token
       toast.success(
         data?.message ||
           'Регистрация прошла успешно! Проверьте почту и подтвердите адрес.',
         { id: toastId }
       )
 
-      // ⚙️ Не логиним пользователя сразу — ждём подтверждения почты
       setTimeout(() => {
         router.push('/check-email')
       }, 800)
@@ -56,63 +54,89 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-black/40 border border-emerald-500/40 rounded-2xl shadow-[0_0_35px_rgba(16,185,129,0.4)] p-8 w-full max-w-md"
-      >
-        <h1 className="text-3xl font-bold text-emerald-400 text-center mb-6">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 text-white">
+      <div className="w-full max-w-md p-8 border border-emerald-500/40 rounded-2xl backdrop-blur-md bg-black/10 shadow-[0_0_25px_rgba(16,185,129,0.4)]">
+        <h1 className="text-4xl font-bold text-emerald-400 text-center mb-8 drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
           Регистрация
         </h1>
 
-        <input
-          type="text"
-          placeholder="Имя"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          className="w-full p-3 mb-4 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-        />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <input
+            type="text"
+            placeholder="Имя"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+          />
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 mb-4 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-        />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+          />
 
-        <input
-          type="password"
-          placeholder="Пароль"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 mb-4 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-        />
+          <input
+            type="password"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+          />
 
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as 'customer' | 'executor')}
-          className="w-full p-3 mb-6 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-        >
-          <option value="customer">Заказчик</option>
-          <option value="executor">Исполнитель</option>
-        </select>
+         {/* 🔽 Стилизованный SELECT со стрелочкой */}
+<div className="relative">
+  <select
+    value={role}
+    onChange={(e) => setRole(e.target.value as 'customer' | 'executor')}
+    className="w-full p-3 bg-black/30 border border-emerald-400/50 rounded-lg text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition appearance-none cursor-pointer pr-10"
+  >
+    <option
+      value="customer"
+      className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
+    >
+      Заказчик
+    </option>
+    <option
+      value="executor"
+      className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
+    >
+      Исполнитель
+    </option>
+  </select>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold"
-        >
-          {loading ? 'Регистрируем...' : 'Зарегистрироваться'}
-        </button>
-      </form>
+  {/* SVG стрелочка */}
+  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="#10b981"
+      className="w-5 h-5 opacity-80 group-hover:opacity-100 transition"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  </div>
+</div>
 
-      <Link
-        href="/"
-        className="text-sm text-center mt-6 text-emerald-400 hover:underline"
-      >
-        ← Назад
-      </Link>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold shadow-[0_0_15px_rgba(16,185,129,0.4)] disabled:opacity-60"
+          >
+            {loading ? 'Регистрируем...' : 'Зарегистрироваться'}
+          </button>
+        </form>
+
+        <div className="text-center mt-8">
+          <Link href="/" className="text-emerald-400 hover:underline">
+            ← Назад
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
