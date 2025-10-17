@@ -98,15 +98,27 @@ export default function Home() {
 						объединяющем :
 					</p>
 					<h1
-						className='text-5xl font-bold mb-20'
-						style={{
-							color: '#ffffff',
-							fontFamily: 'Montserrat Alternates-Regular, Helvetica',
-							letterSpacing: '4px',
-						}}
-					>
-						<a href='/business'>БИЗНЕС</a> И <a href='/talents'>ТАЛАНТЫ</a>
-					</h1>
+  className='text-5xl font-bold mb-20 flex items-center justify-center gap-4 flex-wrap'
+  style={{
+    color: '#ffffff',
+    fontFamily: 'Montserrat Alternates-Regular, Helvetica',
+    letterSpacing: '4px',
+  }}
+>
+  <a
+    href='/business'
+    className='px-6 py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300'
+  >
+    БИЗНЕС
+  </a>
+  <span className='text-3xl text-emerald-300 mx-2'>и</span>
+  <a
+    href='/talents'
+    className='px-6 py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300'
+  >
+    ТАЛАНТЫ
+  </a>
+</h1>
 				</div>
 
 				{/* Content Grid */}
