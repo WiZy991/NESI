@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
 
 type SpecialistItem = {
   id: string
@@ -31,14 +32,6 @@ type ApiResponse = {
   take: number
 }
 
-type MyLevel = {
-  level: number
-  xp: number
-  nextLevelXP: number | null
-  xpToNextLevel: number
-  progressPercent: number
-}
-
 const BOUNDS = [0, 100, 300, 600, 1000, 1500, 2100]
 function levelFromXp(xpRaw: number) {
   const xp = Math.max(0, xpRaw ?? 0)
@@ -62,10 +55,8 @@ export default function SpecialistsPage() {
   const [skill, setSkill] = useState('')
   const [minXp, setMinXp] = useState('')
   const [minRating, setMinRating] = useState('')
-  const [sortBy, setSortBy] = useState<'xp' | 'rating' | 'tasks'>('xp')
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc')
-
   const [page, setPage] = useState(1)
+
   const take = 12
 
   const [items, setItems] = useState<SpecialistItem[]>([])
@@ -74,8 +65,6 @@ export default function SpecialistsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [myLevel, setMyLevel] = useState<MyLevel | null>(null)
-
   const queryString = useMemo(() => {
     const p = new URLSearchParams()
     if (q.trim()) p.set('q', q.trim())
@@ -83,12 +72,10 @@ export default function SpecialistsPage() {
     if (skill.trim()) p.set('skill', skill.trim())
     if (minXp.trim()) p.set('minXp', String(parseInt(minXp, 10) || 0))
     if (minRating.trim()) p.set('minRating', String(parseFloat(minRating) || 0))
-    p.set('sortBy', sortBy)
-    p.set('order', order)
     p.set('page', String(page))
     p.set('take', String(take))
     return p.toString()
-  }, [q, city, skill, minXp, minRating, sortBy, order, page])
+  }, [q, city, skill, minXp, minRating, page])
 
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -107,19 +94,26 @@ export default function SpecialistsPage() {
           const res = await fetch(`/api/specialists?${queryString}`, { cache: 'no-store', signal: ctrl.signal })
           const data: ApiResponse = await res.json()
           if (!res.ok) throw new Error((data as any)?.error || `${res.status} ${res.statusText}`)
-          let specialists = data.items || []
 
-          // сортировка по убыванию: уровень > рейтинг > отзывы
+          let specialists = data.items || []
           specialists.sort((a, b) => {
-            const aLvl = levelFromXp(a.xp ?? 0).lvl
-            const bLvl = levelFromXp(b.xp ?? 0).lvl
-            if (aLvl !== bLvl) return bLvl - aLvl
-            const aRating = a.avgRating ?? 0
-            const bRating = b.avgRating ?? 0
-            if (aRating !== bRating) return bRating - aRating
-            const aReviews = a.reviewsCount ?? a._count?.reviewsReceived ?? 0
-            const bReviews = b.reviewsCount ?? b._count?.reviewsReceived ?? 0
-            return bReviews - aReviews
+            const aXP = a.xpComputed ?? a.xp ?? 0
+            const bXP = b.xpComputed ?? b.xp ?? 0
+            const aL = levelFromXp(aXP)
+            const bL = levelFromXp(bXP)
+            const weightA =
+              aL.lvl * 1000 +
+              aL.progress * 3 +
+              (a.avgRating ?? 0) * 20 +
+              (a.reviewsCount ?? a._count?.reviewsReceived ?? 0) * 1.5 +
+              (a.completedTasksCount ?? 0) * 0.5
+            const weightB =
+              bL.lvl * 1000 +
+              bL.progress * 3 +
+              (b.avgRating ?? 0) * 20 +
+              (b.reviewsCount ?? b._count?.reviewsReceived ?? 0) * 1.5 +
+              (b.completedTasksCount ?? 0) * 0.5
+            return weightB - weightA
           })
 
           setItems(specialists)
@@ -135,8 +129,7 @@ export default function SpecialistsPage() {
           setLoading(false)
         }
       })()
-    }, 350)
-
+    }, 300)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
@@ -144,108 +137,92 @@ export default function SpecialistsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [q, city, skill, minXp, minRating, sortBy, order])
+  }, [q, city, skill, minXp, minRating])
 
-  useEffect(() => {
-    let cancelled = false
-    if (!user?.id) {
-      setMyLevel(null)
-      return
-    }
-    ;(async () => {
-      try {
-        const res = await fetch('/api/users/me/level', { cache: 'no-store' })
-        if (!res.ok) return
-        const data: MyLevel = await res.json()
-        if (!cancelled) setMyLevel(data)
-      } catch {
-        if (!cancelled) setMyLevel(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [user?.id])
+  const spring = { type: 'spring', stiffness: 220, damping: 22, mass: 0.9, bounce: 0.25 }
+
+  const listTopRef = useRef<HTMLDivElement | null>(null)
+  const scrollToListTop = () => {
+    const y = (listTopRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY - 80
+    window.scrollTo({ top: y, behavior: 'smooth' })
+  }
 
   const Card = (u: SpecialistItem) => {
     const name = u.fullName || u.email || 'Без имени'
     const letter = (name[0] || '•').toUpperCase()
-    let xpValue = (u.xpComputed ?? u.xp ?? 0) || 0
-    let lvl = u.lvl
-    let progress = u.progress
-    let toNext = u.toNext
-
-    if (user?.id && user.id === u.id && myLevel) {
-      xpValue = myLevel.xp
-      lvl = myLevel.level
-      progress = myLevel.progressPercent
-      toNext = myLevel.xpToNextLevel
-    }
-
-    if (lvl == null || progress == null || toNext == null) {
-      const calc = levelFromXp(xpValue)
-      lvl = calc.lvl
-      progress = calc.progress
-      toNext = calc.toNext
-    }
-
+    const xpValue = (u.xpComputed ?? u.xp ?? 0) || 0
+    const calc = levelFromXp(xpValue)
     const reviews = u.reviewsCount ?? u._count?.reviewsReceived ?? 0
     const skillsStr = Array.isArray(u.skills) ? u.skills.join(', ') : (u.skills || '')
 
     return (
-      <Link
-        href={`/users/${u.id}`}
-        key={u.id}
-        className="block bg-black/50 backdrop-blur-sm text-white p-4 rounded-xl border border-emerald-700/30 hover:border-emerald-500/50 transition shadow-[0_0_30px_rgba(16,185,129,0.12)] hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] cursor-pointer"
-      >
-        {u.avatarUrl ? (
-          <img src={u.avatarUrl} alt={name} className="w-12 h-12 rounded-full mb-2 object-cover" />
-        ) : (
-          <div className="w-12 h-12 rounded-full bg-gray-700 mb-2 flex items-center justify-center text-base font-bold">
-            {letter}
-          </div>
-        )}
+      <motion.div layout whileHover={{ scale: 1.05, y: -6 }} transition={spring}>
+        <Link
+          href={`/users/${u.id}`}
+          className="block bg-black/50 backdrop-blur-md text-white p-4 rounded-2xl border border-emerald-700/30 hover:border-emerald-500/50 transition cursor-pointer"
+        >
+          {u.avatarUrl ? (
+            <img src={u.avatarUrl} alt={name} className="w-12 h-12 rounded-full mb-2 object-cover" />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-gray-700 mb-2 flex items-center justify-center text-base font-bold">
+              {letter}
+            </div>
+          )}
+          <h3 className="text-lg font-semibold leading-tight">{name}</h3>
+          <p className="text-xs text-gray-300 mb-3">{u.location || 'Без города'}</p>
 
-        <h3 className="text-lg font-semibold leading-tight">{name}</h3>
-        <p className="text-xs text-gray-300 mb-3">{u.location || 'Без города'}</p>
-
-        <div className="flex items-center justify-between text-xs mb-1">
-          <span>
-            Уровень: <span className="font-semibold text-white">{lvl}</span>
-          </span>
-          <span className="opacity-70">{xpValue} XP</span>
-        </div>
-        <div className="h-2 rounded bg-emerald-950/60 overflow-hidden mb-1">
-          <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
-        </div>
-        <div className="text-[11px] text-gray-400 mb-3">
-          До следующего уровня: {toNext && toNext > 0 ? `${toNext} XP` : '—'}
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 text-xs text-gray-200">
-          <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
-            <div className="text-white font-semibold">{u.completedTasksCount ?? 0}</div>
-            <div className="opacity-70">Задачи</div>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span>Уровень: <span className="font-semibold">{calc.lvl}</span></span>
+            <span className="opacity-70">{xpValue} XP</span>
           </div>
-          <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
-            <div className="text-white font-semibold">{(u.avgRating ?? 0).toFixed(1)}</div>
-            <div className="opacity-70">Рейтинг</div>
+          <div className="h-2 rounded bg-emerald-950/60 overflow-hidden mb-1">
+            <motion.div className="h-full bg-emerald-500" animate={{ width: `${calc.progress}%` }} />
           </div>
-          <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
-            <div className="text-white font-semibold">{reviews}</div>
-            <div className="opacity-70">Отзывы</div>
+          <div className="text-[11px] text-gray-400 mb-3">
+            До следующего уровня: {calc.toNext > 0 ? `${calc.toNext} XP` : '—'}
           </div>
-        </div>
 
-        {skillsStr && <p className="text-[11px] mt-2 text-gray-400 line-clamp-2">Навыки: {skillsStr}</p>}
-      </Link>
+          <div className="grid grid-cols-3 gap-2 text-xs text-gray-200">
+            <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
+              <div className="font-semibold">{u.completedTasksCount ?? 0}</div>
+              <div className="opacity-70">Задачи</div>
+            </div>
+            <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
+              <div className="font-semibold">{(u.avgRating ?? 0).toFixed(1)}</div>
+              <div className="opacity-70">Рейтинг</div>
+            </div>
+            <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
+              <div className="font-semibold">{reviews}</div>
+              <div className="opacity-70">Отзывы</div>
+            </div>
+          </div>
+
+          {skillsStr && <p className="text-[11px] mt-2 text-gray-400 line-clamp-2">Навыки: {skillsStr}</p>}
+        </Link>
+      </motion.div>
     )
+  }
+
+  const getPageNumbers = () => {
+    const spread = 2
+    const start = Math.max(1, page - spread)
+    const end = Math.min(pages, page + spread)
+    const arr: number[] = []
+    for (let p = start; p <= end; p++) arr.push(p)
+    return arr
+  }
+
+  const changePage = (p: number) => {
+    if (p === page || p < 1 || p > pages) return
+    setPage(p)
+    scrollToListTop()
   }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <h2 className="text-xl font-bold mb-4 text-white">⚡ Подиум исполнителей</h2>
 
+      {/* Фильтры */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end bg-black/40 backdrop-blur-sm border border-emerald-800/40 rounded-xl p-4 mb-6">
         <div className="md:col-span-2">
           <label className="block text-xs text-gray-400 mb-1">Поиск</label>
@@ -256,7 +233,6 @@ export default function SpecialistsPage() {
             className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
           />
         </div>
-
         <div>
           <label className="block text-xs text-gray-400 mb-1">Город</label>
           <input
@@ -266,7 +242,6 @@ export default function SpecialistsPage() {
             className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
           />
         </div>
-
         <div>
           <label className="block text-xs text-gray-400 mb-1">Навык</label>
           <input
@@ -276,7 +251,6 @@ export default function SpecialistsPage() {
             className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
           />
         </div>
-
         <div>
           <label className="block text-xs text-gray-400 mb-1">Мин. XP</label>
           <input
@@ -286,7 +260,6 @@ export default function SpecialistsPage() {
             className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
           />
         </div>
-
         <div>
           <label className="block text-xs text-gray-400 mb-1">Мин. рейтинг</label>
           <input
@@ -298,43 +271,66 @@ export default function SpecialistsPage() {
         </div>
       </div>
 
+      <div ref={listTopRef} />
       {loading && <div className="text-gray-300">Загрузка…</div>}
       {error && <div className="text-red-400">{error}</div>}
 
       {!loading && !error && items.length === 0 && (
-        <div className="text-gray-400">Исполнителей по текущим фильтрам не найдено</div>
+        <div className="text-gray-400">Исполнителей не найдено</div>
       )}
 
       {!loading && !error && items.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.map((u) => (
-              <Card key={u.id} {...u} />
-            ))}
-          </div>
+        <LayoutGroup>
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={`page-${page}`}
+              layout
+              transition={spring}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            >
+              {items.map((u) => (
+                <Card key={u.id} {...u} />
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        </LayoutGroup>
+      )}
 
-          {pages > 1 && (
-            <div className="mt-6 flex items-center gap-2 text-white">
-              <button
-                className="px-3 py-1 rounded border border-emerald-700/40 text-white disabled:opacity-40"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                ← Назад
-              </button>
-              <span className="text-gray-300 text-sm">
-                Страница {page} из {pages} • всего {total}
-              </span>
-              <button
-                className="px-3 py-1 rounded border border-emerald-700/40 text-white disabled:opacity-40"
-                disabled={page >= pages}
-                onClick={() => setPage((p) => Math.min(pages, p + 1))}
-              >
-                Вперёд →
-              </button>
-            </div>
-          )}
-        </>
+      {/* Пагинация */}
+      {!loading && !error && pages > 1 && (
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-white">
+          <button disabled={page <= 1} onClick={() => changePage(1)} className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition">
+            « Первая
+          </button>
+          <button disabled={page <= 1} onClick={() => changePage(page - 1)} className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition">
+            ← Назад
+          </button>
+          {getPageNumbers().map((p) => (
+            <button
+              key={p}
+              onClick={() => changePage(p)}
+              className={`px-3 py-1 rounded-lg border text-sm transition ${
+                p === page
+                  ? 'border-emerald-500 bg-emerald-600/20 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                  : 'border-emerald-700/40 hover:border-emerald-500/60'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+          <button disabled={page >= pages} onClick={() => changePage(page + 1)} className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition">
+            Вперёд →
+          </button>
+          <button disabled={page >= pages} onClick={() => changePage(pages)} className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition">
+            Последняя »
+          </button>
+          <span className="ml-3 text-xs text-gray-400">
+            Стр. {page} из {pages} • всего {total}
+          </span>
+        </div>
       )}
     </div>
   )
