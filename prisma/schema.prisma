@@ -448,3 +448,14 @@ enum Role {
   admin
   customer
 }
+
+model CommunityReport {
+  id          String   @id @default(cuid())
+  type        String   // "post" или "comment"
+  postId      String?
+  commentId   String?
+  reason      String
+  description String?
+  reporterId  String?  // кто подал жалобу
+  createdAt   DateTime @default(now())
+}
