@@ -32,14 +32,6 @@ type ApiResponse = {
   take: number
 }
 
-type MyLevel = {
-  level: number
-  xp: number
-  nextLevelXP: number | null
-  xpToNextLevel: number
-  progressPercent: number
-}
-
 const BOUNDS = [0, 100, 300, 600, 1000, 1500, 2100]
 function levelFromXp(xpRaw: number) {
   const xp = Math.max(0, xpRaw ?? 0)
@@ -58,15 +50,13 @@ function levelFromXp(xpRaw: number) {
 export default function SpecialistsPage() {
   const { user } = useUser()
 
-  // фильтры
   const [q, setQ] = useState('')
   const [city, setCity] = useState('')
   const [skill, setSkill] = useState('')
   const [minXp, setMinXp] = useState('')
   const [minRating, setMinRating] = useState('')
-  const [category, setCategory] = useState('all')
-
   const [page, setPage] = useState(1)
+
   const take = 12
 
   const [items, setItems] = useState<SpecialistItem[]>([])
@@ -74,22 +64,6 @@ export default function SpecialistsPage() {
   const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [myLevel, setMyLevel] = useState<MyLevel | null>(null)
-
-  // реальные категории из seed
-  const categories = [
-    { key: 'all', label: 'Все' },
-    { key: 'Frontend', label: 'Frontend' },
-    { key: 'Backend', label: 'Backend' },
-    { key: 'Базы данных', label: 'Базы данных' },
-    { key: 'DevOps', label: 'DevOps' },
-    { key: 'UI/UX дизайн', label: 'UI/UX дизайн' },
-    { key: 'Графический дизайн', label: 'Графический дизайн' },
-    { key: 'Анимация и видео', label: 'Анимация и видео' },
-    { key: 'Написание статей', label: 'Написание статей' },
-    { key: 'Редактирование', label: 'Редактирование' },
-    { key: 'Сценарии', label: 'Сценарии' },
-  ]
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams()
@@ -98,11 +72,10 @@ export default function SpecialistsPage() {
     if (skill.trim()) p.set('skill', skill.trim())
     if (minXp.trim()) p.set('minXp', String(parseInt(minXp, 10) || 0))
     if (minRating.trim()) p.set('minRating', String(parseFloat(minRating) || 0))
-    if (category !== 'all') p.set('category', category)
     p.set('page', String(page))
     p.set('take', String(take))
     return p.toString()
-  }, [q, city, skill, minXp, minRating, page, category])
+  }, [q, city, skill, minXp, minRating, page])
 
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -113,6 +86,7 @@ export default function SpecialistsPage() {
       abortRef.current?.abort()
       const ctrl = new AbortController()
       abortRef.current = ctrl
+
       ;(async () => {
         setLoading(true)
         setError(null)
@@ -120,16 +94,28 @@ export default function SpecialistsPage() {
           const res = await fetch(`/api/specialists?${queryString}`, { cache: 'no-store', signal: ctrl.signal })
           const data: ApiResponse = await res.json()
           if (!res.ok) throw new Error((data as any)?.error || `${res.status} ${res.statusText}`)
+
           let specialists = data.items || []
           specialists.sort((a, b) => {
             const aXP = a.xpComputed ?? a.xp ?? 0
             const bXP = b.xpComputed ?? b.xp ?? 0
             const aL = levelFromXp(aXP)
             const bL = levelFromXp(bXP)
-            const weightA = aL.lvl * 1000 + aL.progress * 3 + (a.avgRating ?? 0) * 20 + (a.reviewsCount ?? a._count?.reviewsReceived ?? 0) * 1.5 + (a.completedTasksCount ?? 0) * 0.5
-            const weightB = bL.lvl * 1000 + bL.progress * 3 + (b.avgRating ?? 0) * 20 + (b.reviewsCount ?? b._count?.reviewsReceived ?? 0) * 1.5 + (b.completedTasksCount ?? 0) * 0.5
+            const weightA =
+              aL.lvl * 1000 +
+              aL.progress * 3 +
+              (a.avgRating ?? 0) * 20 +
+              (a.reviewsCount ?? a._count?.reviewsReceived ?? 0) * 1.5 +
+              (a.completedTasksCount ?? 0) * 0.5
+            const weightB =
+              bL.lvl * 1000 +
+              bL.progress * 3 +
+              (b.avgRating ?? 0) * 20 +
+              (b.reviewsCount ?? b._count?.reviewsReceived ?? 0) * 1.5 +
+              (b.completedTasksCount ?? 0) * 0.5
             return weightB - weightA
           })
+
           setItems(specialists)
           setTotal(data.total || 0)
           setPages(data.pages || 1)
@@ -151,7 +137,7 @@ export default function SpecialistsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [q, city, skill, minXp, minRating, category])
+  }, [q, city, skill, minXp, minRating])
 
   const spring = { type: 'spring', stiffness: 220, damping: 22, mass: 0.9, bounce: 0.25 }
 
@@ -171,7 +157,10 @@ export default function SpecialistsPage() {
 
     return (
       <motion.div layout whileHover={{ scale: 1.05, y: -6 }} transition={spring}>
-        <Link href={`/users/${u.id}`} className="block bg-black/50 backdrop-blur-md text-white p-4 rounded-2xl border border-emerald-700/30 hover:border-emerald-500/50 transition cursor-pointer">
+        <Link
+          href={`/users/${u.id}`}
+          className="block bg-black/50 backdrop-blur-md text-white p-4 rounded-2xl border border-emerald-700/30 hover:border-emerald-500/50 transition cursor-pointer"
+        >
           {u.avatarUrl ? (
             <img src={u.avatarUrl} alt={name} className="w-12 h-12 rounded-full mb-2 object-cover" />
           ) : (
@@ -181,14 +170,18 @@ export default function SpecialistsPage() {
           )}
           <h3 className="text-lg font-semibold leading-tight">{name}</h3>
           <p className="text-xs text-gray-300 mb-3">{u.location || 'Без города'}</p>
+
           <div className="flex items-center justify-between text-xs mb-1">
-            <span>Уровень: <b>{calc.lvl}</b></span>
+            <span>Уровень: <span className="font-semibold">{calc.lvl}</span></span>
             <span className="opacity-70">{xpValue} XP</span>
           </div>
           <div className="h-2 rounded bg-emerald-950/60 overflow-hidden mb-1">
             <motion.div className="h-full bg-emerald-500" animate={{ width: `${calc.progress}%` }} />
           </div>
-          <div className="text-[11px] text-gray-400 mb-3">До следующего уровня: {calc.toNext > 0 ? `${calc.toNext} XP` : '—'}</div>
+          <div className="text-[11px] text-gray-400 mb-3">
+            До следующего уровня: {calc.toNext > 0 ? `${calc.toNext} XP` : '—'}
+          </div>
+
           <div className="grid grid-cols-3 gap-2 text-xs text-gray-200">
             <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
               <div className="font-semibold">{u.completedTasksCount ?? 0}</div>
@@ -203,6 +196,7 @@ export default function SpecialistsPage() {
               <div className="opacity-70">Отзывы</div>
             </div>
           </div>
+
           {skillsStr && <p className="text-[11px] mt-2 text-gray-400 line-clamp-2">Навыки: {skillsStr}</p>}
         </Link>
       </motion.div>
@@ -213,7 +207,9 @@ export default function SpecialistsPage() {
     const spread = 2
     const start = Math.max(1, page - spread)
     const end = Math.min(pages, page + spread)
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+    const arr: number[] = []
+    for (let p = start; p <= end; p++) arr.push(p)
+    return arr
   }
 
   const changePage = (p: number) => {
@@ -225,24 +221,6 @@ export default function SpecialistsPage() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <h2 className="text-xl font-bold mb-4 text-white">⚡ Подиум исполнителей</h2>
-
-      {/* Категории */}
-      <motion.div layout className="flex flex-wrap gap-2 mb-6">
-        {categories.map((c) => (
-          <motion.button
-            key={c.key}
-            layout
-            onClick={() => setCategory(c.key)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
-              category === c.key
-                ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]'
-                : 'bg-emerald-900/20 text-emerald-300 hover:bg-emerald-800/30'
-            }`}
-          >
-            {c.label}
-          </motion.button>
-        ))}
-      </motion.div>
 
       {/* Фильтры */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end bg-black/40 backdrop-blur-sm border border-emerald-800/40 rounded-xl p-4 mb-6">
@@ -297,13 +275,15 @@ export default function SpecialistsPage() {
       {loading && <div className="text-gray-300">Загрузка…</div>}
       {error && <div className="text-red-400">{error}</div>}
 
-      {!loading && !error && items.length === 0 && <div className="text-gray-400">Исполнителей не найдено</div>}
+      {!loading && !error && items.length === 0 && (
+        <div className="text-gray-400">Исполнителей не найдено</div>
+      )}
 
       {!loading && !error && items.length > 0 && (
         <LayoutGroup>
           <AnimatePresence mode="popLayout">
             <motion.div
-              key={`${category}-${page}`}
+              key={`page-${page}`}
               layout
               transition={spring}
               initial={{ opacity: 0, y: 10 }}
