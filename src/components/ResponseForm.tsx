@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
 
@@ -26,6 +26,32 @@ export default function ResponseForm({
   const [hasResponded, setHasResponded] = useState(false)
   const [loadingCheck, setLoadingCheck] = useState(true)
 
+  // 🧠 управление всплывающей плашкой сертификации
+  const [showTooltip, setShowTooltip] = useState(false)
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleMouseEnter = () => {
+    if (!isCertified) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+      setShowTooltip(true)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (!isCertified) {
+      hideTimerRef.current = setTimeout(() => setShowTooltip(false), 400)
+    }
+  }
+
+  const handleTooltipEnter = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    setShowTooltip(true)
+  }
+
+  const handleTooltipLeave = () => {
+    hideTimerRef.current = setTimeout(() => setShowTooltip(false), 300)
+  }
+
   // ✅ Проверка, есть ли уже отклик
   useEffect(() => {
     const checkResponse = async () => {
@@ -39,7 +65,7 @@ export default function ResponseForm({
           cache: 'no-store',
         })
         const data = await res.json()
-        setHasResponded(Boolean(data?.has)) // ← тут теперь правильно
+        setHasResponded(Boolean(data?.has))
       } catch (err) {
         console.error('Ошибка проверки отклика:', err)
       } finally {
@@ -78,7 +104,7 @@ export default function ResponseForm({
       }
 
       toast.success('Отклик отправлен!')
-      setHasResponded(true) // форма исчезает
+      setHasResponded(true)
     } catch (err) {
       console.error('Ошибка сети:', err)
       toast.error('Ошибка сети')
@@ -86,25 +112,6 @@ export default function ResponseForm({
       setLoading(false)
     }
   }
-
-  const Tooltip = () =>
-    !isCertified && (
-      <div
-        className="absolute top-1/2 left-full ml-2 -translate-y-1/2 
-                   hidden group-hover:block group-focus-within:block 
-                   bg-gray-900 border border-gray-700 text-gray-200 text-xs 
-                   px-3 py-2 rounded shadow-lg w-64 z-10 
-                   transition-opacity duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-      >
-        Чтобы откликнуться на задачу, нужна сертификация по «{subcategoryName}». <br />
-        <a
-          href={`/cert?subcategoryId=${subcategoryId}`}
-          className="underline text-blue-400 hover:text-blue-200"
-        >
-          Пройти тест →
-        </a>
-      </div>
-    )
 
   // 💡 Отображение
   if (loadingCheck)
@@ -121,11 +128,19 @@ export default function ResponseForm({
 
   // 🧾 Если отклика нет — показываем форму
   return (
-    <form onSubmit={handleSubmit} className="mt-6 border-t border-gray-700 pt-4">
+    <form
+      onSubmit={handleSubmit}
+      className="mt-6 border-t border-gray-700 pt-4 relative"
+      onMouseLeave={handleMouseLeave}
+    >
       <h2 className="text-lg font-semibold mb-2">Откликнуться</h2>
 
       {/* Комментарий */}
-      <div className="relative group inline-block w-full mb-2">
+      <div
+        className="relative w-full mb-2"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -135,11 +150,14 @@ export default function ResponseForm({
             !isCertified ? 'cursor-not-allowed opacity-50' : ''
           }`}
         />
-        <Tooltip />
       </div>
 
       {/* Цена */}
-      <div className="relative group inline-block w-full mb-2">
+      <div
+        className="relative w-full mb-2"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <input
           type="number"
           value={price}
@@ -150,8 +168,24 @@ export default function ResponseForm({
             !isCertified ? 'cursor-not-allowed opacity-50' : ''
           }`}
         />
-        <Tooltip />
       </div>
+
+      {/* 🧩 Всплывающая подсказка */}
+      {!isCertified && showTooltip && (
+        <div
+          className="absolute right-0 top-full mt-2 w-72 bg-gray-900 border border-gray-700 text-gray-200 text-xs px-3 py-2 rounded shadow-lg z-10 transition-opacity duration-300"
+          onMouseEnter={handleTooltipEnter}
+          onMouseLeave={handleTooltipLeave}
+        >
+          Чтобы откликнуться на задачу, нужна сертификация по «{subcategoryName}». <br />
+          <a
+            href={`/cert?subcategoryId=${subcategoryId}`}
+            className="underline text-blue-400 hover:text-blue-200"
+          >
+            Пройти тест →
+          </a>
+        </div>
+      )}
 
       {minPrice > 0 && (
         <p className="text-sm text-gray-400 mb-2">
