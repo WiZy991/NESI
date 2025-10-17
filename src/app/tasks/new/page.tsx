@@ -84,29 +84,36 @@ export default function CreateTaskPage() {
 
   return (
     <ProtectedPage>
-      <div className="relative flex justify-center items-center min-h-[80vh]">
-        {/* свечение позади карточки */}
-        <div className="absolute w-[500px] h-[500px] bg-emerald-500/10 blur-[120px] rounded-full animate-pulse-slow" />
-        <div className="absolute w-[800px] h-[800px] bg-green-900/10 blur-[180px] rounded-full animate-pulse-slower" />
+      <div className="relative flex justify-center items-center min-h-[80vh] overflow-hidden">
+        {/* фоновая подсветка */}
+        <div className="absolute w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full animate-pulse-slow" />
+        <div className="absolute w-[900px] h-[900px] bg-emerald-700/10 blur-[180px] rounded-full animate-pulse-slower" />
 
-        <div className="relative w-full max-w-xl mx-auto p-8 space-y-6 bg-gradient-to-br from-black/60 via-black/40 to-emerald-900/20 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.25)] backdrop-blur-md transition-all duration-700 hover:shadow-[0_0_60px_rgba(16,185,129,0.35)] animate-fade-in">
-          <h1 className="text-3xl font-bold text-emerald-400 mb-6 text-center flex items-center justify-center gap-3">
-            <span>🧩</span> Создать задачу
-          </h1>
+        <div className="relative w-full max-w-xl mx-auto p-8 space-y-7 bg-gradient-to-br from-black/60 via-black/40 to-emerald-900/20 border border-emerald-500/20 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.25)] backdrop-blur-md transition-all duration-700 hover:shadow-[0_0_60px_rgba(16,185,129,0.35)] animate-fade-in">
+          <div className="text-center mb-4">
+            <h1 className="text-3xl font-semibold text-emerald-400 flex justify-center items-center gap-2">
+              <span>📄</span> Создать задачу
+            </h1>
+            <p className="text-sm text-gray-400 mt-2">
+              Опишите задачу максимально понятно — это поможет найти идеального исполнителя
+            </p>
+          </div>
 
+          {/* Название */}
           <input
             type="text"
-            placeholder="Название задачи"
+            placeholder="Например: Разработать сайт для агентства"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full p-3 rounded-lg bg-black/60 border border-emerald-700 text-white placeholder-gray-500 focus:border-emerald-400 focus:ring-emerald-400/30 outline-none transition-all duration-300 shadow-inner"
+            className="w-full p-3 rounded-xl bg-black/60 border border-emerald-700 text-white placeholder-gray-500 focus:border-emerald-400 focus:ring-emerald-400/30 outline-none transition-all duration-300 shadow-inner focus:scale-[1.02]"
           />
 
+          {/* Описание */}
           <textarea
-            placeholder="Опиши суть задачи..."
+            placeholder="Опишите, что нужно сделать, какие есть требования и сроки..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full p-3 h-32 rounded-lg bg-black/60 border border-emerald-700 text-white placeholder-gray-500 focus:border-emerald-400 focus:ring-emerald-400/30 outline-none transition-all duration-300 shadow-inner"
+            className="w-full p-3 h-32 rounded-xl bg-black/60 border border-emerald-700 text-white placeholder-gray-500 focus:border-emerald-400 focus:ring-emerald-400/30 outline-none transition-all duration-300 shadow-inner resize-none focus:scale-[1.02]"
           />
 
           {/* Категория */}
@@ -118,7 +125,7 @@ export default function CreateTaskPage() {
                 setCategoryId(e.target.value)
                 setSubcategoryId('')
               }}
-              className="w-full p-3 rounded-lg bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none transition-all duration-300"
+              className="w-full p-3 rounded-xl bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none transition-all duration-300 focus:scale-[1.02]"
             >
               <option value="">Выберите категорию</option>
               {categories.map((cat) => (
@@ -136,7 +143,7 @@ export default function CreateTaskPage() {
               <select
                 value={subcategoryId}
                 onChange={(e) => setSubcategoryId(e.target.value)}
-                className="w-full p-3 rounded-lg bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none transition-all duration-300"
+                className="w-full p-3 rounded-xl bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none transition-all duration-300 focus:scale-[1.02]"
               >
                 <option value="">Выберите подкатегорию</option>
                 {selectedCategory?.subcategories.map((sub) => (
@@ -148,9 +155,9 @@ export default function CreateTaskPage() {
             </div>
           )}
 
-          {/* Drop-зона для файлов */}
+          {/* Drop-зона */}
           <div
-            className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-all duration-300 cursor-pointer ${
+            className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 cursor-pointer ${
               isDragOver
                 ? 'border-emerald-400 bg-emerald-400/10 scale-[1.02]'
                 : 'border-emerald-700 bg-black/40 hover:border-emerald-500/60 hover:bg-black/30'
@@ -194,7 +201,7 @@ export default function CreateTaskPage() {
           <button
             onClick={handleCreate}
             disabled={loading}
-            className={`w-full py-3 rounded-xl font-semibold text-lg shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all duration-300 ${
+            className={`w-full py-3 rounded-xl font-semibold text-lg transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.2)] ${
               loading
                 ? 'bg-gray-600 cursor-not-allowed text-gray-300'
                 : 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] active:scale-95'
@@ -202,6 +209,11 @@ export default function CreateTaskPage() {
           >
             {loading ? 'Создание...' : '🚀 Создать задачу'}
           </button>
+
+          {/* Подсказка */}
+          <p className="text-center text-xs text-gray-500 mt-3">
+            Все поля обязательны для заполнения
+          </p>
         </div>
       </div>
     </ProtectedPage>
