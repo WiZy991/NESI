@@ -63,8 +63,8 @@ export default function Home() {
 								letterSpacing: '3px',
 							}}
 						>
-							<a href='http:/login'>Вход</a> или{' '}
-							<a href='http:/register'>Регистрация</a>
+							<a href='/login'>Вход</a> или{' '}
+							<a href='/register'>Регистрация</a>
 						</span>
 					</div>
 				</div>
