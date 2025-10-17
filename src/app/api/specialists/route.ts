@@ -141,7 +141,6 @@ export async function GET(req: Request) {
         toNext,
         avgRating,
         reviewsCount: reviews,
-        completedTasksCount: completed,
         score,
       }
     })
