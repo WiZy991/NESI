@@ -7,14 +7,12 @@ import { motion } from 'framer-motion'
 import { ClipboardList } from 'lucide-react'
 
 const statusMap: Record<string, string> = {
-  open: 'Открыта',
   in_progress: 'В работе',
   completed: 'Выполнена',
   cancelled: 'Отменена',
 }
 
 const statusColorMap: Record<string, string> = {
-  open: 'border-yellow-400/70 shadow-[0_0_8px_rgba(250,204,21,0.3)]',
   in_progress: 'border-blue-400/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]',
   completed: 'border-emerald-400/80 shadow-[0_0_8px_rgba(16,185,129,0.4)]',
   cancelled: 'border-red-500/70 shadow-[0_0_8px_rgba(239,68,68,0.3)]',
@@ -62,14 +60,14 @@ export default function MyTasksPage() {
   if (error)
     return <p className="text-center mt-10 text-red-400">Ошибка: {error}</p>
 
-  const stats = { open: 0, in_progress: 0, completed: 0, cancelled: 0 }
+  // 📊 считаем только реальные статусы для исполнителя
+  const stats = { in_progress: 0, completed: 0, cancelled: 0 }
   tasks.forEach((t) => {
     if (stats[t.status] !== undefined) stats[t.status]++
   })
 
   const total = tasks.length || 1
   const percentages = {
-    open: (stats.open / total) * 100,
     in_progress: (stats.in_progress / total) * 100,
     completed: (stats.completed / total) * 100,
     cancelled: (stats.cancelled / total) * 100,
@@ -88,20 +86,14 @@ export default function MyTasksPage() {
         Мои задачи
       </motion.h1>
 
-      {/* 📊 Статистика */}
+      {/* 📈 Статистика */}
       <div className="bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(0,255,150,0.15)] p-6 mb-10 backdrop-blur-md">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-emerald-400">
-            📈 Статистика
-          </h2>
+          <h2 className="text-lg font-semibold text-emerald-400">📈 Статистика</h2>
           <div className="text-sm text-gray-400">Всего: {tasks.length}</div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mb-5">
-          <div>
-            <span className="text-yellow-400 font-semibold">{stats.open}</span>
-            <p className="text-xs text-gray-400">Открытые</p>
-          </div>
+        <div className="grid grid-cols-3 gap-3 text-center mb-5">
           <div>
             <span className="text-blue-400 font-semibold">
               {stats.in_progress}
@@ -122,12 +114,8 @@ export default function MyTasksPage() {
           </div>
         </div>
 
-        {/* Прогресс-бар */}
+        {/* 🔵 Прогресс-бар без “Открытых” */}
         <div className="h-3 rounded-full bg-gray-900 overflow-hidden flex">
-          <div
-            style={{ width: `${percentages.open}%` }}
-            className="bg-yellow-400/70"
-          />
           <div
             style={{ width: `${percentages.in_progress}%` }}
             className="bg-blue-500/70"
@@ -143,7 +131,7 @@ export default function MyTasksPage() {
         </div>
       </div>
 
-      {/* 🧩 Список задач (Grid) */}
+      {/* 🧩 Список задач */}
       {tasks.length === 0 ? (
         <div className="text-center py-16 text-gray-500">
           У вас пока нет задач.
@@ -175,7 +163,7 @@ export default function MyTasksPage() {
                 }}
                 className={`relative bg-black/40 border-l-4 ${
                   statusColorMap[task.status]
-                } rounded-xl p-5 hover:shadow-[0_0_18px_rgba(0,255,150,0.2)] transition backdrop-blur-sm pointer-events-auto`}
+                } rounded-xl p-5 hover:shadow-[0_0_18px_rgba(0,255,150,0.2)] transition backdrop-blur-sm`}
               >
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-semibold text-emerald-400 mb-1">
@@ -192,7 +180,7 @@ export default function MyTasksPage() {
                   {customerId ? (
                     <Link
                       href={`/users/${customerId}`}
-                      className="relative z-10 inline-flex text-blue-400 hover:text-blue-300 hover:underline transition pointer-events-auto"
+                      className="relative z-10 inline-flex text-blue-400 hover:text-blue-300 hover:underline transition"
                     >
                       {customerName}
                     </Link>
@@ -208,10 +196,10 @@ export default function MyTasksPage() {
                   {task.description || 'Без описания'}
                 </p>
 
-                {/* 🔗 Ссылка на задачу */}
+                {/* 🔗 Ссылка */}
                 <Link
                   href={`/tasks/${task.id}`}
-                  className="mt-3 inline-block text-sm text-blue-400 hover:underline hover:text-blue-300 transition relative z-10 pointer-events-auto"
+                  className="mt-3 inline-block text-sm text-blue-400 hover:underline hover:text-blue-300 transition"
                 >
                   Перейти к задаче →
                 </Link>
