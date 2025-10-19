@@ -105,14 +105,12 @@ export default function SpecialistsPage() {
               aL.lvl * 1000 +
               aL.progress * 3 +
               (a.avgRating ?? 0) * 20 +
-              (a.reviewsCount ?? a._count?.reviewsReceived ?? 0) * 1.5 +
-              (a.completedTasksCount ?? 0) * 0.5
+              (a.reviewsCount ?? a._count?.reviewsReceived ?? 0) * 1.5
             const weightB =
               bL.lvl * 1000 +
               bL.progress * 3 +
               (b.avgRating ?? 0) * 20 +
-              (b.reviewsCount ?? b._count?.reviewsReceived ?? 0) * 1.5 +
-              (b.completedTasksCount ?? 0) * 0.5
+              (b.reviewsCount ?? b._count?.reviewsReceived ?? 0) * 1.5
             return weightB - weightA
           })
 
@@ -172,32 +170,39 @@ export default function SpecialistsPage() {
           <p className="text-xs text-gray-300 mb-3">{u.location || 'Без города'}</p>
 
           <div className="flex items-center justify-between text-xs mb-1">
-            <span>Уровень: <span className="font-semibold">{calc.lvl}</span></span>
+            <span>
+              Уровень: <span className="font-semibold">{calc.lvl}</span>
+            </span>
             <span className="opacity-70">{xpValue} XP</span>
           </div>
+
           <div className="h-2 rounded bg-emerald-950/60 overflow-hidden mb-1">
             <motion.div className="h-full bg-emerald-500" animate={{ width: `${calc.progress}%` }} />
           </div>
+
           <div className="text-[11px] text-gray-400 mb-3">
             До следующего уровня: {calc.toNext > 0 ? `${calc.toNext} XP` : '—'}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-xs text-gray-200">
-            <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
-              <div className="font-semibold">{u.completedTasksCount ?? 0}</div>
-              <div className="opacity-70">Задачи</div>
+          {/* === Статистика без блока "Задачи" === */}
+          <div className="grid grid-cols-2 gap-3 text-xs text-gray-200 justify-center">
+            <div className="rounded bg-emerald-950/60 p-3 text-center border border-emerald-800/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]">
+              <div className="text-base font-semibold text-emerald-400">
+                {(u.avgRating ?? 0).toFixed(1)}
+              </div>
+              <div className="opacity-70 text-[11px]">Рейтинг</div>
             </div>
-            <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
-              <div className="font-semibold">{(u.avgRating ?? 0).toFixed(1)}</div>
-              <div className="opacity-70">Рейтинг</div>
-            </div>
-            <div className="rounded bg-emerald-950/50 p-2 text-center border border-emerald-800/40">
-              <div className="font-semibold">{reviews}</div>
-              <div className="opacity-70">Отзывы</div>
+            <div className="rounded bg-emerald-950/60 p-3 text-center border border-emerald-800/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]">
+              <div className="text-base font-semibold text-emerald-400">{reviews}</div>
+              <div className="opacity-70 text-[11px]">Отзывы</div>
             </div>
           </div>
 
-          {skillsStr && <p className="text-[11px] mt-2 text-gray-400 line-clamp-2">Навыки: {skillsStr}</p>}
+          {skillsStr && (
+            <p className="text-[11px] mt-3 text-gray-400 line-clamp-2">
+              Навыки: {skillsStr}
+            </p>
+          )}
         </Link>
       </motion.div>
     )
@@ -302,10 +307,18 @@ export default function SpecialistsPage() {
       {/* Пагинация */}
       {!loading && !error && pages > 1 && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-white">
-          <button disabled={page <= 1} onClick={() => changePage(1)} className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition">
+          <button
+            disabled={page <= 1}
+            onClick={() => changePage(1)}
+            className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition"
+          >
             « Первая
           </button>
-          <button disabled={page <= 1} onClick={() => changePage(page - 1)} className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition">
+          <button
+            disabled={page <= 1}
+            onClick={() => changePage(page - 1)}
+            className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition"
+          >
             ← Назад
           </button>
           {getPageNumbers().map((p) => (
@@ -321,10 +334,18 @@ export default function SpecialistsPage() {
               {p}
             </button>
           ))}
-          <button disabled={page >= pages} onClick={() => changePage(page + 1)} className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition">
+          <button
+            disabled={page >= pages}
+            onClick={() => changePage(page + 1)}
+            className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition"
+          >
             Вперёд →
           </button>
-          <button disabled={page >= pages} onClick={() => changePage(pages)} className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition">
+          <button
+            disabled={page >= pages}
+            onClick={() => changePage(pages)}
+            className="px-3 py-1 rounded-lg border border-emerald-700/40 text-sm disabled:opacity-40 hover:border-emerald-500/60 transition"
+          >
             Последняя »
           </button>
           <span className="ml-3 text-xs text-gray-400">
