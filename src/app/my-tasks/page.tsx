@@ -5,29 +5,23 @@ import { useUser } from '@/context/UserContext'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-
-// Цвета для статусов
-const statusColors: Record<string, string> = {
-  open: 'bg-emerald-900/40 border border-emerald-500/50 text-emerald-300',
-  in_progress: 'bg-yellow-900/40 border border-yellow-500/50 text-yellow-300',
-  completed: 'bg-blue-900/40 border border-blue-500/50 text-blue-300',
-  cancelled: 'bg-red-900/40 border border-red-500/50 text-red-300',
-}
+import { motion } from 'framer-motion'
+import { ClipboardList } from 'lucide-react'
 
 // Названия статусов
-function getStatusName(status: string) {
-  switch (status) {
-    case 'open':
-      return 'Открыта'
-    case 'in_progress':
-      return 'В работе'
-    case 'completed':
-      return 'Выполнена'
-    case 'cancelled':
-      return 'Отменена'
-    default:
-      return status
-  }
+const statusMap: Record<string, string> = {
+  open: 'Открыта',
+  in_progress: 'В работе',
+  completed: 'Выполнена',
+  cancelled: 'Отменена',
+}
+
+// Цвета и стили для статусов
+const statusColorMap: Record<string, string> = {
+  open: 'border-yellow-400/70 shadow-[0_0_8px_rgba(250,204,21,0.3)]',
+  in_progress: 'border-blue-400/70 shadow-[0_0_8px_rgba(59,130,246,0.3)]',
+  completed: 'border-emerald-400/80 shadow-[0_0_8px_rgba(16,185,129,0.4)]',
+  cancelled: 'border-red-500/70 shadow-[0_0_8px_rgba(239,68,68,0.3)]',
 }
 
 export default function MyTasksPage() {
@@ -63,64 +57,169 @@ export default function MyTasksPage() {
     fetchTasks()
   }, [token, router])
 
-  if (loading) {
+  if (loading)
     return (
-      <div className="max-w-3xl mx-auto p-8 space-y-6">
-        <h1 className="text-4xl font-bold text-emerald-400">Мои задачи</h1>
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="p-6 border border-emerald-500/30 rounded-xl bg-black/40 animate-pulse shadow-[0_0_25px_rgba(16,185,129,0.2)] space-y-3"
-            >
-              <div className="h-5 bg-emerald-900/40 rounded w-1/2"></div>
-              <div className="h-4 bg-emerald-900/30 rounded w-3/4"></div>
-              <div className="h-3 bg-emerald-900/20 rounded w-1/4"></div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <p className="text-center mt-10 text-gray-400">Загрузка задач...</p>
     )
+
+  // --- статистика
+  const stats = { open: 0, in_progress: 0, completed: 0, cancelled: 0 }
+  tasks.forEach((t) => {
+    if (stats[t.status] !== undefined) stats[t.status]++
+  })
+
+  const total = tasks.length || 1
+  const percentages = {
+    open: (stats.open / total) * 100,
+    in_progress: (stats.in_progress / total) * 100,
+    completed: (stats.completed / total) * 100,
+    cancelled: (stats.cancelled / total) * 100,
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-8 space-y-8">
-      <h1 className="text-4xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]">
+    <div className="max-w-6xl mx-auto mt-12 p-6 text-white">
+      {/* Заголовок */}
+      <motion.h1
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="text-3xl font-bold text-emerald-400 mb-8 flex items-center gap-2"
+      >
+        <ClipboardList className="w-7 h-7 text-emerald-400" />
         Мои задачи
-      </h1>
+      </motion.h1>
 
+      {/* Статистика */}
+      <div className="bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(0,255,150,0.15)] p-6 mb-10 backdrop-blur-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-emerald-400">
+            📊 Статистика
+          </h2>
+          <div className="text-sm text-gray-400">Всего: {tasks.length}</div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mb-5">
+          <div>
+            <span className="text-yellow-400 font-semibold">{stats.open}</span>
+            <p className="text-xs text-gray-400">Открытые</p>
+          </div>
+          <div>
+            <span className="text-blue-400 font-semibold">
+              {stats.in_progress}
+            </span>
+            <p className="text-xs text-gray-400">В работе</p>
+          </div>
+          <div>
+            <span className="text-emerald-400 font-semibold">
+              {stats.completed}
+            </span>
+            <p className="text-xs text-gray-400">Выполнено</p>
+          </div>
+          <div>
+            <span className="text-red-400 font-semibold">
+              {stats.cancelled}
+            </span>
+            <p className="text-xs text-gray-400">Отменено</p>
+          </div>
+        </div>
+
+        {/* Прогресс-бар */}
+        <div className="h-3 rounded-full bg-gray-900 overflow-hidden flex">
+          <div
+            style={{ width: `${percentages.open}%` }}
+            className="bg-yellow-400/70"
+          />
+          <div
+            style={{ width: `${percentages.in_progress}%` }}
+            className="bg-blue-500/70"
+          />
+          <div
+            style={{ width: `${percentages.completed}%` }}
+            className="bg-emerald-500/80 shadow-[0_0_12px_rgba(16,185,129,0.8)]"
+          />
+          <div
+            style={{ width: `${percentages.cancelled}%` }}
+            className="bg-red-600/70"
+          />
+        </div>
+      </div>
+
+      {/* Список задач */}
       {tasks.length === 0 ? (
-        <p className="text-gray-400">У вас пока нет созданных задач.</p>
+        <div className="text-center py-16 text-gray-500">
+          У вас пока нет созданных задач.
+        </div>
       ) : (
-        <div className="space-y-6">
+        <motion.ul
+          className="grid gap-6 md:grid-cols-2"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: { staggerChildren: 0.08 },
+            },
+          }}
+        >
           {tasks.map((task) => (
-            <div
+            <motion.li
               key={task.id}
-              className="p-6 border border-emerald-500/30 rounded-xl bg-black/40 shadow-[0_0_25px_rgba(16,185,129,0.2)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transition space-y-2"
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              className={`relative bg-black/40 border-l-4 ${
+                statusColorMap[task.status]
+              } rounded-xl p-5 hover:shadow-[0_0_18px_rgba(0,255,150,0.2)] transition backdrop-blur-sm`}
             >
-              <Link href={`/tasks/${task.id}`}>
-                <h2 className="text-xl font-semibold text-emerald-300 hover:underline cursor-pointer">
+              <div className="flex justify-between items-start">
+                <h2 className="text-lg font-semibold text-emerald-400 mb-1">
                   {task.title}
                 </h2>
-              </Link>
+                <p className="text-sm text-gray-400">
+                  {statusMap[task.status] || task.status}
+                </p>
+              </div>
 
+              {/* 💰 Цена */}
               {task.price && (
-                <p className="text-emerald-400 font-medium">💰 {task.price} ₽</p>
+                <p className="text-emerald-400 font-medium mt-1">
+                  💰 {task.price} ₽
+                </p>
               )}
 
-              <span
-                className={`inline-block mt-1 px-3 py-1 text-sm rounded-full shadow ${statusColors[task.status] || ''}`}
-              >
-                Статус: {getStatusName(task.status)}
-              </span>
+              {/* 👷 Исполнитель */}
+              {task.executor && (
+                <p className="text-sm text-gray-400 mt-1">
+                  Исполнитель:{' '}
+                  <Link
+                    href={`/users/${task.executor.id}`}
+                    className="text-blue-400 hover:text-blue-300 hover:underline transition"
+                  >
+                    {task.executor.fullName ||
+                      task.executor.email ||
+                      'Без имени'}
+                  </Link>
+                </p>
+              )}
 
-              <p className="text-sm text-gray-400">
-                Создано: {new Date(task.createdAt).toLocaleDateString()}
+              {/* 📝 Описание */}
+              <p className="text-sm text-gray-300 mt-2 italic line-clamp-3">
+                {task.description || 'Без описания'}
               </p>
-            </div>
+
+              {/* 🔗 Ссылка */}
+              <Link
+                href={`/tasks/${task.id}`}
+                className="mt-3 inline-block text-sm text-blue-400 hover:underline hover:text-blue-300 transition"
+              >
+                Перейти к задаче →
+              </Link>
+            </motion.li>
           ))}
-        </div>
+        </motion.ul>
       )}
     </div>
   )
-} 
+}
