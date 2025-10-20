@@ -29,7 +29,8 @@ export async function GET(req: Request) {
     const qRaw = (searchParams.get('q') || '').trim()
     const city = (searchParams.get('city') || '').trim()
     const skill = (searchParams.get('skill') || '').trim()
-    const category = (searchParams.get('category') || '').trim() // 💡 новое: фильтр по категории
+    const category = (searchParams.get('category') || '').trim()
+    const sort = (searchParams.get('sort') || 'rating') as 'rating' | 'reviews' | 'xp' // 💡 новый параметр
 
     const minXp = toInt(searchParams.get('minXp'))
     const maxXp = toInt(searchParams.get('maxXp'))
@@ -60,7 +61,6 @@ export async function GET(req: Request) {
 
     if (city) where.location = { contains: city, mode: 'insensitive' }
 
-    // 💡 фильтрация по конкретному скиллу или категории
     if (skill) where.skills = { has: skill }
     if (category) where.skills = { has: category }
 
@@ -72,7 +72,7 @@ export async function GET(req: Request) {
 
     if (minRating != null) where.avgRating = { gte: minRating }
 
-    // ── получаем всех подходящих пользователей (без skip/take)
+    // ── получаем всех подходящих пользователей
     const users = await prisma.user.findMany({
       where,
       select: {
@@ -85,9 +85,7 @@ export async function GET(req: Request) {
         xp: true,
         completedTasksCount: true,
         level: { select: { id: true, name: true } },
-        badges: {
-          select: { badge: { select: { id: true, name: true, icon: true } } },
-        },
+        badges: { select: { badge: { select: { id: true, name: true, icon: true } } } },
         _count: { select: { reviewsReceived: true } },
       },
     })
@@ -116,7 +114,7 @@ export async function GET(req: Request) {
       ratingByUser = Object.fromEntries(ratings.map((r) => [r.toUserId, r._avg.rating ?? 0]))
     }
 
-    // ── вычисляем score (вес) для глобальной сортировки
+    // ── финальная подготовка данных
     const scored = users.map((u) => {
       const passed = passedByUser[u.id] || 0
       const xpComputed = (u.xp ?? 0) + passed * 10
@@ -124,13 +122,16 @@ export async function GET(req: Request) {
       const avgRating = ratingByUser[u.id] ?? 0
       const reviews = u._count?.reviewsReceived ?? 0
 
-      // 💎 глобальный рейтинг (как на фронте, но теперь на бэке)
-      const score =
-        lvl * 1000 +
-        progress * 3 +
-        avgRating * 20 +
-        reviews * 1.5 +
-        (u.completedTasksCount ?? 0) * 0.5
+      // 💎 три режима сортировки
+      let score = 0
+      if (sort === 'rating') {
+        score = (avgRating || 0) * 1000 + (reviews || 0) * 10 + lvl * 10
+      } else if (sort === 'reviews') {
+        score = (reviews || 0) * 1000 + (avgRating || 0) * 50 + lvl * 5
+      } else {
+        // sort === 'xp'
+        score = lvl * 1000 + progress * 3 + avgRating * 20 + reviews * 1.5
+      }
 
       return {
         ...u,
@@ -145,15 +146,13 @@ export async function GET(req: Request) {
       }
     })
 
-    // ── глобальная сортировка по убыванию "ценности"
+    // ── сортировка
     scored.sort((a, b) => b.score - a.score)
 
-    // ── страничная выборка
     const total = scored.length
     const pages = Math.max(1, Math.ceil(total / take))
     const items = scored.slice(skip, skip + take)
 
-    // ── формат ответа
     if (format === 'array') return NextResponse.json(items)
     return NextResponse.json({ items, total, page, pages, take })
   } catch (error) {
