@@ -56,6 +56,7 @@ export default function SpecialistsPage() {
   const [minXp, setMinXp] = useState('')
   const [minRating, setMinRating] = useState('')
   const [page, setPage] = useState(1)
+  const [sort, setSort] = useState<'rating' | 'reviews' | 'xp'>('rating') // 💡 новый стейт сортировки
 
   const take = 12
 
@@ -72,10 +73,11 @@ export default function SpecialistsPage() {
     if (skill.trim()) p.set('skill', skill.trim())
     if (minXp.trim()) p.set('minXp', String(parseInt(minXp, 10) || 0))
     if (minRating.trim()) p.set('minRating', String(parseFloat(minRating) || 0))
+    p.set('sort', sort) // 👈 теперь отправляем выбранную сортировку
     p.set('page', String(page))
     p.set('take', String(take))
     return p.toString()
-  }, [q, city, skill, minXp, minRating, page])
+  }, [q, city, skill, minXp, minRating, page, sort]) // добавили зависимость sort
 
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -95,26 +97,8 @@ export default function SpecialistsPage() {
           const data: ApiResponse = await res.json()
           if (!res.ok) throw new Error((data as any)?.error || `${res.status} ${res.statusText}`)
 
-          let specialists = data.items || []
-          specialists.sort((a, b) => {
-            const aXP = a.xpComputed ?? a.xp ?? 0
-            const bXP = b.xpComputed ?? b.xp ?? 0
-            const aL = levelFromXp(aXP)
-            const bL = levelFromXp(bXP)
-            const weightA =
-              aL.lvl * 1000 +
-              aL.progress * 3 +
-              (a.avgRating ?? 0) * 20 +
-              (a.reviewsCount ?? a._count?.reviewsReceived ?? 0) * 1.5
-            const weightB =
-              bL.lvl * 1000 +
-              bL.progress * 3 +
-              (b.avgRating ?? 0) * 20 +
-              (b.reviewsCount ?? b._count?.reviewsReceived ?? 0) * 1.5
-            return weightB - weightA
-          })
-
-          setItems(specialists)
+          // сортировка теперь идёт на бэке
+          setItems(data.items || [])
           setTotal(data.total || 0)
           setPages(data.pages || 1)
         } catch (e: any) {
@@ -135,7 +119,7 @@ export default function SpecialistsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [q, city, skill, minXp, minRating])
+  }, [q, city, skill, minXp, minRating, sort])
 
   const spring = { type: 'spring', stiffness: 220, damping: 22, mass: 0.9, bounce: 0.25 }
 
@@ -184,7 +168,7 @@ export default function SpecialistsPage() {
             До следующего уровня: {calc.toNext > 0 ? `${calc.toNext} XP` : '—'}
           </div>
 
-          {/* === Статистика без блока "Задачи" === */}
+          {/* === Статистика === */}
           <div className="grid grid-cols-2 gap-3 text-xs text-gray-200 justify-center">
             <div className="rounded bg-emerald-950/60 p-3 text-center border border-emerald-800/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]">
               <div className="text-base font-semibold text-emerald-400">
@@ -274,6 +258,44 @@ export default function SpecialistsPage() {
             className="w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500"
           />
         </div>
+      </div>
+
+      {/* Переключатель сортировки */}
+      <div className="flex items-center gap-4 text-white mb-6">
+        <span className="text-sm opacity-70">Сортировка:</span>
+        <label className="flex items-center gap-1 text-sm cursor-pointer">
+          <input
+            type="radio"
+            name="sort"
+            value="rating"
+            checked={sort === 'rating'}
+            onChange={() => setSort('rating')}
+            className="accent-emerald-500"
+          />
+          По рейтингу
+        </label>
+        <label className="flex items-center gap-1 text-sm cursor-pointer">
+          <input
+            type="radio"
+            name="sort"
+            value="reviews"
+            checked={sort === 'reviews'}
+            onChange={() => setSort('reviews')}
+            className="accent-emerald-500"
+          />
+          По отзывам
+        </label>
+        <label className="flex items-center gap-1 text-sm cursor-pointer">
+          <input
+            type="radio"
+            name="sort"
+            value="xp"
+            checked={sort === 'xp'}
+            onChange={() => setSort('xp')}
+            className="accent-emerald-500"
+          />
+          По опыту
+        </label>
       </div>
 
       <div ref={listTopRef} />
