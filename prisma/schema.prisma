@@ -60,9 +60,20 @@ model User {
   communityLikes          CommunityLike[]
   emailVerificationTokens EmailVerificationToken[]
   adminLogs               AdminActionLog[]
-  disputes    Dispute[]
-  settings       UserSettings?
- }
+  disputes                Dispute[]
+
+  settings UserSettings?
+}
+
+model UserSettings {
+  userId             String  @id
+  emailNotifications Boolean @default(true)
+  pushNotifications  Boolean @default(false)
+  showOnlineStatus   Boolean @default(true)
+  hideEmail          Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+}
 
 model Task {
   id            String         @id @default(uuid())
@@ -452,14 +463,6 @@ model Dispute {
   @@index([userId])
 }
 
-model UserSettings {
-  userId            String  @id
-  emailNotifications Boolean @default(true)
-  pushNotifications  Boolean @default(false)
-  showOnlineStatus   Boolean @default(true)
-  hideEmail          Boolean @default(false)
-  user               User    @relation(fields: [userId], references: [id])
-}
 enum Role {
   user
   executor
@@ -469,12 +472,11 @@ enum Role {
 
 model CommunityReport {
   id          String   @id @default(cuid())
-  type        String   // "post" или "comment"
+  type        String
   postId      String?
   commentId   String?
   reason      String
   description String?
-  reporterId  String?  // кто подал жалобу
+  reporterId  String?
   createdAt   DateTime @default(now())
 }
-
