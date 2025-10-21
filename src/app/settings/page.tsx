@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useUser } from '@/context/UserContext'
-import { motion, AnimatePresence } from 'framer-motion'
-import { User, Lock, Save, Bell, CheckCircle, XCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { User, Lock, Save, Bell } from 'lucide-react'
 
 export default function SettingsPage() {
   const { token, user } = useUser()
@@ -14,18 +14,12 @@ export default function SettingsPage() {
   })
 
   const [passwords, setPasswords] = useState({ old: '', new: '' })
+  const [status, setStatus] = useState<string | null>(null)
+
   const [settings, setSettings] = useState({
     emailNotifications: true,
     pushNotifications: false,
   })
-
-  // === уведомления (тосты) ===
-  const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' | null } | null>(null)
-
-  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
-    setToast({ text, type })
-    setTimeout(() => setToast(null), 3000)
-  }
 
   // === загрузка настроек ===
   useEffect(() => {
@@ -38,9 +32,9 @@ export default function SettingsPage() {
         })
         const data = await res.json()
         if (res.ok) setSettings(data)
-        else showToast('Ошибка при загрузке настроек', 'error')
+        else console.warn('Ошибка загрузки настроек:', data.error)
       } catch {
-        showToast('Не удалось подключиться к серверу', 'error')
+        console.warn('Не удалось загрузить настройки')
       }
     })()
   }, [token])
@@ -48,7 +42,7 @@ export default function SettingsPage() {
   // === смена пароля ===
   const handleChangePassword = async () => {
     if (!passwords.old || !passwords.new) {
-      showToast('Укажите старый и новый пароль', 'error')
+      setStatus('⚠️ Укажите старый и новый пароль')
       return
     }
 
@@ -63,13 +57,13 @@ export default function SettingsPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        showToast('Пароль успешно изменён ✅', 'success')
+        setStatus('✅ Пароль успешно изменён')
         setPasswords({ old: '', new: '' })
       } else {
-        showToast(data.error || 'Ошибка при смене пароля', 'error')
+        setStatus(`❌ ${data.error || 'Ошибка при смене пароля'}`)
       }
     } catch {
-      showToast('Ошибка соединения с сервером', 'error')
+      setStatus('⚠️ Ошибка соединения с сервером')
     }
   }
 
@@ -85,39 +79,15 @@ export default function SettingsPage() {
         body: JSON.stringify(settings),
       })
       const data = await res.json()
-      if (res.ok) showToast('Настройки сохранены ✅', 'success')
-      else showToast(data.error || 'Ошибка при сохранении', 'error')
+      if (res.ok) setStatus('✅ Настройки сохранены')
+      else setStatus(`❌ ${data.error || 'Ошибка при сохранении'}`)
     } catch {
-      showToast('Нет соединения с сервером', 'error')
+      setStatus('⚠️ Нет соединения с сервером')
     }
   }
 
   return (
     <div className="max-w-3xl mx-auto mt-16 p-6 text-white">
-      {/* === Toast === */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            key="toast"
-            initial={{ opacity: 0, y: -30, x: 30 }}
-            animate={{ opacity: 1, y: 0, x: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
-              toast.type === 'success' ? 'bg-emerald-600/90' : 'bg-red-600/90'
-            }`}
-          >
-            {toast.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 text-white" />
-            ) : (
-              <XCircle className="w-5 h-5 text-white" />
-            )}
-            <p className="text-sm">{toast.text}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* === Заголовок === */}
       <motion.h1
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -140,8 +110,9 @@ export default function SettingsPage() {
               <input
                 type="text"
                 value={form.name}
-                readOnly
-                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm text-gray-400 cursor-not-allowed"
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm focus:ring-1 focus:ring-emerald-400 outline-none"
+                disabled
               />
             </div>
 
@@ -150,8 +121,9 @@ export default function SettingsPage() {
               <input
                 type="email"
                 value={form.email}
-                readOnly
-                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm text-gray-400 cursor-not-allowed"
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm focus:ring-1 focus:ring-emerald-400 outline-none"
+                disabled
               />
             </div>
 
@@ -181,6 +153,7 @@ export default function SettingsPage() {
               >
                 <Lock className="w-4 h-4" /> Сменить пароль
               </button>
+              {status && <p className="text-xs text-gray-400 mt-2">{status}</p>}
             </div>
           </div>
         </section>
@@ -226,6 +199,12 @@ export default function SettingsPage() {
         >
           <Save className="w-4 h-4" /> Сохранить изменения
         </button>
+
+        {status && (
+          <p className="text-sm text-gray-400 mt-3 transition-opacity duration-300">
+            {status}
+          </p>
+        )}
       </div>
     </div>
   )
