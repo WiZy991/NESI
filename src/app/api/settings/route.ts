@@ -1,26 +1,31 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { verifyJwt } from '@/lib/jwt'
+import { verifyJWT } from '@/lib/jwt'
+import { cookies } from 'next/headers'
 
-// Функция получения ID пользователя из JWT
-async function getUserId(req: Request): Promise<string | null> {
+// Получение userId из cookie
+async function getUserId(): Promise<string | null> {
   try {
-    const authHeader = req.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) return null
-    const token = authHeader.split(' ')[1]
-    const payload = await verifyJwt(token)
-    return payload?.id || null
+    const cookieStore = cookies()
+    const token = cookieStore.get('token')?.value
+    if (!token) return null
+
+    const payload = verifyJWT(token)
+    if (!payload || typeof payload !== 'object') return null
+
+    // В твоём токене payload = { userId: ... }
+    return (payload as any).userId
   } catch {
     return null
   }
 }
 
-// Получение настроек пользователя
-export async function GET(req: Request) {
+// === GET ===
+export async function GET() {
   try {
-    const userId = await getUserId(req)
+    const userId = await getUserId()
     if (!userId) {
-      return NextResponse.json({ error: 'Неавторизован' }, { status: 401 })
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
     let settings = await prisma.userSettings.findUnique({ where: { userId } })
@@ -42,23 +47,21 @@ export async function GET(req: Request) {
   }
 }
 
-// Обновление настроек пользователя
+// === POST ===
 export async function POST(req: Request) {
   try {
-    const userId = await getUserId(req)
+    const userId = await getUserId()
     if (!userId) {
-      return NextResponse.json({ error: 'Неавторизован' }, { status: 401 })
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
     const body = await req.json()
     const updateData: Record<string, boolean> = {}
 
-    if (typeof body.emailNotifications === 'boolean') {
+    if (typeof body.emailNotifications === 'boolean')
       updateData.emailNotifications = body.emailNotifications
-    }
-    if (typeof body.pushNotifications === 'boolean') {
+    if (typeof body.pushNotifications === 'boolean')
       updateData.pushNotifications = body.pushNotifications
-    }
 
     const updated = await prisma.userSettings.upsert({
       where: { userId },
