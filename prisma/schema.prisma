@@ -27,7 +27,7 @@ model User {
   frozenBalance                Int                      @default(0)
   avatarFileId                 String?                  @unique
   verified                     Boolean                  @default(false)
-  lastPrivateMessageReadAt DateTime?
+  last_private_message_read_at DateTime?                @map("lastPrivateMessageReadAt")
   adminLogs                    AdminActionLog[]
   certificationAttempts        CertificationAttempt[]
   communityComments            CommunityComment[]
@@ -52,33 +52,34 @@ model User {
   level                        UserLevel?               @relation(fields: [levelId], references: [id])
   badges                       UserBadge[]
   certifications               UserCertification[]
+  UserSettings                 UserSettings?
 }
 
 model Task {
-  id            String         @id @default(uuid())
-  title         String
-  description   String
-  price         Int?
-  deadline      DateTime?
-  status        String         @default("open")
-  customerId    String
-  executorId    String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  completedAt   DateTime?
-  subcategoryId String?
-  escrowAmount  Int            @default(0)
-  Dispute       Dispute[]
-  files         File[]         @relation("TaskFiles")
-  messages      Message[]
-  review        Review?
-  customer      User           @relation("Customer", fields: [customerId], references: [id])
-  executor      User?          @relation("Executor", fields: [executorId], references: [id])
-  subcategory   Subcategory?   @relation(fields: [subcategoryId], references: [id])
-  responses     TaskResponse[]
-  Transaction   Transaction[]
+  id                 String         @id @default(uuid())
+  title              String
+  description        String
+  price              Int?
+  deadline           DateTime?
+  status             String         @default("open")
+  customerId         String
+  executorId         String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  completedAt        DateTime?
+  subcategoryId      String?
+  escrowAmount       Int            @default(0)
   customerLastReadAt DateTime?
   executorLastReadAt DateTime?
+  Dispute            Dispute[]
+  files              File[]         @relation("TaskFiles")
+  messages           Message[]
+  review             Review?
+  customer           User           @relation("Customer", fields: [customerId], references: [id])
+  executor           User?          @relation("Executor", fields: [executorId], references: [id])
+  subcategory        Subcategory?   @relation(fields: [subcategoryId], references: [id])
+  responses          TaskResponse[]
+  Transaction        Transaction[]
 
   @@index([status])
   @@index([customerId])
@@ -442,20 +443,29 @@ model Dispute {
   @@index([userId])
 }
 
+model CommunityReport {
+  id          String   @id @default(cuid())
+  type        String
+  postId      String?
+  commentId   String?
+  reason      String
+  description String?
+  reporterId  String?
+  createdAt   DateTime @default(now())
+}
+
+model UserSettings {
+  userId             String  @id
+  emailNotifications Boolean @default(true)
+  pushNotifications  Boolean @default(false)
+  showOnlineStatus   Boolean @default(true)
+  hideEmail          Boolean @default(false)
+  User               User    @relation(fields: [userId], references: [id])
+}
+
 enum Role {
   user
   executor
   admin
   customer
-}
-
-model CommunityReport {
-  id          String   @id @default(cuid())
-  type        String   // "post" или "comment"
-  postId      String?
-  commentId   String?
-  reason      String
-  description String?
-  reporterId  String?  // кто подал жалобу
-  createdAt   DateTime @default(now())
 }
