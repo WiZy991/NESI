@@ -8,7 +8,6 @@ datasource db {
 }
 
 model User {
-<<<<<<< HEAD
   id          String               @id @default(cuid())
   email       String               @unique
   password    String
@@ -63,7 +62,6 @@ model User {
   adminLogs               AdminActionLog[]
   disputes    Dispute[]
   settings       UserSettings?
-=======
   id                           String                   @id @default(cuid())
   email                        String                   @unique
   password                     String
@@ -108,7 +106,6 @@ model User {
   level                        UserLevel?               @relation(fields: [levelId], references: [id])
   badges                       UserBadge[]
   certifications               UserCertification[]
->>>>>>> 7a1adeb3cfff0d977adf969cd9fe1a08a52e00e9
 }
 
 model Task {
@@ -499,7 +496,6 @@ model Dispute {
   @@index([userId])
 }
 
-<<<<<<< HEAD
 model UserSettings {
   userId            String  @id
   emailNotifications Boolean @default(true)
@@ -508,7 +504,6 @@ model UserSettings {
   hideEmail          Boolean @default(false)
   user               User    @relation(fields: [userId], references: [id])
 }
-=======
 enum Role {
   user
   executor
@@ -526,4 +521,4 @@ model CommunityReport {
   reporterId  String?  // кто подал жалобу
   createdAt   DateTime @default(now())
 }
->>>>>>> 7a1adeb3cfff0d977adf969cd9fe1a08a52e00e9
+
