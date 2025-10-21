@@ -62,51 +62,7 @@ model User {
   adminLogs               AdminActionLog[]
   disputes    Dispute[]
   settings       UserSettings?
-  id                           String                   @id @default(cuid())
-  email                        String                   @unique
-  password                     String
-  fullName                     String?
-  createdAt                    DateTime                 @default(now())
-  avatarUrl                    String?
-  description                  String?
-  location                     String?
-  skills                       String[]
-  avgRating                    Float                    @default(0)
-  completedTasksCount          Int                      @default(0)
-  levelId                      String?                  @map("level_id")
-  xp                           Int                      @default(0)
-  blocked                      Boolean                  @default(false)
-  role                         Role                     @default(user)
-  balance                      Int                      @default(100)
-  frozenBalance                Int                      @default(0)
-  avatarFileId                 String?                  @unique
-  verified                     Boolean                  @default(false)
-  lastPrivateMessageReadAt DateTime?
-  adminLogs                    AdminActionLog[]
-  certificationAttempts        CertificationAttempt[]
-  communityComments            CommunityComment[]
-  communityLikes               CommunityLike[]
-  communityPosts               CommunityPost[]
-  Dispute                      Dispute[]
-  emailVerificationTokens      EmailVerificationToken[]
-  hireRequestsSent             HireRequest[]            @relation("HireCustomer")
-  hireRequestsReceived         HireRequest[]            @relation("HireExecutor")
-  messages                     Message[]                @relation("MessageSender")
-  notifications                Notification[]
-  resetTokens                  PasswordResetToken[]
-  privateMessagesReceived      PrivateMessage[]         @relation("PrivateMessageRecipient")
-  privateMessagesSent          PrivateMessage[]         @relation("PrivateMessageSender")
-  reviewsAuthored              Review[]                 @relation("FromUser")
-  reviewsReceived              Review[]                 @relation("ToUser")
-  tasks                        Task[]                   @relation("Customer")
-  executedTasks                Task[]                   @relation("Executor")
-  responses                    TaskResponse[]
-  transactions                 Transaction[]
-  avatarFile                   File?                    @relation("UserAvatar", fields: [avatarFileId], references: [id])
-  level                        UserLevel?               @relation(fields: [levelId], references: [id])
-  badges                       UserBadge[]
-  certifications               UserCertification[]
-}
+ }
 
 model Task {
   id            String         @id @default(uuid())
