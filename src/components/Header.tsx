@@ -354,7 +354,7 @@ export default function Header() {
 
 											<Link
   												href="/settings"
-  												className="block px-4 py-2 text-sm text-gray-300 hover:text-emerald-400 transition"
+  												className="block px-4 py-2 hover:bg-gray-700/60 transition"
 											>
   												⚙️ Настройки
 											</Link>
