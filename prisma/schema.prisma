@@ -8,98 +8,78 @@ datasource db {
 }
 
 model User {
-  id          String               @id @default(cuid())
-  email       String               @unique
-  password    String
-  resetTokens PasswordResetToken[]
-  role        Role                 @default(user)
-  verified    Boolean              @default(false)
-  blocked     Boolean              @default(false)
-  fullName    String?
-  createdAt   DateTime             @default(now())
-
-  description  String?
-  avatarUrl    String?
-  avatarFileId String? @unique
-  avatarFile   File?   @relation("UserAvatar", fields: [avatarFileId], references: [id])
+  id                           String                   @id @default(cuid())
+  email                        String                   @unique
+  password                     String
+  fullName                     String?
+  createdAt                    DateTime                 @default(now())
+  avatarUrl                    String?
+  description                  String?
+  location                     String?
+  skills                       String[]
+  avgRating                    Float                    @default(0)
+  completedTasksCount          Int                      @default(0)
+  levelId                      String?                  @map("level_id")
+  xp                           Int                      @default(0)
+  blocked                      Boolean                  @default(false)
+  role                         Role                     @default(user)
+  balance                      Int                      @default(100)
+  frozenBalance                Int                      @default(0)
+  avatarFileId                 String?                  @unique
+  verified                     Boolean                  @default(false)
   last_private_message_read_at DateTime?
-
-  location String?
-  skills   String[]
-
-  tasks           Task[]         @relation("Customer")
-  executedTasks   Task[]         @relation("Executor")
-  responses       TaskResponse[]
-  reviewsAuthored Review[]       @relation("FromUser")
-  reviewsReceived Review[]       @relation("ToUser")
-  messages        Message[]      @relation("MessageSender")
-  notifications   Notification[]
-
-  certificationAttempts CertificationAttempt[]
-  certifications        UserCertification[]
-
-  levelId             String?    @map("level_id")
-  level               UserLevel? @relation(fields: [levelId], references: [id])
-  xp                  Int        @default(0)
-  completedTasksCount Int        @default(0)
-  avgRating           Float      @default(0)
-
-  badges               UserBadge[]
-  hireRequestsSent     HireRequest[] @relation("HireCustomer")
-  hireRequestsReceived HireRequest[] @relation("HireExecutor")
-
-  privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
-  privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
-
-  balance       Int           @default(100)
-  transactions  Transaction[]
-  frozenBalance Int           @default(0)
-
-  communityPosts          CommunityPost[]
-  communityComments       CommunityComment[]
-  communityLikes          CommunityLike[]
-  emailVerificationTokens EmailVerificationToken[]
-  adminLogs               AdminActionLog[]
-  disputes                Dispute[]
-
-  settings UserSettings?
-}
-
-model UserSettings {
-  userId             String  @id
-  emailNotifications Boolean @default(true)
-  pushNotifications  Boolean @default(false)
-  showOnlineStatus   Boolean @default(true)
-  hideEmail          Boolean @default(false)
-
-  user User @relation(fields: [userId], references: [id])
+  adminLogs                    AdminActionLog[]
+  certificationAttempts        CertificationAttempt[]
+  communityComments            CommunityComment[]
+  communityLikes               CommunityLike[]
+  communityPosts               CommunityPost[]
+  Dispute                      Dispute[]
+  emailVerificationTokens      EmailVerificationToken[]
+  hireRequestsSent             HireRequest[]            @relation("HireCustomer")
+  hireRequestsReceived         HireRequest[]            @relation("HireExecutor")
+  messages                     Message[]                @relation("MessageSender")
+  notifications                Notification[]
+  resetTokens                  PasswordResetToken[]
+  privateMessagesReceived      PrivateMessage[]         @relation("PrivateMessageRecipient")
+  privateMessagesSent          PrivateMessage[]         @relation("PrivateMessageSender")
+  reviewsAuthored              Review[]                 @relation("FromUser")
+  reviewsReceived              Review[]                 @relation("ToUser")
+  tasks                        Task[]                   @relation("Customer")
+  executedTasks                Task[]                   @relation("Executor")
+  responses                    TaskResponse[]
+  transactions                 Transaction[]
+  avatarFile                   File?                    @relation("UserAvatar", fields: [avatarFileId], references: [id])
+  level                        UserLevel?               @relation(fields: [levelId], references: [id])
+  badges                       UserBadge[]
+  certifications               UserCertification[]
+  UserSettings                 UserSettings?
 }
 
 model Task {
-  id            String         @id @default(uuid())
-  title         String
-  description   String
-  price         Int?
-  deadline      DateTime?
-  status        String         @default("open")
-  customerId    String
-  executorId    String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  completedAt   DateTime?
-  subcategoryId String?
-  escrowAmount  Int            @default(0)
-  Dispute       Dispute[]
-  files         File[]         @relation("TaskFiles")
-  messages      Message[]
-  review        Review?
-  customer      User           @relation("Customer", fields: [customerId], references: [id])
-  executor      User?          @relation("Executor", fields: [executorId], references: [id])
-  subcategory   Subcategory?   @relation(fields: [subcategoryId], references: [id])
-  responses     TaskResponse[]
-  Transaction   Transaction[]
+  id                 String         @id @default(uuid())
+  title              String
+  description        String
+  price              Int?
+  deadline           DateTime?
+  status             String         @default("open")
+  customerId         String
+  executorId         String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  completedAt        DateTime?
+  subcategoryId      String?
+  escrowAmount       Int            @default(0)
   customerLastReadAt DateTime?
   executorLastReadAt DateTime?
+  Dispute            Dispute[]
+  files              File[]         @relation("TaskFiles")
+  messages           Message[]
+  review             Review?
+  customer           User           @relation("Customer", fields: [customerId], references: [id])
+  executor           User?          @relation("Executor", fields: [executorId], references: [id])
+  subcategory        Subcategory?   @relation(fields: [subcategoryId], references: [id])
+  responses          TaskResponse[]
+  Transaction        Transaction[]
 
   @@index([status])
   @@index([customerId])
@@ -463,20 +443,31 @@ model Dispute {
   @@index([userId])
 }
 
-enum Role {
-  user
-  executor
-  admin
-  customer
-}
-
 model CommunityReport {
   id          String   @id @default(cuid())
+  type        String
   type        String
   postId      String?
   commentId   String?
   reason      String
   description String?
   reporterId  String?
+  reporterId  String?
   createdAt   DateTime @default(now())
+}
+
+model UserSettings {
+  userId             String  @id
+  emailNotifications Boolean @default(true)
+  pushNotifications  Boolean @default(false)
+  showOnlineStatus   Boolean @default(true)
+  hideEmail          Boolean @default(false)
+  User               User    @relation(fields: [userId], references: [id])
+}
+
+enum Role {
+  user
+  executor
+  admin
+  customer
 }
