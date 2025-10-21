@@ -8,9 +8,9 @@ import { User, Lock, Save, Bell } from 'lucide-react'
 export default function SettingsPage() {
   const { user } = useUser()
 
-  const [form] = useState({
-    name: user?.fullName || '',
-    email: user?.email || '',
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
   })
 
   const [passwords, setPasswords] = useState({ old: '', new: '' })
@@ -20,13 +20,22 @@ export default function SettingsPage() {
     pushNotifications: false,
   })
 
-  // === загрузка настроек ===
+  // === загрузка профиля и настроек ===
   useEffect(() => {
+    // если есть пользователь — подтягиваем имя и email
+    if (user) {
+      setForm({
+        name: user.fullName || '',
+        email: user.email || '',
+      })
+    }
+
+    // загружаем настройки
     ;(async () => {
       try {
         const res = await fetch('/api/settings', {
           cache: 'no-store',
-          credentials: 'include', // 👈 обязательно, чтобы кука "token" отправилась
+          credentials: 'include',
         })
         const data = await res.json()
         if (res.ok) {
@@ -41,7 +50,7 @@ export default function SettingsPage() {
         console.warn('Не удалось загрузить настройки:', e)
       }
     })()
-  }, [])
+  }, [user])
 
   // === смена пароля ===
   const handleChangePassword = async () => {
@@ -54,9 +63,9 @@ export default function SettingsPage() {
       const res = await fetch('/api/me/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 👈 чтобы cookie отправилась
+        credentials: 'include',
         body: JSON.stringify({
-          oldPassword: passwords.old, // 👈 правильные имена полей
+          oldPassword: passwords.old,
           newPassword: passwords.new,
         }),
       })
@@ -79,7 +88,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 👈 важно
+        credentials: 'include',
         body: JSON.stringify(settings),
       })
       const data = await res.json()
@@ -117,8 +126,8 @@ export default function SettingsPage() {
               <input
                 type="text"
                 value={form.name}
-                disabled
-                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm"
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm focus:ring-1 focus:ring-emerald-400 outline-none"
               />
             </div>
 
@@ -127,8 +136,8 @@ export default function SettingsPage() {
               <input
                 type="email"
                 value={form.email}
-                disabled
-                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm"
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm focus:ring-1 focus:ring-emerald-400 outline-none"
               />
             </div>
 
