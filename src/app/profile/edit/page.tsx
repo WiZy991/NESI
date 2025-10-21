@@ -1,13 +1,19 @@
 'use client'
 
+import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useUser } from '@/context/UserContext'
-import ProtectedPage from '@/components/ProtectedPage'
-import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ProtectedPage from '@/components/ProtectedPage'
 import { toast } from 'sonner'
-import Select from 'react-select'
+import {
+  FaCity,
+  FaCode,
+  FaImage,
+  FaFileSignature,
+  FaSearch
+} from 'react-icons/fa'
 
-// 🔹 Города
 const cityOptions = [
     { "value": "Москва", "label": "Москва" },
     { "value": "Санкт-Петербург", "label": "Санкт-Петербург" },
@@ -206,40 +212,20 @@ const cityOptions = [
     { "value": "Южно-Сахалинск", "label": "Южно-Сахалинск" }
 ]
 
-// 🔹 Роли
-const roleOptions = [
-  { value: 'user', label: 'Пользователь' },
-  { value: 'executor', label: 'Исполнитель' },
-  { value: 'customer', label: 'Заказчик' },
-]
-
-// 🔹 Категории навыков
+// --- Навыки
 const skillCategories: Record<string, string[]> = {
   'IT и программирование': [
     'JavaScript', 'TypeScript', 'React', 'Next.js', 'Node.js',
-    'Python', 'Django', 'Flask', 'Bitrix', 'PostgreSQL',
-    'REST API', 'Prisma ORM', 'JWT', 'Docker', 'Git', 'Linux',
+    'Python', 'Django', 'Bitrix', 'PostgreSQL', 'REST API', 'Docker', 'Git', 'Linux'
   ],
-  'Дизайн': [
-    'UI/UX', 'Figma', 'Photoshop', 'Illustrator', 'Адаптив',
-  ],
-  'Контент и копирайтинг': [
-    'SEO', 'Маркетинг', 'Копирайтинг', 'Редактура', 'SMM',
-  ],
+  'Дизайн': ['UI/UX', 'Figma', 'Photoshop', 'Illustrator', 'Адаптив'],
+  'Контент и копирайтинг': ['SEO', 'Маркетинг', 'Копирайтинг', 'Редактура', 'SMM'],
 }
 
-// 🔹 Кастомный селектор навыков
-function SkillsSelector({
-  skills,
-  setSkills,
-}: {
-  skills: string[]
-  setSkills: (s: string[]) => void
-}) {
+// --- Компонент выбора навыков
+function SkillsSelector({ skills, setSkills }: { skills: string[]; setSkills: (s: string[]) => void }) {
   const addSkill = (skill: string) => {
-    if (!skills.includes(skill)) {
-      setSkills([...skills, skill])
-    }
+    if (!skills.includes(skill)) setSkills([...skills, skill])
   }
 
   const removeSkill = (skill: string) => {
@@ -247,19 +233,18 @@ function SkillsSelector({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Выбранные навыки */}
-      <div className="flex flex-wrap gap-2 p-2 bg-[#0d1b14] rounded-lg border border-emerald-700">
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-2 p-3 neon-box">
         {skills.map((skill) => (
           <span
             key={skill}
-            className="px-3 py-1 bg-emerald-700/20 text-emerald-300 text-sm rounded-full border border-emerald-600 flex items-center gap-2"
+            className="px-3 py-1 bg-emerald-800/40 text-emerald-200 text-sm rounded-full border border-emerald-700 flex items-center gap-2"
           >
             {skill}
             <button
               type="button"
               onClick={() => removeSkill(skill)}
-              className="text-red-400 hover:text-red-600"
+              className="text-red-400 hover:text-red-500 transition"
             >
               ✕
             </button>
@@ -268,9 +253,9 @@ function SkillsSelector({
         <input
           type="text"
           placeholder="Добавить..."
-          className="bg-transparent text-emerald-200 focus:outline-none px-2"
+          className="bg-transparent text-emerald-300 focus:outline-none px-2 w-32"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.currentTarget.value.trim() !== '') {
+            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
               addSkill(e.currentTarget.value.trim())
               e.currentTarget.value = ''
             }
@@ -278,20 +263,19 @@ function SkillsSelector({
         />
       </div>
 
-      {/* Категории с кнопками */}
-      {Object.entries(skillCategories).map(([category, categorySkills]) => (
+      {Object.entries(skillCategories).map(([category, items]) => (
         <div key={category}>
-          <h3 className="text-emerald-400 text-sm mb-2">{category}</h3>
+          <h3 className="text-emerald-500 text-sm mb-2 font-medium">{category}</h3>
           <div className="flex flex-wrap gap-2">
-            {categorySkills.map((skill) => (
+            {items.map((skill) => (
               <button
                 key={skill}
                 type="button"
                 onClick={() => addSkill(skill)}
-                className={`px-3 py-1 text-sm rounded-full border ${
+                className={`px-3 py-1 text-sm rounded-full border transition-all duration-300 ${
                   skills.includes(skill)
-                    ? 'bg-emerald-600 text-black border-emerald-400'
-                    : 'bg-emerald-900/30 text-emerald-300 border-emerald-600 hover:bg-emerald-700/40'
+                    ? 'bg-emerald-700 text-white border-emerald-600 shadow-[0_0_10px_rgba(0,255,150,0.4)]'
+                    : 'bg-[#0a0f0e]/60 text-emerald-300 border-emerald-800 hover:border-emerald-600'
                 }`}
               >
                 {skill}
@@ -304,41 +288,153 @@ function SkillsSelector({
   )
 }
 
+// --- Неоновый поиск города (исправленный)
+function NeonCitySelect({
+  value,
+  options,
+  onChange,
+}: {
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (val: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const filtered = options.filter((o) =>
+    o.label.toLowerCase().includes(query.toLowerCase())
+  )
+
+  const measure = () => {
+    if (buttonRef.current) setRect(buttonRef.current.getBoundingClientRect())
+  }
+
+  useEffect(() => {
+    if (open) {
+      measure()
+      inputRef.current?.focus()
+    }
+  }, [open])
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onScrollResize = () => open && measure()
+    document.addEventListener('mousedown', handleClick)
+    window.addEventListener('resize', onScrollResize)
+    window.addEventListener('scroll', onScrollResize, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('resize', onScrollResize)
+      window.removeEventListener('scroll', onScrollResize, true)
+    }
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative z-[200]">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`neon-select-btn w-full flex justify-between items-center ${
+          open ? 'border-emerald-500 shadow-[0_0_15px_rgba(0,255,150,0.3)]' : ''
+        }`}
+      >
+        <span className={value ? '' : 'text-emerald-600/70'}>
+          {value || 'Выберите или введите город...'}
+        </span>
+        <FaCity className="text-emerald-400" />
+      </button>
+
+      {open &&
+        rect &&
+        createPortal(
+          <div
+            style={{
+              position: 'absolute',
+              left: rect.left + window.scrollX,
+              top: rect.bottom + window.scrollY + 6,
+              width: rect.width,
+              zIndex: 9999,
+            }}
+            className="bg-[#00120c]/95 border border-emerald-700 rounded-lg shadow-[0_0_25px_rgba(0,255,150,0.2)]"
+          >
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-800">
+              <FaSearch className="text-emerald-400 shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Начните вводить город..."
+                className="w-full bg-transparent text-emerald-200 placeholder-emerald-600 focus:outline-none"
+              />
+            </div>
+
+            <div className="max-h-56 overflow-y-auto custom-scrollbar">
+              {filtered.length ? (
+                filtered.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value)
+                      setQuery('')
+                      setOpen(false)
+                    }}
+                    className={`w-full text-left px-4 py-2 transition ${
+                      opt.value === value
+                        ? 'bg-emerald-700/40 text-white'
+                        : 'text-emerald-200 hover:bg-emerald-700/20'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-emerald-500 text-sm">Не найдено</div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+    </div>
+  )
+}
+
 export default function EditProfilePage() {
   const { user, token, login, loading } = useUser()
   const router = useRouter()
-
   const [fullName, setFullName] = useState('')
-  const [password, setPassword] = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
-  const [role, setRole] = useState('user')
   const [skills, setSkills] = useState<string[]>([])
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-
-  const [cityModalOpen, setCityModalOpen] = useState(false)
-  const [citySearch, setCitySearch] = useState('')
 
   useEffect(() => {
     if (user) {
       setFullName(user.fullName || '')
       setDescription(user.description || '')
       setLocation(user.location || '')
-      setRole(user.role || 'user')
-
-      if (Array.isArray(user.skills)) {
-        setSkills(user.skills)
-      } else if (typeof user.skills === 'string') {
-        setSkills(user.skills.split(',').map((s: string) => s.trim()))
-      }
+      setSkills(
+        Array.isArray(user.skills)
+          ? user.skills
+          : (user.skills || '').split(',').map((s: string) => s.trim())
+      )
+      if (user.avatarUrl) setAvatarPreview(user.avatarUrl)
     }
   }, [user])
 
   const handleSave = async () => {
     if (!token) return toast.error('Нет токена авторизации')
     if (!fullName.trim()) return toast.error('Имя не может быть пустым')
-    if (!role.trim()) return toast.error('Роль обязательна')
 
     setSaving(true)
     const toastId = toast.loading('Сохраняем профиль...')
@@ -346,8 +442,7 @@ export default function EditProfilePage() {
     try {
       const formData = new FormData()
       formData.append('fullName', fullName)
-      formData.append('role', role)
-      if (password) formData.append('password', password)
+      formData.append('role', user.role)
       formData.append('description', description)
       formData.append('location', location)
       formData.append('skills', skills.join(','))
@@ -372,168 +467,89 @@ export default function EditProfilePage() {
     }
   }
 
+  const handleAvatarChange = (file: File) => {
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+  }
+
   if (loading || !user) return <div className="p-6 text-gray-400">Загрузка...</div>
 
   return (
     <ProtectedPage>
-      <div className="p-6 max-w-xl mx-auto space-y-6 bg-black/40 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-        <h1 className="text-2xl font-bold text-emerald-400 mb-4">✏️ Редактировать профиль</h1>
+      <div className="relative min-h-screen overflow-hidden text-white">
+        <div className="max-w-4xl mx-auto p-8 relative z-10 space-y-10">
 
-        {/* Имя */}
-        <div>
-          <label className="block mb-1 text-gray-300">Имя</label>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          />
-        </div>
-
-        {/* Роль */}
-        <div>
-          <label className="block mb-1 text-gray-300">Роль</label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          >
-            {roleOptions.map((r) => (
-              <option key={r.value} value={r.value} className="bg-black">
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Пароль */}
-        <div>
-          <label className="block mb-1 text-gray-300">Новый пароль</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          />
-        </div>
-
-        {/* Описание */}
-        <div>
-          <label className="block mb-1 text-gray-300">Описание</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                       focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          />
-        </div>
-
-        {/* Аватар */}
-        <div>
-          <label className="block mb-1 text-gray-300">Аватар (изображение)</label>
-          <label
-            htmlFor="avatar-upload"
-            className="cursor-pointer inline-block px-3 py-2 rounded-lg border border-emerald-400 
-                       text-emerald-400 hover:bg-emerald-400 hover:text-black transition"
-          >
-            📷 Загрузить аватар
-          </label>
-          <input
-            id="avatar-upload"
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              if (e.target.files?.[0]) {
-                setAvatarFile(e.target.files[0])
-              }
-            }}
-            className="hidden"
-          />
-          {avatarFile && (
-            <p className="text-xs text-emerald-400 mt-1">Выбран: {avatarFile.name}</p>
-          )}
-        </div>
-
-        {/* Город */}
-        <div>
-          <label className="block mb-1 text-gray-300">Город</label>
-          <button
-            type="button"
-            onClick={() => setCityModalOpen(true)}
-            className="w-full px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white text-left
-                       hover:border-emerald-400 transition"
-          >
-            {location || 'Выберите город...'}
-          </button>
-        </div>
-
-        {/* Модалка выбора города */}
-        {cityModalOpen && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-            <div className="bg-[#0d1b14] p-6 rounded-lg border border-emerald-600 w-full max-w-lg">
-              <h2 className="text-xl text-emerald-400 mb-4">Выберите город</h2>
-              <input
-                type="text"
-                placeholder="Поиск..."
-                value={citySearch}
-                onChange={(e) => setCitySearch(e.target.value)}
-                className="w-full mb-4 px-3 py-2 bg-transparent border border-emerald-500/30 rounded-lg text-white 
-                           focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              />
-              <div className="max-h-64 overflow-y-auto space-y-1">
-                {cityOptions
-                  .filter((c) =>
-                    c.label.toLowerCase().includes(citySearch.toLowerCase())
-                  )
-                  .map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => {
-                        setLocation(c.value)
-                        setCityModalOpen(false)
-                      }}
-                      className={`block w-full text-left px-3 py-2 rounded-lg ${
-                        location === c.value
-                          ? 'bg-emerald-700/50 text-white'
-                          : 'hover:bg-emerald-700/30 text-emerald-200'
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setCityModalOpen(false)}
-                className="mt-4 px-4 py-2 rounded-lg border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition"
-              >
-                Закрыть
-              </button>
-            </div>
+          <div className="flex items-center gap-5 mb-10">
+            <img src="/astro.png" alt="Космонавт" className="astro-icon" />
+            <h1 className="title-glow">Редактировать профиль</h1>
           </div>
-        )}
 
-        {/* Навыки */}
-        <div>
-          <label className="block mb-1 text-gray-300">Навыки</label>
-          <SkillsSelector skills={skills} setSkills={setSkills} />
+          {/* === ИМЯ === */}
+          <div className="neon-box">
+            <label className="label"><FaFileSignature /> Имя</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          {/* === ОПИСАНИЕ === */}
+          <div className="neon-box">
+            <label className="label">Описание</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Расскажите немного о себе..."
+              className="input h-24 resize-none"
+            />
+          </div>
+
+          {/* === ГОРОД (перенесён сюда) === */}
+          <div className="neon-box relative z-40 overflow-visible">
+            <label className="label"><FaCity /> Город</label>
+            <NeonCitySelect
+              value={location}
+              options={cityOptions}
+              onChange={(val) => setLocation(val)}
+            />
+          </div>
+
+          {/* === АВАТАР === */}
+          <div className="neon-box flex flex-col sm:flex-row items-center gap-6">
+            <div className="flex-1">
+              <label className="label"><FaImage /> Аватар</label>
+              <label htmlFor="avatar-upload" className="upload-btn">📷 Загрузить</label>
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={(e) => e.target.files?.[0] && handleAvatarChange(e.target.files[0])}
+                className="hidden"
+              />
+            </div>
+            {avatarPreview && (
+              <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-emerald-600 shadow-[0_0_20px_rgba(0,255,150,0.4)]">
+                <img src={avatarPreview} alt="Аватар" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+
+          {/* === НАВЫКИ === */}
+          <div className="neon-box">
+            <label className="label"><FaCode /> Навыки</label>
+            <SkillsSelector skills={skills} setSkills={setSkills} />
+          </div>
+
+          <div className="text-center">
+            <button onClick={handleSave} disabled={saving} className="save-btn">
+              {saving ? '💾 Сохраняем...' : '✅ Сохранить изменения'}
+            </button>
+          </div>
         </div>
-
-        {/* Сохранить */}
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2 rounded-lg border border-emerald-400 text-emerald-400 
-                     hover:bg-emerald-400 hover:text-black transition disabled:opacity-50"
-        >
-          {saving ? 'Сохраняем...' : '💾 Сохранить'}
-        </button>
       </div>
     </ProtectedPage>
   )
-} 
+}

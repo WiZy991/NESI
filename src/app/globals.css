@@ -1,27 +1,325 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
+/* 🎨 Основные переменные */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+	--background: #ffffff;
+	--foreground: #171717;
 }
 
+/* 🧩 Базовые темы Tailwind */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+
+	--font-sans: 'Poppins', sans-serif;
+	--font-mono: 'JetBrains Mono', monospace;
 }
 
+/* 🌙 Тёмная тема */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+	:root {
+		--background: #0a0a0a;
+		--foreground: #ededed;
+	}
 }
 
+/* 🧠 Базовый стиль body */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: 'Poppins', sans-serif;
+	color: var(--foreground);
+	font-family: 'Poppins', sans-serif;
+	font-weight: 400;
+	letter-spacing: 0.02em;
+	position: relative;
+	min-height: 100vh;
+	overflow-x: hidden;
+	z-index: 1;
+
+	/* 🌌 Новый минималистичный космический фон */
+	background: radial-gradient(circle at 50% 20%, #01150d 0%, #000000 100%);
+}
+
+/* 💫 — ЗВЁЗДНЫЙ ФОН убран! Теперь вместо него используется компонент Starfield.tsx */
+
+/* 🌿 Кастомный скроллбар */
+.custom-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(16, 185, 129, 0.3) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+	width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+	background: rgba(16, 185, 129, 0.3);
+	border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: rgba(16, 185, 129, 0.5);
+}
+
+/* 🌈 Анимации и эффекты NESI UI */
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(-5px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes fadeOut {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(-5px);
+	}
+}
+
+@keyframes glowPulse {
+	0% {
+		box-shadow: 0 0 10px rgba(0, 255, 180, 0.3);
+	}
+	50% {
+		box-shadow: 0 0 25px rgba(0, 255, 180, 0.6);
+	}
+	100% {
+		box-shadow: 0 0 10px rgba(0, 255, 180, 0.3);
+	}
+}
+
+.animate-fadeIn {
+	animation: fadeIn 0.15s ease-out forwards;
+}
+
+.animate-fadeOut {
+	animation: fadeOut 0.15s ease-in forwards;
+}
+
+.glow-emerald {
+	animation: glowPulse 2.5s ease-in-out infinite;
+}
+
+/* 🧊 Неоновые модалки и списки */
+.neon-border {
+	border: 1px solid rgba(16, 185, 129, 0.4);
+	box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+}
+
+.neon-focus:focus {
+	outline: none;
+	border-color: rgba(16, 185, 129, 0.7);
+	box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+}
+
+.dropdown-item {
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+	background-color: rgba(16, 185, 129, 0.15);
+	color: rgba(16, 185, 129, 0.95);
+}
+
+/* 💎 Дополнительные визуальные мелочи */
+a,
+button {
+	font-family: 'Poppins', sans-serif;
+	font-weight: 500;
+	transition: all 0.2s ease;
+}
+
+a:hover,
+button:hover {
+	filter: brightness(1.15);
+}
+
+input,
+select,
+textarea {
+	font-family: 'Poppins', sans-serif;
+}
+
+/* 🔦 Активные ссылки */
+.active-link {
+	color: #10b981;
+	position: relative;
+}
+
+.active-link::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	bottom: -2px;
+	width: 100%;
+	height: 2px;
+	background-color: #10b981;
+	box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+/* === NEON PROFILE STYLES === */
+
+/* 🧩 Неоновые поля */
+.neon-box {
+	position: relative;
+	background: rgba(0, 15, 10, 0.7);
+	border: 1px solid rgba(16, 185, 129, 0.25);
+	border-radius: 16px;
+	padding: 1.5rem;
+	box-shadow: 0 0 15px rgba(0, 255, 150, 0.15);
+	transition: all 0.3s ease;
+	backdrop-filter: blur(4px);
+	z-index: 2;
+}
+
+.neon-box:hover {
+	border-color: rgba(16, 185, 129, 0.6);
+	box-shadow: 0 0 30px rgba(0, 255, 150, 0.3);
+}
+
+.label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: #6ee7b7;
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+.input {
+	width: 100%;
+	padding: 10px 14px;
+	background: rgba(0, 0, 0, 0.4);
+	border: 1px solid rgba(16, 185, 129, 0.25);
+	border-radius: 8px;
+	color: #e0fff4;
+	outline: none;
+	transition: 0.3s;
+}
+
+.input:focus {
+	border-color: #10b981;
+	box-shadow: 0 0 12px rgba(0, 255, 150, 0.3);
+}
+
+/* 🚀 Кнопки */
+.upload-btn {
+	display: inline-block;
+	padding: 8px 16px;
+	border: 1px solid #10b981;
+	border-radius: 8px;
+	color: #34d399;
+	cursor: pointer;
+	background: rgba(16, 185, 129, 0.1);
+	transition: all 0.3s;
+}
+
+.upload-btn:hover {
+	background: rgba(16, 185, 129, 0.3);
+	color: white;
+	box-shadow: 0 0 10px rgba(0, 255, 150, 0.4);
+}
+
+.save-btn {
+	background: rgba(16, 185, 129, 0.15);
+	border: 1px solid #059669;
+	border-radius: 10px;
+	color: #a7f3d0;
+	padding: 12px 36px;
+	font-weight: 600;
+	transition: all 0.3s;
+}
+
+.save-btn:hover {
+	background: rgba(16, 185, 129, 0.3);
+	color: white;
+	box-shadow: 0 0 30px rgba(0, 255, 150, 0.4);
+}
+
+/* 💫 Космонавт */
+.astro-icon {
+	width: 100px;
+	height: 100px;
+	object-fit: contain;
+	filter: drop-shadow(0 0 25px rgba(0, 255, 150, 0.8));
+	animation: float 5s ease-in-out infinite;
+	position: relative;
+	z-index: 2;
+}
+
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
+/* 🌟 Заголовок */
+.title-glow {
+	font-size: 2.5rem;
+	font-weight: 700;
+	color: #34d399;
+	text-shadow: 0 0 20px rgba(0, 255, 150, 0.7);
+	letter-spacing: 0.02em;
+	position: relative;
+	z-index: 2;
+}
+
+/* === НЕОНОВЫЙ SELECT === */
+.neon-select {
+	appearance: none;
+	background: rgba(0, 15, 10, 0.7);
+	border: 1px solid rgba(16, 185, 129, 0.3);
+	border-radius: 8px;
+	padding: 10px 14px;
+	color: #a7f3d0;
+	outline: none;
+	width: 100%;
+	transition: all 0.3s ease;
+	box-shadow: 0 0 10px rgba(0, 255, 150, 0.1);
+	font-family: 'Poppins', sans-serif;
+	font-size: 15px;
+	cursor: pointer;
+	background-image: linear-gradient(
+		to right,
+		rgba(0, 255, 150, 0.15),
+		rgba(0, 255, 150, 0.05)
+	);
+}
+
+.neon-select:hover {
+	border-color: rgba(16, 185, 129, 0.7);
+	box-shadow: 0 0 15px rgba(0, 255, 150, 0.3);
+}
+
+.neon-select:focus {
+	border-color: #10b981;
+	box-shadow: 0 0 20px rgba(0, 255, 150, 0.4);
+}
+
+.neon-select option {
+	background: #00120c;
+	color: #a7f3d0;
+	border: none;
+}
+
+.neon-select option:hover,
+.neon-select option:checked {
+	background: rgba(16, 185, 129, 0.3);
+	color: #fff;
 }

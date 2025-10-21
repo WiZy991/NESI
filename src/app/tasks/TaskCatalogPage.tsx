@@ -12,6 +12,7 @@ type Task = {
   description: string
   createdAt: string
   price?: number
+  status?: string
   customer: { fullName?: string }
 }
 
@@ -32,18 +33,22 @@ export default function TaskCatalogPage() {
   const router = useRouter()
 
   const [search, setSearch] = useState(searchParams.get('search') || '')
-  const [status, setStatus] = useState(searchParams.get('status') || '')
   const [sort, setSort] = useState(searchParams.get('sort') || 'new')
   const [subcategory, setSubcategory] = useState(searchParams.get('subcategory') || '')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [isSortOpen, setIsSortOpen] = useState(false)
+
+  const sortOptions = [
+    { value: 'new', label: 'Сначала новые' },
+    { value: 'old', label: 'Сначала старые' },
+  ]
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
     try {
       const query = new URLSearchParams()
       if (search) query.set('search', search)
-      if (status) query.set('status', status)
       if (sort) query.set('sort', sort)
       if (subcategory) query.set('subcategory', subcategory)
       query.set('page', page.toString())
@@ -59,7 +64,12 @@ export default function TaskCatalogPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки')
 
-      setTasks(data.tasks || [])
+      // показываем только открытые задачи
+      const visibleTasks = (data.tasks || []).filter(
+        (task: Task) => task.status === 'open' || !task.status
+      )
+
+      setTasks(visibleTasks)
       setTotalPages(data.pagination?.totalPages || 1)
     } catch (err: any) {
       console.error('Ошибка загрузки задач:', err)
@@ -67,7 +77,7 @@ export default function TaskCatalogPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, status, sort, subcategory, token, page])
+  }, [search, sort, subcategory, token, page])
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -89,16 +99,14 @@ export default function TaskCatalogPage() {
   const applyFilters = useCallback(() => {
     const query = new URLSearchParams()
     if (search) query.set('search', search)
-    if (status) query.set('status', status)
     if (sort) query.set('sort', sort)
     if (subcategory) query.set('subcategory', subcategory)
     router.push(`/tasks?${query.toString()}`)
     setPage(1)
-  }, [search, status, sort, subcategory, router])
+  }, [search, sort, subcategory, router])
 
   const resetFilters = useCallback(() => {
     setSearch('')
-    setStatus('')
     setSort('new')
     setSubcategory('')
     setPage(1)
@@ -143,44 +151,67 @@ export default function TaskCatalogPage() {
 
       <div className="flex gap-8">
         {/* Фильтры */}
-       <div className="w-72 sticky top-28 self-start p-6 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-4">
-          <input
-            type="text"
-            placeholder="Поиск..."
-            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <select
-            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            value={status}
-            onChange={e => setStatus(e.target.value)}
-          >
-            <option value="">Все статусы</option>
-            <option value="open">Открыта</option>
-            <option value="in_progress">В работе</option>
-            <option value="completed">Выполнена</option>
-          </select>
-          <select
-            className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            value={sort}
-            onChange={e => setSort(e.target.value)}
-          >
-            <option value="new">Сначала новые</option>
-            <option value="old">Сначала старые</option>
-          </select>
-          <button
-            onClick={applyFilters}
-            className="w-full py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold"
-          >
-            Применить
-          </button>
-          <button
-            onClick={resetFilters}
-            className="w-full py-2 rounded-lg border border-gray-500 text-gray-300 hover:bg-gray-600 hover:text-white transition"
-          >
-            Сбросить
-          </button>
+        <div className="w-72 sticky top-28 self-start p-6 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-5 backdrop-blur-md">
+          {/* Поле поиска */}
+          <div className="space-y-2">
+            <label className="text-emerald-400 text-sm font-medium">Поиск задач</label>
+            <input
+              type="text"
+              placeholder="Введите запрос..."
+              className="w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder-gray-500 hover:border-emerald-400 transition-all"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Кастомный селект сортировки */}
+          <div className="space-y-2 relative">
+            <label className="text-emerald-400 text-sm font-medium">Сортировка</label>
+            <button
+              onClick={() => setIsSortOpen(!isSortOpen)}
+              className={`w-full flex justify-between items-center p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white hover:border-emerald-400 focus:ring-2 focus:ring-emerald-400 transition-all`}
+            >
+              {sortOptions.find((opt) => opt.value === sort)?.label}
+              <span className="text-emerald-400">▼</span>
+            </button>
+
+            {isSortOpen && (
+              <div className="absolute z-20 mt-2 w-full bg-black/80 border border-emerald-500/30 rounded-lg shadow-[0_0_25px_rgba(16,185,129,0.4)] backdrop-blur-md overflow-hidden">
+                {sortOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setSort(opt.value)
+                      setIsSortOpen(false)
+                    }}
+                    className={`block w-full text-left px-4 py-2 text-sm ${
+                      sort === opt.value
+                        ? 'bg-emerald-700/40 text-emerald-100'
+                        : 'text-emerald-300 hover:bg-emerald-600/30 hover:text-emerald-100'
+                    } transition-all`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Кнопки */}
+          <div className="space-y-3">
+            <button
+              onClick={applyFilters}
+              className="w-full py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition-all font-semibold shadow-[0_0_10px_rgba(16,185,129,0.4)]"
+            >
+              Применить
+            </button>
+            <button
+              onClick={resetFilters}
+              className="w-full py-2 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-600/40 hover:text-white transition-all"
+            >
+              Сбросить
+            </button>
+          </div>
         </div>
 
         {/* Задачи */}
@@ -193,7 +224,7 @@ export default function TaskCatalogPage() {
             <div className="text-gray-400">Задач пока нет</div>
           ) : (
             <>
-              {tasks.map(task => (
+              {tasks.map((task) => (
                 <div
                   key={task.id}
                   className="p-6 border border-emerald-500/30 rounded-xl bg-black/40 shadow-[0_0_25px_rgba(16,185,129,0.2)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transition space-y-2"
@@ -217,7 +248,7 @@ export default function TaskCatalogPage() {
               {/* Пагинация */}
               <div className="flex justify-center items-center gap-6 mt-8">
                 <button
-                  onClick={() => setPage(p => Math.max(p - 1, 1))}
+                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
                   disabled={page === 1}
                   className="px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40"
                 >
@@ -227,7 +258,7 @@ export default function TaskCatalogPage() {
                   Страница {page} из {totalPages}
                 </span>
                 <button
-                  onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+                  onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
                   disabled={page === totalPages}
                   className="px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40"
                 >
