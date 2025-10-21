@@ -1,25 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useUser } from '@/context/UserContext'
 import { motion } from 'framer-motion'
-import { User, Lock, Save, Sun, Moon, Mail } from 'lucide-react'
+import { User, Lock, Save, Shield, Bell } from 'lucide-react'
 
 export default function SettingsPage() {
   const { token, user } = useUser()
 
-  // --- состояния ---
   const [form, setForm] = useState({
     name: user?.fullName || '',
     email: user?.email || '',
   })
   const [passwords, setPasswords] = useState({ old: '', new: '' })
   const [status, setStatus] = useState<string | null>(null)
-  const [theme, setTheme] = useState<'dark' | 'light' | 'auto'>('dark')
-  const [animations, setAnimations] = useState(true)
-  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [settings, setSettings] = useState({
+    emailNotifications: true,
+    pushNotifications: false,
+    showOnlineStatus: true,
+    hideEmail: false,
+  })
 
-  // --- смена пароля ---
+  // === загрузка настроек ===
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/settings', { cache: 'no-store' })
+        const data = await res.json()
+        if (res.ok) setSettings(data)
+      } catch (e) {
+        console.warn('Не удалось загрузить настройки')
+      }
+    })()
+  }, [])
+
+  // === смена пароля ===
   const handleChangePassword = async () => {
     if (!passwords.old || !passwords.new) {
       setStatus('⚠️ Укажите старый и новый пароль')
@@ -40,6 +55,21 @@ export default function SettingsPage() {
       else setStatus(`❌ ${data.error}`)
     } catch {
       setStatus('⚠️ Ошибка соединения с сервером')
+    }
+  }
+
+  // === сохранение настроек ===
+  const handleSave = async () => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      })
+      if (res.ok) setStatus('✅ Настройки сохранены')
+      else setStatus('❌ Ошибка при сохранении')
+    } catch {
+      setStatus('⚠️ Нет соединения с сервером')
     }
   }
 
@@ -114,59 +144,75 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* 🎨 Интерфейс */}
-        <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm">
-          <h2 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
-            <Sun className="w-5 h-5" /> Интерфейс
-          </h2>
-
-          <div className="flex flex-col gap-4 text-sm">
-            <div className="flex justify-between items-center">
-              <span>Тема интерфейса:</span>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value as any)}
-                className="bg-black/40 border border-emerald-500/30 rounded-lg px-3 py-1 text-sm"
-              >
-                <option value="dark">Тёмная</option>
-                <option value="light">Светлая</option>
-                <option value="auto">Авто</option>
-              </select>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span>Анимации интерфейса:</span>
-              <input
-                type="checkbox"
-                checked={animations}
-                onChange={(e) => setAnimations(e.target.checked)}
-                className="accent-emerald-500 w-4 h-4"
-              />
-            </div>
-          </div>
-        </section>
-
         {/* 🔔 Уведомления */}
         <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm">
           <h2 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
-            <Mail className="w-5 h-5" /> Уведомления
+            <Bell className="w-5 h-5" /> Уведомления
           </h2>
 
-          <div className="flex justify-between items-center text-sm">
-            <span>Email-уведомления:</span>
-            <input
-              type="checkbox"
-              checked={emailNotifications}
-              onChange={(e) => setEmailNotifications(e.target.checked)}
-              className="accent-emerald-500 w-4 h-4"
-            />
+          <div className="flex flex-col gap-4 text-sm">
+            <label className="flex justify-between items-center">
+              <span>Email-уведомления:</span>
+              <input
+                type="checkbox"
+                checked={settings.emailNotifications}
+                onChange={(e) =>
+                  setSettings({ ...settings, emailNotifications: e.target.checked })
+                }
+                className="accent-emerald-500 w-4 h-4"
+              />
+            </label>
+            <label className="flex justify-between items-center">
+              <span>Push-уведомления:</span>
+              <input
+                type="checkbox"
+                checked={settings.pushNotifications}
+                onChange={(e) =>
+                  setSettings({ ...settings, pushNotifications: e.target.checked })
+                }
+                className="accent-emerald-500 w-4 h-4"
+              />
+            </label>
+          </div>
+        </section>
+
+        {/* 🔒 Конфиденциальность */}
+        <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm">
+          <h2 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+            <Shield className="w-5 h-5" /> Конфиденциальность
+          </h2>
+
+          <div className="flex flex-col gap-4 text-sm">
+            <label className="flex justify-between items-center">
+              <span>Показывать онлайн-статус:</span>
+              <input
+                type="checkbox"
+                checked={settings.showOnlineStatus}
+                onChange={(e) =>
+                  setSettings({ ...settings, showOnlineStatus: e.target.checked })
+                }
+                className="accent-emerald-500 w-4 h-4"
+              />
+            </label>
+            <label className="flex justify-between items-center">
+              <span>Скрыть email от других:</span>
+              <input
+                type="checkbox"
+                checked={settings.hideEmail}
+                onChange={(e) => setSettings({ ...settings, hideEmail: e.target.checked })}
+                className="accent-emerald-500 w-4 h-4"
+              />
+            </label>
           </div>
         </section>
       </div>
 
       {/* 💾 Сохранить */}
       <div className="text-center mt-10">
-        <button className="bg-emerald-600/80 hover:bg-emerald-600 px-6 py-2 rounded-lg text-sm flex items-center gap-2 mx-auto">
+        <button
+          onClick={handleSave}
+          className="bg-emerald-600/80 hover:bg-emerald-600 px-6 py-2 rounded-lg text-sm flex items-center gap-2 mx-auto"
+        >
           <Save className="w-4 h-4" /> Сохранить изменения
         </button>
       </div>
