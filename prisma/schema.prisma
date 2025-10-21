@@ -61,6 +61,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   adminLogs               AdminActionLog[]
   disputes    Dispute[]
+  settings       UserSettings?
 }
 
 model Task {
@@ -491,4 +492,13 @@ model Dispute {
   @@index([taskId])
   @@index([userId])
   @@index([status])
+}
+
+model UserSettings {
+  userId            String  @id
+  emailNotifications Boolean @default(true)
+  pushNotifications  Boolean @default(false)
+  showOnlineStatus   Boolean @default(true)
+  hideEmail          Boolean @default(false)
+  user               User    @relation(fields: [userId], references: [id])
 }
