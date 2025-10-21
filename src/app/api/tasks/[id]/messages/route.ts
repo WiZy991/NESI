@@ -1,6 +1,7 @@
 // src/app/api/tasks/[id]/messages/route.ts
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { getUserFromRequest } from '@/lib/auth'
+import { createNotification } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 
@@ -95,6 +96,19 @@ export async function POST(
 
 	// Отправляем уведомление получателю в реальном времени
 	if (recipientId) {
+		// Создаем уведомление в базе данных
+		const notificationMessage = `${
+			message.sender.fullName || message.sender.email
+		} написал в задаче "${message.task.title}": ${
+			content || (savedFile ? `Файл: ${savedFile.filename}` : 'Новое сообщение')
+		}`
+		await createNotification({
+			userId: recipientId,
+			message: notificationMessage,
+			link: `/tasks/${taskId}`,
+			type: 'message',
+		})
+
 		sendNotificationToUser(recipientId, {
 			title: 'Новое сообщение в задаче',
 			message:

@@ -1,5 +1,6 @@
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { getUserFromRequest } from '@/lib/auth'
+import { createNotification } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 import { NextRequest, NextResponse } from 'next/server'
@@ -157,6 +158,17 @@ export async function POST(req: NextRequest) {
 			fileName: msg.fileName || msg.file?.filename || null,
 			fileMimetype: msg.mimeType || msg.file?.mimetype || null,
 		}
+
+		// Создаем уведомление в базе данных
+		const notificationMessage = `${msg.sender.fullName || msg.sender.email}: ${
+			content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение')
+		}`
+		await createNotification({
+			userId: recipientId,
+			message: notificationMessage,
+			link: `/chats?open=${me.id}`,
+			type: 'message',
+		})
 
 		// Отправляем уведомление получателю в реальном времени
 		sendNotificationToUser(recipientId, {

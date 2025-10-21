@@ -27,7 +27,7 @@ model User {
   frozenBalance                Int                      @default(0)
   avatarFileId                 String?                  @unique
   verified                     Boolean                  @default(false)
-  last_private_message_read_at DateTime?
+  lastPrivateMessageReadAt     DateTime?                @map("last_private_message_read_at")
   adminLogs                    AdminActionLog[]
   certificationAttempts        CertificationAttempt[]
   communityComments            CommunityComment[]
@@ -446,12 +446,10 @@ model Dispute {
 model CommunityReport {
   id          String   @id @default(cuid())
   type        String
-  type        String
   postId      String?
   commentId   String?
   reason      String
   description String?
-  reporterId  String?
   reporterId  String?
   createdAt   DateTime @default(now())
 }

@@ -5,6 +5,27 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
+// Функция для форматирования времени уведомления
+const formatNotificationTime = (timestamp: string) => {
+	const date = new Date(timestamp)
+	const now = new Date()
+	const diffMs = now.getTime() - date.getTime()
+	const diffMins = Math.floor(diffMs / 60000)
+	const diffHours = Math.floor(diffMs / 3600000)
+	const diffDays = Math.floor(diffMs / 86400000)
+
+	if (diffMins < 1) return 'только что'
+	if (diffMins < 60) return `${diffMins} мин. назад`
+	if (diffHours < 24) return `${diffHours} ч. назад`
+	if (diffDays === 1) return 'вчера'
+	if (diffDays < 7) return `${diffDays} дн. назад`
+
+	return date.toLocaleDateString('ru-RU', {
+		day: '2-digit',
+		month: 'short',
+	})
+}
+
 export default function Header() {
 	const { user, token, logout, unreadCount, setUnreadCount } = useUser()
 	const router = useRouter()
@@ -119,8 +140,9 @@ export default function Header() {
 		const showNotification = (data: any) => {
 			if (data.playSound) {
 				try {
-					const audioContext = new (window.AudioContext ||
-						window.webkitAudioContext)()
+					const AudioContextClass =
+						window.AudioContext || (window as any).webkitAudioContext
+					const audioContext = new AudioContextClass()
 					const oscillator = audioContext.createOscillator()
 					const gainNode = audioContext.createGain()
 					oscillator.connect(gainNode)
@@ -140,7 +162,9 @@ export default function Header() {
 				} catch {}
 			}
 
+			// Обновляем уведомления и счетчик непрочитанных
 			setNotifications(prev => [data, ...prev.slice(0, 4)])
+			setUnreadCount(unreadCount + 1)
 		}
 
 		fetchUnreadMessages()
@@ -246,6 +270,13 @@ export default function Header() {
 															{notif.taskTitle && (
 																<p className='text-xs text-emerald-400 mt-1'>
 																	📋 {notif.taskTitle}
+																</p>
+															)}
+															{(notif.timestamp || notif.createdAt) && (
+																<p className='text-xs text-gray-500 mt-1'>
+																	{formatNotificationTime(
+																		notif.timestamp || notif.createdAt
+																	)}
 																</p>
 															)}
 														</div>
