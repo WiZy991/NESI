@@ -6,16 +6,15 @@ import { motion } from 'framer-motion'
 import { User, Lock, Save, Bell } from 'lucide-react'
 
 export default function SettingsPage() {
-  const { token, user } = useUser()
+  const { user } = useUser()
 
-  const [form, setForm] = useState({
+  const [form] = useState({
     name: user?.fullName || '',
     email: user?.email || '',
   })
 
   const [passwords, setPasswords] = useState({ old: '', new: '' })
   const [status, setStatus] = useState<string | null>(null)
-
   const [settings, setSettings] = useState({
     emailNotifications: true,
     pushNotifications: false,
@@ -23,21 +22,26 @@ export default function SettingsPage() {
 
   // === загрузка настроек ===
   useEffect(() => {
-    if (!token) return
     ;(async () => {
       try {
         const res = await fetch('/api/settings', {
-          headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
+          credentials: 'include', // 👈 обязательно, чтобы кука "token" отправилась
         })
         const data = await res.json()
-        if (res.ok) setSettings(data)
-        else console.warn('Ошибка загрузки настроек:', data.error)
-      } catch {
-        console.warn('Не удалось загрузить настройки')
+        if (res.ok) {
+          setSettings({
+            emailNotifications: data.emailNotifications ?? true,
+            pushNotifications: data.pushNotifications ?? false,
+          })
+        } else {
+          console.warn('Ошибка загрузки настроек:', data.error)
+        }
+      } catch (e) {
+        console.warn('Не удалось загрузить настройки:', e)
       }
     })()
-  }, [token])
+  }, [])
 
   // === смена пароля ===
   const handleChangePassword = async () => {
@@ -49,12 +53,14 @@ export default function SettingsPage() {
     try {
       const res = await fetch('/api/me/change-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(passwords),
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 👈 чтобы cookie отправилась
+        body: JSON.stringify({
+          oldPassword: passwords.old, // 👈 правильные имена полей
+          newPassword: passwords.new,
+        }),
       })
+
       const data = await res.json()
       if (res.ok) {
         setStatus('✅ Пароль успешно изменён')
@@ -72,15 +78,16 @@ export default function SettingsPage() {
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 👈 важно
         body: JSON.stringify(settings),
       })
       const data = await res.json()
-      if (res.ok) setStatus('✅ Настройки сохранены')
-      else setStatus(`❌ ${data.error || 'Ошибка при сохранении'}`)
+      if (res.ok) {
+        setStatus('✅ Настройки сохранены')
+      } else {
+        setStatus(`❌ ${data.error || 'Ошибка при сохранении'}`)
+      }
     } catch {
       setStatus('⚠️ Нет соединения с сервером')
     }
@@ -110,9 +117,8 @@ export default function SettingsPage() {
               <input
                 type="text"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm focus:ring-1 focus:ring-emerald-400 outline-none"
                 disabled
+                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm"
               />
             </div>
 
@@ -121,9 +127,8 @@ export default function SettingsPage() {
               <input
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm focus:ring-1 focus:ring-emerald-400 outline-none"
                 disabled
+                className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm"
               />
             </div>
 
@@ -135,14 +140,18 @@ export default function SettingsPage() {
                   type="password"
                   placeholder="Старый пароль"
                   value={passwords.old}
-                  onChange={(e) => setPasswords({ ...passwords, old: e.target.value })}
+                  onChange={(e) =>
+                    setPasswords({ ...passwords, old: e.target.value })
+                  }
                   className="p-2 bg-black/40 border border-gray-700 rounded-lg text-sm"
                 />
                 <input
                   type="password"
                   placeholder="Новый пароль"
                   value={passwords.new}
-                  onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                  onChange={(e) =>
+                    setPasswords({ ...passwords, new: e.target.value })
+                  }
                   className="p-2 bg-black/40 border border-gray-700 rounded-lg text-sm"
                 />
               </div>
@@ -153,7 +162,6 @@ export default function SettingsPage() {
               >
                 <Lock className="w-4 h-4" /> Сменить пароль
               </button>
-              {status && <p className="text-xs text-gray-400 mt-2">{status}</p>}
             </div>
           </div>
         </section>
@@ -171,18 +179,25 @@ export default function SettingsPage() {
                 type="checkbox"
                 checked={settings.emailNotifications}
                 onChange={(e) =>
-                  setSettings({ ...settings, emailNotifications: e.target.checked })
+                  setSettings({
+                    ...settings,
+                    emailNotifications: e.target.checked,
+                  })
                 }
                 className="accent-emerald-500 w-4 h-4"
               />
             </label>
+
             <label className="flex justify-between items-center">
               <span>Push-уведомления:</span>
               <input
                 type="checkbox"
                 checked={settings.pushNotifications}
                 onChange={(e) =>
-                  setSettings({ ...settings, pushNotifications: e.target.checked })
+                  setSettings({
+                    ...settings,
+                    pushNotifications: e.target.checked,
+                  })
                 }
                 className="accent-emerald-500 w-4 h-4"
               />
