@@ -187,21 +187,6 @@ export default function SettingsPage() {
                 className="accent-emerald-500 w-4 h-4"
               />
             </label>
-
-            <label className="flex justify-between items-center">
-              <span>Push-уведомления:</span>
-              <input
-                type="checkbox"
-                checked={settings.pushNotifications}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    pushNotifications: e.target.checked,
-                  })
-                }
-                className="accent-emerald-500 w-4 h-4"
-              />
-            </label>
           </div>
         </section>
       </div>
