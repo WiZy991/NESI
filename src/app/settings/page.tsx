@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useUser } from '@/context/UserContext'
 import { motion } from 'framer-motion'
-import { User, Lock, Save, Shield, Bell } from 'lucide-react'
+import { User, Lock, Save, Bell } from 'lucide-react'
 
 export default function SettingsPage() {
   const { token, user } = useUser()
@@ -12,27 +12,32 @@ export default function SettingsPage() {
     name: user?.fullName || '',
     email: user?.email || '',
   })
+
   const [passwords, setPasswords] = useState({ old: '', new: '' })
   const [status, setStatus] = useState<string | null>(null)
+
   const [settings, setSettings] = useState({
     emailNotifications: true,
     pushNotifications: false,
-    showOnlineStatus: true,
-    hideEmail: false,
   })
 
   // === загрузка настроек ===
   useEffect(() => {
+    if (!token) return
     ;(async () => {
       try {
-        const res = await fetch('/api/settings', { cache: 'no-store' })
+        const res = await fetch('/api/settings', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        })
         const data = await res.json()
         if (res.ok) setSettings(data)
-      } catch (e) {
+        else console.warn('Ошибка загрузки настроек:', data.error)
+      } catch {
         console.warn('Не удалось загрузить настройки')
       }
     })()
-  }, [])
+  }, [token])
 
   // === смена пароля ===
   const handleChangePassword = async () => {
@@ -51,8 +56,12 @@ export default function SettingsPage() {
         body: JSON.stringify(passwords),
       })
       const data = await res.json()
-      if (res.ok) setStatus('✅ Пароль успешно изменён')
-      else setStatus(`❌ ${data.error}`)
+      if (res.ok) {
+        setStatus('✅ Пароль успешно изменён')
+        setPasswords({ old: '', new: '' })
+      } else {
+        setStatus(`❌ ${data.error || 'Ошибка при смене пароля'}`)
+      }
     } catch {
       setStatus('⚠️ Ошибка соединения с сервером')
     }
@@ -63,11 +72,15 @@ export default function SettingsPage() {
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(settings),
       })
+      const data = await res.json()
       if (res.ok) setStatus('✅ Настройки сохранены')
-      else setStatus('❌ Ошибка при сохранении')
+      else setStatus(`❌ ${data.error || 'Ошибка при сохранении'}`)
     } catch {
       setStatus('⚠️ Нет соединения с сервером')
     }
@@ -85,7 +98,6 @@ export default function SettingsPage() {
       </motion.h1>
 
       <div className="space-y-8">
-
         {/* 🧍 Аккаунт */}
         <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm shadow-[0_0_15px_rgba(0,255,150,0.1)]">
           <h2 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
@@ -100,6 +112,7 @@ export default function SettingsPage() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm focus:ring-1 focus:ring-emerald-400 outline-none"
+                disabled
               />
             </div>
 
@@ -110,6 +123,7 @@ export default function SettingsPage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="w-full mt-1 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-sm focus:ring-1 focus:ring-emerald-400 outline-none"
+                disabled
               />
             </div>
 
@@ -175,36 +189,6 @@ export default function SettingsPage() {
             </label>
           </div>
         </section>
-
-        {/* 🔒 Конфиденциальность */}
-        <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm">
-          <h2 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
-            <Shield className="w-5 h-5" /> Конфиденциальность
-          </h2>
-
-          <div className="flex flex-col gap-4 text-sm">
-            <label className="flex justify-between items-center">
-              <span>Показывать онлайн-статус:</span>
-              <input
-                type="checkbox"
-                checked={settings.showOnlineStatus}
-                onChange={(e) =>
-                  setSettings({ ...settings, showOnlineStatus: e.target.checked })
-                }
-                className="accent-emerald-500 w-4 h-4"
-              />
-            </label>
-            <label className="flex justify-between items-center">
-              <span>Скрыть email от других:</span>
-              <input
-                type="checkbox"
-                checked={settings.hideEmail}
-                onChange={(e) => setSettings({ ...settings, hideEmail: e.target.checked })}
-                className="accent-emerald-500 w-4 h-4"
-              />
-            </label>
-          </div>
-        </section>
       </div>
 
       {/* 💾 Сохранить */}
@@ -215,6 +199,12 @@ export default function SettingsPage() {
         >
           <Save className="w-4 h-4" /> Сохранить изменения
         </button>
+
+        {status && (
+          <p className="text-sm text-gray-400 mt-3 transition-opacity duration-300">
+            {status}
+          </p>
+        )}
       </div>
     </div>
   )
