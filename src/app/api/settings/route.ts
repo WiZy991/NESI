@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { verifyJwt } from '@/lib/jwt' // ✅ твоя функция проверки токена
+import { verifyJwt } from '@/lib/jwt'
 
+// Функция получения ID пользователя из JWT
 async function getUserId(req: Request): Promise<string | null> {
   try {
     const authHeader = req.headers.get('authorization')
@@ -14,6 +15,7 @@ async function getUserId(req: Request): Promise<string | null> {
   }
 }
 
+// Получение настроек пользователя
 export async function GET(req: Request) {
   try {
     const userId = await getUserId(req)
@@ -21,9 +23,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Неавторизован' }, { status: 401 })
     }
 
-    let settings = await prisma.userSettings.findUnique({
-      where: { userId },
-    })
+    let settings = await prisma.userSettings.findUnique({ where: { userId } })
 
     if (!settings) {
       settings = await prisma.userSettings.create({
@@ -31,8 +31,6 @@ export async function GET(req: Request) {
           userId,
           emailNotifications: true,
           pushNotifications: false,
-          showOnlineStatus: true,
-          hideEmail: false,
         },
       })
     }
@@ -44,6 +42,7 @@ export async function GET(req: Request) {
   }
 }
 
+// Обновление настроек пользователя
 export async function POST(req: Request) {
   try {
     const userId = await getUserId(req)
@@ -52,12 +51,13 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
+    const updateData: Record<string, boolean> = {}
 
-    // Разрешённые поля
-    const allowed = ['emailNotifications', 'pushNotifications', 'showOnlineStatus', 'hideEmail']
-    const updateData: Record<string, any> = {}
-    for (const key of allowed) {
-      if (key in body) updateData[key] = !!body[key]
+    if (typeof body.emailNotifications === 'boolean') {
+      updateData.emailNotifications = body.emailNotifications
+    }
+    if (typeof body.pushNotifications === 'boolean') {
+      updateData.pushNotifications = body.pushNotifications
     }
 
     const updated = await prisma.userSettings.upsert({
