@@ -6,23 +6,17 @@ import { NextResponse } from 'next/server'
 
 export async function GET() {
 	try {
-		const categories = await withCache(
-			cacheKeys.categories(),
-			async () => {
-				return await prisma.category.findMany({
-					include: {
-						subcategories: {
-							select: {
-								id: true,
-								name: true,
-								minPrice: true,
-							},
-						},
-					},
-				})
-			},
-			cacheTTL.categories
-		)
+		const categories = await prisma.category.findMany({
+  include: {
+    subcategories: {
+      select: {
+        id: true,
+        name: true,
+        minPrice: true,
+      },
+    },
+  },
+})
 
 		const response = NextResponse.json({ categories })
 
