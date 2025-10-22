@@ -3,17 +3,12 @@ import prisma from '@/lib/prisma'
 import { verifyJWT } from '@/lib/jwt'
 import { cookies } from 'next/headers'
 
-// Получение userId из cookie
 async function getUserId(): Promise<string | null> {
   try {
-    const cookieStore = cookies()
-    const token = cookieStore.get('token')?.value
+    const token = cookies().get('token')?.value
     if (!token) return null
-
     const payload = verifyJWT(token)
     if (!payload || typeof payload !== 'object') return null
-
-    // В твоём токене payload = { userId: ... }
     return (payload as any).userId
   } catch {
     return null
@@ -24,19 +19,13 @@ async function getUserId(): Promise<string | null> {
 export async function GET() {
   try {
     const userId = await getUserId()
-    if (!userId) {
+    if (!userId)
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-    }
 
     let settings = await prisma.userSettings.findUnique({ where: { userId } })
-
     if (!settings) {
       settings = await prisma.userSettings.create({
-        data: {
-          userId,
-          emailNotifications: true,
-          pushNotifications: false,
-        },
+        data: { userId, emailNotifications: true, pushNotifications: false },
       })
     }
 
@@ -51,9 +40,8 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const userId = await getUserId()
-    if (!userId) {
+    if (!userId)
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-    }
 
     const body = await req.json()
     const updateData: Record<string, boolean> = {}
