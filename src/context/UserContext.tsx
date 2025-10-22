@@ -16,7 +16,7 @@ type UserContextType = {
 	loading: boolean
 	unreadCount: number
 	setUser: (user: User | null) => void
-	setUnreadCount: (count: number) => void
+	setUnreadCount: (count: number | ((prev: number) => number)) => void
 	login: (user: User, token: string) => void
 	logout: () => void
 }
@@ -36,7 +36,15 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 	const [user, setUser] = useState<User | null>(null)
 	const [token, setToken] = useState<string | null>(null)
 	const [loading, setLoading] = useState(true)
-	const [unreadCount, setUnreadCount] = useState(0)
+	const [unreadCount, setUnreadCountState] = useState(0)
+
+	const setUnreadCount = (count: number | ((prev: number) => number)) => {
+		if (typeof count === 'function') {
+			setUnreadCountState(count)
+		} else {
+			setUnreadCountState(count)
+		}
+	}
 
 	useEffect(() => {
 		const storedToken = localStorage.getItem('token')
@@ -76,7 +84,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 					headers: { Authorization: `Bearer ${token}` },
 				})
 				const data = await res.json()
-				setUnreadCount(data.count || 0)
+				setUnreadCountState(data.count || 0)
 			} catch (err) {
 				console.error('Ошибка получения количества уведомлений', err)
 			}

@@ -1,6 +1,11 @@
 import { getUserFromToken } from '@/lib/auth'
 import { NextRequest } from 'next/server'
 
+// Добавляем типизацию для глобального объекта
+declare global {
+	var sseConnections: Map<string, ReadableStreamDefaultController> | undefined
+}
+
 export async function GET(req: NextRequest) {
 	const url = new URL(req.url)
 	const token = url.searchParams.get('token')
@@ -30,8 +35,8 @@ export async function GET(req: NextRequest) {
 			controller.enqueue(`data: ${data}\n\n`)
 
 			// Сохраняем контроллер для отправки сообщений
-			global.sseConnections = global.sseConnections || new Map()
-			global.sseConnections.set(user.id, controller)
+			globalThis.sseConnections = globalThis.sseConnections || new Map()
+			globalThis.sseConnections.set(user.id, controller)
 
 			// Отправляем heartbeat каждые 30 секунд
 			const heartbeatInterval = setInterval(() => {
@@ -44,7 +49,7 @@ export async function GET(req: NextRequest) {
 				} catch (error) {
 					console.error('Ошибка отправки heartbeat:', error)
 					clearInterval(heartbeatInterval)
-					global.sseConnections?.delete(user.id)
+					globalThis.sseConnections?.delete(user.id)
 				}
 			}, 30000)
 
@@ -52,13 +57,13 @@ export async function GET(req: NextRequest) {
 			req.signal.addEventListener('abort', () => {
 				console.log('🔌 SSE соединение закрыто для пользователя:', user.id)
 				clearInterval(heartbeatInterval)
-				global.sseConnections?.delete(user.id)
+				globalThis.sseConnections?.delete(user.id)
 				controller.close()
 			})
 		},
 		cancel() {
 			console.log('🔌 SSE соединение отменено для пользователя:', user.id)
-			global.sseConnections?.delete(user.id)
+			globalThis.sseConnections?.delete(user.id)
 		},
 	})
 
@@ -75,16 +80,21 @@ export async function GET(req: NextRequest) {
 
 // Функция для отправки уведомления конкретному пользователю
 export function sendNotificationToUser(userId: string, notification: any) {
-	const connections = global.sseConnections
+	const connections = globalThis.sseConnections
 	if (!connections || !connections.has(userId)) {
 		console.log('📭 Пользователь не подключен к SSE:', userId)
 		return false
 	}
 
+	const controller = connections.get(userId)
+	if (!controller) {
+		console.log('📭 Контроллер не найден для пользователя:', userId)
+		return false
+	}
+
 	try {
-		const controller = connections.get(userId)
 		const data = JSON.stringify({
-			type: 'message',
+			type: notification.type || 'notification',
 			...notification,
 			timestamp: new Date().toISOString(),
 		})
@@ -101,7 +111,7 @@ export function sendNotificationToUser(userId: string, notification: any) {
 
 // Функция для отправки уведомления всем подключенным пользователям
 export function broadcastNotification(notification: any) {
-	const connections = global.sseConnections
+	const connections = globalThis.sseConnections
 	if (!connections) return
 
 	console.log('📢 Рассылка уведомления всем подключенным пользователям')

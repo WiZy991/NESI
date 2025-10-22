@@ -4,6 +4,7 @@ import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { ToastContainer } from './ToastNotification'
 
 // Функция для форматирования времени уведомления
 const formatNotificationTime = (timestamp: string) => {
@@ -34,6 +35,7 @@ export default function Header() {
 	const [notifications, setNotifications] = useState<any[]>([])
 	const [unreadMessagesCount, setUnreadMessagesCount] = useState(0)
 	const [sseConnected, setSseConnected] = useState(false)
+	const [toastNotifications, setToastNotifications] = useState<any[]>([])
 	const menuRef = useRef<HTMLDivElement | null>(null)
 	const notifRef = useRef<HTMLDivElement | null>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
@@ -118,8 +120,19 @@ export default function Header() {
 			eventSource.onmessage = event => {
 				try {
 					const data = JSON.parse(event.data)
+					// Пропускаем служебные события
+					if (data.type === 'heartbeat' || data.type === 'connected') {
+						return
+					}
+
+					// Пропускаем события набора текста
+					if (data.type === 'typing') {
+						return
+					}
+
+					// Обрабатываем остальные уведомления
+					showNotification(data)
 					if (data.type === 'message') {
-						showNotification(data)
 						fetchUnreadMessages()
 					}
 				} catch (error) {
@@ -165,6 +178,19 @@ export default function Header() {
 			// Обновляем уведомления и счетчик непрочитанных
 			setNotifications(prev => [data, ...prev.slice(0, 4)])
 			setUnreadCount(unreadCount + 1)
+
+			// Добавляем toast уведомление
+			const toastNotification = {
+				id: `${Date.now()}-${Math.random()}`,
+				type: data.type || 'notification',
+				title: data.title || 'Новое уведомление',
+				message: data.message || '',
+				link: data.link,
+				userId: data.userId,
+				senderId: data.senderId,
+				timestamp: data.timestamp || new Date().toISOString(),
+			}
+			setToastNotifications(prev => [...prev, toastNotification])
 		}
 
 		fetchUnreadMessages()
@@ -212,218 +238,229 @@ export default function Header() {
 	const linkStyle =
 		'font-medium text-[15px] tracking-wide px-2 py-1 relative transition-all duration-300 hover:text-emerald-400 hover:drop-shadow-[0_0_6px_rgba(16,185,129,0.6)] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-emerald-400 after:transition-all after:duration-300 hover:after:w-full'
 
+	const handleToastClose = (id: string) => {
+		setToastNotifications(prev => prev.filter(toast => toast.id !== id))
+	}
+
 	return (
-		<header className='w-full px-8 py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50'>
-			<Link
-				href='/'
-				className='text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
-			>
-				NESI
-			</Link>
+		<>
+			<ToastContainer
+				notifications={toastNotifications}
+				onClose={handleToastClose}
+			/>
+			<header className='w-full px-8 py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50'>
+				<Link
+					href='/'
+					className='text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
+				>
+					NESI
+				</Link>
 
-			<nav className='flex gap-7 items-center text-gray-200 font-poppins'>
-				{user ? (
-					<>
-						{/* 🔔 Уведомления */}
-						<div className='relative' ref={notifRef}>
-							<button
-								onClick={() => setNotifOpen(v => !v)}
-								className={`${linkStyle} text-lg flex items-center gap-1`}
-							>
-								🔔
-								{unreadCount > 0 && (
-									<span className='absolute -top-2 -right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
-										{unreadCount}
-									</span>
-								)}
-								{sseConnected && (
-									<span className='absolute -bottom-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse'></span>
-								)}
-							</button>
+				<nav className='flex gap-7 items-center text-gray-200 font-poppins'>
+					{user ? (
+						<>
+							{/* 🔔 Уведомления */}
+							<div className='relative' ref={notifRef}>
+								<button
+									onClick={() => setNotifOpen(v => !v)}
+									className={`${linkStyle} text-lg flex items-center gap-1`}
+								>
+									🔔
+									{unreadCount > 0 && (
+										<span className='absolute -top-2 -right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
+											{unreadCount}
+										</span>
+									)}
+									{sseConnected && (
+										<span className='absolute -bottom-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse'></span>
+									)}
+								</button>
 
-							{notifOpen && (
-								<div className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden animate-fadeIn'>
-									<div className='max-h-64 overflow-y-auto custom-scrollbar'>
-										{notifications.length === 0 ? (
-											<div className='p-4 text-center text-gray-400'>
-												<div className='text-2xl mb-2'>🔔</div>
-												<p>Нет новых уведомлений</p>
-											</div>
-										) : (
-											notifications.map((notif, index) => (
-												<div
-													key={index}
-													className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
-													onClick={() => handleNotificationClick(notif)}
-												>
-													<div className='flex items-start space-x-3'>
-														<div className='w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold'>
-															{notif.sender?.charAt(0) || '?'}
-														</div>
-														<div className='flex-1 min-w-0'>
-															<p className='text-sm text-white font-medium truncate'>
-																{notif.title}
-															</p>
-															<p className='text-xs text-gray-400 truncate'>
-																<strong>{notif.sender}:</strong> {notif.message}
-															</p>
-															{notif.taskTitle && (
-																<p className='text-xs text-emerald-400 mt-1'>
-																	📋 {notif.taskTitle}
+								{notifOpen && (
+									<div className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden animate-fadeIn'>
+										<div className='max-h-64 overflow-y-auto custom-scrollbar'>
+											{notifications.length === 0 ? (
+												<div className='p-4 text-center text-gray-400'>
+													<div className='text-2xl mb-2'>🔔</div>
+													<p>Нет новых уведомлений</p>
+												</div>
+											) : (
+												notifications.map((notif, index) => (
+													<div
+														key={index}
+														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
+														onClick={() => handleNotificationClick(notif)}
+													>
+														<div className='flex items-start space-x-3'>
+															<div className='w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold'>
+																{notif.sender?.charAt(0) || '?'}
+															</div>
+															<div className='flex-1 min-w-0'>
+																<p className='text-sm text-white font-medium truncate'>
+																	{notif.title}
 																</p>
-															)}
-															{(notif.timestamp || notif.createdAt) && (
-																<p className='text-xs text-gray-500 mt-1'>
-																	{formatNotificationTime(
-																		notif.timestamp || notif.createdAt
-																	)}
+																<p className='text-xs text-gray-400 truncate'>
+																	<strong>{notif.sender}:</strong>{' '}
+																	{notif.message}
 																</p>
-															)}
+																{notif.taskTitle && (
+																	<p className='text-xs text-emerald-400 mt-1'>
+																		📋 {notif.taskTitle}
+																	</p>
+																)}
+																{(notif.timestamp || notif.createdAt) && (
+																	<p className='text-xs text-gray-500 mt-1'>
+																		{formatNotificationTime(
+																			notif.timestamp || notif.createdAt
+																		)}
+																	</p>
+																)}
+															</div>
 														</div>
 													</div>
+												))
+											)}
+										</div>
+										<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+											<button
+												onClick={handleGoToNotifications}
+												className='text-emerald-400 hover:underline text-sm font-medium'
+											>
+												Перейти к уведомлениям →
+											</button>
+										</div>
+									</div>
+								)}
+							</div>
+
+							{/* 🧭 Основная навигация */}
+							{user.role === 'admin' ? (
+								<>
+									<Link href='/admin' className={linkStyle}>
+										Админ-панель
+									</Link>
+									<Link href='/profile' className={linkStyle}>
+										Профиль
+									</Link>
+								</>
+							) : (
+								<>
+									{user.role === 'executor' && (
+										<>
+											<Link href='/specialists' className={linkStyle}>
+												Подиум исполнителей
+											</Link>
+											<Link href='/tasks' className={linkStyle}>
+												Каталог задач
+											</Link>
+											<Link href='/tasks/my' className={linkStyle}>
+												Мои задачи
+											</Link>
+											<Link href='/responses/my' className={linkStyle}>
+												Мои отклики
+											</Link>
+										</>
+									)}
+									{user.role === 'customer' && (
+										<>
+											<Link href='/specialists' className={linkStyle}>
+												Подиум исполнителей
+											</Link>
+											<Link href='/tasks' className={linkStyle}>
+												Каталог задач
+											</Link>
+											<Link href='/my-tasks' className={linkStyle}>
+												Мои задачи
+											</Link>
+											<Link href='/tasks/new' className={linkStyle}>
+												Создать задачу
+											</Link>
+										</>
+									)}
+
+									<Link href='/profile' className={linkStyle}>
+										Профиль
+									</Link>
+
+									{/* 📂 Выпадающее меню */}
+									<div className='relative' ref={menuRef}>
+										<button
+											onClick={() => setMenuOpen(v => !v)}
+											className={linkStyle}
+										>
+											Ещё ▾
+										</button>
+										{menuOpen && (
+											<div className='absolute right-0 mt-2 w-48 bg-gray-800 border border-emerald-500/30 rounded-lg shadow-lg z-50 animate-fadeIn'>
+												<Link
+													href='/chats'
+													className='block px-4 py-2 hover:bg-gray-700/60 transition relative'
+													onClick={() => setMenuOpen(false)}
+												>
+													💬 Чаты
+													{unreadMessagesCount > 0 && (
+														<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
+															{unreadMessagesCount}
+														</span>
+													)}
+												</Link>
+												<Link
+													href='/community'
+													className='block px-4 py-2 hover:bg-gray-700/60 transition'
+													onClick={() => setMenuOpen(false)}
+												>
+													🏘️ Сообщество
+												</Link>
+												<Link
+													href='/hire'
+													className='block px-4 py-2 hover:bg-gray-700/60 transition'
+													onClick={() => setMenuOpen(false)}
+												>
+													📑 Запросы найма
+												</Link>
+
+												<Link
+													href='/settings'
+													className='block px-4 py-2 text-sm text-gray-300 hover:text-emerald-400 transition'
+												>
+													⚙️ Настройки
+												</Link>
+
+												<div className='border-t border-gray-700 mt-1'>
+													<button
+														onClick={() => {
+															setMenuOpen(false)
+															handleLogout()
+														}}
+														className='block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700/60 transition'
+													>
+														🚪 Выйти
+													</button>
 												</div>
-											))
+											</div>
 										)}
 									</div>
-									<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
-										<button
-											onClick={handleGoToNotifications}
-											className='text-emerald-400 hover:underline text-sm font-medium'
-										>
-											Перейти к уведомлениям →
-										</button>
-									</div>
-								</div>
+								</>
 							)}
-						</div>
-
-						{/* 🧭 Основная навигация */}
-						{user.role === 'admin' ? (
-							<>
-								<Link href='/admin' className={linkStyle}>
-									Админ-панель
-								</Link>
-								<Link href='/profile' className={linkStyle}>
-									Профиль
-								</Link>
-							</>
-						) : (
-							<>
-								{user.role === 'executor' && (
-									<>
-										<Link href='/specialists' className={linkStyle}>
-											Подиум исполнителей
-										</Link>
-										<Link href='/tasks' className={linkStyle}>
-											Каталог задач
-										</Link>
-										<Link href='/tasks/my' className={linkStyle}>
-											Мои задачи
-										</Link>
-										<Link href='/responses/my' className={linkStyle}>
-											Мои отклики
-										</Link>
-									</>
-								)}
-								{user.role === 'customer' && (
-									<>
-										<Link href='/specialists' className={linkStyle}>
-											Подиум исполнителей
-										</Link>
-										<Link href='/tasks' className={linkStyle}>
-											Каталог задач
-										</Link>
-										<Link href='/my-tasks' className={linkStyle}>
-											Мои задачи
-										</Link>
-										<Link href='/tasks/new' className={linkStyle}>
-											Создать задачу
-										</Link>
-									</>
-								)}
-
-								<Link href='/profile' className={linkStyle}>
-									Профиль
-								</Link>
-
-								{/* 📂 Выпадающее меню */}
-								<div className='relative' ref={menuRef}>
-									<button
-										onClick={() => setMenuOpen(v => !v)}
-										className={linkStyle}
-									>
-										Ещё ▾
-									</button>
-									{menuOpen && (
-										<div className='absolute right-0 mt-2 w-48 bg-gray-800 border border-emerald-500/30 rounded-lg shadow-lg z-50 animate-fadeIn'>
-											<Link
-												href='/chats'
-												className='block px-4 py-2 hover:bg-gray-700/60 transition relative'
-												onClick={() => setMenuOpen(false)}
-											>
-												💬 Чаты
-												{unreadMessagesCount > 0 && (
-													<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
-														{unreadMessagesCount}
-													</span>
-												)}
-											</Link>
-											<Link
-												href='/community'
-												className='block px-4 py-2 hover:bg-gray-700/60 transition'
-												onClick={() => setMenuOpen(false)}
-											>
-												🏘️ Сообщество
-											</Link>
-											<Link
-												href='/hire'
-												className='block px-4 py-2 hover:bg-gray-700/60 transition'
-												onClick={() => setMenuOpen(false)}
-											>
-												📑 Запросы найма
-											</Link>
-
-											<Link
-												href='/settings'
-												className='block px-4 py-2 text-sm text-gray-300 hover:text-emerald-400 transition'
-											>
-												⚙️ Настройки
-											</Link>
-
-											<div className='border-t border-gray-700 mt-1'>
-												<button
-													onClick={() => {
-														setMenuOpen(false)
-														handleLogout()
-													}}
-													className='block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700/60 transition'
-												>
-													🚪 Выйти
-												</button>
-											</div>
-										</div>
-									)}
-								</div>
-							</>
-						)}
-					</>
-				) : (
-					<>
-						<Link
-							href='/login'
-							className='px-5 py-2 rounded-full border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-medium'
-						>
-							Вход
-						</Link>
-						<Link
-							href='/register'
-							className='px-5 py-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-semibold hover:brightness-110 transition'
-						>
-							Регистрация
-						</Link>
-					</>
-				)}
-			</nav>
-		</header>
+						</>
+					) : (
+						<>
+							<Link
+								href='/login'
+								className='px-5 py-2 rounded-full border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-medium'
+							>
+								Вход
+							</Link>
+							<Link
+								href='/register'
+								className='px-5 py-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-semibold hover:brightness-110 transition'
+							>
+								Регистрация
+							</Link>
+						</>
+					)}
+				</nav>
+			</header>
+		</>
 	)
 }

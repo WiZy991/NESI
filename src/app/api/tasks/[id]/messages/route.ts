@@ -110,6 +110,7 @@ export async function POST(
 		})
 
 		sendNotificationToUser(recipientId, {
+			type: 'message',
 			title: 'Новое сообщение в задаче',
 			message:
 				content ||

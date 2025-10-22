@@ -172,6 +172,7 @@ export async function POST(req: NextRequest) {
 
 		// Отправляем уведомление получателю в реальном времени
 		sendNotificationToUser(recipientId, {
+			type: 'message',
 			title: 'Новое сообщение',
 			message: content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение'),
 			sender: msg.sender.fullName || msg.sender.email,
