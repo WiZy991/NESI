@@ -3,9 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-/* =========================
-   Типы
-   ========================= */
 type Subcategory = { id: string; name: string }
 type Category = { id: string; name: string; subcategories: Subcategory[] }
 
@@ -21,20 +18,13 @@ type TestMeta = {
 type TestResponse = { test: TestMeta; questions: SafeQuestion[] }
 type StartAttemptResponse = { attemptId: string; startedAt: string; timeLimitSec: number }
 
-/* =========================
-   Константы
-   ========================= */
-const ANIMATION_SUBCAT_ID = 'de8d0f7c-d42a-45b6-b24e-c1b41eef6a4b'
-
-/* =========================
-   Утилиты
-   ========================= */
 function fmtLeft(sec: number | null) {
   if (sec == null) return '—'
   const m = Math.floor(sec / 60)
   const s = sec % 60
   return `${m}:${String(s).padStart(2, '0')}`
 }
+
 function getAuthToken(): string | null {
   try {
     return (
@@ -47,6 +37,7 @@ function getAuthToken(): string | null {
     return null
   }
 }
+
 async function authFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const token = getAuthToken()
   const headers = new Headers(init.headers as HeadersInit)
@@ -63,12 +54,11 @@ async function authFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   return { res, data }
 }
 
-/* =========================
-   Тест-раннер
-   ========================= */
+/* =====================================
+   ТЕСТ-РАННЕР
+   ===================================== */
 function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: string }) {
   const router = useRouter()
-
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -76,19 +66,15 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
   const [test, setTest] = useState<TestMeta | null>(null)
   const [questions, setQuestions] = useState<SafeQuestion[]>([])
   const [attemptId, setAttemptId] = useState<string | null>(null)
-
   const [idx, setIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [leftSec, setLeftSec] = useState<number | null>(null)
   const [result, setResult] = useState<{ passed: boolean; score: number; outOfTime: boolean; passScore: number } | null>(null)
 
-  const [reloadKey, setReloadKey] = useState(0)
-
-  // Загружаем тест + стартуем попытку
   useEffect(() => {
     let cancelled = false
     const run = async () => {
-      setLoading(true); setErr(null); setNotFound(false)
+      setLoading(true)
       try {
         const r1 = await authFetch(`/api/cert/test?subcategoryId=${encodeURIComponent(subcategoryId)}`)
         if (r1.res.status === 404) {
@@ -96,7 +82,6 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
           return
         }
         if (!r1.res.ok) throw new Error(r1.data?.error || `HTTP ${r1.res.status}`)
-
         const r2 = await authFetch('/api/cert/attempts/start', {
           method: 'POST',
           body: JSON.stringify({ testId: (r1.data as TestResponse).test.id })
@@ -121,9 +106,8 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
     }
     run()
     return () => { cancelled = true }
-  }, [subcategoryId, reloadKey])
+  }, [subcategoryId])
 
-  // Таймер
   useEffect(() => {
     if (!test) return
     const t = setInterval(() => setLeftSec(prev => (prev == null ? prev : Math.max(0, prev - 1))), 1000)
@@ -153,23 +137,23 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
     }
   }
 
-  if (notFound) {
-    return <div className="p-6 text-red-400">Тест для подкатегории не найден.</div>
-  }
+  if (notFound) return <div className="p-6 text-red-400">Тест для подкатегории не найден.</div>
   if (loading && !test) return <div className="p-6 text-gray-400">Загрузка…</div>
   if (err && !test) return <div className="p-6 text-red-400">Ошибка: {err}</div>
   if (!test) return null
 
   if (result) {
     return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-2xl font-bold">Результат</h1>
+      <div className="p-6 text-center space-y-4 bg-black/50 rounded-xl border border-emerald-800 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
+        <h1 className="text-3xl font-bold text-emerald-400">Результат</h1>
         {result.passed ? (
-          <div className="text-emerald-400">✅ Сертификат получен! Балл: {result.score}%</div>
+          <p className="text-emerald-300 text-lg">✅ Сертификат получен! Балл: {result.score}%</p>
         ) : (
-          <div className="text-red-400">❌ Недостаточно баллов: {result.score}% (нужно ≥{result.passScore}%)</div>
+          <p className="text-red-400 text-lg">❌ Недостаточно баллов: {result.score}% (нужно ≥{result.passScore}%)</p>
         )}
-        <button onClick={() => router.push(backTo)} className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700">Назад</button>
+        <button onClick={() => router.push(backTo)} className="px-6 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white transition">
+          Назад
+        </button>
       </div>
     )
   }
@@ -178,42 +162,45 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
   const canSubmit = Object.keys(answers).length === total
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl mx-auto">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">{test.title}</h1>
+    <div className="max-w-3xl mx-auto p-6 bg-black/40 border border-emerald-800 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.25)] backdrop-blur-md">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-semibold text-emerald-400">{test.title}</h1>
         <div className={`font-mono ${leftSec !== null && leftSec <= 30 ? 'text-red-400' : 'text-gray-300'}`}>
           ⏳ {fmtLeft(leftSec)}
         </div>
       </div>
 
-      {/* Вопрос */}
-      <div>
-        <p className="mb-3 font-medium">{questions[idx].text}</p>
-        <div className="space-y-2">
-          {questions[idx].options.map(o => {
-            const checked = answers[questions[idx].id] === o.id
-            return (
-              <label key={o.id} className={`flex items-center gap-3 p-2 rounded border cursor-pointer ${checked ? 'border-white bg-gray-800' : 'border-gray-700 bg-gray-900'}`}>
-                <input
-                  type="radio"
-                  className="accent-white"
-                  name={questions[idx].id}
-                  checked={checked}
-                  onChange={() => setAnswers(a => ({ ...a, [questions[idx].id]: o.id }))}
-                />
-                {o.text}
-              </label>
-            )
-          })}
-        </div>
+      <p className="mb-3 text-gray-200">{questions[idx].text}</p>
+      <div className="space-y-2">
+        {questions[idx].options.map(o => {
+          const checked = answers[questions[idx].id] === o.id
+          return (
+            <label
+              key={o.id}
+              className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
+                checked
+                  ? 'bg-emerald-700/40 border border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                  : 'bg-black/40 border border-emerald-800 hover:border-emerald-400'
+              }`}
+            >
+              <input
+                type="radio"
+                className="accent-emerald-400"
+                name={questions[idx].id}
+                checked={checked}
+                onChange={() => setAnswers(a => ({ ...a, [questions[idx].id]: o.id }))}
+              />
+              <span className="text-gray-100">{o.text}</span>
+            </label>
+          )
+        })}
       </div>
 
-      {/* Навигация */}
-      <div className="flex justify-between">
+      <div className="flex justify-between mt-6">
         <button
           onClick={() => setIdx(i => Math.max(0, i - 1))}
           disabled={idx === 0}
-          className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
+          className="px-4 py-2 rounded-lg bg-emerald-900 hover:bg-emerald-800 text-white disabled:opacity-40"
         >
           Назад
         </button>
@@ -221,7 +208,7 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
           <button
             onClick={() => setIdx(i => Math.min(total - 1, i + 1))}
             disabled={!answers[questions[idx]?.id]}
-            className="px-4 py-2 rounded bg-white text-black hover:bg-gray-200 disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40"
           >
             Далее
           </button>
@@ -229,25 +216,23 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
           <button
             onClick={() => void onSubmit()}
             disabled={!canSubmit}
-            className="px-4 py-2 rounded bg-white text-black hover:bg-gray-200 disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white disabled:opacity-40"
           >
             Завершить
           </button>
         )}
       </div>
-
-      {err && <div className="text-red-400">{err}</div>}
+      {err && <div className="text-red-400 mt-4">{err}</div>}
     </div>
   )
 }
 
-/* =========================
-   Страница /cert
-   ========================= */
+/* =====================================
+   СТРАНИЦА СЕРТИФИКАЦИИ
+   ===================================== */
 export default function CertPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-
   const initialSubcategoryId = searchParams.get('subcategoryId') || ''
   const backTo = searchParams.get('backTo') || '/tasks'
   const [subcategoryId, setSubcategoryId] = useState<string>(initialSubcategoryId)
@@ -255,14 +240,13 @@ export default function CertPageContent() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
   const showTest = useMemo(() => Boolean(subcategoryId), [subcategoryId])
 
   useEffect(() => {
     if (subcategoryId) return
     let cancelled = false
     const load = async () => {
-      setLoading(true); setError(null)
+      setLoading(true)
       try {
         const { res, data } = await authFetch('/api/categories')
         if (!res.ok) throw new Error(data?.error || 'Ошибка загрузки категорий')
@@ -287,9 +271,9 @@ export default function CertPageContent() {
   if (showTest) return <TestRunner subcategoryId={subcategoryId} backTo={backTo} />
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-2">Сертификация</h1>
-      <p className="text-gray-300 mb-6">
+    <div className="max-w-6xl mx-auto p-8">
+      <h1 className="text-3xl font-semibold text-emerald-400 mb-3">Сертификация</h1>
+      <p className="text-gray-400 mb-8">
         Выбери направление, по которому хочешь пройти тест.
       </p>
 
@@ -300,17 +284,20 @@ export default function CertPageContent() {
       ) : categories.length === 0 ? (
         <div className="text-gray-400">Категории пока не добавлены.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {categories.map((cat) => (
-            <div key={cat.id} className="rounded border border-gray-700 bg-gray-900 p-4">
-              <h2 className="font-semibold mb-3">{cat.name}</h2>
+            <div
+              key={cat.id}
+              className="rounded-2xl border border-emerald-800 bg-black/50 p-5 shadow-[0_0_25px_rgba(16,185,129,0.25)] hover:shadow-[0_0_40px_rgba(16,185,129,0.35)] transition-all"
+            >
+              <h2 className="text-emerald-400 font-semibold mb-4">{cat.name}</h2>
               {cat.subcategories?.length ? (
                 <div className="flex flex-wrap gap-2">
                   {cat.subcategories.map((sub) => (
                     <button
                       key={sub.id}
                       onClick={() => handleChooseSubcategory(sub.id)}
-                      className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-gray-700 text-sm"
+                      className="px-3 py-1.5 rounded-full border border-emerald-700 bg-emerald-900/30 text-sm text-gray-100 hover:bg-emerald-700/40 hover:text-emerald-200 transition"
                     >
                       {sub.name}
                     </button>
