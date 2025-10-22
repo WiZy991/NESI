@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Save, Bell } from 'lucide-react'
+import { Lock, Save, Bell, Eye, EyeOff } from 'lucide-react'
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -11,6 +11,10 @@ export default function SettingsPage() {
   })
 
   const [passwords, setPasswords] = useState({ old: '', new: '' })
+  const [showPassword, setShowPassword] = useState({
+    old: false,
+    new: false,
+  })
   const [status, setStatus] = useState<string | null>(null)
 
   // === загрузка настроек ===
@@ -150,20 +154,57 @@ export default function SettingsPage() {
         </h2>
 
         <div className="grid md:grid-cols-2 gap-3">
-          <input
-            type="password"
-            placeholder="Старый пароль"
-            value={passwords.old}
-            onChange={(e) => setPasswords({ ...passwords, old: e.target.value })}
-            className="p-2 bg-black/40 border border-gray-700 rounded-lg text-sm"
-          />
-          <input
-            type="password"
-            placeholder="Новый пароль"
-            value={passwords.new}
-            onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-            className="p-2 bg-black/40 border border-gray-700 rounded-lg text-sm"
-          />
+          {/* Старый пароль */}
+          <div className="relative">
+            <input
+              type={showPassword.old ? 'text' : 'password'}
+              placeholder="Старый пароль"
+              value={passwords.old}
+              onChange={(e) =>
+                setPasswords({ ...passwords, old: e.target.value })
+              }
+              className="p-2 pr-10 w-full bg-black/40 border border-gray-700 rounded-lg text-sm"
+            />
+            <button
+              type="button"
+              onClick={() =>
+                setShowPassword({ ...showPassword, old: !showPassword.old })
+              }
+              className="absolute right-3 top-2.5 text-gray-400 hover:text-emerald-400 transition"
+            >
+              {showPassword.old ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
+          {/* Новый пароль */}
+          <div className="relative">
+            <input
+              type={showPassword.new ? 'text' : 'password'}
+              placeholder="Новый пароль"
+              value={passwords.new}
+              onChange={(e) =>
+                setPasswords({ ...passwords, new: e.target.value })
+              }
+              className="p-2 pr-10 w-full bg-black/40 border border-gray-700 rounded-lg text-sm"
+            />
+            <button
+              type="button"
+              onClick={() =>
+                setShowPassword({ ...showPassword, new: !showPassword.new })
+              }
+              className="absolute right-3 top-2.5 text-gray-400 hover:text-emerald-400 transition"
+            >
+              {showPassword.new ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+            </button>
+          </div>
         </div>
 
         <button
