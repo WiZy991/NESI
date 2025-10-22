@@ -38,6 +38,7 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 text-white">
+      {/* размер и стили формы полностью сохранены */}
       <div className="w-full max-w-md p-8 border border-emerald-500/40 rounded-2xl backdrop-blur-md bg-black/10 shadow-[0_0_25px_rgba(16,185,129,0.4)]">
         <h1 className="text-4xl font-bold text-emerald-400 text-center mb-8 drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
           Вход
@@ -54,7 +55,7 @@ export default function LoginForm() {
             className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
           />
 
-          {/* Пароль с глазком */}
+          {/* Пароль с глазком — без изменения ширины */}
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
