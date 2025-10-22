@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -42,6 +42,9 @@ export default function MyResponsesPage() {
   const [responses, setResponses] = useState<Response[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const fetchResponses = async () => {
@@ -62,6 +65,17 @@ export default function MyResponsesPage() {
 
     fetchResponses()
   }, [token])
+
+  // Закрытие выпадающего списка при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleWithdraw = async (responseId: string) => {
     if (!confirm('Отозвать отклик?') || !token) return
@@ -138,8 +152,8 @@ export default function MyResponsesPage() {
         </div>
       </div>
 
-            {/* Фильтр */}
-      <div className="mb-8 flex items-center gap-3 relative">
+      {/* Фильтр */}
+      <div className="mb-8 flex items-center gap-3 relative" ref={dropdownRef}>
         <Filter className="w-5 h-5 text-emerald-400" />
         <div className="relative">
           <button
@@ -202,10 +216,11 @@ export default function MyResponsesPage() {
         </div>
       </div>
 
-
-      {/* Список откликов (Grid) */}
+      {/* Список откликов */}
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">Нет откликов по выбранному фильтру</div>
+        <div className="text-center py-16 text-gray-500">
+          Нет откликов по выбранному фильтру
+        </div>
       ) : (
         <motion.ul
           className="grid gap-6 md:grid-cols-2"
@@ -234,7 +249,11 @@ export default function MyResponsesPage() {
                   {r.task.title}
                 </Link>
 
-                <p className={`text-sm mt-1 ${statusColorMap[r.task.status].replace('border-', 'text-')}`}>
+                <p
+                  className={`text-sm mt-1 ${statusColorMap[
+                    r.task.status
+                  ].replace('border-', 'text-')}`}
+                >
                   Статус: {statusMap[r.task.status]}
                 </p>
 
