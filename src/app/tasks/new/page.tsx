@@ -117,32 +117,36 @@ export default function CreateTaskPage() {
           />
 
           {/* Категория */}
-<div className="space-y-2">
+<div className="space-y-2 relative">
   <label className="text-sm text-emerald-400 font-medium">Категория</label>
   <div className="relative">
     <button
       type="button"
-      onClick={() => setCategoryId(categoryId === 'open' ? '' : 'open')}
-      className="w-full text-left px-4 py-3 rounded-xl bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none flex justify-between items-center"
+      onClick={() =>
+        setCategoryId(categoryId === 'open' ? '' : 'open')
+      }
+      className="w-full text-left px-4 py-3 rounded-xl bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none flex justify-between items-center shadow-[0_0_15px_rgba(16,185,129,0.15)]"
     >
       {selectedCategory?.name || 'Выберите категорию'}
       <span className="text-emerald-400">▼</span>
     </button>
 
     {categoryId === 'open' && (
-      <div className="absolute z-50 mt-2 w-full bg-black border border-emerald-700 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-        {categories.map((cat) => (
-          <div
-            key={cat.id}
-            onClick={() => {
-              setCategoryId(cat.id)
-              setSubcategoryId('')
-            }}
-            className="px-4 py-2 hover:bg-emerald-700/30 cursor-pointer transition-all text-white"
-          >
-            {cat.name}
-          </div>
-        ))}
+      <div className="absolute z-50 mt-2 w-full bg-[#001a12]/90 border border-emerald-700 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] backdrop-blur-md animate-fade-in">
+        <div className="max-h-64 overflow-y-auto custom-scrollbar">
+          {categories.map((cat) => (
+            <div
+              key={cat.id}
+              onClick={() => {
+                setCategoryId(cat.id)
+                setSubcategoryId('')
+              }}
+              className="px-4 py-2 text-white hover:bg-emerald-700/30 hover:text-emerald-300 cursor-pointer transition-all"
+            >
+              {cat.name}
+            </div>
+          ))}
+        </div>
       </div>
     )}
   </div>
@@ -150,7 +154,7 @@ export default function CreateTaskPage() {
 
 {/* Подкатегория */}
 {selectedCategory && (
-  <div className="space-y-2">
+  <div className="space-y-2 relative">
     <label className="text-sm text-emerald-400 font-medium">Подкатегория</label>
     <div className="relative">
       <button
@@ -158,29 +162,30 @@ export default function CreateTaskPage() {
         onClick={() =>
           setSubcategoryId(subcategoryId === 'open' ? '' : 'open')
         }
-        className="w-full text-left px-4 py-3 rounded-xl bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none flex justify-between items-center"
+        className="w-full text-left px-4 py-3 rounded-xl bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none flex justify-between items-center shadow-[0_0_15px_rgba(16,185,129,0.15)]"
       >
         {selectedCategory.subcategories.find((s) => s.id === subcategoryId)?.name || 'Выберите подкатегорию'}
         <span className="text-emerald-400">▼</span>
       </button>
 
       {subcategoryId === 'open' && (
-        <div className="absolute z-50 mt-2 w-full bg-black border border-emerald-700 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-          {selectedCategory.subcategories.map((sub) => (
-            <div
-              key={sub.id}
-              onClick={() => setSubcategoryId(sub.id)}
-              className="px-4 py-2 hover:bg-emerald-700/30 cursor-pointer transition-all text-white"
-            >
-              {sub.name}
-            </div>
-          ))}
+        <div className="absolute z-50 mt-2 w-full bg-[#001a12]/90 border border-emerald-700 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] backdrop-blur-md animate-fade-in">
+          <div className="max-h-64 overflow-y-auto custom-scrollbar">
+            {selectedCategory.subcategories.map((sub) => (
+              <div
+                key={sub.id}
+                onClick={() => setSubcategoryId(sub.id)}
+                className="px-4 py-2 text-white hover:bg-emerald-700/30 hover:text-emerald-300 cursor-pointer transition-all"
+              >
+                {sub.name}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   </div>
 )}
-
 
           {/* Drop-зона */}
           <div
