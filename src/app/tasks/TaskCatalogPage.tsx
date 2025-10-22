@@ -64,7 +64,6 @@ export default function TaskCatalogPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки')
 
-      // показываем только открытые задачи
       const visibleTasks = (data.tasks || []).filter(
         (task: Task) => task.status === 'open' || !task.status
       )
@@ -81,9 +80,11 @@ export default function TaskCatalogPage() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const res = await fetch('/api/categories')
+      const res = await fetch('/api/categories', { cache: 'no-store' })
+      if (!res.ok) throw new Error('Ошибка загрузки категорий')
       const data = await res.json()
-      setCategories(data.categories || [])
+      // поддержка двух вариантов ответа API
+      setCategories(Array.isArray(data) ? data : data.categories || [])
     } catch (err) {
       console.error('Ошибка загрузки категорий:', err)
     }
@@ -169,7 +170,7 @@ export default function TaskCatalogPage() {
             <label className="text-emerald-400 text-sm font-medium">Сортировка</label>
             <button
               onClick={() => setIsSortOpen(!isSortOpen)}
-              className={`w-full flex justify-between items-center p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white hover:border-emerald-400 focus:ring-2 focus:ring-emerald-400 transition-all`}
+              className="w-full flex justify-between items-center p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white hover:border-emerald-400 focus:ring-2 focus:ring-emerald-400 transition-all"
             >
               {sortOptions.find((opt) => opt.value === sort)?.label}
               <span className="text-emerald-400">▼</span>
