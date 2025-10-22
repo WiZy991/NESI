@@ -98,48 +98,47 @@ export default function Home() {
 						объединяющем :
 					</p>
 					<h1
-  className='text-5xl font-bold mb-20 flex items-center justify-center gap-4 flex-wrap'
-  style={{
-    color: '#ffffff',
-    fontFamily: 'Montserrat Alternates-Regular, Helvetica',
-    letterSpacing: '4px',
-  }}
->
-  <a
-    href='/business'
-    className='px-6 py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300'
-  >
-    БИЗНЕС
-  </a>
-  <span className='text-3xl text-emerald-300 mx-2'>и</span>
-  <a
-    href='/talents'
-    className='px-6 py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300'
-  >
-    ТАЛАНТЫ
-  </a>
-</h1>
+						className='text-5xl font-bold mb-20 flex items-center justify-center gap-4 flex-wrap'
+						style={{
+							color: '#ffffff',
+							fontFamily: 'Montserrat Alternates-Regular, Helvetica',
+							letterSpacing: '4px',
+						}}
+					>
+						<a
+							href='/business'
+							className='px-6 py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300'
+						>
+							БИЗНЕС
+						</a>
+						<span className='text-3xl text-emerald-300 mx-2'>и</span>
+						<a
+							href='/talents'
+							className='px-6 py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300'
+						>
+							ТАЛАНТЫ
+						</a>
+					</h1>
 				</div>
 
-				{/* Content Grid */}
-				<div className='grid grid-cols-2 gap-6 w-4/5 mx-auto relative z-10'>
-					{/* Left Column - Description boxes */}
-					<div className='space-y-6'>
-						{/* First description box */}
+				{/* Content Grid (изменённый блок) */}
+				<div className="grid grid-cols-2 gap-10 w-[90%] mx-auto relative z-10 items-start">
+					{/* Left Column */}
+					<div className="space-y-6">
 						<div
-							className='p-6 rounded-xl'
+							className="p-6 rounded-xl"
 							style={{
-								backgroundColor: 'transparent',
-								border: '1px solid rgba(0, 255, 205, 0.3)',
-								boxShadow: '0 0 25px rgba(0, 255, 205, 0.5)',
+								backgroundColor: "transparent",
+								border: "1px solid rgba(0, 255, 205, 0.3)",
+								boxShadow: "0 0 25px rgba(0, 255, 205, 0.5)",
 							}}
 						>
 							<p
-								className='text-xl text-center leading-relaxed'
+								className="text-xl text-center leading-relaxed"
 								style={{
-									color: '#00ffcd',
-									fontFamily: 'Montserrat Alternates-Regular, Helvetica',
-									letterSpacing: '1.2px',
+									color: "#00ffcd",
+									fontFamily: "Montserrat Alternates-Regular, Helvetica",
+									letterSpacing: "1.2px",
 								}}
 							>
 								Мы не копия старых бирж, а новая цифровая экосистема, где бизнес
@@ -152,60 +151,53 @@ export default function Home() {
 						</div>
 					</div>
 
-					{/* Right Column - Images grid and description */}
-					<div className='space-y-6'>
-						{/* Images Grid */}
-						<div className='grid grid-cols-1 gap-3'>
-							<div className='aspect-square rounded-lg overflow-hidden relative'>
+					{/* Right Column - Enlarged */}
+					<div className="space-y-8 transform translate-x-8 -translate-y-4 scale-[1.15] origin-top-right">
+						<div className="grid grid-cols-1 gap-4">
+							<div className="aspect-[5/4] rounded-xl overflow-hidden relative">
 								<Image
-									src='/anime_images.svg'
-									alt='Project preview'
+									src="/anime_images.svg"
+									alt="Project preview"
 									fill
-									className='object-contain'
+									className="object-contain"
 								/>
 							</div>
 						</div>
 
-						{/* Large description box */}
 						<div
-							className='p-8 rounded-xl'
+							className="p-8 rounded-xl"
 							style={{
-								backgroundColor: 'transparent',
-								border: '1px solid rgba(0, 255, 205, 0.3)',
-								boxShadow: '0 0 25px rgba(0, 255, 205, 0.5)',
+								backgroundColor: "transparent",
+								border: "1px solid rgba(0, 255, 205, 0.3)",
+								boxShadow: "0 0 30px rgba(0, 255, 205, 0.6)",
 							}}
 						>
 							<p
-								className='text-xl text-center leading-relaxed'
+								className="text-xl text-center leading-relaxed"
 								style={{
-									color: '#00ffcd',
-									fontFamily: 'Montserrat Alternates, Helvetica',
-									letterSpacing: '1.5px',
+									color: "#00ffcd",
+									fontFamily: "Montserrat Alternates, Helvetica",
+									letterSpacing: "1.5px",
 								}}
 							>
-								Мы создаём пространство, где технологии соединяют людей и
-								возможности.
+								Мы создаём пространство, где технологии соединяют людей и возможности.
 								<br />
 								<br />
-								Здесь ценится не шум, а результат — точный, быстрый,
-								проверенный.
+								Здесь ценится не шум, а результат — точный, быстрый, проверенный.
 								<br />
 								<br />
 								Каждый проект становится частью цифрового потока, управляемого
 								интеллектом и доверием.
 								<br />
 								<br />
-								Это не просто обмен задачами — это новая форма взаимодействия в
-								IT-мире.
+								Это не просто обмен задачами — это новая форма взаимодействия в IT-мире.
 							</p>
 						</div>
 					</div>
 				</div>
 
-				{/* FOOTER SECTION */}
+				{/* FOOTER */}
 				<div className='w-5/5 h-28 flex items-center justify-between px-6 relative z-50 mx-auto mt-80 mb-20'>
-					{/* Footer Links Container with gradient */}
-					{/* Logo */}
 					<div
 						className='text-7xl font-bold tracking-[10px]'
 						style={{
@@ -223,80 +215,34 @@ export default function Home() {
 								'linear-gradient(270deg, rgba(4, 255, 205, 0.3) 0%, rgba(5, 15, 10, 0.2) 60%)',
 						}}
 					>
-						{/* Footer Links Grid */}
 						<div className='grid grid-cols-2 gap-3 w-7/8'>
-							<div
-								className='h-15 px-3 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
-								style={{
-									border: '1px solid rgba(0, 255, 205, 0.5)',
-									boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
-								}}
-							>
-								<span
-									className='text-m'
+							{[
+								'О проекте',
+								'Политика конфиденциальности',
+								'Пользовательское соглашение',
+								'Служба поддержки',
+							].map((text) => (
+								<div
+									key={text}
+									className='h-15 px-3 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
 									style={{
-										color: '#ffffff',
-										fontFamily: 'Montserrat Alternates-Regular, Helvetica',
-										letterSpacing: '3px',
+										border: '1px solid rgba(0, 255, 205, 0.5)',
+										boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
 									}}
 								>
-									О проекте
-								</span>
-							</div>
-							<div
-								className='h-15 px-3 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
-								style={{
-									border: '1px solid rgba(0, 255, 205, 0.5)',
-									boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
-								}}
-							>
-								<span
-									className='text-m'
-									style={{
-										color: '#ffffff',
-										fontFamily: 'Montserrat Alternates-Regular, Helvetica',
-										letterSpacing: '3px',
-									}}
-								>
-									Политика конфиденциальности
-								</span>
-							</div>
-							<div
-								className='h-15 px-3 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
-								style={{
-									border: '1px solid rgba(0, 255, 205, 0.5)',
-									boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
-								}}
-							>
-								<span
-									className='text-m'
-									style={{
-										color: '#ffffff',
-										fontFamily: 'Montserrat Alternates-Regular, Helvetica',
-										letterSpacing: '3px',
-									}}
-								>
-									Пользовательское соглашение
-								</span>
-							</div>
-							<div
-								className='h-15 px-3 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
-								style={{
-									border: '1px solid rgba(0, 255, 205, 0.5)',
-									boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
-								}}
-							>
-								<span
-									className='text-m'
-									style={{
-										color: '#ffffff',
-										fontFamily: 'Montserrat Alternates-Regular, Helvetica',
-										letterSpacing: '3px',
-									}}
-								>
-									Служба поддержки
-								</span>
-							</div>
+									<span
+										className='text-m'
+										style={{
+											color: '#ffffff',
+											fontFamily:
+												'Montserrat Alternates-Regular, Helvetica',
+											letterSpacing: '3px',
+										}}
+									>
+										{text}
+									</span>
+								</div>
+							))}
 						</div>
 					</div>
 				</div>
