@@ -38,8 +38,11 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 text-white">
-      {/* Форма с таким же размером, как на регистрации */}
-      <div className="w-full max-w-md p-8 border border-emerald-500/40 rounded-2xl backdrop-blur-md bg-black/10 shadow-[0_0_25px_rgba(16,185,129,0.4)]">
+      {/* Явно задаём ширину, как у регистрации */}
+      <div
+        className="w-full max-w-md p-8 border border-emerald-500/40 rounded-2xl backdrop-blur-md bg-black/10 shadow-[0_0_25px_rgba(16,185,129,0.4)]"
+        style={{ width: '460px' }} // 🔥 фикс ширины формы под регистрацию
+      >
         <h1 className="text-4xl font-bold text-emerald-400 text-center mb-8 drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
           Вход
         </h1>
