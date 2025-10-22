@@ -6,6 +6,10 @@ declare global {
 	var sseConnections: Map<string, ReadableStreamDefaultController> | undefined
 }
 
+// ВАЖНО: SSE требует nodejs runtime, не работает на Edge Runtime
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
 	const url = new URL(req.url)
 	const token = url.searchParams.get('token')
