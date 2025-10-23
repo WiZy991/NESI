@@ -142,24 +142,25 @@ export default function ProfilePageContent() {
 	}, [token])
 
 	useEffect(() => {
-		const fetchReviews = async () => {
-			if (!user || user.role !== 'executor') return
-			try {
-				const res = await fetch('/api/reviews/me', {
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-				})
-				const data = await res.json()
-				setReviews(data.reviews || [])
-			} catch (err) {
-				console.error('Ошибка загрузки отзывов:', err)
-			}
-		}
+  const fetchReviews = async () => {
+    if (!user) return
+    try {
+      const res = await fetch('/api/reviews/me', {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      const data = await res.json()
+      setReviews(data.reviews || [])
+    } catch (err) {
+      console.error('Ошибка загрузки отзывов:', err)
+    }
+  }
 
-		fetchReviews()
-	}, [user, token])
+  fetchReviews()
+}, [user, token])
+
 
 	const handleDeposit = async () => {
 		await fetch('/api/wallet/deposit', {
@@ -556,52 +557,55 @@ export default function ProfilePageContent() {
 				</div>
 			</div>
 
-			{/* Отзывы */}
-			{user.role === 'executor' && reviews.length > 0 && (
-				<div
-					className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                        shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-				>
-					<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-						<FaStar />
-						Отзывы заказчиков
-					</h3>
-					<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-						{reviews.map(review => (
-							<div
-								key={review.id}
-								className='bg-black/60 border border-emerald-500/30 
-                                             p-4 rounded-lg shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-							>
-								<div className='flex justify-between items-center mb-3'>
-									<h4 className='font-semibold text-white'>
-										{review.task.title}
-									</h4>
-									<div className='flex items-center gap-1'>
-										{[...Array(5)].map((_, i) => (
-											<FaStar
-												key={i}
-												className={`text-sm ${
-													i < review.rating
-														? 'text-yellow-400'
-														: 'text-gray-600'
-												}`}
-											/>
-										))}
-									</div>
-								</div>
-								<p className='text-gray-300 mb-3 italic'>"{review.comment}"</p>
-								<div className='flex justify-between items-center text-sm text-gray-400'>
-									<span>
-										От: {review.fromUser?.fullName || review.fromUser?.email}
-									</span>
-									<span>{new Date(review.createdAt).toLocaleDateString()}</span>
-								</div>
-							</div>
-						))}
-					</div>
-				</div>
-			)}
+			{reviews.length > 0 && (
+  <div
+    className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
+                shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+  >
+    <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+      <FaStar />
+      {user.role === 'executor' ? 'Отзывы заказчиков' : 'Отзывы исполнителей'}
+    </h3>
+
+    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+      {reviews.map(review => (
+        <div
+          key={review.id}
+          className='bg-black/60 border border-emerald-500/30 
+                     p-4 rounded-lg shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+        >
+          <div className='flex justify-between items-center mb-3'>
+            <h4 className='font-semibold text-white'>
+              {review.task?.title || 'Без названия'}
+            </h4>
+            <div className='flex items-center gap-1'>
+              {[...Array(5)].map((_, i) => (
+                <FaStar
+                  key={i}
+                  className={`text-sm ${
+                    i < review.rating ? 'text-yellow-400' : 'text-gray-600'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <p className='text-gray-300 mb-3 italic'>
+            “{review.comment?.trim() || 'Без комментария'}”
+          </p>
+
+          <div className='flex justify-between items-center text-sm text-gray-400'>
+            <span>
+              От: {review.fromUser?.fullName || review.fromUser?.email}
+            </span>
+            <span>{new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
 
 			{/* Кнопки действий */}
 			<div className='flex gap-4 flex-wrap justify-center'>
