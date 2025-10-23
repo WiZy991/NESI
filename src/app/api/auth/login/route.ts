@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     const { email, password } = await req.json()
     const user = await prisma.user.findUnique({ where: { email } })
 
+    // ❌ Нет пользователя или неверный пароль
     if (!user || !(await verifyPassword(password, user.password))) {
       return NextResponse.json(
         { error: 'Неверный логин или пароль' },
@@ -37,7 +38,18 @@ export async function POST(req: Request) {
       )
     }
 
+    // 🚫 Проверяем подтверждение почты
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        {
+          error:
+            'Ваш e-mail ещё не подтверждён. Проверьте почту и перейдите по ссылке из письма, чтобы активировать аккаунт.',
+        },
+        { status: 403 }
+      )
+    }
 
+    // ✅ Всё ок — создаём токен и авторизуем
     const token = signJWT({ userId: user.id })
 
     await createNotification(
