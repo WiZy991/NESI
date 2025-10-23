@@ -9,11 +9,17 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
   }
 
+  const { searchParams } = new URL(req.url)
+  const type = searchParams.get('type') // "received" | "left" | null
+
   try {
+    const whereClause =
+      type === 'left'
+        ? { fromUserId: user.id } // отзывы, которые пользователь оставил
+        : { toUserId: user.id } // отзывы, которые пользователь получил
+
     const reviews = await prisma.review.findMany({
-      where: {
-        toUserId: user.id, // Получатель отзыва
-      },
+      where: whereClause,
       include: {
         task: {
           select: {
@@ -30,17 +36,18 @@ export async function GET(req: Request) {
             email: true,
           },
         },
+        toUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     })
 
-    const filtered = reviews.filter(r =>
-      r.task.customerId === user.id || r.task.executorId === user.id
-    )
-
-    return NextResponse.json({ reviews: filtered })
+    return NextResponse.json({ reviews })
   } catch (error) {
     console.error('❌ Ошибка получения отзывов:', error)
     return NextResponse.json(
