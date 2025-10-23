@@ -7,7 +7,7 @@ import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 
 export async function POST(
   req: Request,
-  { params }: { params: { taskId: string } }
+  { params }: { params: { taskId?: string; id?: string } }
 ) {
   try {
     const user = await getUserFromRequest(req)
@@ -15,7 +15,8 @@ export async function POST(
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    const { taskId } = params
+    // ✅ Берём и taskId, и id, чтобы работало в любом случае
+    const taskId = params.taskId || params.id
     console.log('🧩 POST review for taskId =', taskId)
 
     if (!taskId) {
