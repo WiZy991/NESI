@@ -457,6 +457,56 @@ export default function ProfilePageContent() {
 							</div>
 						</div>
 					)}
+					{/* Отзывы исполнителей (для заказчика) */}
+{user.role === 'customer' && reviews.length > 0 && (
+  <div
+    className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
+                shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+  >
+    <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+      <FaStar />
+      Отзывы исполнителей
+    </h3>
+
+    <div className='space-y-4'>
+      {reviews.map(review => (
+        <div
+          key={review.id}
+          className='bg-black/60 border border-emerald-500/20 
+                     p-4 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.15)]'
+        >
+          <div className='flex justify-between items-center mb-2'>
+            <h4 className='font-semibold text-white'>
+              {review.task?.title || 'Без названия'}
+            </h4>
+            <div className='flex items-center gap-1'>
+              {[...Array(5)].map((_, i) => (
+                <FaStar
+                  key={i}
+                  className={`text-sm ${
+                    i < review.rating ? 'text-yellow-400' : 'text-gray-600'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <p className='text-gray-300 italic mb-2'>
+            “{review.comment?.trim() || 'Без комментария'}”
+          </p>
+
+          <div className='flex justify-between text-xs text-gray-400'>
+            <span>
+              От: {review.fromUser?.fullName || review.fromUser?.email}
+            </span>
+            <span>{new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
 
 					{/* О себе */}
 					{profile.description && (
