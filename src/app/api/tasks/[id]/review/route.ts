@@ -7,7 +7,7 @@ import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> } // ✅ исправлено
+  { params }: { params: { taskId: string } }
 ) {
   try {
     const user = await getUserFromRequest(req)
@@ -15,20 +15,21 @@ export async function POST(
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    const { id: taskId } = await params // ✅ теперь params можно await
-    const { rating, comment } = await req.json()
+    const { taskId } = params
+    console.log('🧩 POST review for taskId =', taskId)
 
+    if (!taskId) {
+      return NextResponse.json({ error: 'Не передан ID задачи' }, { status: 400 })
+    }
+
+    const { rating, comment } = await req.json()
     if (!rating || rating < 1 || rating > 5) {
       return NextResponse.json({ error: 'Оценка от 1 до 5 обязательна' }, { status: 400 })
     }
 
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: {
-        customer: true,
-        executor: true,
-        reviews: true, // корректно для твоей модели
-      },
+      include: { customer: true, executor: true, reviews: true },
     })
 
     if (!task) {
@@ -70,8 +71,7 @@ export async function POST(
     })
 
     const actorName = user.fullName || user.email
-    const taskTitle = task.title
-    const notifyMsg = `${actorName} оставил отзыв (${rating}⭐) по задаче «${taskTitle}»`
+    const notifyMsg = `${actorName} оставил отзыв (${rating}⭐) по задаче «${task.title}»`
 
     await createNotification({
       userId: toUserId,
@@ -85,7 +85,7 @@ export async function POST(
       title: 'Новый отзыв',
       message: notifyMsg,
       link: `/tasks/${taskId}`,
-      taskTitle,
+      taskTitle: task.title,
       rating,
       senderId: user.id,
       sender: actorName,
