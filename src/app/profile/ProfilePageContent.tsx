@@ -1,3 +1,7 @@
+Как то не правильно отображаются отзывы. звезда из 5. Как-то нужно исправить.
+
+Код профиля
+
 'use client'
 
 import { useUser } from '@/context/UserContext'
@@ -512,33 +516,44 @@ export default function ProfilePageContent() {
 											)}
 										</div>
 										{task.review && (
-  <div className='mt-3 p-3 bg-yellow-500/10 rounded border border-yellow-500/25 shadow-[0_0_10px_rgba(234,179,8,0.1)]'>
+  <div className='mt-2 p-3 bg-yellow-500/10 rounded border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.15)]'>
     <div className='flex items-center justify-between mb-2'>
-      <div className='flex items-center gap-2'>
+      <div className='flex items-center gap-1'>
         {[...Array(5)].map((_, i) => (
           <FaStar
             key={i}
-            className={`text-base ${
-              i < task.review.rating
-                ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]'
+            className={`text-sm ${
+              i < Math.round(task.review.rating)
+                ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(234,179,8,0.4)]'
                 : 'text-gray-600'
             }`}
           />
         ))}
-        <span className='text-yellow-300 font-semibold text-sm'>
+        <span className='text-yellow-300 font-semibold text-sm ml-1'>
           {task.review.rating.toFixed(1)} / 5
         </span>
       </div>
-      <span className='text-xs text-gray-400'>
-        {new Date(task.completedAt || task.review.createdAt).toLocaleDateString('ru-RU')}
-      </span>
+      {task.completedAt && (
+        <span className='text-xs text-gray-500 flex items-center gap-1'>
+          <FaCalendarAlt />
+          {new Date(task.completedAt).toLocaleDateString('ru-RU')}
+        </span>
+      )}
     </div>
+
     <p className='text-sm text-gray-300 italic leading-snug'>
       “{task.review.comment || 'Без комментария'}”
     </p>
   </div>
 )}
 
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+				</div>
+			</div>
 
 			{/* Отзывы */}
 			{user.role === 'executor' && reviews.length > 0 && (
