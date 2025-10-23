@@ -607,7 +607,7 @@ export default function ProfilePageContent() {
 				</div>
 			)}
 
-			{/* Кнопки действий */}
+						{/* Кнопки действий */}
 			<div className='flex gap-4 flex-wrap justify-center'>
 				<Link
 					href='/profile/edit'
@@ -617,16 +617,16 @@ export default function ProfilePageContent() {
 					✏️ Редактировать профиль
 				</Link>
 				 {/* Эта кнопка видна только исполнителям */}
-  {profile.isExecutor && (
-    <Link
-      href='/level'
-      className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
-                 hover:bg-indigo-400 hover:text-black transition font-semibold'
-    >
-      📊 Мой уровень
-    </Link>
-  )}
-</div>
-</div>
-)
+				{profile.isExecutor && (
+					<Link
+						href='/level'
+						className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
+                         hover:bg-indigo-400 hover:text-black transition font-semibold'
+					>
+						📊 Мой уровень
+					</Link>
+				)}
+			</div>
+		</div>
+	)
 }
