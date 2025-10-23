@@ -525,9 +525,9 @@ export default function ProfilePageContent() {
             }`}
           />
         ))}
-        <span className='text-yellow-300 font-semibold text-sm ml-1'>
-          {task.review.rating.toFixed(1)} / 5
-        </span>
+       <span className='text-yellow-300 font-semibold text-sm ml-1'>
+  {(task.review?.rating ?? 0).toFixed(1)} / 5
+</span>
       </div>
       {task.completedAt && (
         <span className='text-xs text-gray-500 flex items-center gap-1'>
