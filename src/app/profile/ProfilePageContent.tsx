@@ -511,9 +511,11 @@ export default function ProfilePageContent() {
 												</span>
 											)}
 										</div>
-										{(task.review || task.customerReview) && (() => {
-  const review = task.customerReview || task.review
-  const ratingValue = Number(review?.rating ?? 0)
+										{(() => {
+  const review = reviews.find(r => r.task.title === task.title)
+  if (!review) return null
+
+  const ratingValue = Number(review.rating ?? 0)
   const rounded = Math.round(ratingValue)
 
   return (
@@ -544,11 +546,12 @@ export default function ProfilePageContent() {
       </div>
 
       <p className='text-sm text-gray-300 italic leading-snug'>
-        “{review?.comment?.trim() || 'Без комментария'}”
+        “{review.comment?.trim() || 'Без комментария'}”
       </p>
     </div>
   )
 })()}
+
 
 
 										
