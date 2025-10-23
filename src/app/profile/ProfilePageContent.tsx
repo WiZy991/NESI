@@ -512,37 +512,37 @@ export default function ProfilePageContent() {
 											)}
 										</div>
 										{task.review && (
-  <div className='mt-2 p-3 bg-yellow-500/10 rounded border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.15)]'>
-    <div className='flex items-center justify-between mb-2'>
-      <div className='flex items-center gap-1'>
-        {[...Array(5)].map((_, i) => (
-          <FaStar
-            key={i}
-            className={`text-sm ${
-              i < Math.round(task.review.rating)
-                ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(234,179,8,0.4)]'
-                : 'text-gray-600'
-            }`}
-          />
-        ))}
-       <span className='text-yellow-300 font-semibold text-sm ml-1'>
-  {(task.review?.rating ?? 0).toFixed(1)} / 5
-</span>
-      </div>
-      {task.completedAt && (
-        <span className='text-xs text-gray-500 flex items-center gap-1'>
-          <FaCalendarAlt />
-          {new Date(task.completedAt).toLocaleDateString('ru-RU')}
-        </span>
-      )}
+  <div className='mt-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.15)]'>
+    <div className='flex items-center gap-2 mb-2'>
+      {(() => {
+        // Безопасно приводим рейтинг к числу
+        const ratingValue = Number(task.review.rating) || 0
+        return (
+          <>
+            {[...Array(5)].map((_, i) => (
+              <FaStar
+                key={i}
+                className={`text-base ${
+                  i < Math.round(ratingValue)
+                    ? 'text-yellow-400 drop-shadow-[0_0_6px_rgba(255,220,100,0.6)]'
+                    : 'text-gray-600'
+                }`}
+              />
+            ))}
+            <span className='text-yellow-300 font-semibold text-sm ml-1'>
+              {ratingValue.toFixed(1)} / 5
+            </span>
+          </>
+        )
+      })()}
     </div>
 
     <p className='text-sm text-gray-300 italic leading-snug'>
-      “{task.review.comment || 'Без комментария'}”
+      “{task.review.comment?.trim() || 'Без комментария'}”
     </p>
   </div>
 )}
-
+										
 									</div>
 								))}
 							</div>
