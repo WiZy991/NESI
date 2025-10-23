@@ -461,14 +461,14 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 				</div>
 			</div>
 
-			{/* 🟢 Блок отзывов */}
+{/* 🟢 Блок отзывов */}
 {task.status === 'completed' && (
   <div className='space-y-6'>
 
     {/* ==== Уже оставленные отзывы ==== */}
-    {task.reviews?.length > 0 && (
+    {task.review?.length > 0 && (
       <div className='space-y-4'>
-        {task.reviews.map((review: any, idx: number) => (
+        {task.review.map((review: any, idx: number) => (
           <div
             key={review.id || idx}
             className='bg-gradient-to-br from-black/60 to-emerald-900/20 rounded-xl p-4 md:p-6 border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.25)] hover:shadow-[0_0_40px_rgba(16,185,129,0.35)] transition-all duration-300'
@@ -511,7 +511,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 
     {/* ==== Форма: заказчик -> отзыв исполнителю ==== */}
     {isCustomer &&
-      !task.reviews?.some((r: any) => r.fromUserId === user?.id) && (
+      !task.review?.some((r: any) => r.fromUserId === user?.id) && (
         <div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/30 hover:border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all duration-300'>
           <div className='flex items-center gap-3 mb-4'>
             <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
@@ -527,8 +527,8 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 
     {/* ==== Форма: исполнитель -> отзыв заказчику ==== */}
     {isExecutor &&
-      !isCustomer && // 🔒 предотвращаем дублирование
-      !task.reviews?.some((r: any) => r.fromUserId === user?.id) && (
+      !isCustomer &&
+      !task.review?.some((r: any) => r.fromUserId === user?.id) && (
         <div className='bg-black/40 rounded-xl p-4 md:p-6 border border-yellow-500/30 hover:border-yellow-500/50 shadow-[0_0_20px_rgba(234,179,8,0.2)] transition-all duration-300'>
           <div className='flex items-center gap-3 mb-4'>
             <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center'>
@@ -543,7 +543,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       )}
   </div>
 )}
-
 
 
 			{/* Форма отклика */}
