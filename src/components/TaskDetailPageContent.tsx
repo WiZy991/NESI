@@ -471,31 +471,31 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       .map((review: any) => (
         <div
           key={review.id}
-          className='bg-gradient-to-br from-black/60 to-yellow-900/20 rounded-xl p-4 md:p-6 border border-yellow-500/40 shadow-[0_0_30px_rgba(234,179,8,0.25)] hover:shadow-[0_0_40px_rgba(234,179,8,0.35)] transition-all duration-300'
+          className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'
         >
           <div className='flex items-center gap-3 mb-3'>
-            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center'>
-              <span className='text-sm'>⭐</span>
+            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+              <span className='text-sm text-black'>⭐</span>
             </div>
-            <h3 className='text-lg font-semibold text-yellow-300'>
+            <h3 className='text-lg font-semibold text-emerald-300'>
               Отзыв {review.fromUserId === task.customerId ? 'заказчика' : 'исполнителя'}
             </h3>
           </div>
 
           <div className='space-y-3'>
             <div className='flex items-center gap-2'>
-              <span className='text-2xl text-yellow-400'>⭐</span>
-              <span className='text-xl font-bold text-yellow-400'>{review.rating}</span>
+              <span className='text-xl text-yellow-400'>⭐</span>
+              <span className='text-lg font-bold text-yellow-400'>{review.rating}</span>
               <span className='text-gray-400 text-sm'>/ 5</span>
             </div>
 
-            <p className='text-gray-200 text-lg leading-relaxed italic'>
+            <p className='text-gray-200 text-base leading-relaxed italic'>
               “{review.comment || 'Без комментария'}”
             </p>
 
             <div className='flex items-center justify-between text-sm text-gray-500'>
               <span>📅 {new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
-              <span className='text-yellow-300'>
+              <span className='text-emerald-400'>
                 👤 {review.fromUser?.fullName || 'Пользователь'}
               </span>
             </div>
@@ -506,12 +506,12 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
     {/* ==== Форма: заказчик -> отзыв исполнителю ==== */}
     {isCustomer &&
       !task.review?.some((r: any) => r.fromUserId === user?.id) && (
-        <div className='bg-black/40 rounded-xl p-4 md:p-6 border border-yellow-500/40 hover:border-yellow-500/60 shadow-[0_0_25px_rgba(234,179,8,0.25)] hover:shadow-[0_0_35px_rgba(234,179,8,0.35)] transition-all duration-300'>
+        <div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
           <div className='flex items-center gap-3 mb-4'>
-            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center'>
-              <span className='text-sm'>⭐</span>
+            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+              <span className='text-sm text-black'>⭐</span>
             </div>
-            <h3 className='text-lg font-semibold text-yellow-300'>
+            <h3 className='text-lg font-semibold text-emerald-300'>
               Оставить отзыв исполнителю
             </h3>
           </div>
@@ -523,12 +523,12 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
     {isExecutor &&
       !isCustomer &&
       !task.review?.some((r: any) => r.fromUserId === user?.id) && (
-        <div className='bg-black/40 rounded-xl p-4 md:p-6 border border-yellow-500/40 hover:border-yellow-500/60 shadow-[0_0_25px_rgba(234,179,8,0.25)] hover:shadow-[0_0_35px_rgba(234,179,8,0.35)] transition-all duration-300'>
+        <div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
           <div className='flex items-center gap-3 mb-4'>
-            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center'>
-              <span className='text-sm'>⭐</span>
+            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+              <span className='text-sm text-black'>⭐</span>
             </div>
-            <h3 className='text-lg font-semibold text-yellow-300'>
+            <h3 className='text-lg font-semibold text-emerald-300'>
               Оставить отзыв заказчику
             </h3>
           </div>
@@ -537,6 +537,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
       )}
   </div>
 )}
+
 
 
 
