@@ -201,9 +201,10 @@ export default function ProfilePageContent() {
 	return (
 		<div className='p-6 max-w-6xl mx-auto space-y-8'>
 			<h1 className='text-4xl font-bold text-emerald-400 mb-6 flex items-center gap-3'>
-				<FaUserCircle className='text-3xl' />
-				Профиль исполнителя
-			</h1>
+  <FaUserCircle className='text-3xl' />
+  {profile.isExecutor ? 'Профиль исполнителя' : 'Профиль заказчика'}
+</h1>
+
 
 			{/* Основная информация */}
 			<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
@@ -587,12 +588,14 @@ export default function ProfilePageContent() {
 				>
 					✏️ Редактировать профиль
 				</Link>
-				<Link
-					href='/level'
-					className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
-						hover:bg-indigo-400 hover:text-black transition font-semibold'
-				>
-					📊 Мой уровень
+				{/* Эта кнопка видна только исполнителям */}
+  {profile.isExecutor && (
+    <Link
+      href='/level'
+      className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
+                 hover:bg-indigo-400 hover:text-black transition font-semibold'
+    >
+      📊 Мой уровень
 				</Link>
 			</div>
 		</div>
