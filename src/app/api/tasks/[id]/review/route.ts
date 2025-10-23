@@ -30,7 +30,7 @@ export async function POST(
 
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { customer: true, executor: true, reviews: true },
+      include: { customer: true, executor: true, review: true },
     })
 
     if (!task) {
