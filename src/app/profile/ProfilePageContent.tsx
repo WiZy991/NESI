@@ -559,6 +559,42 @@ export default function ProfilePageContent() {
     </div>
   </div>
 )}
+            {/* Отзыв */}
+            {task.review && (
+              <div
+                className={`mt-2 p-3 rounded border shadow-[0_0_8px_rgba(234,179,8,0.15)] ${
+                  rating <= 2
+                    ? 'bg-red-500/10 border-red-500/30'
+                    : 'bg-yellow-500/10 border-yellow-500/30'
+                }`}
+              >
+                <div className='flex items-center gap-1 mb-1'>
+                  {[...Array(5)].map((_, i) => (
+                    <FaStar
+                      key={i}
+                      className={`text-sm ${
+                        i < rating
+                          ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(234,179,8,0.4)]'
+                          : 'text-gray-600'
+                      }`}
+                    />
+                  ))}
+                  <span className='text-yellow-300 font-semibold text-sm ml-1'>
+                    {rating.toFixed(1)} / 5
+                  </span>
+                </div>
+
+                <p className='text-sm text-gray-300 italic leading-snug'>
+                  “{task.review.comment || 'Без комментария'}”
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  </div>
+)}
 
 			{/* Отзывы */}
 			{user.role === 'executor' && reviews.length > 0 && (
@@ -608,25 +644,26 @@ export default function ProfilePageContent() {
 			)}
 
 						{/* Кнопки действий */}
-			<div className='flex gap-4 flex-wrap justify-center'>
-				<Link
-					href='/profile/edit'
-					className='px-6 py-3 rounded-lg border border-emerald-400 text-emerald-400 
-                     hover:bg-emerald-400 hover:text-black transition font-semibold'
-				>
-					✏️ Редактировать профиль
-				</Link>
-				 {/* Эта кнопка видна только исполнителям */}
-				{profile.isExecutor && (
-					<Link
-						href='/level'
-						className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
-                         hover:bg-indigo-400 hover:text-black transition font-semibold'
-					>
-						📊 Мой уровень
-					</Link>
-				)}
-			</div>
-		</div>
-	)
+<div className='flex gap-4 flex-wrap justify-center'>
+  <Link
+    href='/profile/edit'
+    className='px-6 py-3 rounded-lg border border-emerald-400 text-emerald-400 
+             hover:bg-emerald-400 hover:text-black transition font-semibold'
+  >
+    ✏️ Редактировать профиль
+  </Link>
+
+  {profile.isExecutor && (
+    <Link
+      href='/level'
+      className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
+               hover:bg-indigo-400 hover:text-black transition font-semibold'
+    >
+      📊 Мой уровень
+    </Link>
+  )}
+</div>
+		< 
+	</div>
+  )
 }
