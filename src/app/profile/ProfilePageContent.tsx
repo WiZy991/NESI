@@ -1,7 +1,3 @@
-Как то не правильно отображаются отзывы. звезда из 5. Как-то нужно исправить.
-
-Код профиля
-
 'use client'
 
 import { useUser } from '@/context/UserContext'
