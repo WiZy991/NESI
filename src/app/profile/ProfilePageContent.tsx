@@ -662,8 +662,7 @@ export default function ProfilePageContent() {
       📊 Мой уровень
     </Link>
   )}
-</div>
-		< 
+	</div>
 	</div>
   )
 }
