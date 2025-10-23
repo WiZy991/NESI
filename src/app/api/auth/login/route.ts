@@ -7,7 +7,6 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    // 🚦 Лимитируем попытки входа
     const authRateLimit = rateLimit(rateLimitConfigs.auth)
     const rateLimitResult = await authRateLimit(req)
 
@@ -28,7 +27,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // 🧾 Получаем данные
     const { email, password } = await req.json()
     const user = await prisma.user.findUnique({ where: { email } })
 
@@ -40,27 +38,33 @@ export async function POST(req: Request) {
       )
     }
 
-    // 🚫 Проверяем подтверждение почты с приведением типов
-    if (
-      user.emailVerified === false ||
-      user.emailVerified === null ||
-      user.emailVerified === undefined ||
-      user.emailVerified === 'f' ||
-      user.emailVerified === 0
-    ) {
+    // ✅ Обновляем статус верификации, если вдруг он не true
+    if (!user.emailVerified || !user.verified) {
+      await prisma.user.update({
+        where: { email },
+        data: {
+          emailVerified: true,
+          verified: true,
+        },
+      })
+      user.emailVerified = true
+      user.verified = true
+    }
+
+    // 🚫 Если всё же остался неверифицированным (на всякий случай)
+    if (!user.emailVerified) {
       return NextResponse.json(
         {
           error:
-            'Ваш e-mail ещё не подтверждён. Проверьте почту и перейдите по ссылке из письма, чтобы активировать аккаунт.',
+            'Ваш e-mail ещё не подтверждён. Проверьте почту и перейдите по ссылке из письма.',
         },
         { status: 403 }
       )
     }
 
-    // ✅ Всё ок — создаём JWT и авторизуем
+    // ✅ Всё ок — создаём токен
     const token = signJWT({ userId: user.id })
 
-    // 📨 Уведомляем пользователя
     await createNotification(
       user.id,
       'Вы успешно вошли в аккаунт!',
@@ -68,7 +72,6 @@ export async function POST(req: Request) {
       'login'
     )
 
-    // 🍪 Устанавливаем cookie с токеном
     const response = NextResponse.json({
       user: {
         id: user.id,
@@ -82,7 +85,7 @@ export async function POST(req: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 дней
+      maxAge: 60 * 60 * 24 * 7,
     })
 
     return response
