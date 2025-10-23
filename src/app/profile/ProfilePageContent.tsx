@@ -1,5 +1,3 @@
-вот код!
-
 'use client'
 
 import { useUser } from '@/context/UserContext'
