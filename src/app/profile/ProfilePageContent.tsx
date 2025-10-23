@@ -536,13 +536,6 @@ export default function ProfilePageContent() {
             {ratingValue.toFixed(1)} / 5
           </span>
         </div>
-
-        {task.completedAt && (
-          <span className='text-xs text-gray-500 flex items-center gap-1'>
-            <FaCalendarAlt />
-            {new Date(task.completedAt).toLocaleDateString('ru-RU')}
-          </span>
-        )}
       </div>
 
       <p className='text-sm text-gray-300 italic leading-snug'>
