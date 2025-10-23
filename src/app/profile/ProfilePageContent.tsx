@@ -473,83 +473,92 @@ export default function ProfilePageContent() {
 					)}
 
 					{/* Портфолио выполненных задач */}
-					{profile.executedTasks && profile.executedTasks.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-								<FaTasks />
-								Последние выполненные задачи
-							</h3>
-							<div className='space-y-4'>
-								{profile.executedTasks.map(task => (
-									<div
-										key={task.id}
-										className='bg-black/60 p-4 rounded-lg border border-emerald-500/20'
-									>
-										<div className='flex justify-between items-start mb-2'>
-											<h4 className='font-semibold text-white'>{task.title}</h4>
-											{task.price && (
-												<span className='text-emerald-300 font-semibold'>
-													{task.price} NESI
-												</span>
-											)}
-										</div>
-										<p className='text-gray-300 text-sm mb-2 line-clamp-2'>
-											{task.description}
-										</p>
-										<div className='flex justify-between items-center text-xs text-gray-400'>
-											<span>
-												Заказчик:{' '}
-												{task.customer.fullName || task.customer.email}
-											</span>
-											{task.completedAt && (
-												<span className='flex items-center gap-1'>
-													<FaCalendarAlt />
-													{new Date(task.completedAt).toLocaleDateString()}
-												</span>
-											)}
-										</div>
-										{task.review && (
-  <div className='mt-2 p-3 bg-yellow-500/10 rounded border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.15)]'>
-    <div className='flex items-center justify-between mb-2'>
-      <div className='flex items-center gap-1'>
-        {[...Array(5)].map((_, i) => (
-          <FaStar
-            key={i}
-            className={`text-sm ${
-              i < Math.round(task.review.rating)
-                ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(234,179,8,0.4)]'
-                : 'text-gray-600'
-            }`}
-          />
-        ))}
-       <span className='text-yellow-300 font-semibold text-sm ml-1'>
-  {(task.review?.rating ?? 0).toFixed(1)} / 5
-</span>
-      </div>
-      {task.completedAt && (
-        <span className='text-xs text-gray-500 flex items-center gap-1'>
-          <FaCalendarAlt />
-          {new Date(task.completedAt).toLocaleDateString('ru-RU')}
-        </span>
-      )}
-    </div>
+{profile.executedTasks && profile.executedTasks.length > 0 && (
+  <div
+    className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
+                shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+  >
+    <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+      <FaTasks />
+      Последние выполненные задачи
+    </h3>
 
-    <p className='text-sm text-gray-300 italic leading-snug'>
-      “{task.review.comment || 'Без комментария'}”
-    </p>
+    <div className='space-y-4'>
+      {profile.executedTasks.map(task => {
+        const rating = Number(task.review?.rating) || 0
+
+        return (
+          <div
+            key={task.id}
+            className='bg-black/60 p-4 rounded-lg border border-emerald-500/20 hover:border-emerald-400/40 transition-all duration-200'
+          >
+            {/* Заголовок и дата */}
+            <div className='flex justify-between items-start mb-2'>
+              <h4 className='font-semibold text-white'>{task.title}</h4>
+              {task.completedAt && (
+                <span className='flex items-center gap-1 text-gray-400 text-xs'>
+                  <FaCalendarAlt />
+                  {new Date(task.completedAt).toLocaleDateString('ru-RU')}
+                </span>
+              )}
+            </div>
+
+            {/* Описание */}
+            <p className='text-gray-300 text-sm mb-2 line-clamp-2'>
+              {task.description}
+            </p>
+
+            {/* Заказчик и цена */}
+            <div className='flex justify-between items-center text-xs text-gray-400 mb-2'>
+              <span>
+                Заказчик:{' '}
+                <span className='text-emerald-300'>
+                  {task.customer.fullName || task.customer.email}
+                </span>
+              </span>
+              {task.price && (
+                <span className='text-emerald-300 font-semibold'>
+                  {task.price} NESI
+                </span>
+              )}
+            </div>
+
+            {/* Отзыв */}
+            {task.review && (
+              <div
+                className={`mt-2 p-3 rounded border shadow-[0_0_8px_rgba(234,179,8,0.15)] ${
+                  rating <= 2
+                    ? 'bg-red-500/10 border-red-500/30'
+                    : 'bg-yellow-500/10 border-yellow-500/30'
+                }`}
+              >
+                <div className='flex items-center gap-1 mb-1'>
+                  {[...Array(5)].map((_, i) => (
+                    <FaStar
+                      key={i}
+                      className={`text-sm ${
+                        i < rating
+                          ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(234,179,8,0.4)]'
+                          : 'text-gray-600'
+                      }`}
+                    />
+                  ))}
+                  <span className='text-yellow-300 font-semibold text-sm ml-1'>
+                    {rating.toFixed(1)} / 5
+                  </span>
+                </div>
+
+                <p className='text-sm text-gray-300 italic leading-snug'>
+                  “{task.review.comment || 'Без комментария'}”
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
   </div>
 )}
-
-									</div>
-								))}
-							</div>
-						</div>
-					)}
-				</div>
-			</div>
 
 			{/* Отзывы */}
 			{user.role === 'executor' && reviews.length > 0 && (
