@@ -512,25 +512,33 @@ export default function ProfilePageContent() {
 											)}
 										</div>
 										{task.review && (
-											<div className='mt-2 p-2 bg-yellow-500/10 rounded border border-yellow-500/30'>
-												<div className='flex items-center gap-2 mb-1'>
-													<FaStar className='text-yellow-400' />
-													<span className='text-yellow-300 font-semibold'>
-														{task.review.rating}/5
-													</span>
-												</div>
-												<p className='text-sm text-gray-300 italic'>
-													"{task.review.comment}"
-												</p>
-											</div>
-										)}
-									</div>
-								))}
-							</div>
-						</div>
-					)}
-				</div>
-			</div>
+  <div className='mt-3 p-3 bg-yellow-500/10 rounded border border-yellow-500/25 shadow-[0_0_10px_rgba(234,179,8,0.1)]'>
+    <div className='flex items-center justify-between mb-2'>
+      <div className='flex items-center gap-2'>
+        {[...Array(5)].map((_, i) => (
+          <FaStar
+            key={i}
+            className={`text-base ${
+              i < task.review.rating
+                ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]'
+                : 'text-gray-600'
+            }`}
+          />
+        ))}
+        <span className='text-yellow-300 font-semibold text-sm'>
+          {task.review.rating.toFixed(1)} / 5
+        </span>
+      </div>
+      <span className='text-xs text-gray-400'>
+        {new Date(task.completedAt || task.review.createdAt).toLocaleDateString('ru-RU')}
+      </span>
+    </div>
+    <p className='text-sm text-gray-300 italic leading-snug'>
+      “{task.review.comment || 'Без комментария'}”
+    </p>
+  </div>
+)}
+
 
 			{/* Отзывы */}
 			{user.role === 'executor' && reviews.length > 0 && (
