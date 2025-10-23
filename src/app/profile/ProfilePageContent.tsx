@@ -588,7 +588,7 @@ export default function ProfilePageContent() {
 				>
 					✏️ Редактировать профиль
 				</Link>
-				{/* Эта кнопка видна только исполнителям */}
+				 {/* Эта кнопка видна только исполнителям */}
   {profile.isExecutor && (
     <Link
       href='/level'
@@ -596,8 +596,9 @@ export default function ProfilePageContent() {
                  hover:bg-indigo-400 hover:text-black transition font-semibold'
     >
       📊 Мой уровень
-				</Link>
-			</div>
-		</div>
-	)
+    </Link>
+  )}
+</div>
+</div>
+)
 }
