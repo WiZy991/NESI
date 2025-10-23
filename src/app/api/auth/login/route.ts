@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
+    // 🚦 Лимитируем попытки входа
     const authRateLimit = rateLimit(rateLimitConfigs.auth)
     const rateLimitResult = await authRateLimit(req)
 
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
       )
     }
 
+    // 🧾 Получаем данные
     const { email, password } = await req.json()
     const user = await prisma.user.findUnique({ where: { email } })
 
@@ -38,8 +40,14 @@ export async function POST(req: Request) {
       )
     }
 
-    // 🚫 Проверяем подтверждение почты
-    if (!user.emailVerified) {
+    // 🚫 Проверяем подтверждение почты с приведением типов
+    if (
+      user.emailVerified === false ||
+      user.emailVerified === null ||
+      user.emailVerified === undefined ||
+      user.emailVerified === 'f' ||
+      user.emailVerified === 0
+    ) {
       return NextResponse.json(
         {
           error:
@@ -49,9 +57,10 @@ export async function POST(req: Request) {
       )
     }
 
-    // ✅ Всё ок — создаём токен и авторизуем
+    // ✅ Всё ок — создаём JWT и авторизуем
     const token = signJWT({ userId: user.id })
 
+    // 📨 Уведомляем пользователя
     await createNotification(
       user.id,
       'Вы успешно вошли в аккаунт!',
@@ -59,6 +68,7 @@ export async function POST(req: Request) {
       'login'
     )
 
+    // 🍪 Устанавливаем cookie с токеном
     const response = NextResponse.json({
       user: {
         id: user.id,
@@ -72,7 +82,7 @@ export async function POST(req: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 7 дней
     })
 
     return response
