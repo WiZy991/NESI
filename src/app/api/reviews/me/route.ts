@@ -11,15 +11,21 @@ export async function GET(req: Request) {
 
   try {
     const reviews = await prisma.review.findMany({
-      where: { toUserId: user.id },
+      where: {
+        toUserId: user.id, // Получатель отзыва
+      },
       include: {
         task: {
           select: {
+            id: true,
             title: true,
+            customerId: true,
+            executorId: true,
           },
         },
         fromUser: {
           select: {
+            id: true,
             fullName: true,
             email: true,
           },
@@ -30,9 +36,16 @@ export async function GET(req: Request) {
       },
     })
 
-    return NextResponse.json({ reviews })
+    const filtered = reviews.filter(r =>
+      r.task.customerId === user.id || r.task.executorId === user.id
+    )
+
+    return NextResponse.json({ reviews: filtered })
   } catch (error) {
     console.error('❌ Ошибка получения отзывов:', error)
-    return NextResponse.json({ error: 'Ошибка получения отзывов' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Ошибка получения отзывов' },
+      { status: 500 }
+    )
   }
 }
