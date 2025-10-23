@@ -22,6 +22,11 @@ export async function getUserFromToken(token: string) {
     where: { id: payload.userId },
   })
 
+  // 🟢 если пользователь найден, но флаги не выставлены — просто предупреждаем, но не ломаем
+  if (user && (!user.emailVerified || !user.verified)) {
+    console.warn('⚠️ Пользователь без подтверждения:', user.email)
+  }
+
   return user
 }
 
@@ -31,6 +36,10 @@ export async function getUserFromRequest(req: Request) {
 
   try {
     const user = await getUserFromToken(token)
+    if (!user) return null
+
+    // ⚠️ НЕ БЛОКИРУЕМ пользователя, если не верифицирован
+    // Просто возвращаем данные, чтобы не выбивало из системы
     return user
   } catch (error) {
     console.error('❌ Ошибка при декодировании токена:', error)
@@ -38,15 +47,13 @@ export async function getUserFromRequest(req: Request) {
   }
 }
 
-// ✅ Универсальная функция — теперь точно работает и с App Router, и с API
+// ✅ Универсальная функция для извлечения токена
 export function getTokenFromRequest(req: Request | NextRequest): string | null {
-  // 1. Authorization: Bearer <token>
   const auth = req.headers.get('authorization')
   if (auth && auth.startsWith('Bearer ')) {
     return auth.split(' ')[1]
   }
 
-  // 2. Cookies — работает и в App Router (через req.cookies.get)
   if ('cookies' in req) {
     const token = req.cookies.get('token')
     if (typeof token === 'string') return token
