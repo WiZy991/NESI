@@ -323,3 +323,26 @@ textarea {
 	background: rgba(16, 185, 129, 0.3);
 	color: #fff;
 }
+
+/* === НЕОНОВАЯ КНОПКА SELECT === */
+.neon-select-btn {
+	appearance: none;
+	background: rgba(0, 15, 10, 0.7);
+	border: 1px solid rgba(16, 185, 129, 0.3);
+	border-radius: 8px;
+	padding: 10px 14px;
+	color: #a7f3d0;
+	outline: none;
+	width: 100%;
+	transition: all 0.3s ease;
+	box-shadow: 0 0 10px rgba(0, 255, 150, 0.1);
+	font-family: 'Poppins', sans-serif;
+	font-size: 15px;
+	cursor: pointer;
+	text-align: left;
+}
+
+.neon-select-btn:hover {
+	border-color: rgba(16, 185, 129, 0.7);
+	box-shadow: 0 0 15px rgba(0, 255, 150, 0.3);
+}

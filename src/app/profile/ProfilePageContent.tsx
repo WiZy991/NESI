@@ -1,5 +1,6 @@
 'use client'
 
+import EditProfileModal from '@/components/EditProfileModal'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -33,6 +34,7 @@ type FullUser = {
 	fullName?: string
 	email: string
 	role: string
+	isExecutor?: boolean
 	description?: string
 	location?: string
 	skills?: string[]
@@ -111,56 +113,55 @@ export default function ProfilePageContent() {
 
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [amount, setAmount] = useState(100)
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+
+	const fetchProfile = async () => {
+		if (!token) return
+		try {
+			const res = await fetch('/api/profile', {
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			if (!res.ok) throw new Error('Ошибка загрузки профиля')
+			const data = await res.json()
+			setProfile(data.user)
+			login(data.user, token)
+
+			// Баланс
+			const txRes = await fetch('/api/wallet/transactions', {
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			const txData = await txRes.json()
+			setTransactions(txData.transactions || [])
+		} catch (err) {
+			console.error('Ошибка загрузки профиля:', err)
+		} finally {
+			setLoadingProfile(false)
+		}
+	}
 
 	useEffect(() => {
-		if (!token) return
-
-		const fetchProfile = async () => {
-			try {
-				const res = await fetch('/api/profile', {
-					headers: { Authorization: `Bearer ${token}` },
-				})
-				if (!res.ok) throw new Error('Ошибка загрузки профиля')
-				const data = await res.json()
-				setProfile(data.user)
-				login(data.user, token)
-
-				// Баланс
-				const txRes = await fetch('/api/wallet/transactions', {
-					headers: { Authorization: `Bearer ${token}` },
-				})
-				const txData = await txRes.json()
-				setTransactions(txData.transactions || [])
-			} catch (err) {
-				console.error('Ошибка загрузки профиля:', err)
-			} finally {
-				setLoadingProfile(false)
-			}
-		}
-
 		fetchProfile()
 	}, [token])
 
 	useEffect(() => {
-  const fetchReviews = async () => {
-    if (!user) return
-    try {
-      const res = await fetch('/api/reviews/me', {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      const data = await res.json()
-      setReviews(data.reviews || [])
-    } catch (err) {
-      console.error('Ошибка загрузки отзывов:', err)
-    }
-  }
+		const fetchReviews = async () => {
+			if (!user) return
+			try {
+				const res = await fetch('/api/reviews/me', {
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+				})
+				const data = await res.json()
+				setReviews(data.reviews || [])
+			} catch (err) {
+				console.error('Ошибка загрузки отзывов:', err)
+			}
+		}
 
-  fetchReviews()
-}, [user, token])
-
+		fetchReviews()
+	}, [user, token])
 
 	const handleDeposit = async () => {
 		await fetch('/api/wallet/deposit', {
@@ -186,6 +187,10 @@ export default function ProfilePageContent() {
 		location.reload()
 	}
 
+	const handleProfileUpdateSuccess = () => {
+		fetchProfile()
+	}
+
 	if (loading || !user || loadingProfile || !profile) {
 		return <div className='p-6 text-gray-400'>Загрузка профиля...</div>
 	}
@@ -202,10 +207,9 @@ export default function ProfilePageContent() {
 	return (
 		<div className='p-6 max-w-6xl mx-auto space-y-8'>
 			<h1 className='text-4xl font-bold text-emerald-400 mb-6 flex items-center gap-3'>
-  <FaUserCircle className='text-3xl' />
-  {profile.isExecutor ? 'Профиль исполнителя' : 'Профиль заказчика'}
-</h1>
-
+				<FaUserCircle className='text-3xl' />
+				{profile.isExecutor ? 'Профиль исполнителя' : 'Профиль заказчика'}
+			</h1>
 
 			{/* Основная информация */}
 			<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
@@ -458,55 +462,59 @@ export default function ProfilePageContent() {
 						</div>
 					)}
 					{/* Отзывы исполнителей (для заказчика) */}
-{user.role === 'customer' && reviews.length > 0 && (
-  <div
-    className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
+					{user.role === 'customer' && reviews.length > 0 && (
+						<div
+							className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
                 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-  >
-    <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-      <FaStar />
-      Отзывы исполнителей
-    </h3>
+						>
+							<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+								<FaStar />
+								Отзывы исполнителей
+							</h3>
 
-    <div className='space-y-4'>
-      {reviews.map(review => (
-        <div
-          key={review.id}
-          className='bg-black/60 border border-emerald-500/20 
+							<div className='space-y-4'>
+								{reviews.map(review => (
+									<div
+										key={review.id}
+										className='bg-black/60 border border-emerald-500/20 
                      p-4 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.15)]'
-        >
-          <div className='flex justify-between items-center mb-2'>
-            <h4 className='font-semibold text-white'>
-              {review.task?.title || 'Без названия'}
-            </h4>
-            <div className='flex items-center gap-1'>
-              {[...Array(5)].map((_, i) => (
-                <FaStar
-                  key={i}
-                  className={`text-sm ${
-                    i < review.rating ? 'text-yellow-400' : 'text-gray-600'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+									>
+										<div className='flex justify-between items-center mb-2'>
+											<h4 className='font-semibold text-white'>
+												{review.task?.title || 'Без названия'}
+											</h4>
+											<div className='flex items-center gap-1'>
+												{[...Array(5)].map((_, i) => (
+													<FaStar
+														key={i}
+														className={`text-sm ${
+															i < review.rating
+																? 'text-yellow-400'
+																: 'text-gray-600'
+														}`}
+													/>
+												))}
+											</div>
+										</div>
 
-          <p className='text-gray-300 italic mb-2'>
-            “{review.comment?.trim() || 'Без комментария'}”
-          </p>
+										<p className='text-gray-300 italic mb-2'>
+											“{review.comment?.trim() || 'Без комментария'}”
+										</p>
 
-          <div className='flex justify-between text-xs text-gray-400'>
-            <span>
-              От: {review.fromUser?.fullName || review.fromUser?.email}
-            </span>
-            <span>{new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
+										<div className='flex justify-between text-xs text-gray-400'>
+											<span>
+												От:{' '}
+												{review.fromUser?.fullName || review.fromUser?.email}
+											</span>
+											<span>
+												{new Date(review.createdAt).toLocaleDateString('ru-RU')}
+											</span>
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
 
 					{/* О себе */}
 					{profile.description && (
@@ -563,42 +571,40 @@ export default function ProfilePageContent() {
 											)}
 										</div>
 										{(() => {
-  const review = reviews.find(r => r.task.title === task.title)
-  if (!review) return null
+											const review = reviews.find(
+												r => r.task.title === task.title
+											)
+											if (!review) return null
 
-  const ratingValue = Number(review.rating ?? 0)
-  const rounded = Math.round(ratingValue)
+											const ratingValue = Number(review.rating ?? 0)
+											const rounded = Math.round(ratingValue)
 
-  return (
-    <div className='mt-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.15)]'>
-      <div className='flex items-center justify-between mb-2'>
-        <div className='flex items-center gap-1'>
-          {[...Array(5)].map((_, i) => (
-            <FaStar
-              key={i}
-              className={`text-base ${
-                i < rounded
-                  ? 'text-yellow-400 drop-shadow-[0_0_6px_rgba(255,220,100,0.6)]'
-                  : 'text-gray-600'
-              }`}
-            />
-          ))}
-          <span className='text-yellow-300 font-semibold text-sm ml-1'>
-            {ratingValue.toFixed(1)} / 5
-          </span>
-        </div>
-      </div>
+											return (
+												<div className='mt-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.15)]'>
+													<div className='flex items-center justify-between mb-2'>
+														<div className='flex items-center gap-1'>
+															{[...Array(5)].map((_, i) => (
+																<FaStar
+																	key={i}
+																	className={`text-base ${
+																		i < rounded
+																			? 'text-yellow-400 drop-shadow-[0_0_6px_rgba(255,220,100,0.6)]'
+																			: 'text-gray-600'
+																	}`}
+																/>
+															))}
+															<span className='text-yellow-300 font-semibold text-sm ml-1'>
+																{ratingValue.toFixed(1)} / 5
+															</span>
+														</div>
+													</div>
 
-      <p className='text-sm text-gray-300 italic leading-snug'>
-        “{review.comment?.trim() || 'Без комментария'}”
-      </p>
-    </div>
-  )
-})()}
-
-
-
-										
+													<p className='text-sm text-gray-300 italic leading-snug'>
+														“{review.comment?.trim() || 'Без комментария'}”
+													</p>
+												</div>
+											)
+										})()}
 									</div>
 								))}
 							</div>
@@ -608,75 +614,91 @@ export default function ProfilePageContent() {
 			</div>
 
 			{user.role === 'executor' && reviews.length > 0 && (
-  <div
-    className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
+				<div
+					className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
                 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-  >
-    <h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-      <FaStar />
-      {user.role === 'executor' ? 'Отзывы заказчиков' : 'Отзывы исполнителей'}
-    </h3>
+				>
+					<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+						<FaStar />
+						{user.role === 'executor'
+							? 'Отзывы заказчиков'
+							: 'Отзывы исполнителей'}
+					</h3>
 
-    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-      {reviews.map(review => (
-        <div
-          key={review.id}
-          className='bg-black/60 border border-emerald-500/30 
+					<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+						{reviews.map(review => (
+							<div
+								key={review.id}
+								className='bg-black/60 border border-emerald-500/30 
                      p-4 rounded-lg shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-        >
-          <div className='flex justify-between items-center mb-3'>
-            <h4 className='font-semibold text-white'>
-              {review.task?.title || 'Без названия'}
-            </h4>
-            <div className='flex items-center gap-1'>
-              {[...Array(5)].map((_, i) => (
-                <FaStar
-                  key={i}
-                  className={`text-sm ${
-                    i < review.rating ? 'text-yellow-400' : 'text-gray-600'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+							>
+								<div className='flex justify-between items-center mb-3'>
+									<h4 className='font-semibold text-white'>
+										{review.task?.title || 'Без названия'}
+									</h4>
+									<div className='flex items-center gap-1'>
+										{[...Array(5)].map((_, i) => (
+											<FaStar
+												key={i}
+												className={`text-sm ${
+													i < review.rating
+														? 'text-yellow-400'
+														: 'text-gray-600'
+												}`}
+											/>
+										))}
+									</div>
+								</div>
 
-          <p className='text-gray-300 mb-3 italic'>
-            “{review.comment?.trim() || 'Без комментария'}”
-          </p>
+								<p className='text-gray-300 mb-3 italic'>
+									“{review.comment?.trim() || 'Без комментария'}”
+								</p>
 
-          <div className='flex justify-between items-center text-sm text-gray-400'>
-            <span>
-              От: {review.fromUser?.fullName || review.fromUser?.email}
-            </span>
-            <span>{new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
+								<div className='flex justify-between items-center text-sm text-gray-400'>
+									<span>
+										От: {review.fromUser?.fullName || review.fromUser?.email}
+									</span>
+									<span>
+										{new Date(review.createdAt).toLocaleDateString('ru-RU')}
+									</span>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
 
 			{/* Кнопки действий */}
 			<div className='flex gap-4 flex-wrap justify-center'>
-				<Link
-					href='/profile/edit'
+				<button
+					onClick={() => setIsEditModalOpen(true)}
 					className='px-6 py-3 rounded-lg border border-emerald-400 text-emerald-400 
                      hover:bg-emerald-400 hover:text-black transition font-semibold'
 				>
 					✏️ Редактировать профиль
-				</Link>
-				 {/* Эта кнопка видна только исполнителям */}
-  {profile.isExecutor && (
-    <Link
-      href='/level'
-      className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
+				</button>
+				{/* Эта кнопка видна только исполнителям */}
+				{profile.isExecutor && (
+					<Link
+						href='/level'
+						className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
                  hover:bg-indigo-400 hover:text-black transition font-semibold'
-    >
-      📊 Мой уровень
-    </Link>
-  )}
-</div>
-</div>
-)
+					>
+						📊 Мой уровень
+					</Link>
+				)}
+			</div>
+
+			{/* Модальное окно редактирования профиля */}
+			{token && (
+				<EditProfileModal
+					isOpen={isEditModalOpen}
+					onClose={() => setIsEditModalOpen(false)}
+					user={profile}
+					token={token}
+					onSuccess={handleProfileUpdateSuccess}
+				/>
+			)}
+		</div>
+	)
 }
