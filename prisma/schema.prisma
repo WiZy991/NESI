@@ -63,6 +63,7 @@ model User {
   disputes                Dispute[]
 
   settings UserSettings?
+  reports   CommunityReport[]  @relation("UserReports")
 }
 
 model UserSettings {
@@ -484,4 +485,5 @@ model CommunityReport {
   description String?
   reporterId  String?
   createdAt   DateTime @default(now())
+  reporter    User?    @relation("UserReports", fields: [reporterId], references: [id])
 }
