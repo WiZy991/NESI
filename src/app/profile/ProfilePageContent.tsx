@@ -607,7 +607,7 @@ export default function ProfilePageContent() {
 				</div>
 			</div>
 
-			{reviews.length > 0 && (
+			{user.role === 'executor' && reviews.length > 0 && (
   <div
     className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
                 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
