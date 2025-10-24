@@ -4,6 +4,7 @@ import MessageInput from '@/components/ChatMessageInput'
 import FilePreview from '@/components/FilePreview'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 type Chat = {
@@ -63,6 +64,9 @@ type Message = {
 
 export default function ChatsPage() {
 	const { user, token } = useUser()
+	const searchParams = useSearchParams()
+	const openUserId = searchParams?.get('open')
+
 	const [chats, setChats] = useState<Chat[]>([])
 	const [selectedChat, setSelectedChat] = useState<Chat | null>(null)
 	const [messages, setMessages] = useState<Message[]>([])
@@ -71,6 +75,7 @@ export default function ChatsPage() {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [isTyping, setIsTyping] = useState(false)
 	const [typingUser, setTypingUser] = useState<string | null>(null)
+	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 
@@ -87,8 +92,15 @@ export default function ChatsPage() {
 				const data = await res.json()
 				console.log('📊 Ответ API чатов:', data)
 				if (res.ok) {
-					setChats(data.chats || [])
-					console.log('✅ Чаты загружены:', data.chats?.length || 0)
+					const loadedChats = data.chats || []
+					setChats(loadedChats)
+					console.log('✅ Чаты загружены:', loadedChats.length)
+
+					// Устанавливаем флаг для автооткрытия чата
+					if (openUserId) {
+						console.log('🔍 Обнаружен параметр open:', openUserId)
+						setShouldAutoOpen(true)
+					}
 
 					// Отладочная информация для аватарок
 					console.log('🖼️ Аватарки в загруженных чатах:')
@@ -273,6 +285,14 @@ export default function ChatsPage() {
 		const fetchMessages = async () => {
 			setMessagesLoading(true)
 			try {
+				// Если это временный чат (только что созданный), просто показываем пустой список
+				if (selectedChat.id.startsWith('temp_')) {
+					console.log('📝 Временный чат, показываем пустой список сообщений')
+					setMessages([])
+					setMessagesLoading(false)
+					return
+				}
+
 				let url = ''
 				if (selectedChat.type === 'private') {
 					const otherUserId = selectedChat.otherUser?.id
@@ -296,9 +316,11 @@ export default function ChatsPage() {
 					setMessages(messagesData)
 				} else {
 					console.error('❌ Ошибка API сообщений:', data)
+					setMessages([])
 				}
 			} catch (error) {
 				console.error('Ошибка загрузки сообщений:', error)
+				setMessages([])
 			} finally {
 				setMessagesLoading(false)
 			}
@@ -311,6 +333,90 @@ export default function ChatsPage() {
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 	}, [messages])
+
+	// Автоматическое открытие чата при наличии параметра open
+	useEffect(() => {
+		if (!openUserId || !shouldAutoOpen || !user || !token) {
+			if (openUserId && shouldAutoOpen) {
+				console.log('⏳ Ждем загрузки данных пользователя и токена...')
+			}
+			return
+		}
+
+		console.log('🔍 Пытаемся открыть чат с пользователем:', openUserId)
+
+		// Ищем существующий чат
+		const existingChat = chats.find(
+			(chat: Chat) =>
+				chat.type === 'private' && chat.otherUser?.id === openUserId
+		)
+
+		if (existingChat) {
+			console.log('✅ Чат найден, открываем:', existingChat)
+			setSelectedChat(existingChat)
+			setMessages([])
+			setMessagesLoading(true)
+			setShouldAutoOpen(false)
+			window.history.replaceState({}, '', '/chats')
+		} else {
+			// Создаем новый чат
+			console.log(
+				'📝 Чат не найден, создаем новый с пользователем:',
+				openUserId
+			)
+
+			const createNewChat = async () => {
+				try {
+					const userRes = await fetch(`/api/users/${openUserId}`, {
+						headers: token ? { Authorization: `Bearer ${token}` } : {},
+					})
+
+					if (!userRes.ok) {
+						console.error('❌ Пользователь не найден')
+						setShouldAutoOpen(false)
+						return
+					}
+
+					const userData = await userRes.json()
+					const otherUser = userData.user || userData
+
+					const tempChat: Chat = {
+						id: `temp_${openUserId}`,
+						type: 'private',
+						otherUser: {
+							id: otherUser.id,
+							fullName: otherUser.fullName,
+							email: otherUser.email,
+							avatarUrl: otherUser.avatarUrl,
+						},
+						lastMessage: {
+							id: 'temp',
+							content: '',
+							createdAt: new Date().toISOString(),
+							sender: {
+								id: user.id,
+								fullName: user.fullName,
+								email: user.email,
+							},
+						},
+						unreadCount: 0,
+					}
+
+					console.log('✨ Создан временный чат:', tempChat)
+					setChats(prev => [tempChat, ...prev])
+					setSelectedChat(tempChat)
+					setMessages([])
+					setShouldAutoOpen(false)
+					window.history.replaceState({}, '', '/chats')
+				} catch (error) {
+					console.error('❌ Ошибка создания чата:', error)
+					setShouldAutoOpen(false)
+				}
+			}
+
+			createNewChat()
+		}
+	}, [openUserId, shouldAutoOpen, chats, user, token])
 
 	// Функция для выбора чата
 	const handleSelectChat = async (chat: Chat) => {
@@ -363,19 +469,46 @@ export default function ChatsPage() {
 		// Добавляем новое сообщение в список
 		setMessages(prev => [...prev, newMessage])
 
-		// Обновляем список чатов с новым последним сообщением
-		setChats(prev =>
-			prev.map(chat => {
-				if (chat.id === selectedChat?.id) {
-					return {
-						...chat,
-						lastMessage: newMessage,
-						unreadCount: 0, // Сбрасываем счетчик при отправке сообщения
+		// Если это было первое сообщение во временном чате, обновляем чат
+		if (selectedChat?.id.startsWith('temp_')) {
+			// Перезагружаем список чатов, чтобы получить настоящий чат из базы
+			try {
+				const res = await fetch('/api/chats', {
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				if (res.ok) {
+					const data = await res.json()
+					const loadedChats = data.chats || []
+					setChats(loadedChats)
+
+					// Находим и выбираем реальный чат
+					const realChat = loadedChats.find(
+						(chat: Chat) =>
+							chat.type === 'private' &&
+							chat.otherUser?.id === selectedChat.otherUser?.id
+					)
+					if (realChat) {
+						setSelectedChat(realChat)
 					}
 				}
-				return chat
-			})
-		)
+			} catch (error) {
+				console.error('Ошибка обновления чатов:', error)
+			}
+		} else {
+			// Обновляем список чатов с новым последним сообщением
+			setChats(prev =>
+				prev.map(chat => {
+					if (chat.id === selectedChat?.id) {
+						return {
+							...chat,
+							lastMessage: newMessage,
+							unreadCount: 0, // Сбрасываем счетчик при отправке сообщения
+						}
+					}
+					return chat
+				})
+			)
+		}
 
 		// Помечаем чат как прочитанный при отправке сообщения
 		if (selectedChat) {
@@ -552,14 +685,18 @@ export default function ChatsPage() {
 	}
 
 	return (
-		<div className='h-screen bg-transparent from-gray-900 via-black to-gray-900 p-4'>
-			<div className='max-w-7xl mx-auto h-full bg-gray-900/20 backdrop-blur-sm rounded-2xl overflow-hidden'>
+		<div className='min-h-screen bg-transparent from-gray-900 via-black to-gray-900 p-0 sm:p-4'>
+			<div className='max-w-7xl mx-auto h-screen sm:h-[calc(100vh-2rem)] bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden'>
 				<div className='flex h-full'>
 					{/* Левая колонка - список чатов */}
-					<div className='w-1/3 bg-gray-800/20 backdrop-blur-sm flex flex-col'>
+					<div
+						className={`${
+							selectedChat ? 'hidden md:flex' : 'flex'
+						} w-full md:w-1/3 bg-gray-800/20 backdrop-blur-sm flex-col`}
+					>
 						{/* Заголовок и поиск */}
-						<div className='flex-shrink-0 p-6 bg-gradient-to-r from-emerald-900/20 to-transparent'>
-							<h1 className='text-2xl font-bold text-emerald-400 mb-4 flex items-center'>
+						<div className='flex-shrink-0 p-4 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent'>
+							<h1 className='text-xl sm:text-2xl font-bold text-emerald-400 mb-3 sm:mb-4 flex items-center'>
 								💬 Чаты
 							</h1>
 							<input
@@ -649,12 +786,35 @@ export default function ChatsPage() {
 					</div>
 
 					{/* Правая колонка - чат */}
-					<div className='flex-1 flex flex-col bg-gray-800/10 backdrop-blur-sm'>
+					<div
+						className={`${
+							selectedChat ? 'flex' : 'hidden md:flex'
+						} flex-1 flex-col bg-gray-800/10 backdrop-blur-sm`}
+					>
 						{selectedChat ? (
 							<>
 								{/* Заголовок чата - фиксированный */}
-								<div className='flex-shrink-0 p-6 bg-gradient-to-r from-emerald-900/20 to-transparent'>
-									<div className='flex items-center space-x-4'>
+								<div className='flex-shrink-0 p-4 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent border-b border-gray-700/50'>
+									<div className='flex items-center space-x-3 sm:space-x-4'>
+										{/* Кнопка "Назад" для мобильных */}
+										<button
+											onClick={() => setSelectedChat(null)}
+											className='md:hidden flex items-center justify-center w-10 h-10 rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors'
+										>
+											<svg
+												className='w-5 h-5 text-white'
+												fill='none'
+												stroke='currentColor'
+												viewBox='0 0 24 24'
+											>
+												<path
+													strokeLinecap='round'
+													strokeLinejoin='round'
+													strokeWidth={2}
+													d='M15 19l-7-7 7-7'
+												/>
+											</svg>
+										</button>
 										<div className='w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'>
 											{selectedChat.type === 'private' ? (
 												<AvatarComponent
@@ -671,12 +831,12 @@ export default function ChatsPage() {
 												'📋'
 											)}
 										</div>
-										<div>
-											<h2 className='text-white font-semibold text-lg'>
+										<div className='flex-1 min-w-0'>
+											<h2 className='text-white font-semibold text-base sm:text-lg truncate'>
 												{getChatTitle(selectedChat)}
 											</h2>
 											{selectedChat.type === 'task' && (
-												<p className='text-sm text-emerald-400 bg-emerald-900/20 px-3 py-1 rounded-full inline-block mt-1'>
+												<p className='text-xs sm:text-sm text-emerald-400 bg-emerald-900/20 px-2 sm:px-3 py-1 rounded-full inline-block mt-1 truncate max-w-full'>
 													📋 {selectedChat.task?.title}
 												</p>
 											)}
@@ -685,7 +845,7 @@ export default function ChatsPage() {
 								</div>
 
 								{/* Сообщения - растягиваемая область */}
-								<div className='flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar'>
+								<div className='flex-1 overflow-y-auto p-3 sm:p-6 space-y-2 sm:space-y-4 custom-scrollbar'>
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
 											<div className='text-center text-gray-400'>
@@ -721,13 +881,13 @@ export default function ChatsPage() {
 														}`}
 													>
 														<div
-															className={`max-w-[75%] p-4 rounded-2xl shadow-lg ${
+															className={`max-w-[85%] sm:max-w-[70%] p-2 sm:p-3 rounded-2xl shadow-lg ${
 																isMine
-																	? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-br-md'
-																	: 'bg-gray-700/80 backdrop-blur-sm text-gray-100 rounded-bl-md border border-gray-600/50'
+																	? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-br-sm'
+																	: 'bg-gray-700/80 backdrop-blur-sm text-gray-100 rounded-bl-sm border border-gray-600/50'
 															}`}
 														>
-															<div className='text-xs opacity-80 mb-2'>
+															<div className='text-xs opacity-80 mb-1 flex items-center justify-between gap-2'>
 																<Link
 																	href={
 																		isMine
@@ -738,18 +898,24 @@ export default function ChatsPage() {
 																		isMine
 																			? 'text-emerald-100'
 																			: 'text-blue-400'
-																	} hover:underline font-medium`}
+																	} hover:underline font-medium truncate`}
 																>
 																	{msg.sender.fullName ||
 																		msg.sender.email ||
-																		'Неизвестный пользователь'}
-																</Link>{' '}
-																<span className='text-xs opacity-60'>
-																	{new Date(msg.createdAt).toLocaleTimeString()}
+																		'Неизвестный'}
+																</Link>
+																<span className='text-xs opacity-60 flex-shrink-0'>
+																	{new Date(msg.createdAt).toLocaleTimeString(
+																		'ru-RU',
+																		{
+																			hour: '2-digit',
+																			minute: '2-digit',
+																		}
+																	)}
 																</span>
 															</div>
 															{msg.content && (
-																<p className='mb-2 leading-relaxed'>
+																<p className='text-sm sm:text-base leading-snug break-words whitespace-pre-wrap'>
 																	{msg.content}
 																</p>
 															)}
@@ -795,7 +961,7 @@ export default function ChatsPage() {
 								</div>
 
 								{/* Поле ввода сообщения - фиксированное внизу */}
-								<div className='flex-shrink-0'>
+								<div className='flex-shrink-0 border-t border-gray-700/50'>
 									<MessageInput
 										chatType={selectedChat.type}
 										otherUserId={selectedChat.otherUser?.id}
@@ -805,13 +971,13 @@ export default function ChatsPage() {
 								</div>
 							</>
 						) : (
-							<div className='flex-1 flex items-center justify-center'>
-								<div className='text-center text-gray-400'>
-									<div className='text-8xl mb-6'>💬</div>
-									<h2 className='text-2xl font-semibold mb-3 text-white'>
+							<div className='hidden md:flex flex-1 items-center justify-center'>
+								<div className='text-center text-gray-400 px-4'>
+									<div className='text-6xl sm:text-8xl mb-4 sm:mb-6'>💬</div>
+									<h2 className='text-xl sm:text-2xl font-semibold mb-2 sm:mb-3 text-white'>
 										Выберите чат
 									</h2>
-									<p className='text-lg'>
+									<p className='text-base sm:text-lg'>
 										Выберите чат из списка слева, чтобы начать общение
 									</p>
 								</div>
