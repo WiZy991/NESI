@@ -78,7 +78,7 @@ export default function AdminReportsPage() {
               {/* 💬 Переход на объект жалобы */}
               {r.post && (
                 <a
-                  href={`/community/post/${r.post.id}`}
+                  href={`/community/${r.post.id}`}
                   className="text-sm text-emerald-400 hover:text-emerald-300 underline block mb-1"
                   target="_blank"
                   rel="noopener noreferrer"
