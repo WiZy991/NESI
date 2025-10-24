@@ -21,6 +21,21 @@ export async function GET(req: NextRequest) {
             email: true,
           },
         },
+        post: {
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+          },
+        },
+        comment: {
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            postId: true,
+          },
+        },
       },
     })
 
