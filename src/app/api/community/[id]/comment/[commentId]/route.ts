@@ -65,7 +65,7 @@ export async function DELETE(
     if (root.postId !== params.id) {
       return NextResponse.json({ error: 'Несоответствие поста' }, { status: 400 })
     }
-    if (root.authorId !== me.id) {
+    if (root.authorId !== me.id && me.role !== 'admin') {
       return NextResponse.json({ error: 'Нет прав для удаления' }, { status: 403 })
     }
 
