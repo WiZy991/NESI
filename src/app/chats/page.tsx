@@ -685,8 +685,8 @@ export default function ChatsPage() {
 	}
 
 	return (
-		<div className='min-h-screen bg-transparent from-gray-900 via-black to-gray-900 p-0 sm:p-4'>
-			<div className='max-w-7xl mx-auto h-screen sm:h-[calc(100vh-2rem)] bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden'>
+		<div className='h-[100dvh] sm:min-h-screen bg-transparent from-gray-900 via-black to-gray-900 p-0 sm:p-4'>
+			<div className='max-w-7xl mx-auto h-full sm:h-[calc(100vh-2rem)] bg-gray-900/20 backdrop-blur-sm rounded-2xl overflow-hidden'>
 				<div className='flex h-full'>
 					{/* Левая колонка - список чатов */}
 					<div
@@ -845,7 +845,7 @@ export default function ChatsPage() {
 								</div>
 
 								{/* Сообщения - растягиваемая область */}
-								<div className='flex-1 overflow-y-auto p-3 sm:p-6 space-y-2 sm:space-y-4 custom-scrollbar'>
+								<div className='flex-1 overflow-y-auto px-3 pt-3 pb-20 sm:px-6 sm:pt-6 sm:pb-2 space-y-2 sm:space-y-4 custom-scrollbar'>
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
 											<div className='text-center text-gray-400'>
@@ -961,7 +961,7 @@ export default function ChatsPage() {
 								</div>
 
 								{/* Поле ввода сообщения - фиксированное внизу */}
-								<div className='flex-shrink-0 border-t border-gray-700/50'>
+								<div className='fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto flex-shrink-0 border-t border-gray-700/50 bg-gray-900/95 backdrop-blur-md z-10'>
 									<MessageInput
 										chatType={selectedChat.type}
 										otherUserId={selectedChat.otherUser?.id}

@@ -137,6 +137,20 @@ export default function MessageInput({
 		}
 	}
 
+	// Функция для сокращения имени файла
+	const getTruncatedFileName = (fileName: string, maxLength: number = 30) => {
+		if (fileName.length <= maxLength) return fileName
+
+		const extension = fileName.split('.').pop()
+		const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'))
+		const truncatedName = nameWithoutExt.substring(
+			0,
+			maxLength - (extension?.length || 0) - 4
+		)
+
+		return `${truncatedName}...${extension ? `.${extension}` : ''}`
+	}
+
 	// Очистка таймаута при размонтировании
 	useEffect(() => {
 		return () => {
@@ -147,16 +161,28 @@ export default function MessageInput({
 	}, [])
 
 	return (
-		<form
-			onSubmit={handleSubmit}
-			className='p-2 sm:p-4 bg-gray-900/50 backdrop-blur-sm'
-		>
+		<form onSubmit={handleSubmit} className='px-2 py-2 sm:px-4 sm:py-3'>
 			{/* Информация о прикрепленном файле */}
 			{file && (
-				<div className='mb-2 px-2 py-1.5 bg-gray-700/50 rounded-lg flex items-center justify-between text-sm'>
-					<span className='text-emerald-400 truncate flex-1'>
-						📎 {file.name}
-					</span>
+				<div className='mb-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-700/50 rounded-lg flex items-center gap-2 text-xs sm:text-sm'>
+					<div className='flex items-center gap-2 flex-1 min-w-0 overflow-hidden'>
+						<span className='flex-shrink-0 text-emerald-400 text-base sm:text-lg'>
+							📎
+						</span>
+						<div className='flex-1 min-w-0 overflow-hidden'>
+							<div className='text-emerald-400 truncate font-medium leading-tight'>
+								<span className='hidden sm:inline'>
+									{getTruncatedFileName(file.name, 35)}
+								</span>
+								<span className='inline sm:hidden'>
+									{getTruncatedFileName(file.name, 20)}
+								</span>
+							</div>
+							<div className='text-gray-400 text-[10px] sm:text-xs'>
+								{(file.size / 1024).toFixed(1)} KB
+							</div>
+						</div>
+					</div>
 					<button
 						type='button'
 						onClick={() => {
@@ -165,16 +191,17 @@ export default function MessageInput({
 								fileInputRef.current.value = ''
 							}
 						}}
-						className='ml-2 text-gray-400 hover:text-red-400 transition-colors'
+						className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-600/50 text-gray-400 hover:text-red-400 transition-colors'
+						title='Удалить файл'
 					>
 						✕
 					</button>
 				</div>
 			)}
 
-			<div className='flex items-end gap-2'>
+			<div className='flex items-end gap-1.5 sm:gap-2'>
 				{/* Кнопка прикрепления файла */}
-				<label className='cursor-pointer flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors'>
+				<label className='cursor-pointer flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors'>
 					<input
 						ref={fileInputRef}
 						type='file'
@@ -183,7 +210,7 @@ export default function MessageInput({
 						accept='image/*,.pdf,.doc,.docx,.txt'
 					/>
 					<svg
-						className='w-5 h-5 text-gray-400'
+						className='w-4 h-4 sm:w-5 sm:h-5 text-gray-400'
 						fill='none'
 						stroke='currentColor'
 						viewBox='0 0 24 24'
@@ -204,7 +231,7 @@ export default function MessageInput({
 						value={message}
 						onChange={handleMessageChange}
 						placeholder='Сообщение...'
-						className='w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-700/50 border border-gray-600/50 rounded-3xl text-white text-sm sm:text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 transition-all'
+						className='w-full px-3 sm:px-4 py-1.5 sm:py-2.5 bg-gray-700/50 border border-gray-600/50 rounded-3xl text-white text-sm sm:text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 transition-all'
 						disabled={sending}
 					/>
 				</div>
@@ -213,12 +240,12 @@ export default function MessageInput({
 				<button
 					type='submit'
 					disabled={sending || (!message.trim() && !file)}
-					className='flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center'
+					className='flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center'
 					title={sending ? 'Отправка...' : 'Отправить'}
 				>
 					{sending ? (
 						<svg
-							className='animate-spin w-4 h-4 sm:w-5 sm:h-5'
+							className='animate-spin w-3.5 h-3.5 sm:w-5 sm:h-5'
 							fill='none'
 							viewBox='0 0 24 24'
 						>
@@ -238,7 +265,7 @@ export default function MessageInput({
 						</svg>
 					) : (
 						<svg
-							className='w-4 h-4 sm:w-5 sm:h-5'
+							className='w-3.5 h-3.5 sm:w-5 sm:h-5'
 							fill='currentColor'
 							viewBox='0 0 24 24'
 						>
