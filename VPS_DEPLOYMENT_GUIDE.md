@@ -97,7 +97,7 @@ sudo apt install git -y
 sudo -u postgres psql
 
 # В PostgreSQL консоли выполните:
-CREATE DATABASE nesi_db;
+;CREATE DATABASE nesi_db;
 CREATE USER nesi_user WITH ENCRYPTED PASSWORD 'your_strong_password_here';
 GRANT ALL PRIVILEGES ON DATABASE nesi_db TO nesi_user;
 
