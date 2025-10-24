@@ -9,7 +9,7 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // 🔹 Загружаем жалобы
+  // 🔹 Загружаем жалобы 
   const fetchReports = async () => {
     try {
       const res = await fetch('/api/admin/reports', { cache: 'no-store' })
