@@ -1,3 +1,4 @@
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 
@@ -51,20 +52,20 @@ export async function GET(req: NextRequest) {
 // 📌 Создать пост (без заголовка)
 export async function POST(req: NextRequest) {
   try {
-    const me = await getUserFromRequest(req).catch(() => nul
-if (!me) {
+    const me = await getUserFromRequest(req).catch(() => null)
+    if (!me) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
     let body: any
-try {
+    try {
       body = await req.json()
     } catch {
       return NextResponse.json(
         { error: 'Неверный формат запроса' },
         { status: 400 }
-	) 
-	}
+      )
+    }
 
     const { content, imageUrl } = body || {}
     if (!content?.trim() && !imageUrl) {
@@ -72,10 +73,10 @@ try {
         { error: 'Пост не может быть пустым' },
         { status: 400 }
       )
-}
+    }
 
     const post = await prisma.communityPost.create({
-data: {
+      data: {
         title: '',
         content: content?.trim() || '',
         imageUrl: imageUrl || null,
@@ -91,10 +92,9 @@ data: {
           },
         },
         _count: { select: { comments: true, likes: true } },
- },
+      },
     })
 
-    // добавим avatarUrl прямо в ответ
     const formattedPost = {
       ...post,
       author: {
@@ -112,5 +112,5 @@ data: {
       { error: 'Ошибка сервера', details: String(err) },
       { status: 500 }
     )
-}
+  }
 }
