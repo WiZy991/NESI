@@ -82,10 +82,31 @@ export default function AdminHomePage() {
             <CardContent className="p-5">
               <h3 className="font-semibold text-emerald-400 mb-3">⚡ Быстрые действия</h3>
               <ul className="list-disc list-inside text-sm text-gray-300 space-y-1">
-                <li>Просмотреть новые задачи</li>
-                <li>Модерировать отклики</li>
-                <li>Проверить жалобы на отзывы</li>
-              </ul>
+  <li>
+    <a
+      href="/admin/tasks"
+      className="text-emerald-400 hover:underline hover:text-emerald-300 transition"
+    >
+      Просмотреть новые задачи
+    </a>
+  </li>
+  <li>
+    <a
+      href="/admin/responses"
+      className="text-emerald-400 hover:underline hover:text-emerald-300 transition"
+    >
+      Модерировать отклики
+    </a>
+  </li>
+  <li>
+    <a
+      href="/admin/reports"
+      className="text-red-400 hover:text-red-300 hover:underline transition font-medium"
+    >
+      🚨 Проверить жалобы пользователей
+    </a>
+  </li>
+</ul>
             </CardContent>
           </Card>
 

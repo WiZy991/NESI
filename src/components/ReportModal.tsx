@@ -27,20 +27,34 @@ export default function ReportModal({
     setLoading(true)
     try {
       const res = await fetch('/api/community/report', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-  },
-  body: JSON.stringify({
-    type: target.type,
-    reason,
-    description: text,
-    postId: target.type === 'post' ? target.id : null,
-    commentId: target.type === 'comment' ? target.id : null,
-  }),
-})
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({
+          type: target.type,
+          reason,
+          description: text,
+          postId: target.type === 'post' ? target.id : null,
+          commentId: target.type === 'comment' ? target.id : null,
+        }),
+      })
 
+      if (res.ok) {
+        alert('✅ Жалоба успешно отправлена!')
+        onClose()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert('Ошибка: ' + (err.error || 'Не удалось отправить'))
+      }
+    } catch (e) {
+      console.error('Ошибка при отправке жалобы:', e)
+      alert('Не удалось отправить жалобу, попробуйте позже.')
+    } finally {
+      setLoading(false)
+    }
+  } // ✅ Закрыли sendReport
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
