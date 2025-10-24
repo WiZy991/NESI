@@ -378,10 +378,13 @@ model CommunityPost {
   imageUrl  String?
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
-  comments  CommunityComment[]
   likes     CommunityLike[]
-  author    User               @relation(fields: [authorId], references: [id])
   views     CommunityView[]
+  isDeleted       Boolean  @default(false)
+  deletedReason   String?  // "Нарушение правил", "Спам" и т.д.
+  author       User?       @relation(fields: [authorId], references: [id])
+  comments     CommunityComment[]
+  reports      CommunityReport[]
 
   @@index([authorId])
   @@index([createdAt])
@@ -398,6 +401,7 @@ model CommunityComment {
   imageUrl  String?
   author    User          @relation(fields: [authorId], references: [id])
   post      CommunityPost @relation(fields: [postId], references: [id])
+  reports     CommunityReport[]
 
   @@index([postId])
   @@index([authorId])
@@ -486,4 +490,6 @@ model CommunityReport {
   reporterId  String?
   createdAt   DateTime @default(now())
   reporter    User?    @relation("UserReports", fields: [reporterId], references: [id])
+  post        CommunityPost?    @relation(fields: [postId], references: [id])
+  comment     CommunityComment? @relation(fields: [commentId], references: [id])
 }
