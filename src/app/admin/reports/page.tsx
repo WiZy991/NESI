@@ -88,7 +88,7 @@ export default function AdminReportsPage() {
               )}
               {r.comment && (
                 <a
-                  href={`/community/comment/${r.comment.id}`}
+                  href={`/community/${r.comment.id}`}
                   className="text-sm text-emerald-400 hover:text-emerald-300 underline block mb-1"
                   target="_blank"
                   rel="noopener noreferrer"
