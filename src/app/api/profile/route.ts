@@ -9,50 +9,65 @@ export async function GET(req: Request) {
   if (!user)
     return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-  const fullUser = await prisma.user.findUnique({
+  // 1️⃣ Определяем роль пользователя
+  const baseUser = await prisma.user.findUnique({
     where: { id: user.id },
-    include: {
-      reviewsReceived: {
-        include: {
-          fromUser: true,
-          task: true,
-        },
+    select: { id: true, role: true },
+  })
+
+  if (!baseUser)
+    return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
+
+  // 2️⃣ Общие поля (для всех)
+  const includeBase = {
+    avatarFile: true,
+    reviewsReceived: {
+      include: { fromUser: true, task: true },
+    },
+  }
+
+  // 3️⃣ Дополнительные данные только для исполнителя
+  const includeExecutor = {
+    ...includeBase,
+    level: true,
+    badges: {
+      include: { badge: true },
+      orderBy: { earnedAt: 'desc' },
+    },
+    certifications: {
+      include: { subcategory: true },
+      orderBy: { grantedAt: 'desc' },
+    },
+    executedTasks: {
+      where: { status: 'completed' },
+      include: {
+        customer: { select: { id: true, fullName: true, email: true } },
+        review: true,
       },
-      avatarFile: true,
-      level: true,
-      badges: {
-        include: { badge: true },
-        orderBy: { earnedAt: 'desc' },
-      },
-      certifications: {
-        include: { subcategory: true },
-        orderBy: { grantedAt: 'desc' },
-      },
-      executedTasks: {
-        where: { status: 'completed' },
-        include: {
-          customer: {
-            select: { id: true, fullName: true, email: true },
-          },
-          review: true,
-        },
-        orderBy: { completedAt: 'desc' },
-        take: 10,
-      },
-      _count: {
-        select: {
-          executedTasks: { where: { status: 'completed' } },
-          reviewsReceived: true,
-          responses: true,
-        },
+      orderBy: { completedAt: 'desc' },
+      take: 10,
+    },
+    _count: {
+      select: {
+        executedTasks: { where: { status: 'completed' } },
+        reviewsReceived: true,
+        responses: true,
       },
     },
+  }
+
+  // 4️⃣ Выбор полей по роли
+  const include = baseUser.role === 'executor' ? includeExecutor : includeBase
+
+  const fullUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    include,
   })
 
   if (!fullUser)
     return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 
-  // === Средний рейтинг ===
+  // 5️⃣ Средний рейтинг
   const reviews = await prisma.review.findMany({
     where: { toUserId: user.id },
     select: { rating: true },
@@ -63,13 +78,19 @@ export async function GET(req: Request) {
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null
 
-  // === Аватар ===
+  // 6️⃣ Аватар
   const avatarUrl = fullUser?.avatarFileId
     ? `/api/files/${fullUser.avatarFileId}`
     : null
 
+  // 7️⃣ Возвращаем итоговый ответ
   return NextResponse.json({
-    user: { ...fullUser, avatarUrl, avgRating },
+    user: {
+      ...fullUser,
+      avatarUrl,
+      avgRating,
+      isExecutor: baseUser.role === 'executor',
+    },
   })
 }
 
@@ -103,7 +124,7 @@ export async function PATCH(req: Request) {
 
       dataToUpdate = { fullName, role, description, location }
 
-      // ✅ Исправлено: теперь даже пустые навыки удаляются
+      // Обработка навыков
       if (skills !== null) {
         const parsed = skills
           .split(',')
@@ -112,7 +133,7 @@ export async function PATCH(req: Request) {
         dataToUpdate.skills = parsed.length > 0 ? parsed : []
       }
 
-      // Хэш пароля (если был передан)
+      // Хэш пароля (если передан)
       if (password && password.length > 0) {
         const hashed = await bcrypt.hash(password, 10)
         dataToUpdate.password = hashed
@@ -148,7 +169,6 @@ export async function PATCH(req: Request) {
 
       dataToUpdate = { fullName, role, description, location }
 
-      // ✅ Исправлено: корректно обнуляет навыки при пустом массиве
       if (skills !== undefined) {
         if (Array.isArray(skills)) {
           dataToUpdate.skills = skills

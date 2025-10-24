@@ -461,48 +461,86 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 				</div>
 			</div>
 
-			{/* Отзыв */}
-			{task.status === 'completed' && task.review && (
-				<div className='bg-gradient-to-br from-black/60 to-emerald-900/20 rounded-xl p-4 md:p-6 border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.2)] hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] transition-all duration-300'>
-					<div className='flex items-center gap-3 mb-4'>
-						<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center'>
-							<span className='text-sm'>⭐</span>
-						</div>
-						<h3 className='text-lg font-semibold text-emerald-300'>
-							Отзыв заказчика
-						</h3>
-					</div>
-					<div className='space-y-3'>
-						<div className='flex items-center gap-2'>
-							<span className='text-2xl text-yellow-400'>⭐</span>
-							<span className='text-xl font-bold text-yellow-400'>
-								{task.review.rating}
-							</span>
-							<span className='text-gray-400 text-sm'>/ 5</span>
-						</div>
-						<p className='text-gray-200 text-lg leading-relaxed'>
-							{task.review.comment}
-						</p>
-						<p className='text-sm text-gray-500'>
-							📅 {new Date(task.review.createdAt).toLocaleDateString('ru-RU')}
-						</p>
-					</div>
-				</div>
-			)}
+{/* 🟢 Блок отзывов */}
+{task.status === 'completed' && (
+  <div className='space-y-6'>
 
-			{task.status === 'completed' && isCustomer && !task.review && (
-				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
-					<div className='flex items-center gap-3 mb-4'>
-						<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center'>
-							<span className='text-sm'>⭐</span>
-						</div>
-						<h3 className='text-lg font-semibold text-emerald-300'>
-							Оставить отзыв
-						</h3>
-					</div>
-					<ReviewForm taskId={task.id} />
-				</div>
-			)}
+    {/* ==== Уже оставленный отзыв (только тот, который адресован текущему пользователю) ==== */}
+    {task.review
+      ?.filter((r: any) => r.toUserId === user?.id)
+      .map((review: any) => (
+        <div
+          key={review.id}
+          className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'
+        >
+          <div className='flex items-center gap-3 mb-3'>
+            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+              <span className='text-sm text-black'>⭐</span>
+            </div>
+            <h3 className='text-lg font-semibold text-emerald-300'>
+              Отзыв {review.fromUserId === task.customerId ? 'заказчика' : 'исполнителя'}
+            </h3>
+          </div>
+
+          <div className='space-y-3'>
+            <div className='flex items-center gap-2'>
+              <span className='text-xl text-yellow-400'>⭐</span>
+              <span className='text-lg font-bold text-yellow-400'>{review.rating}</span>
+              <span className='text-gray-400 text-sm'>/ 5</span>
+            </div>
+
+            <p className='text-gray-200 text-base leading-relaxed italic'>
+              “{review.comment || 'Без комментария'}”
+            </p>
+
+            <div className='flex items-center justify-between text-sm text-gray-500'>
+              <span>📅 {new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
+              <span className='text-emerald-400'>
+                👤 {review.fromUser?.fullName || 'Пользователь'}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+
+    {/* ==== Форма: заказчик -> отзыв исполнителю ==== */}
+    {isCustomer &&
+      !task.review?.some((r: any) => r.fromUserId === user?.id) && (
+        <div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
+          <div className='flex items-center gap-3 mb-4'>
+            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+              <span className='text-sm text-black'>⭐</span>
+            </div>
+            <h3 className='text-lg font-semibold text-emerald-300'>
+              Оставить отзыв исполнителю
+            </h3>
+          </div>
+          <ReviewForm taskId={task.id} />
+        </div>
+      )}
+
+    {/* ==== Форма: исполнитель -> отзыв заказчику ==== */}
+    {isExecutor &&
+      !isCustomer &&
+      !task.review?.some((r: any) => r.fromUserId === user?.id) && (
+        <div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
+          <div className='flex items-center gap-3 mb-4'>
+            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+              <span className='text-sm text-black'>⭐</span>
+            </div>
+            <h3 className='text-lg font-semibold text-emerald-300'>
+              Оставить отзыв заказчику
+            </h3>
+          </div>
+          <ReviewForm taskId={task.id} />
+        </div>
+      )}
+  </div>
+)}
+
+
+
+
 
 			{/* Форма отклика */}
 			{user?.role === 'executor' &&

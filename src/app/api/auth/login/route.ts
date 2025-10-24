@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     const { email, password } = await req.json()
     const user = await prisma.user.findUnique({ where: { email } })
 
+    // ❌ Нет пользователя или неверный пароль
     if (!user || !(await verifyPassword(password, user.password))) {
       return NextResponse.json(
         { error: 'Неверный логин или пароль' },
@@ -37,9 +38,21 @@ export async function POST(req: Request) {
       )
     }
 
+    // 🚫 Проверяем подтверждение почты (через verified)
+    if (!user.verified) {
+      return NextResponse.json(
+        {
+          error:
+            'Ваш e-mail ещё не подтверждён. Проверьте почту и перейдите по ссылке из письма, чтобы активировать аккаунт.',
+        },
+        { status: 403 }
+      )
+    }
 
+    // ✅ Всё ок — создаём токен
     const token = signJWT({ userId: user.id })
 
+    // 📨 Создаём уведомление
     await createNotification(
       user.id,
       'Вы успешно вошли в аккаунт!',
@@ -56,6 +69,7 @@ export async function POST(req: Request) {
       token,
     })
 
+    // 🍪 Устанавливаем cookie
     response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -66,6 +80,9 @@ export async function POST(req: Request) {
     return response
   } catch (error) {
     console.error('Login error:', error)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Ошибка сервера: ' + (error as Error).message },
+      { status: 500 }
+    )
   }
 }

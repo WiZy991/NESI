@@ -93,7 +93,7 @@ model Task {
   Dispute       Dispute[]
   files         File[]         @relation("TaskFiles")
   messages      Message[]
-  review        Review?
+  review        Review[]
   customer      User           @relation("Customer", fields: [customerId], references: [id])
   executor      User?          @relation("Executor", fields: [executorId], references: [id])
   subcategory   Subcategory?   @relation(fields: [subcategoryId], references: [id])
@@ -133,13 +133,18 @@ model Review {
   rating     Int
   comment    String
   createdAt  DateTime @default(now())
-  taskId     String   @unique
+
+  taskId     String
   fromUserId String?
   toUserId   String?
+
   fromUser   User?    @relation("FromUser", fields: [fromUserId], references: [id])
-  task       Task     @relation(fields: [taskId], references: [id])
   toUser     User?    @relation("ToUser", fields: [toUserId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id])
+
+  @@unique([taskId, fromUserId], name: "task_from_reviewer")
 }
+
 
 model Message {
   id        String   @id @default(uuid())

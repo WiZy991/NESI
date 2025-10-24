@@ -56,9 +56,9 @@ async function main() {
     ],
   },
   {
-    name: 'Битрикс',
+    name: 'CRM',
     subcategories: [
-      { name: 'Внедрение Битрикс24', minPrice: 3000 },
+      { name: 'Внедрение CRM', minPrice: 3000 },
       { name: 'Интеграции с сайтом', minPrice: 2500 },
       { name: 'Разработка CRM бизнес-процессов', minPrice: 3000 },
       { name: 'Создание виджетов и приложений', minPrice: 2500 },

@@ -1,84 +1,101 @@
-import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
+// src/app/api/tasks/[taskId]/review/route.ts
+import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { createNotification } from '@/lib/notify'
-import prisma from '@/lib/prisma'
-import { NextResponse } from 'next/server'
+import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 
 export async function POST(
-	req: Request,
-	{ params }: { params: { id: string } }
+  req: Request,
+  { params }: { params: { taskId?: string; id?: string } }
 ) {
-	const user = await getUserFromRequest(req)
-	if (!user)
-		return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  try {
+    const user = await getUserFromRequest(req)
+    if (!user) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    }
 
-	const taskId = params.id
-	const { rating, comment } = await req.json()
+    // ✅ Берём и taskId, и id, чтобы работало в любом случае
+    const taskId = params.taskId || params.id
+    console.log('🧩 POST review for taskId =', taskId)
 
-	if (!rating || rating < 1 || rating > 5) {
-		return NextResponse.json(
-			{ error: 'Оценка от 1 до 5 обязательна' },
-			{ status: 400 }
-		)
-	}
+    if (!taskId) {
+      return NextResponse.json({ error: 'Не передан ID задачи' }, { status: 400 })
+    }
 
-	const task = await prisma.task.findUnique({
-		where: { id: taskId },
-		include: { executor: true, review: true },
-	})
+    const { rating, comment } = await req.json()
+    if (!rating || rating < 1 || rating > 5) {
+      return NextResponse.json({ error: 'Оценка от 1 до 5 обязательна' }, { status: 400 })
+    }
 
-	if (!task || !task.executorId) {
-		return NextResponse.json(
-			{ error: 'Задача не найдена или не имеет исполнителя' },
-			{ status: 404 }
-		)
-	}
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { customer: true, executor: true, review: true },
+    })
 
-	if (task.customerId !== user.id) {
-		return NextResponse.json(
-			{ error: 'Только автор задачи может оставить отзыв' },
-			{ status: 403 }
-		)
-	}
+    if (!task) {
+      return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
+    }
 
-	if (task.review) {
-		return NextResponse.json({ error: 'Отзыв уже оставлен' }, { status: 400 })
-	}
+    if (task.status !== 'completed') {
+      return NextResponse.json({ error: 'Нельзя оставить отзыв до завершения задачи' }, { status: 400 })
+    }
 
-	const review = await prisma.review.create({
-		data: {
-			rating,
-			comment,
-			taskId,
-			fromUserId: user.id, // Автор отзыва — заказчик
-			toUserId: task.executorId, // Получатель — исполнитель
-		},
-	})
+    const isCustomer = user.id === task.customerId
+    const isExecutor = user.id === task.executorId
 
-	// Создаём уведомление для исполнителя
-	await createNotification({
-		userId: task.executorId,
-		message: `${
-			user.fullName || user.email
-		} оставил отзыв (${rating}⭐) на задачу "${task.title}"`,
-		link: `/tasks/${taskId}`,
-		type: 'review',
-	})
+    if (!isCustomer && !isExecutor) {
+      return NextResponse.json({ error: 'Нет доступа к задаче' }, { status: 403 })
+    }
 
-	// Отправляем уведомление в реальном времени
-	sendNotificationToUser(task.executorId, {
-		type: 'review',
-		title: 'Новый отзыв',
-		message: `${
-			user.fullName || user.email
-		} оставил отзыв (${rating}⭐) на задачу "${task.title}"`,
-		link: `/tasks/${taskId}`,
-		taskTitle: task.title,
-		rating,
-		senderId: user.id,
-		sender: user.fullName || user.email,
-		playSound: true,
-	})
+    const toUserId = isCustomer ? task.executorId : task.customerId
+    if (!toUserId) {
+      return NextResponse.json({ error: 'Некому оставить отзыв' }, { status: 400 })
+    }
 
-	return NextResponse.json({ review })
+    const alreadyLeft = await prisma.review.findFirst({
+      where: { taskId, fromUserId: user.id },
+      select: { id: true },
+    })
+    if (alreadyLeft) {
+      return NextResponse.json({ error: 'Вы уже оставили отзыв по этой задаче' }, { status: 400 })
+    }
+
+    const review = await prisma.review.create({
+      data: {
+        rating,
+        comment,
+        taskId,
+        fromUserId: user.id,
+        toUserId,
+      },
+    })
+
+    const actorName = user.fullName || user.email
+    const notifyMsg = `${actorName} оставил отзыв (${rating}⭐) по задаче «${task.title}»`
+
+    await createNotification({
+      userId: toUserId,
+      message: notifyMsg,
+      link: `/tasks/${taskId}`,
+      type: 'review',
+    })
+
+    sendNotificationToUser(toUserId, {
+      type: 'review',
+      title: 'Новый отзыв',
+      message: notifyMsg,
+      link: `/tasks/${taskId}`,
+      taskTitle: task.title,
+      rating,
+      senderId: user.id,
+      sender: actorName,
+      playSound: true,
+    })
+
+    return NextResponse.json({ review })
+  } catch (e) {
+    console.error('❌ Ошибка при создании отзыва:', e)
+    return NextResponse.json({ error: 'Ошибка при создании отзыва' }, { status: 500 })
+  }
 }

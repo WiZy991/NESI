@@ -447,7 +447,7 @@ export default function UserPublicProfilePage() {
 						{hireState === 'accepted' ? (
 							<div className='flex gap-3 justify-center'>
 								<Link
-									href={`/messages/${viewUser.id}`}
+									href={`/chats?open=${viewUser.id}`}
 									className='px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition'
 								>
 									Перейти в чат

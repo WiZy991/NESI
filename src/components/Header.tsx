@@ -5,6 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { ToastContainer } from './ToastNotification'
+import {
+	Bell,
+	MessageSquare,
+	Star,
+	CheckCircle,
+	AlertTriangle,
+} from 'lucide-react' 
 
 // Функция для форматирования времени уведомления
 const formatNotificationTime = (timestamp: string) => {
@@ -260,78 +267,116 @@ export default function Header() {
 					{user ? (
 						<>
 							{/* 🔔 Уведомления */}
-							<div className='relative' ref={notifRef}>
-								<button
-									onClick={() => setNotifOpen(v => !v)}
-									className={`${linkStyle} text-lg flex items-center gap-1`}
-								>
-									🔔
-									{unreadCount > 0 && (
-										<span className='absolute -top-2 -right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
-											{unreadCount}
-										</span>
-									)}
-									{sseConnected && (
-										<span className='absolute -bottom-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse'></span>
-									)}
-								</button>
+<div className='relative' ref={notifRef}>
+	<button
+		onClick={() => setNotifOpen(v => !v)}
+		className={`${linkStyle} text-lg flex items-center gap-1 relative`}
+	>
+		<Bell className='w-5 h-5 text-emerald-400 transition-transform duration-300 group-hover:rotate-6' />
 
-								{notifOpen && (
-									<div className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden animate-fadeIn'>
-										<div className='max-h-64 overflow-y-auto custom-scrollbar'>
-											{notifications.length === 0 ? (
-												<div className='p-4 text-center text-gray-400'>
-													<div className='text-2xl mb-2'>🔔</div>
-													<p>Нет новых уведомлений</p>
-												</div>
-											) : (
-												notifications.map((notif, index) => (
-													<div
-														key={index}
-														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
-														onClick={() => handleNotificationClick(notif)}
-													>
-														<div className='flex items-start space-x-3'>
-															<div className='w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold'>
-																{notif.sender?.charAt(0) || '?'}
-															</div>
-															<div className='flex-1 min-w-0'>
-																<p className='text-sm text-white font-medium truncate'>
-																	{notif.title}
-																</p>
-																<p className='text-xs text-gray-400 truncate'>
-																	<strong>{notif.sender}:</strong>{' '}
-																	{notif.message}
-																</p>
-																{notif.taskTitle && (
-																	<p className='text-xs text-emerald-400 mt-1'>
-																		📋 {notif.taskTitle}
-																	</p>
-																)}
-																{(notif.timestamp || notif.createdAt) && (
-																	<p className='text-xs text-gray-500 mt-1'>
-																		{formatNotificationTime(
-																			notif.timestamp || notif.createdAt
-																		)}
-																	</p>
-																)}
-															</div>
-														</div>
-													</div>
-												))
-											)}
-										</div>
-										<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
-											<button
-												onClick={handleGoToNotifications}
-												className='text-emerald-400 hover:underline text-sm font-medium'
-											>
-												Перейти к уведомлениям →
-											</button>
-										</div>
-									</div>
-								)}
+		{/* 🔴 Счётчик уведомлений с плавным появлением */}
+		{unreadCount > 0 && (
+			<span
+				className={`absolute -top-2 -right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full 
+					transition-all duration-500 ease-in-out transform 
+					${notifOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+			>
+				{unreadCount}
+			</span>
+		)}
+	</button>
+
+	{/* 📥 Выпадающее окно уведомлений */}
+	{notifOpen && (
+		<div
+			className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl 
+                       shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden 
+                       animate-fadeIn transition-all duration-300 ease-in-out origin-top'
+		>
+			<div className='max-h-64 overflow-y-auto custom-scrollbar'>
+				{notifications.length === 0 ? (
+					<div className='p-4 text-center text-gray-400'>
+						<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
+						<p>Нет новых уведомлений</p>
+					</div>
+				) : (
+					notifications.map((notif, index) => (
+						<div
+							key={index}
+							className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
+							onClick={() => handleNotificationClick(notif)}
+						>
+							<div className='flex items-start space-x-3'>
+								{/* 🎯 Иконка в зависимости от типа уведомления */}
+								<div
+									className='w-8 h-8 rounded-full flex items-center justify-center 
+                                             bg-emerald-900/40 border border-emerald-500/30 
+                                             shadow-[0_0_6px_rgba(16,185,129,0.3)]'
+								>
+									{notif.type === 'message' ? (
+										<MessageSquare className='w-4 h-4 text-blue-400' />
+									) : notif.type === 'review' ? (
+										<Star className='w-4 h-4 text-yellow-400' />
+									) : notif.type === 'task' ? (
+										<CheckCircle className='w-4 h-4 text-green-400' />
+									) : notif.type === 'warning' ? (
+										<AlertTriangle className='w-4 h-4 text-red-500' />
+									) : (
+										<Bell className='w-4 h-4 text-emerald-400' />
+									)}
+								</div>
+
+								{/* 💬 Текст уведомления */}
+<div className='flex-1 min-w-0'>
+  <p className='text-sm text-white font-medium truncate'>
+    {notif.title}
+  </p>
+
+  {/* ✅ Исправленный вывод имени и сообщения */}
+  <p className='text-xs text-gray-400 truncate'>
+    {notif.sender ? (
+      <>
+        <strong className='text-gray-300'>{notif.sender}</strong>
+        <span className='text-gray-500'> — </span>
+        {notif.message}
+      </>
+    ) : (
+      notif.message
+    )}
+  </p>
+
+  {notif.taskTitle && (
+    <p className='text-xs text-emerald-400 mt-1'>
+      📋 {notif.taskTitle}
+    </p>
+  )}
+
+  {(notif.timestamp || notif.createdAt) && (
+    <p className='text-xs text-gray-500 mt-1'>
+      {formatNotificationTime(
+        notif.timestamp || notif.createdAt
+      )}
+    </p>
+  )}
+</div>
 							</div>
+						</div>
+					))
+				)}
+			</div>
+
+			{/* 📎 Ссылка внизу */}
+			<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+				<button
+					onClick={handleGoToNotifications}
+					className='text-emerald-400 hover:underline text-sm font-medium'
+				>
+					Перейти к уведомлениям →
+				</button>
+			</div>
+		</div>
+	)}
+</div>
 
 							{/* 🧭 Основная навигация */}
 							{user.role === 'admin' ? (
