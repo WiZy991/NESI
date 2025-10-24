@@ -39,8 +39,25 @@ export async function GET(
     })
 
     if (!post) {
-      return NextResponse.json({ error: 'Пост не найден' }, { status: 404 })
-    }
+  // возвращаем "виртуальный пост", чтобы фронт не падал
+  return NextResponse.json({
+    post: {
+      id: params.id,
+      title: '[Пост удалён]',
+      content: '🚫 Этот пост был удалён администрацией',
+      createdAt: new Date().toISOString(),
+      author: {
+        id: 'deleted',
+        fullName: 'Администратор',
+        email: 'hidden',
+        avatarUrl: null,
+      },
+      comments: [],
+      _count: { likes: 0 },
+    },
+    liked: false,
+  })
+}
 
     // Проверяем, лайкал ли текущий пользователь
     let liked = false

@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // 🧩 Добавляем корректные ссылки
+    // 🧩 Формируем корректные ссылки для админки
     const reportsWithLinks = reports.map((r) => {
       let targetLink = null
 
@@ -58,6 +58,43 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ reports: reportsWithLinks })
   } catch (err) {
     console.error('🔥 Ошибка загрузки жалоб:', err)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
+}
+
+// 🗑️ Удаление поста или комментария администратором
+export async function DELETE(req: NextRequest) {
+  try {
+    const me = await getUserFromRequest(req).catch(() => null)
+    if (!me || me.role !== 'admin') {
+      return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
+    }
+
+    const { type, id } = await req.json().catch(() => ({}))
+    if (!type || !id)
+      return NextResponse.json({ error: 'Не указаны type и id' }, { status: 400 })
+
+    if (type === 'post') {
+      const existing = await prisma.communityPost.findUnique({ where: { id } })
+      if (!existing)
+        return NextResponse.json({ error: 'Пост не найден' }, { status: 404 })
+
+      await prisma.communityPost.delete({ where: { id } })
+      return NextResponse.json({ ok: true, message: 'Пост удалён' })
+    }
+
+    if (type === 'comment') {
+      const existing = await prisma.communityComment.findUnique({ where: { id } })
+      if (!existing)
+        return NextResponse.json({ error: 'Комментарий не найден' }, { status: 404 })
+
+      await prisma.communityComment.delete({ where: { id } })
+      return NextResponse.json({ ok: true, message: 'Комментарий удалён' })
+    }
+
+    return NextResponse.json({ error: 'Неверный тип' }, { status: 400 })
+  } catch (err) {
+    console.error('🔥 Ошибка при удалении через админку:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
