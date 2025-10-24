@@ -53,7 +53,7 @@ export default function AdminReportsPage() {
         {reports.map((r) => (
           <Card
             key={r.id}
-            className="bg-black/60 border border-emerald-600/30 shadow-[0_0_12px_rgba(0,255,180,0.25)]"
+            className="bg-black/60 border border-emerald-600/30 shadow-[0_0_12px_rgba(0,255,180,0.25)] hover:border-emerald-400/40 transition"
           >
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-2">
@@ -75,7 +75,29 @@ export default function AdminReportsPage() {
                 </p>
               )}
 
-              <p className="text-sm text-emerald-400">
+              {/* 💬 Переход на объект жалобы */}
+              {r.post && (
+                <a
+                  href={`/community/post/${r.post.id}`}
+                  className="text-sm text-emerald-400 hover:text-emerald-300 underline block mb-1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Перейти к посту →
+                </a>
+              )}
+              {r.comment && (
+                <a
+                  href={`/community/comment/${r.comment.id}`}
+                  className="text-sm text-emerald-400 hover:text-emerald-300 underline block mb-1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Перейти к комментарию →
+                </a>
+              )}
+
+              <p className="text-sm text-emerald-400 mt-2">
                 От: {r.reporter?.fullName || 'Неизвестный пользователь'} ({r.reporter?.email})
               </p>
             </CardContent>
