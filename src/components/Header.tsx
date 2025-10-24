@@ -327,27 +327,38 @@ export default function Header() {
 								</div>
 
 								{/* 💬 Текст уведомления */}
-								<div className='flex-1 min-w-0'>
-									<p className='text-sm text-white font-medium truncate'>
-										{notif.title}
-									</p>
-									<p className='text-xs text-gray-400 truncate'>
-										<strong>{notif.sender}:</strong>{' '}
-										{notif.message}
-									</p>
-									{notif.taskTitle && (
-										<p className='text-xs text-emerald-400 mt-1'>
-											📋 {notif.taskTitle}
-										</p>
-									)}
-									{(notif.timestamp || notif.createdAt) && (
-										<p className='text-xs text-gray-500 mt-1'>
-											{formatNotificationTime(
-												notif.timestamp || notif.createdAt
-											)}
-										</p>
-									)}
-								</div>
+<div className='flex-1 min-w-0'>
+  <p className='text-sm text-white font-medium truncate'>
+    {notif.title}
+  </p>
+
+  {/* ✅ Исправленный вывод имени и сообщения */}
+  <p className='text-xs text-gray-400 truncate'>
+    {notif.sender ? (
+      <>
+        <strong className='text-gray-300'>{notif.sender}</strong>
+        <span className='text-gray-500'> — </span>
+        {notif.message}
+      </>
+    ) : (
+      notif.message
+    )}
+  </p>
+
+  {notif.taskTitle && (
+    <p className='text-xs text-emerald-400 mt-1'>
+      📋 {notif.taskTitle}
+    </p>
+  )}
+
+  {(notif.timestamp || notif.createdAt) && (
+    <p className='text-xs text-gray-500 mt-1'>
+      {formatNotificationTime(
+        notif.timestamp || notif.createdAt
+      )}
+    </p>
+  )}
+</div>
 							</div>
 						</div>
 					))
