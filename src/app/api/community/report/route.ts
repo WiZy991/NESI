@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  try {
+  try { 
 
     const me = await getUserFromRequest(req).catch(() => null)
 
