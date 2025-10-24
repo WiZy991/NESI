@@ -5,7 +5,7 @@ import FilePreview from '@/components/FilePreview'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 
 type Chat = {
 	id: string
@@ -62,7 +62,7 @@ type Message = {
 	}
 }
 
-export default function ChatsPage() {
+function ChatsPageContent() {
 	const { user, token } = useUser()
 	const searchParams = useSearchParams()
 	const openUserId = searchParams?.get('open')
@@ -987,5 +987,22 @@ export default function ChatsPage() {
 				</div>
 			</div>
 		</div>
+	)
+}
+
+export default function ChatsPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className='h-[100dvh] flex items-center justify-center bg-gray-900'>
+					<div className='text-center'>
+						<div className='animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4'></div>
+						<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
+					</div>
+				</div>
+			}
+		>
+			<ChatsPageContent />
+		</Suspense>
 	)
 }
