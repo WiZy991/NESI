@@ -26,28 +26,21 @@ export default function ReportModal({
     if (!reason) return alert('Выберите причину жалобы')
     setLoading(true)
     try {
-      const res = await fetch('/api/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: target.type,
-          reason,
-          description: text,
-          postId: target.type === 'post' ? target.id : null,
-          commentId: target.type === 'comment' ? target.id : null,
-        }),
-      })
-      if (res.ok) {
-        alert('✅ Жалоба отправлена. Спасибо!')
-        onClose()
-      } else {
-        const err = await res.json().catch(() => ({}))
-        alert('Ошибка: ' + (err.error || 'Не удалось отправить'))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
+      const res = await fetch('/api/community/report', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+  },
+  body: JSON.stringify({
+    type: target.type,
+    reason,
+    description: text,
+    postId: target.type === 'post' ? target.id : null,
+    commentId: target.type === 'comment' ? target.id : null,
+  }),
+})
+
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
