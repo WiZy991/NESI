@@ -39,7 +39,23 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ reports })
+    // 🧩 Добавляем корректные ссылки
+    const reportsWithLinks = reports.map((r) => {
+      let targetLink = null
+
+      if (r.type === 'post' && r.post?.id) {
+        targetLink = `/community/${r.post.id}`
+      } else if (r.type === 'comment' && r.comment?.postId) {
+        targetLink = `/community/${r.comment.postId}#comment-${r.comment.id}`
+      }
+
+      return {
+        ...r,
+        targetLink,
+      }
+    })
+
+    return NextResponse.json({ reports: reportsWithLinks })
   } catch (err) {
     console.error('🔥 Ошибка загрузки жалоб:', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
