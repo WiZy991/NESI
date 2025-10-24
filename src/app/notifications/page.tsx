@@ -15,18 +15,24 @@ interface Notification {
 }
 
 const typeIcon = (type: string) => {
-  const base = 'w-5 h-5 drop-shadow-[0_0_6px_rgba(0,255,180,0.4)]'
+  const base =
+    'w-5 h-5 drop-shadow-[0_0_6px_rgba(0,255,180,0.6)] transition-transform duration-300 group-hover:scale-110'
+
   switch (type) {
     case 'task':
       return <Star className={`${base} text-yellow-400`} />
+
     case 'message':
       return <MessageSquare className={`${base} text-blue-400`} />
+
     case 'system':
       return <CheckCircle2 className={`${base} text-green-400`} />
+
     default:
-      return <Bell className={`${base} text-gray-400`} />
+      return <Bell className={`${base} text-emerald-400`} />
   }
 }
+
 
 function formatDate(dateString: string) {
   const date = new Date(dateString)
