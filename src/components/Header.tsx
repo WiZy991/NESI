@@ -315,13 +315,13 @@ export default function Header() {
 								>
 									{notif.type === 'message' ? (
 										<MessageSquare className='w-4 h-4 text-blue-400' />
-									)  notif.type === 'review' ? (
+									) : notif.type === 'review' ? (
 										<Star className='w-4 h-4 text-yellow-400' />
-									)  notif.type === 'task' ? (
+									) : notif.type === 'task' ? (
 										<CheckCircle className='w-4 h-4 text-green-400' />
-									)  notif.type === 'warning' ? (
+									) : notif.type === 'warning' ? (
 										<AlertTriangle className='w-4 h-4 text-red-500' />
-									)  (
+									) : (
 										<Bell className='w-4 h-4 text-emerald-400' />
 									)}
 								</div>
