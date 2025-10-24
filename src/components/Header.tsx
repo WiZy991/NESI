@@ -1,17 +1,17 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
+import {
+	AlertTriangle,
+	Bell,
+	CheckCircle,
+	MessageSquare,
+	Star,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { ToastContainer } from './ToastNotification'
-import {
-	Bell,
-	MessageSquare,
-	Star,
-	CheckCircle,
-	AlertTriangle,
-} from 'lucide-react' 
 
 // Функция для форматирования времени уведомления
 const formatNotificationTime = (timestamp: string) => {
@@ -39,12 +39,15 @@ export default function Header() {
 	const router = useRouter()
 	const [menuOpen, setMenuOpen] = useState(false)
 	const [notifOpen, setNotifOpen] = useState(false)
+	const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 	const [notifications, setNotifications] = useState<any[]>([])
 	const [unreadMessagesCount, setUnreadMessagesCount] = useState(0)
 	const [sseConnected, setSseConnected] = useState(false)
 	const [toastNotifications, setToastNotifications] = useState<any[]>([])
 	const menuRef = useRef<HTMLDivElement | null>(null)
 	const notifRef = useRef<HTMLDivElement | null>(null)
+	const mobileMenuRef = useRef<HTMLDivElement | null>(null)
+	const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 
 	const handleLogout = () => {
@@ -63,6 +66,14 @@ export default function Header() {
 			) {
 				setMenuOpen(false)
 				setNotifOpen(false)
+			}
+			if (
+				mobileMenuRef.current &&
+				!mobileMenuRef.current.contains(e.target as Node) &&
+				mobileMenuButtonRef.current &&
+				!mobileMenuButtonRef.current.contains(e.target as Node)
+			) {
+				setMobileMenuOpen(false)
 			}
 		}
 		document.addEventListener('mousedown', handleClickOutside)
@@ -255,128 +266,428 @@ export default function Header() {
 				notifications={toastNotifications}
 				onClose={handleToastClose}
 			/>
-			<header className='w-full px-8 py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50'>
+			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50'>
 				<Link
 					href='/'
-					className='text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
+					className='text-xl md:text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
 				>
 					NESI
 				</Link>
 
-				<nav className='flex gap-7 items-center text-gray-200 font-poppins'>
+				{/* Мобильная кнопка и уведомления */}
+				<div className='flex items-center gap-3 md:hidden'>
+					{user && (
+						<div className='relative' ref={notifRef}>
+							<button
+								onClick={() => setNotifOpen(v => !v)}
+								className='text-lg flex items-center gap-1 relative p-2'
+							>
+								<Bell className='w-5 h-5 text-emerald-400' />
+								{unreadCount > 0 && (
+									<span className='absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
+										{unreadCount}
+									</span>
+								)}
+							</button>
+
+							{notifOpen && (
+								<div className='absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden animate-fadeIn'>
+									<div className='max-h-64 overflow-y-auto custom-scrollbar'>
+										{notifications.length === 0 ? (
+											<div className='p-4 text-center text-gray-400'>
+												<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
+												<p>Нет новых уведомлений</p>
+											</div>
+										) : (
+											notifications.map((notif, index) => (
+												<div
+													key={index}
+													className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
+													onClick={() => handleNotificationClick(notif)}
+												>
+													<div className='flex items-start space-x-3'>
+														<div className='w-8 h-8 rounded-full flex items-center justify-center bg-emerald-900/40 border border-emerald-500/30'>
+															{notif.type === 'message' ? (
+																<MessageSquare className='w-4 h-4 text-blue-400' />
+															) : notif.type === 'review' ? (
+																<Star className='w-4 h-4 text-yellow-400' />
+															) : notif.type === 'task' ? (
+																<CheckCircle className='w-4 h-4 text-green-400' />
+															) : notif.type === 'warning' ? (
+																<AlertTriangle className='w-4 h-4 text-red-500' />
+															) : (
+																<Bell className='w-4 h-4 text-emerald-400' />
+															)}
+														</div>
+														<div className='flex-1 min-w-0'>
+															<p className='text-sm text-white font-medium truncate'>
+																{notif.title}
+															</p>
+															<p className='text-xs text-gray-400 truncate'>
+																{notif.sender ? (
+																	<>
+																		<strong className='text-gray-300'>
+																			{notif.sender}
+																		</strong>
+																		<span className='text-gray-500'> — </span>
+																		{notif.message}
+																	</>
+																) : (
+																	notif.message
+																)}
+															</p>
+															{notif.taskTitle && (
+																<p className='text-xs text-emerald-400 mt-1'>
+																	📋 {notif.taskTitle}
+																</p>
+															)}
+															{(notif.timestamp || notif.createdAt) && (
+																<p className='text-xs text-gray-500 mt-1'>
+																	{formatNotificationTime(
+																		notif.timestamp || notif.createdAt
+																	)}
+																</p>
+															)}
+														</div>
+													</div>
+												</div>
+											))
+										)}
+									</div>
+									<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+										<button
+											onClick={handleGoToNotifications}
+											className='text-emerald-400 hover:underline text-sm font-medium'
+										>
+											Перейти к уведомлениям →
+										</button>
+									</div>
+								</div>
+							)}
+						</div>
+					)}
+
+					{/* Гамбургер-меню */}
+					<button
+						ref={mobileMenuButtonRef}
+						onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+						className='text-emerald-400 p-2 focus:outline-none'
+						aria-label='Открыть меню'
+					>
+						<svg
+							className='w-6 h-6'
+							fill='none'
+							stroke='currentColor'
+							viewBox='0 0 24 24'
+						>
+							{mobileMenuOpen ? (
+								<path
+									strokeLinecap='round'
+									strokeLinejoin='round'
+									strokeWidth={2}
+									d='M6 18L18 6M6 6l12 12'
+								/>
+							) : (
+								<path
+									strokeLinecap='round'
+									strokeLinejoin='round'
+									strokeWidth={2}
+									d='M4 6h16M4 12h16M4 18h16'
+								/>
+							)}
+						</svg>
+					</button>
+				</div>
+
+				{/* Мобильное меню */}
+				{mobileMenuOpen && (
+					<div
+						ref={mobileMenuRef}
+						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] md:hidden z-40'
+					>
+						<nav className='flex flex-col p-4 space-y-2 text-gray-200'>
+							{user ? (
+								<>
+									{user.role === 'admin' ? (
+										<>
+											<Link
+												href='/admin'
+												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												Админ-панель
+											</Link>
+											<Link
+												href='/profile'
+												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												Профиль
+											</Link>
+										</>
+									) : (
+										<>
+											{user.role === 'executor' && (
+												<>
+													<Link
+														href='/specialists'
+														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														Подиум исполнителей
+													</Link>
+													<Link
+														href='/tasks'
+														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														Каталог задач
+													</Link>
+													<Link
+														href='/tasks/my'
+														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														Мои задачи
+													</Link>
+													<Link
+														href='/responses/my'
+														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														Мои отклики
+													</Link>
+												</>
+											)}
+											{user.role === 'customer' && (
+												<>
+													<Link
+														href='/specialists'
+														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														Подиум исполнителей
+													</Link>
+													<Link
+														href='/tasks'
+														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														Каталог задач
+													</Link>
+													<Link
+														href='/my-tasks'
+														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														Мои задачи
+													</Link>
+													<Link
+														href='/tasks/new'
+														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														Создать задачу
+													</Link>
+												</>
+											)}
+
+											<Link
+												href='/profile'
+												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												Профиль
+											</Link>
+
+											<Link
+												href='/chats'
+												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition relative'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												💬 Чаты
+												{unreadMessagesCount > 0 && (
+													<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full'>
+														{unreadMessagesCount}
+													</span>
+												)}
+											</Link>
+
+											<Link
+												href='/community'
+												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												🏘️ Сообщество
+											</Link>
+
+											<Link
+												href='/hire'
+												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												📑 Запросы найма
+											</Link>
+
+											<Link
+												href='/settings'
+												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												⚙️ Настройки
+											</Link>
+
+											<button
+												onClick={() => {
+													setMobileMenuOpen(false)
+													handleLogout()
+												}}
+												className='py-2 px-3 text-left text-red-400 hover:bg-emerald-500/10 rounded transition'
+											>
+												🚪 Выйти
+											</button>
+										</>
+									)}
+								</>
+							) : (
+								<>
+									<Link
+										href='/login'
+										className='py-2 px-3 text-center border border-emerald-400 text-emerald-400 rounded hover:bg-emerald-400 hover:text-black transition'
+										onClick={() => setMobileMenuOpen(false)}
+									>
+										Вход
+									</Link>
+									<Link
+										href='/register'
+										className='py-2 px-3 text-center bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-semibold rounded hover:brightness-110 transition'
+										onClick={() => setMobileMenuOpen(false)}
+									>
+										Регистрация
+									</Link>
+								</>
+							)}
+						</nav>
+					</div>
+				)}
+
+				{/* Десктопная навигация */}
+				<nav className='hidden md:flex gap-7 items-center text-gray-200 font-poppins'>
 					{user ? (
 						<>
 							{/* 🔔 Уведомления */}
-<div className='relative' ref={notifRef}>
-	<button
-		onClick={() => setNotifOpen(v => !v)}
-		className={`${linkStyle} text-lg flex items-center gap-1 relative`}
-	>
-		<Bell className='w-5 h-5 text-emerald-400 transition-transform duration-300 group-hover:rotate-6' />
+							<div className='relative' ref={notifRef}>
+								<button
+									onClick={() => setNotifOpen(v => !v)}
+									className={`${linkStyle} text-lg flex items-center gap-1 relative`}
+								>
+									<Bell className='w-5 h-5 text-emerald-400 transition-transform duration-300 group-hover:rotate-6' />
 
-		{/* 🔴 Счётчик уведомлений с плавным появлением */}
-		{unreadCount > 0 && (
-			<span
-				className={`absolute -top-2 -right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full 
+									{/* 🔴 Счётчик уведомлений с плавным появлением */}
+									{unreadCount > 0 && (
+										<span
+											className={`absolute -top-2 -right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full 
 					transition-all duration-500 ease-in-out transform 
 					${notifOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
-			>
-				{unreadCount}
-			</span>
-		)}
-	</button>
+										>
+											{unreadCount}
+										</span>
+									)}
+								</button>
 
-	{/* 📥 Выпадающее окно уведомлений */}
-	{notifOpen && (
-		<div
-			className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl 
+								{/* 📥 Выпадающее окно уведомлений */}
+								{notifOpen && (
+									<div
+										className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl 
                        shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden 
                        animate-fadeIn transition-all duration-300 ease-in-out origin-top'
-		>
-			<div className='max-h-64 overflow-y-auto custom-scrollbar'>
-				{notifications.length === 0 ? (
-					<div className='p-4 text-center text-gray-400'>
-						<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
-						<p>Нет новых уведомлений</p>
-					</div>
-				) : (
-					notifications.map((notif, index) => (
-						<div
-							key={index}
-							className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
-							onClick={() => handleNotificationClick(notif)}
-						>
-							<div className='flex items-start space-x-3'>
-								{/* 🎯 Иконка в зависимости от типа уведомления */}
-								<div
-									className='w-8 h-8 rounded-full flex items-center justify-center 
+									>
+										<div className='max-h-64 overflow-y-auto custom-scrollbar'>
+											{notifications.length === 0 ? (
+												<div className='p-4 text-center text-gray-400'>
+													<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
+													<p>Нет новых уведомлений</p>
+												</div>
+											) : (
+												notifications.map((notif, index) => (
+													<div
+														key={index}
+														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
+														onClick={() => handleNotificationClick(notif)}
+													>
+														<div className='flex items-start space-x-3'>
+															{/* 🎯 Иконка в зависимости от типа уведомления */}
+															<div
+																className='w-8 h-8 rounded-full flex items-center justify-center 
                                              bg-emerald-900/40 border border-emerald-500/30 
                                              shadow-[0_0_6px_rgba(16,185,129,0.3)]'
-								>
-									{notif.type === 'message' ? (
-										<MessageSquare className='w-4 h-4 text-blue-400' />
-									) : notif.type === 'review' ? (
-										<Star className='w-4 h-4 text-yellow-400' />
-									) : notif.type === 'task' ? (
-										<CheckCircle className='w-4 h-4 text-green-400' />
-									) : notif.type === 'warning' ? (
-										<AlertTriangle className='w-4 h-4 text-red-500' />
-									) : (
-										<Bell className='w-4 h-4 text-emerald-400' />
-									)}
-								</div>
+															>
+																{notif.type === 'message' ? (
+																	<MessageSquare className='w-4 h-4 text-blue-400' />
+																) : notif.type === 'review' ? (
+																	<Star className='w-4 h-4 text-yellow-400' />
+																) : notif.type === 'task' ? (
+																	<CheckCircle className='w-4 h-4 text-green-400' />
+																) : notif.type === 'warning' ? (
+																	<AlertTriangle className='w-4 h-4 text-red-500' />
+																) : (
+																	<Bell className='w-4 h-4 text-emerald-400' />
+																)}
+															</div>
 
-								{/* 💬 Текст уведомления */}
-<div className='flex-1 min-w-0'>
-  <p className='text-sm text-white font-medium truncate'>
-    {notif.title}
-  </p>
+															{/* 💬 Текст уведомления */}
+															<div className='flex-1 min-w-0'>
+																<p className='text-sm text-white font-medium truncate'>
+																	{notif.title}
+																</p>
 
-  {/* ✅ Исправленный вывод имени и сообщения */}
-  <p className='text-xs text-gray-400 truncate'>
-    {notif.sender ? (
-      <>
-        <strong className='text-gray-300'>{notif.sender}</strong>
-        <span className='text-gray-500'> — </span>
-        {notif.message}
-      </>
-    ) : (
-      notif.message
-    )}
-  </p>
+																{/* ✅ Исправленный вывод имени и сообщения */}
+																<p className='text-xs text-gray-400 truncate'>
+																	{notif.sender ? (
+																		<>
+																			<strong className='text-gray-300'>
+																				{notif.sender}
+																			</strong>
+																			<span className='text-gray-500'> — </span>
+																			{notif.message}
+																		</>
+																	) : (
+																		notif.message
+																	)}
+																</p>
 
-  {notif.taskTitle && (
-    <p className='text-xs text-emerald-400 mt-1'>
-      📋 {notif.taskTitle}
-    </p>
-  )}
+																{notif.taskTitle && (
+																	<p className='text-xs text-emerald-400 mt-1'>
+																		📋 {notif.taskTitle}
+																	</p>
+																)}
 
-  {(notif.timestamp || notif.createdAt) && (
-    <p className='text-xs text-gray-500 mt-1'>
-      {formatNotificationTime(
-        notif.timestamp || notif.createdAt
-      )}
-    </p>
-  )}
-</div>
+																{(notif.timestamp || notif.createdAt) && (
+																	<p className='text-xs text-gray-500 mt-1'>
+																		{formatNotificationTime(
+																			notif.timestamp || notif.createdAt
+																		)}
+																	</p>
+																)}
+															</div>
+														</div>
+													</div>
+												))
+											)}
+										</div>
+
+										{/* 📎 Ссылка внизу */}
+										<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+											<button
+												onClick={handleGoToNotifications}
+												className='text-emerald-400 hover:underline text-sm font-medium'
+											>
+												Перейти к уведомлениям →
+											</button>
+										</div>
+									</div>
+								)}
 							</div>
-						</div>
-					))
-				)}
-			</div>
-
-			{/* 📎 Ссылка внизу */}
-			<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
-				<button
-					onClick={handleGoToNotifications}
-					className='text-emerald-400 hover:underline text-sm font-medium'
-				>
-					Перейти к уведомлениям →
-				</button>
-			</div>
-		</div>
-	)}
-</div>
 
 							{/* 🧭 Основная навигация */}
 							{user.role === 'admin' ? (
