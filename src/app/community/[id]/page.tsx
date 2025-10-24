@@ -110,14 +110,37 @@ export default function CommunityPostPage() {
     }
   }
 
-  useEffect(() => {
+    useEffect(() => {
     fetchPost()
   }, [id])
+
+  // 🔦 Автоматическая прокрутка и подсветка комментария при переходе из админки
+  useEffect(() => {
+    if (!post) return
+
+    const hash = typeof window !== 'undefined' ? window.location.hash : ''
+    if (!hash.startsWith('#comment-')) return
+
+    const commentId = hash.replace('#comment-', '')
+
+    // немного подождем пока DOM нарисуется
+    setTimeout(() => {
+      const el = document.getElementById(`comment-${commentId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('ring-2', 'ring-emerald-400', 'ring-offset-2', 'ring-offset-transparent')
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-emerald-400', 'ring-offset-2', 'ring-offset-transparent')
+        }, 3000)
+      }
+    }, 400)
+  }, [post])
 
   const tree = useMemo(
     () => (post ? buildTree(post.comments || []) : []),
     [post]
   )
+
 
   const sendComment = async () => {
     if (!commentText.trim()) return
@@ -498,12 +521,13 @@ function CommentNode({
   return (
     <div>
       <div
-        className="p-4 rounded-xl border bg-gradient-to-br from-[#001a12]/70 to-[#002a22]/60 shadow-[0_0_15px_rgba(0,255,180,0.08)] transition hover:shadow-[0_0_25px_rgba(0,255,180,0.15)] relative"
-        style={{
-          marginLeft: depth ? depth * 24 : 0,
-          borderColor: 'rgba(0,255,180,0.25)',
-        }}
-      >
+  id={`comment-${node.id}`} // ← добавляем этот атрибут
+  className="p-4 rounded-xl border bg-gradient-to-br from-[#001a12]/70 to-[#002a22]/60 shadow-[0_0_15px_rgba(0,255,180,0.08)] transition hover:shadow-[0_0_25px_rgba(0,255,180,0.15)] relative"
+  style={{
+    marginLeft: depth ? depth * 24 : 0,
+    borderColor: 'rgba(0,255,180,0.25)',
+  }}
+>
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-start gap-3">
             {node.author.avatarFileId || node.author.avatarUrl ? (
