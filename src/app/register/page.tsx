@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -15,6 +16,7 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<'customer' | 'executor'>('customer')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,6 +63,7 @@ export default function RegisterPage() {
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Имя */}
           <input
             type="text"
             placeholder="Имя"
@@ -69,6 +72,7 @@ export default function RegisterPage() {
             className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
           />
 
+          {/* Email */}
           <input
             type="email"
             placeholder="Email"
@@ -77,51 +81,66 @@ export default function RegisterPage() {
             className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
           />
 
-          <input
-            type="password"
-            placeholder="Пароль"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-          />
+          {/* Пароль с глазком */}
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Пароль"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 pr-10 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-gray-400 hover:text-emerald-400 transition"
+              aria-label="Показать пароль"
+            >
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          </div>
 
-         {/* 🔽 Стилизованный SELECT со стрелочкой */}
-<div className="relative">
-  <select
-    value={role}
-    onChange={(e) => setRole(e.target.value as 'customer' | 'executor')}
-    className="w-full p-3 bg-black/30 border border-emerald-400/50 rounded-lg text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition appearance-none cursor-pointer pr-10"
-  >
-    <option
-      value="customer"
-      className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
-    >
-      Заказчик
-    </option>
-    <option
-      value="executor"
-      className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
-    >
-      Исполнитель
-    </option>
-  </select>
+          {/* Роль */}
+          <div className="relative">
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'customer' | 'executor')}
+              className="w-full p-3 bg-black/30 border border-emerald-400/50 rounded-lg text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition appearance-none cursor-pointer pr-10"
+            >
+              <option
+                value="customer"
+                className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
+              >
+                Заказчик
+              </option>
+              <option
+                value="executor"
+                className="bg-[#00140D] text-emerald-200 hover:bg-emerald-500/20"
+              >
+                Исполнитель
+              </option>
+            </select>
 
-  {/* SVG стрелочка */}
-  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="#10b981"
-      className="w-5 h-5 opacity-80 group-hover:opacity-100 transition"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
-  </div>
-</div>
+            {/* SVG стрелочка */}
+            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="#10b981"
+                className="w-5 h-5 opacity-80 group-hover:opacity-100 transition"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
 
-
+          {/* Кнопка регистрации */}
           <button
             type="submit"
             disabled={loading}

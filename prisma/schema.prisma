@@ -17,6 +17,7 @@ model User {
   blocked     Boolean              @default(false)
   fullName    String?
   createdAt   DateTime             @default(now())
+  emailVerified Boolean @default(false)
 
   description  String?
   avatarUrl    String?

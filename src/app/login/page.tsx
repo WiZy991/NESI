@@ -5,10 +5,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const { login } = useUser()
 
@@ -36,12 +38,17 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 text-white">
-      <div className="w-full max-w-md p-8 border border-emerald-500/40 rounded-2xl backdrop-blur-md bg-black/10 shadow-[0_0_25px_rgba(16,185,129,0.4)]">
+      {/* Явно задаём ширину, как у регистрации */}
+      <div
+        className="w-full max-w-md p-8 border border-emerald-500/40 rounded-2xl backdrop-blur-md bg-black/10 shadow-[0_0_25px_rgba(16,185,129,0.4)]"
+        style={{ width: '460px' }} // 🔥 фикс ширины формы под регистрацию
+      >
         <h1 className="text-4xl font-bold text-emerald-400 text-center mb-8 drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
           Вход
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Email */}
           <input
             type="email"
             placeholder="Email"
@@ -51,15 +58,31 @@ export default function LoginForm() {
             className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
           />
 
-          <input
-            type="password"
-            placeholder="Пароль"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-          />
+          {/* Пароль с глазком */}
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Пароль"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full p-3 pr-10 bg-transparent border border-emerald-400/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-gray-400 hover:text-emerald-400 transition"
+              aria-label="Показать пароль"
+            >
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          </div>
 
+          {/* Кнопка входа */}
           <button
             type="submit"
             className="w-full py-3 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold shadow-[0_0_15px_rgba(16,185,129,0.4)]"
@@ -69,7 +92,10 @@ export default function LoginForm() {
 
           <p className="text-sm text-center mt-6 text-gray-400">
             Забыли пароль?{' '}
-            <Link href="/forgot-password" className="text-emerald-400 hover:underline">
+            <Link
+              href="/forgot-password"
+              className="text-emerald-400 hover:underline"
+            >
               Восстановить доступ
             </Link>
           </p>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -42,6 +42,9 @@ export default function MyResponsesPage() {
   const [responses, setResponses] = useState<Response[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const fetchResponses = async () => {
@@ -62,6 +65,17 @@ export default function MyResponsesPage() {
 
     fetchResponses()
   }, [token])
+
+  // Закрытие выпадающего списка при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleWithdraw = async (responseId: string) => {
     if (!confirm('Отозвать отклик?') || !token) return
@@ -139,24 +153,74 @@ export default function MyResponsesPage() {
       </div>
 
       {/* Фильтр */}
-      <div className="mb-8 flex items-center gap-3">
+      <div className="mb-8 flex items-center gap-3 relative" ref={dropdownRef}>
         <Filter className="w-5 h-5 text-emerald-400" />
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="bg-black/60 border border-emerald-500/30 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
-        >
-          <option value="all">Все</option>
-          <option value="open">Открытые</option>
-          <option value="in_progress">В работе</option>
-          <option value="completed">Выполненные</option>
-          <option value="cancelled">Отменённые</option>
-        </select>
+        <div className="relative">
+          <button
+            onClick={() => setDropdownOpen((prev) => !prev)}
+            className="flex items-center justify-between w-48 bg-black/60 border border-emerald-500/40 text-emerald-300 px-4 py-2 rounded-lg shadow-[0_0_12px_rgba(16,185,129,0.2)] hover:shadow-[0_0_18px_rgba(16,185,129,0.4)] transition focus:outline-none"
+          >
+            {filterStatus === 'all'
+              ? 'Все'
+              : filterStatus === 'open'
+              ? 'Открытые'
+              : filterStatus === 'in_progress'
+              ? 'В работе'
+              : filterStatus === 'completed'
+              ? 'Выполненные'
+              : 'Отменённые'}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`w-4 h-4 ml-2 transition-transform ${
+                dropdownOpen ? 'rotate-180' : ''
+              }`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+
+          {dropdownOpen && (
+            <div className="absolute z-20 w-48 mt-2 bg-black/80 border border-emerald-500/30 backdrop-blur-md rounded-xl shadow-[0_0_20px_rgba(0,255,150,0.2)] overflow-hidden animate-fadeIn">
+              {[
+                { value: 'all', label: 'Все' },
+                { value: 'open', label: 'Открытые' },
+                { value: 'in_progress', label: 'В работе' },
+                { value: 'completed', label: 'Выполненные' },
+                { value: 'cancelled', label: 'Отменённые' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setFilterStatus(opt.value)
+                    setDropdownOpen(false)
+                  }}
+                  className={`w-full text-left px-4 py-2 text-sm transition ${
+                    filterStatus === opt.value
+                      ? 'bg-emerald-600/30 text-emerald-300'
+                      : 'text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Список откликов (Grid) */}
+      {/* Список откликов */}
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">Нет откликов по выбранному фильтру</div>
+        <div className="text-center py-16 text-gray-500">
+          Нет откликов по выбранному фильтру
+        </div>
       ) : (
         <motion.ul
           className="grid gap-6 md:grid-cols-2"
@@ -185,7 +249,11 @@ export default function MyResponsesPage() {
                   {r.task.title}
                 </Link>
 
-                <p className={`text-sm mt-1 ${statusColorMap[r.task.status].replace('border-', 'text-')}`}>
+                <p
+                  className={`text-sm mt-1 ${statusColorMap[
+                    r.task.status
+                  ].replace('border-', 'text-')}`}
+                >
                   Статус: {statusMap[r.task.status]}
                 </p>
 
