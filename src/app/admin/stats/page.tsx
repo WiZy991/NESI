@@ -1,15 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
+import { useEffect, useState } from 'react'
 import {
-	BarChart,
 	Bar,
+	BarChart,
+	CartesianGrid,
+	ResponsiveContainer,
+	Tooltip,
 	XAxis,
 	YAxis,
-	CartesianGrid,
-	Tooltip,
-	ResponsiveContainer,
 } from 'recharts'
 
 type StatsData = {
@@ -48,60 +48,75 @@ export default function AdminStatsPage() {
 
 	if (loading)
 		return (
-			<div className="p-8 text-gray-400 animate-pulse">
+			<div className='p-8 text-gray-400 animate-pulse'>
 				Загрузка статистики...
 			</div>
 		)
 
 	if (!data)
 		return (
-			<div className="p-8 text-red-400">
+			<div className='p-8 text-red-400'>
 				Ошибка: не удалось загрузить данные статистики.
 			</div>
 		)
 
 	return (
-		<div className="p-8 text-gray-100 bg-gradient-to-b from-black via-[#00281e] to-black min-h-screen">
-			<h1 className="text-3xl font-bold text-emerald-400 mb-8">
+		<div className='p-8 text-gray-100 bg-gradient-to-b from-black via-[#00281e] to-black min-h-screen'>
+			<h1 className='text-3xl font-bold text-emerald-400 mb-8'>
 				📊 Статистика платформы NESI
 			</h1>
 
 			{/* Основные карточки */}
-			<div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-				<StatCard title="Пользователи" value={data.usersCount} />
-				<StatCard title="Задачи" value={data.tasksCount} />
-				<StatCard title="Отклики" value={data.responsesCount} />
+			<div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-10'>
+				<StatCard title='Пользователи' value={data.usersCount} />
+				<StatCard title='Задачи' value={data.tasksCount} />
+				<StatCard title='Отклики' value={data.responsesCount} />
 				{data.reviewsCount !== undefined && (
-					<StatCard title="Отзывы" value={data.reviewsCount} />
+					<StatCard title='Отзывы' value={data.reviewsCount} />
 				)}
 			</div>
 
 			{/* Средние ставки */}
-			<Card className="bg-black/50 border border-emerald-500/30 mb-10 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-				<CardContent className="p-6">
-					<h2 className="text-lg font-semibold text-emerald-400 mb-3">
+			<Card className='bg-black/50 border border-emerald-500/30 mb-10 shadow-[0_0_15px_rgba(16,185,129,0.2)]'>
+				<CardContent className='p-6'>
+					<h2 className='text-lg font-semibold text-emerald-400 mb-3'>
 						💰 Минимальные ставки
 					</h2>
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-						<MiniStat label="Средняя" value={`${data.subcategoriesStats._avg.minPrice.toFixed(0)} ₽`} />
-						<MiniStat label="Минимальная" value={`${data.subcategoriesStats._min.minPrice} ₽`} />
-						<MiniStat label="Максимальная" value={`${data.subcategoriesStats._max.minPrice} ₽`} />
+					<div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
+						<MiniStat
+							label='Средняя'
+							value={`${Number(
+								data.subcategoriesStats._avg.minPrice || 0
+							).toFixed(0)} ₽`}
+						/>
+						<MiniStat
+							label='Минимальная'
+							value={`${Number(
+								data.subcategoriesStats._min.minPrice || 0
+							).toFixed(0)} ₽`}
+						/>
+						<MiniStat
+							label='Максимальная'
+							value={`${Number(
+								data.subcategoriesStats._max.minPrice || 0
+							).toFixed(0)} ₽`}
+						/>
 					</div>
 				</CardContent>
 			</Card>
 
 			{/* ТОП подкатегорий */}
-			<Card className="bg-black/50 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-				<CardContent className="p-6">
-					<h2 className="text-lg font-semibold text-emerald-400 mb-6">
+			<Card className='bg-black/50 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]'>
+				<CardContent className='p-6'>
+					<h2 className='text-lg font-semibold text-emerald-400 mb-6'>
 						🔥 Топ подкатегорий по ставке
 					</h2>
-					<div className="h-[300px] w-full">
-						<ResponsiveContainer width="100%" height="100%">
+					<div className='h-[300px] w-full'>
+						<ResponsiveContainer width='100%' height='100%'>
 							<BarChart data={data.topSubcategories}>
-								<CartesianGrid strokeDasharray="3 3" stroke="#14532d" />
-								<XAxis dataKey="name" stroke="#9ca3af" />
-								<YAxis stroke="#9ca3af" />
+								<CartesianGrid strokeDasharray='3 3' stroke='#14532d' />
+								<XAxis dataKey='name' stroke='#9ca3af' />
+								<YAxis stroke='#9ca3af' />
 								<Tooltip
 									contentStyle={{
 										backgroundColor: '#0d0d0d',
@@ -110,7 +125,7 @@ export default function AdminStatsPage() {
 										color: '#fff',
 									}}
 								/>
-								<Bar dataKey="minPrice" fill="#10b981" radius={[4, 4, 0, 0]} />
+								<Bar dataKey='minPrice' fill='#10b981' radius={[4, 4, 0, 0]} />
 							</BarChart>
 						</ResponsiveContainer>
 					</div>
@@ -122,10 +137,10 @@ export default function AdminStatsPage() {
 
 function StatCard({ title, value }: { title: string; value: number | string }) {
 	return (
-		<Card className="bg-black/60 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] transition">
-			<CardContent className="p-5 text-center">
-				<p className="text-gray-400 text-sm mb-2">{title}</p>
-				<p className="text-3xl font-bold text-emerald-400">{value}</p>
+		<Card className='bg-black/60 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] transition'>
+			<CardContent className='p-5 text-center'>
+				<p className='text-gray-400 text-sm mb-2'>{title}</p>
+				<p className='text-3xl font-bold text-emerald-400'>{value}</p>
 			</CardContent>
 		</Card>
 	)
@@ -133,9 +148,9 @@ function StatCard({ title, value }: { title: string; value: number | string }) {
 
 function MiniStat({ label, value }: { label: string; value: string | number }) {
 	return (
-		<div className="text-center">
-			<p className="text-gray-400 text-sm mb-1">{label}</p>
-			<p className="text-xl text-emerald-400 font-semibold">{value}</p>
+		<div className='text-center'>
+			<p className='text-gray-400 text-sm mb-1'>{label}</p>
+			<p className='text-xl text-emerald-400 font-semibold'>{value}</p>
 		</div>
 	)
 }

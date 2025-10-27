@@ -173,7 +173,7 @@ export default function FinancePage() {
 						<tr key={t.id} className='border-b border-gray-700'>
 							<td className='p-2'>{t.id.slice(0, 8)}...</td>
 							<td className='p-2'>{t.user?.email || '—'}</td>
-							<td className='p-2'>{t.amount} ₽</td>
+							<td className='p-2'>{Number(t.amount || 0).toFixed(2)} ₽</td>
 							<td className='p-2 capitalize'>{t.type}</td>
 							<td className='p-2'>{t.status}</td>
 							<td className='p-2'>
