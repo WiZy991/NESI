@@ -48,6 +48,33 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		const commissionDecimal = new Prisma.Decimal(commission)
 		const payoutDecimal = new Prisma.Decimal(payout)
 
+		// 💰 Получаем ID владельца платформы из env
+		const platformOwnerId = process.env.PLATFORM_OWNER_ID
+
+		// Формируем транзакции для владельца платформы
+		const ownerTransactions = []
+		if (platformOwnerId) {
+			ownerTransactions.push(
+				prisma.user.update({
+					where: { id: platformOwnerId },
+					data: {
+						balance: { increment: commissionDecimal },
+						transactions: {
+							create: {
+								amount: commissionDecimal,
+								type: 'commission',
+								reason: `Комиссия платформы 20% с задачи "${task.title}"`,
+							},
+						},
+					},
+				})
+			)
+		} else {
+			console.warn(
+				'⚠️ PLATFORM_OWNER_ID не настроен! Комиссия не будет начислена.'
+			)
+		}
+
 		await prisma.$transaction([
 			// Завершаем задачу
 			prisma.task.update({
@@ -81,7 +108,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				},
 			}),
 
-			// Исполнителю: начисляем выплату
+			// Исполнителю: начисляем выплату (80%)
 			prisma.user.update({
 				where: { id: task.executorId },
 				data: {
@@ -95,6 +122,9 @@ export async function PATCH(req: NextRequest, { params }: any) {
 					},
 				},
 			}),
+
+			// 💰 Владельцу платформы: начисляем комиссию (20%)
+			...ownerTransactions,
 
 			// Создаём уведомление для исполнителя
 			prisma.notification.create({
