@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { UserProvider } from '@/context/UserContext'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import FeedbackWidget from '@/components/FeedbackWidget'
 import { Toaster } from 'sonner'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import Starfield from '@/components/Starfield'
@@ -60,6 +61,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
       {/* Футер показываем везде кроме страниц авторизации */}
       {!isAuthPage && <Footer />}
+
+      {/* Виджет обратной связи показываем везде кроме авторизации */}
+      {!isAuthPage && <FeedbackWidget />}
 
       {/* Уведомления */}
       <Toaster position="top-center" richColors />

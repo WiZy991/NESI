@@ -487,6 +487,19 @@ model CommunityReport {
   comment     CommunityComment? @relation(fields: [commentId], references: [id])
 }
 
+model Feedback {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  message   String   @db.Text
+  type      String   @default("general")
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+  reviewedBy String?
+  notes     String?  @db.Text
+}
+
 enum Role {
   user
   executor
