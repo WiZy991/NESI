@@ -4,17 +4,17 @@ import Image from 'next/image'
 export default function Home() {
 	return (
 		<div
-			className="w-full min-h-screen relative overflow-x-hidden font-[Montserrat_Alternates,Helvetica,sans-serif]"
+			className='w-full min-h-screen relative overflow-x-hidden font-[Montserrat_Alternates,Helvetica,sans-serif]'
 			style={{
 				background:
 					'radial-gradient(80% 100% at 100% 50%, rgba(0, 255, 205, 0.15) 0%, rgba(58, 57, 57, 0) 100%), linear-gradient(0deg, rgb(10, 20, 15) 0%, rgb(5, 15, 10) 100%)',
 			}}
 		>
 			{/* TOP HEADER */}
-			<div className="w-5/5 h-30 flex items-center justify-between px-6 relative z-50 mx-auto">
+			<div className='w-full h-auto flex flex-col md:flex-row items-center justify-between px-3 sm:px-6 py-4 md:py-0 md:h-30 relative z-50 mx-auto gap-4 md:gap-0'>
 				{/* Logo */}
 				<div
-					className="text-7xl font-bold tracking-[10px]"
+					className='text-4xl sm:text-5xl md:text-7xl font-bold tracking-[5px] md:tracking-[10px]'
 					style={{
 						color: '#00ffcd',
 						textShadow: '0px 0px 10px #00ffcd',
@@ -25,17 +25,17 @@ export default function Home() {
 
 				{/* Center subtitle with auth button inside */}
 				<div
-					className="flex-1 mx-8 h-25 flex items-center justify-between px-6 rounded-md relative"
+					className='flex-1 w-full md:w-auto md:mx-8 h-auto md:h-25 flex flex-col md:flex-row items-center justify-between px-3 sm:px-6 py-3 md:py-0 rounded-md relative gap-3 md:gap-0'
 					style={{
 						background:
 							'linear-gradient(270deg, rgba(4, 255, 205, 0.3) 0%, rgba(5, 15, 10, 0.2) 60%)',
 					}}
 				>
 					<span
-						className="text-m w-2/3 h-15 px-4 flex items-center justify-center rounded-lg font-bold"
+						className='text-xs sm:text-sm md:text-m w-full md:w-2/3 h-auto md:h-15 px-3 sm:px-4 py-2 md:py-0 flex items-center justify-center rounded-lg font-bold text-center'
 						style={{
 							color: '#ffffff',
-							letterSpacing: '3px',
+							letterSpacing: '1px',
 							border: '1px solid rgba(0, 255, 205, 0.5)',
 							boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
 						}}
@@ -45,7 +45,7 @@ export default function Home() {
 
 					{/* Auth button */}
 					<div
-						className="h-15 px-4 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold"
+						className='w-full md:w-auto h-auto md:h-15 px-3 sm:px-4 py-2 md:py-0 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
 						style={{
 							background:
 								'linear-gradient(0deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), linear-gradient(0deg, rgba(0, 255, 205, 0.3), rgba(0, 255, 205, 0.3))',
@@ -54,61 +54,62 @@ export default function Home() {
 						}}
 					>
 						<span
-							className="text-m whitespace-nowrap"
+							className='text-xs sm:text-sm md:text-m whitespace-nowrap'
 							style={{
 								color: '#ffffff',
-								letterSpacing: '3px',
+								letterSpacing: '1px',
 							}}
 						>
-							<a href="/login">Вход</a> или{' '}
-							<a href="/register">Регистрация</a>
+							<a href='/login'>Вход</a> или <a href='/register'>Регистрация</a>
 						</span>
 					</div>
 				</div>
 			</div>
 
 			{/* MAIN CONTENT */}
-			<div className="relative w-full px-6 py-8">
-				{/* Decorative Snake - left side */}
-				<div className="absolute left-0 top-2/4 -translate-y-1/2 w-2/4 h-auto opacity-75 pointer-events-none">
+			<div className='relative w-full px-3 sm:px-6 py-6 md:py-8'>
+				{/* Decorative Snake - left side (скрыта на мобильных) */}
+				<div className='hidden lg:block absolute left-0 top-2/4 -translate-y-1/2 w-2/4 h-auto opacity-75 pointer-events-none'>
 					<Image
-						src="/nesi_snake.svg"
-						alt="Decorative"
+						src='/nesi_snake.svg'
+						alt='Decorative'
 						width={400}
 						height={600}
-						className="w-full h-auto"
+						className='w-full h-auto'
 					/>
 				</div>
 
 				{/* Main Title */}
-				<div className="text-center mb-8 relative z-10">
+				<div className='text-center mb-6 sm:mb-8 relative z-10'>
 					<p
-						className="text-m mb-4 mb-10"
+						className='text-xs sm:text-sm md:text-base lg:text-m mb-4 sm:mb-6 md:mb-10 px-2'
 						style={{
 							color: '#00ffcd',
-							letterSpacing: '5px',
+							letterSpacing: '2px',
 							lineHeight: '1.6',
 						}}
 					>
 						НЕСИ — это свежее дыхание в сфере цифровых платформ, объединяющее:
 					</p>
 					<h1
-						className="text-5xl font-bold mb-20 flex items-center justify-center gap-4 flex-wrap"
+						className='text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-8 sm:mb-12 md:mb-20 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 flex-wrap px-2'
 						style={{
 							color: '#ffffff',
-							letterSpacing: '4px',
+							letterSpacing: '2px',
 						}}
 					>
 						<a
-							href="/business"
-							className="px-6 py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300"
+							href='/business'
+							className='w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300'
 						>
 							БИЗНЕС
 						</a>
-						<span className="text-3xl text-emerald-300 mx-2">и</span>
+						<span className='text-xl sm:text-2xl md:text-3xl text-emerald-300 mx-2'>
+							и
+						</span>
 						<a
-							href="/talents"
-							className="px-6 py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300"
+							href='/talents'
+							className='w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 border border-emerald-400/50 rounded-xl shadow-[0_0_20px_rgba(0,255,205,0.3)] hover:shadow-[0_0_30px_rgba(0,255,205,0.6)] hover:bg-emerald-500/10 hover:text-emerald-300 transition-all duration-300'
 						>
 							ТАЛАНТЫ
 						</a>
@@ -116,11 +117,11 @@ export default function Home() {
 				</div>
 
 				{/* Content Grid */}
-				<div className="grid grid-cols-2 gap-10 w-[90%] mx-auto relative z-10 items-start">
+				<div className='grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10 w-full lg:w-[90%] mx-auto relative z-10 items-start'>
 					{/* Left Column */}
-					<div className="space-y-6">
+					<div className='space-y-4 sm:space-y-6'>
 						<div
-							className="p-6 rounded-xl"
+							className='p-4 sm:p-6 rounded-xl'
 							style={{
 								backgroundColor: 'transparent',
 								border: '1px solid rgba(0, 255, 205, 0.3)',
@@ -128,10 +129,10 @@ export default function Home() {
 							}}
 						>
 							<p
-								className="text-xl text-center leading-relaxed"
+								className='text-sm sm:text-base md:text-lg lg:text-xl text-center leading-relaxed'
 								style={{
 									color: '#00ffcd',
-									letterSpacing: '1.2px',
+									letterSpacing: '1px',
 								}}
 							>
 								Мы не копия старых бирж, а новая цифровая экосистема, где бизнес
@@ -144,21 +145,21 @@ export default function Home() {
 						</div>
 					</div>
 
-					{/* Right Column - Enlarged More */}
-					<div className="space-y-8 transform translate-x-10 -translate-y-6 scale-[1.22] origin-top-right">
-						<div className="grid grid-cols-1 gap-4">
-							<div className="aspect-[5/4] rounded-xl overflow-hidden relative">
+					{/* Right Column */}
+					<div className='space-y-4 sm:space-y-6 md:space-y-8 transform translate-x-0 md:translate-x-10 translate-y-0 md:-translate-y-6 scale-100 md:scale-[1.22] origin-top-right'>
+						<div className='grid grid-cols-1 gap-4'>
+							<div className='aspect-[5/4] rounded-xl overflow-hidden relative'>
 								<Image
-									src="/anime_images.svg"
-									alt="Project preview"
+									src='/anime_images.svg'
+									alt='Project preview'
 									fill
-									className="object-contain"
+									className='object-contain'
 								/>
 							</div>
 						</div>
 
 						<div
-							className="p-8 rounded-xl"
+							className='p-4 sm:p-6 md:p-8 rounded-xl'
 							style={{
 								backgroundColor: 'transparent',
 								border: '1px solid rgba(0, 255, 205, 0.4)',
@@ -166,31 +167,35 @@ export default function Home() {
 							}}
 						>
 							<p
-								className="text-xl text-center leading-relaxed"
+								className='text-sm sm:text-base md:text-lg lg:text-xl text-center leading-relaxed'
 								style={{
 									color: '#00ffcd',
-									letterSpacing: '1.5px',
+									letterSpacing: '1px',
 								}}
 							>
-								Мы создаём пространство, где технологии соединяют людей и возможности.
+								Мы создаём пространство, где технологии соединяют людей и
+								возможности.
 								<br />
 								<br />
-								Здесь ценится не шум, а результат — точный, быстрый, проверенный.
+								Здесь ценится не шум, а результат — точный, быстрый,
+								проверенный.
 								<br />
 								<br />
-								Каждый проект становится частью цифрового потока, управляемого интеллектом и доверием.
+								Каждый проект становится частью цифрового потока, управляемого
+								интеллектом и доверием.
 								<br />
 								<br />
-								Это не просто обмен задачами — это новая форма взаимодействия в IT-мире.
+								Это не просто обмен задачами — это новая форма взаимодействия в
+								IT-мире.
 							</p>
 						</div>
 					</div>
 				</div>
 
 				{/* FOOTER */}
-				<div className="w-5/5 h-28 flex items-center justify-between px-6 relative z-50 mx-auto mt-80 mb-20">
+				<div className='w-full h-auto flex flex-col md:flex-row items-center justify-between px-3 sm:px-6 relative z-50 mx-auto mt-12 sm:mt-20 md:mt-40 lg:mt-80 mb-8 sm:mb-12 md:mb-20 gap-6 md:gap-0'>
 					<div
-						className="text-7xl font-bold tracking-[10px]"
+						className='text-4xl sm:text-5xl md:text-7xl font-bold tracking-[5px] md:tracking-[10px]'
 						style={{
 							color: '#00ffcd',
 							textShadow: '0px 0px 10px #00ffcd',
@@ -199,28 +204,28 @@ export default function Home() {
 						NESI
 					</div>
 					<div
-						className="flex-1 mx-8 h-60 flex items-center justify-end px-6 rounded-md relative gap-10"
+						className='flex-1 w-full md:w-auto md:mx-8 h-auto md:h-60 flex items-center justify-center md:justify-end px-3 sm:px-6 py-4 md:py-0 rounded-md relative gap-4 md:gap-10'
 						style={{
 							background:
 								'linear-gradient(270deg, rgba(4, 255, 205, 0.3) 0%, rgba(5, 15, 10, 0.2) 60%)',
 						}}
 					>
-						<div className="grid grid-cols-2 gap-3 w-7/8">
+						<div className='grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 w-full md:w-7/8'>
 							{[
 								'О проекте',
 								'Политика конфиденциальности',
 								'Пользовательское соглашение',
 								'Служба поддержки',
-							].map((text) => (
+							].map(text => (
 								<div
 									key={text}
-									className="h-15 px-3 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold"
+									className='h-auto md:h-15 px-2 sm:px-3 py-2 md:py-0 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
 									style={{
 										border: '1px solid rgba(0, 255, 205, 0.5)',
 										boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
 									}}
 								>
-									<span className="text-m text-white tracking-[3px]">
+									<span className='text-xs sm:text-sm md:text-m text-white tracking-[1px] md:tracking-[3px] text-center'>
 										{text}
 									</span>
 								</div>
