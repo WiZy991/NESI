@@ -1,5 +1,6 @@
 'use client'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function Home() {
 	return (
@@ -212,13 +213,14 @@ export default function Home() {
 					>
 						<div className='grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 w-full md:w-7/8'>
 							{[
-								'О проекте',
-								'Политика конфиденциальности',
-								'Пользовательское соглашение',
-								'Служба поддержки',
-							].map(text => (
-								<div
+								{ text: 'О проекте', href: '/about' },
+								{ text: 'Политика конфиденциальности', href: '/privacy' },
+								{ text: 'Пользовательское соглашение', href: '/terms' },
+								{ text: 'Служба поддержки', href: 'mailto:info@nesi.ru' },
+							].map(({ text, href }) => (
+								<Link
 									key={text}
+									href={href}
 									className='h-auto md:h-15 px-2 sm:px-3 py-2 md:py-0 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
 									style={{
 										border: '1px solid rgba(0, 255, 205, 0.5)',
@@ -228,7 +230,7 @@ export default function Home() {
 									<span className='text-xs sm:text-sm md:text-m text-white tracking-[1px] md:tracking-[3px] text-center'>
 										{text}
 									</span>
-								</div>
+								</Link>
 							))}
 						</div>
 					</div>
