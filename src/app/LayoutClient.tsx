@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { UserProvider } from '@/context/UserContext'
 import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 import { Toaster } from 'sonner'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import Starfield from '@/components/Starfield'
@@ -51,11 +52,14 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
             isHome || isAuthPage
               ? 'flex items-center justify-center w-full px-0 py-0'
               : 'max-w-screen-xl mx-auto px-4 py-10 md:px-8'
-          } animate-fade-in`}
+          } animate-fade-in min-h-[calc(100vh-200px)]`}
         >
           {children}
         </div>
       </main>
+
+      {/* Футер показываем везде кроме страниц авторизации */}
+      {!isAuthPage && <Footer />}
 
       {/* Уведомления */}
       <Toaster position="top-center" richColors />
