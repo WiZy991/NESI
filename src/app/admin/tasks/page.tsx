@@ -118,7 +118,7 @@ export default function AdminTasks() {
 										</td>
 										<td className='p-4'>
 											<Link
-												href={`/admin/tasks/${t.id}`}
+												href={`tasks/${t.id}`}
 												className='text-gray-200 hover:text-emerald-400 transition font-medium'
 											>
 												{t.title}
@@ -145,7 +145,7 @@ export default function AdminTasks() {
 										</td>
 										<td className='p-4 text-center space-x-2'>
 											<Link
-												href={`/admin/tasks/${t.id}`}
+												href={`tasks/${t.id}`}
 												className='inline-block px-3 py-1 bg-blue-600/80 hover:bg-blue-600 rounded-lg text-white text-xs transition'
 											>
 												👁 Открыть
