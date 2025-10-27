@@ -1,7 +1,9 @@
 // app/api/tasks/[id]/complete/route.ts
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { getUserFromRequest } from '@/lib/auth'
+import { formatMoney, toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function PATCH(req: NextRequest, { params }: any) {
@@ -38,8 +40,13 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				{ status: 400 }
 			)
 
-		const commission = Math.floor(task.escrowAmount * 0.2)
-		const payout = task.escrowAmount - commission
+		// Вычисляем комиссию 20% и выплату
+		const escrowNum = toNumber(task.escrowAmount)
+		const commission = Math.floor(escrowNum * 100 * 0.2) / 100 // Округляем до копеек
+		const payout = escrowNum - commission
+
+		const commissionDecimal = new Prisma.Decimal(commission)
+		const payoutDecimal = new Prisma.Decimal(payout)
 
 		await prisma.$transaction([
 			// Завершаем задачу
@@ -48,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				data: {
 					status: 'completed',
 					completedAt: new Date(),
-					escrowAmount: 0,
+					escrowAmount: new Prisma.Decimal(0),
 				},
 			}),
 
@@ -56,16 +63,16 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			prisma.user.update({
 				where: { id: task.customerId },
 				data: {
-					frozenBalance: { decrement: task.escrowAmount },
+					frozenBalance: { decrement: new Prisma.Decimal(escrowNum) },
 					transactions: {
 						create: [
 							{
-								amount: -task.escrowAmount,
+								amount: new Prisma.Decimal(-escrowNum),
 								type: 'payment',
 								reason: `Оплата за задачу "${task.title}"`,
 							},
 							{
-								amount: -commission,
+								amount: new Prisma.Decimal(-commission),
 								type: 'commission',
 								reason: `Комиссия 20% с задачи "${task.title}"`,
 							},
@@ -78,10 +85,10 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			prisma.user.update({
 				where: { id: task.executorId },
 				data: {
-					balance: { increment: payout },
+					balance: { increment: payoutDecimal },
 					transactions: {
 						create: {
-							amount: payout,
+							amount: payoutDecimal,
 							type: 'earn',
 							reason: `Выплата за задачу "${task.title}"`,
 						},
@@ -94,7 +101,9 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				data: {
 					userId: task.executorId,
 					type: 'payment',
-					message: `Задача "${task.title}" завершена! Вам начислено ${payout}₽`,
+					message: `Задача "${
+						task.title
+					}" завершена! Вам начислено ${formatMoney(payout)}`,
 					link: `/tasks/${task.id}`,
 				},
 			}),
@@ -104,7 +113,9 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		sendNotificationToUser(task.executorId, {
 			type: 'payment',
 			title: 'Задача завершена',
-			message: `Задача "${task.title}" завершена! Вам начислено ${payout}₽`,
+			message: `Задача "${task.title}" завершена! Вам начислено ${formatMoney(
+				payout
+			)}`,
 			link: `/tasks/${task.id}`,
 			taskTitle: task.title,
 			amount: payout,
