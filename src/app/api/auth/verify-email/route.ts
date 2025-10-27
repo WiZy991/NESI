@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     const updated = await prisma.user.update({
       where: { id: record.userId },
       data: { verified: true },
-      select: { id: true, email: true },
+      select: { id: true, email: true, role: true },
     })
     console.log('✅ Пользователь подтверждён:', updated.email)
 
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 
     let jwt: string
     try {
-      jwt = signJWT({ userId: updated.id })
+      jwt = signJWT({ userId: updated.id, role: updated.role })
     } catch (err: any) {
       console.error('❌ Ошибка генерации JWT:', err)
       return NextResponse.json({ error: 'JWT generation failed' }, { status: 500 })
