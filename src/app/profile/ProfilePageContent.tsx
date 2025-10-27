@@ -1,5 +1,6 @@
 'use client'
 
+import DepositBalanceModal from '@/components/DepositBalanceModal'
 import EditProfileModal from '@/components/EditProfileModal'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
@@ -40,6 +41,7 @@ type FullUser = {
 	skills?: string[]
 	avatarUrl?: string
 	balance?: number
+	frozenBalance?: number
 	xp?: number
 	completedTasksCount?: number
 	avgRating?: number
@@ -114,6 +116,7 @@ export default function ProfilePageContent() {
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [amount, setAmount] = useState(100)
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+	const [isDepositModalOpen, setIsDepositModalOpen] = useState(false)
 
 	const fetchProfile = async () => {
 		if (!token) return
@@ -163,16 +166,9 @@ export default function ProfilePageContent() {
 		fetchReviews()
 	}, [user, token])
 
-	const handleDeposit = async () => {
-		await fetch('/api/wallet/deposit', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${token}`,
-			},
-			body: JSON.stringify({ amount }),
-		})
-		location.reload()
+	const handleDepositSuccess = () => {
+		setIsDepositModalOpen(false)
+		fetchProfile() // Обновляем профиль после пополнения
 	}
 
 	const handleWithdraw = async () => {
@@ -311,9 +307,36 @@ export default function ProfilePageContent() {
 						<h3 className='text-lg font-semibold text-emerald-400 mb-3'>
 							💰 Баланс
 						</h3>
-						<p className='text-2xl font-bold text-emerald-300 mb-4'>
-							{profile.balance ?? 0} NESI
-						</p>
+						<div className='mb-4'>
+							<p className='text-2xl font-bold text-emerald-300'>
+								{(profile.balance ?? 0).toFixed(2)} ₽
+							</p>
+							{profile.frozenBalance && profile.frozenBalance > 0 && (
+								<div className='text-xs text-gray-400 mt-1'>
+									<span className='text-yellow-400'>
+										🔒 Заморожено: {profile.frozenBalance.toFixed(2)} ₽
+									</span>
+									<br />
+									<span className='text-emerald-400'>
+										✓ Доступно:{' '}
+										{((profile.balance ?? 0) - profile.frozenBalance).toFixed(
+											2
+										)}{' '}
+										₽
+									</span>
+								</div>
+							)}
+						</div>
+						<div className='flex gap-2 mb-4'>
+							<button
+								onClick={() => setIsDepositModalOpen(true)}
+								className='flex-1 px-4 py-2 rounded border border-emerald-400 
+                                                         text-emerald-400 hover:bg-emerald-400 
+                                                         hover:text-black transition text-sm font-medium'
+							>
+								💳 Пополнить через ЮKassa
+							</button>
+						</div>
 						<div className='flex gap-2 mb-4'>
 							<input
 								type='number'
@@ -321,22 +344,16 @@ export default function ProfilePageContent() {
 								onChange={e => setAmount(parseInt(e.target.value))}
 								className='bg-transparent border border-emerald-500/30 text-white p-2 
                            rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-24 text-sm'
+								placeholder='Сумма'
 							/>
 							<button
-								onClick={handleDeposit}
-								className='px-3 py-1 rounded border border-emerald-400 
-                                                         text-emerald-400 hover:bg-emerald-400 
-                                                         hover:text-black transition text-sm'
-							>
-								+
-							</button>
-							<button
 								onClick={handleWithdraw}
-								className='px-3 py-1 rounded border border-red-400 
+								className='px-3 py-2 rounded border border-red-400 
                                                           text-red-400 hover:bg-red-400 
                                                           hover:text-black transition text-sm'
+								title='Вывод средств'
 							>
-								-
+								- Вывести
 							</button>
 						</div>
 
@@ -699,6 +716,13 @@ export default function ProfilePageContent() {
 					onSuccess={handleProfileUpdateSuccess}
 				/>
 			)}
+
+			{/* Модальное окно пополнения баланса через ЮKassa */}
+			<DepositBalanceModal
+				isOpen={isDepositModalOpen}
+				onClose={() => setIsDepositModalOpen(false)}
+				onSuccess={handleDepositSuccess}
+			/>
 		</div>
 	)
 }
