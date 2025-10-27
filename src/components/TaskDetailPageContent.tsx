@@ -66,38 +66,76 @@ function DisputeForm({
 		return (
 			<button
 				onClick={() => setIsOpen(true)}
-				className='px-4 py-2 bg-red-700 hover:bg-red-800 rounded text-white transition'
+				className='flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] hover:scale-[1.02]'
 			>
-				⚖️ Открыть спор
+				<span className='text-lg'>⚖️</span>
+				<span>Открыть спор</span>
 			</button>
 		)
 
 	return (
-		<div>
-			<textarea
-				placeholder='Причина спора...'
-				value={reason}
-				onChange={e => setReason(e.target.value)}
-				className='w-full p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 mb-2'
-			/>
-			<textarea
-				placeholder='Дополнительные детали (опционально)'
-				value={details}
-				onChange={e => setDetails(e.target.value)}
-				className='w-full p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 mb-3'
-			/>
-			{error && <p className='text-red-400 text-sm mb-2'>{error}</p>}
-			<div className='flex gap-2'>
+		<div className='space-y-4'>
+			<div>
+				<label className='block text-sm font-medium text-red-300 mb-2'>
+					<span className='flex items-center gap-2'>
+						<span>📝</span>
+						Причина спора
+					</span>
+				</label>
+				<textarea
+					placeholder='Опишите суть проблемы...'
+					value={reason}
+					onChange={e => setReason(e.target.value)}
+					rows={3}
+					className='w-full p-4 rounded-xl bg-black/60 border border-red-700/50 text-white placeholder-gray-500 focus:border-red-400 focus:ring-2 focus:ring-red-400/30 outline-none transition-all duration-300 resize-none'
+				/>
+			</div>
+
+			<div>
+				<label className='block text-sm font-medium text-red-300 mb-2'>
+					<span className='flex items-center gap-2'>
+						<span>📄</span>
+						Дополнительные детали (опционально)
+					</span>
+				</label>
+				<textarea
+					placeholder='Дополнительная информация, которая поможет разобраться в ситуации...'
+					value={details}
+					onChange={e => setDetails(e.target.value)}
+					rows={4}
+					className='w-full p-4 rounded-xl bg-black/60 border border-red-700/50 text-white placeholder-gray-500 focus:border-red-400 focus:ring-2 focus:ring-red-400/30 outline-none transition-all duration-300 resize-none'
+				/>
+			</div>
+
+			{error && (
+				<div className='bg-red-900/20 border border-red-500/30 rounded-xl p-3'>
+					<p className='text-red-400 text-sm'>{error}</p>
+				</div>
+			)}
+
+			<div className='flex gap-3 pt-2'>
 				<button
 					onClick={handleSubmit}
 					disabled={loading}
-					className='px-4 py-2 bg-green-700 hover:bg-green-800 rounded text-white disabled:opacity-50'
+					className='flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100'
 				>
-					{loading ? 'Отправка...' : 'Отправить'}
+					{loading ? (
+						<>
+							<span className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin' />
+							<span>Отправка...</span>
+						</>
+					) : (
+						<>
+							<span className='text-lg'>📨</span>
+							<span>Отправить спор</span>
+						</>
+					)}
 				</button>
+
 				<button
 					onClick={() => setIsOpen(false)}
-					className='px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded text-gray-200'
+					disabled={loading}
+					className='px-5 py-3 rounded-xl font-semibold text-gray-300 bg-gray-800/50 border border-gray-700 hover:bg-gray-700/50 hover:border-gray-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]'
 				>
 					Отмена
 				</button>
@@ -437,110 +475,118 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 				</div>
 			)}
 
-			{/* Действия */}
-			<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
-				<div className='flex items-center gap-3 mb-4'>
-					<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
-						<span className='text-sm'>⚡</span>
-					</div>
-					<h3 className='text-lg font-semibold text-emerald-300'>Действия</h3>
-				</div>
-				<div className='space-y-4'>
-					<TaskActionsClient
-						taskId={task.id}
-						authorId={task.customerId}
-						status={task.status}
-					/>
-
-					{task.status === 'in_progress' && isCustomer && (
-						<div className='flex flex-wrap gap-3'>
-							<CompleteTaskButton taskId={task.id} authorId={task.customerId} />
-							<CancelExecutorButton taskId={task.id} />
+			{/* Действия - только для создателя задачи */}
+			{isCustomer && (
+				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
+					<div className='flex items-center gap-3 mb-4'>
+						<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
+							<span className='text-sm'>⚡</span>
 						</div>
-					)}
+						<h3 className='text-lg font-semibold text-emerald-300'>Действия</h3>
+					</div>
+					<div className='space-y-4'>
+						<TaskActionsClient
+							taskId={task.id}
+							authorId={task.customerId}
+							status={task.status}
+						/>
+
+						{task.status === 'in_progress' && (
+							<div className='flex flex-wrap gap-3'>
+								<CompleteTaskButton
+									taskId={task.id}
+									authorId={task.customerId}
+								/>
+								<CancelExecutorButton taskId={task.id} />
+							</div>
+						)}
+					</div>
 				</div>
-			</div>
+			)}
 
-{/* 🟢 Блок отзывов */}
-{task.status === 'completed' && (
-  <div className='space-y-6'>
+			{/* 🟢 Блок отзывов */}
+			{task.status === 'completed' && (
+				<div className='space-y-6'>
+					{/* ==== Уже оставленный отзыв (только тот, который адресован текущему пользователю) ==== */}
+					{task.review
+						?.filter((r: any) => r.toUserId === user?.id)
+						.map((review: any) => (
+							<div
+								key={review.id}
+								className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'
+							>
+								<div className='flex items-center gap-3 mb-3'>
+									<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+										<span className='text-sm text-black'>⭐</span>
+									</div>
+									<h3 className='text-lg font-semibold text-emerald-300'>
+										Отзыв{' '}
+										{review.fromUserId === task.customerId
+											? 'заказчика'
+											: 'исполнителя'}
+									</h3>
+								</div>
 
-    {/* ==== Уже оставленный отзыв (только тот, который адресован текущему пользователю) ==== */}
-    {task.review
-      ?.filter((r: any) => r.toUserId === user?.id)
-      .map((review: any) => (
-        <div
-          key={review.id}
-          className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'
-        >
-          <div className='flex items-center gap-3 mb-3'>
-            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
-              <span className='text-sm text-black'>⭐</span>
-            </div>
-            <h3 className='text-lg font-semibold text-emerald-300'>
-              Отзыв {review.fromUserId === task.customerId ? 'заказчика' : 'исполнителя'}
-            </h3>
-          </div>
+								<div className='space-y-3'>
+									<div className='flex items-center gap-2'>
+										<span className='text-xl text-yellow-400'>⭐</span>
+										<span className='text-lg font-bold text-yellow-400'>
+											{review.rating}
+										</span>
+										<span className='text-gray-400 text-sm'>/ 5</span>
+									</div>
 
-          <div className='space-y-3'>
-            <div className='flex items-center gap-2'>
-              <span className='text-xl text-yellow-400'>⭐</span>
-              <span className='text-lg font-bold text-yellow-400'>{review.rating}</span>
-              <span className='text-gray-400 text-sm'>/ 5</span>
-            </div>
+									<p className='text-gray-200 text-base leading-relaxed italic'>
+										“{review.comment || 'Без комментария'}”
+									</p>
 
-            <p className='text-gray-200 text-base leading-relaxed italic'>
-              “{review.comment || 'Без комментария'}”
-            </p>
+									<div className='flex items-center justify-between text-sm text-gray-500'>
+										<span>
+											📅{' '}
+											{new Date(review.createdAt).toLocaleDateString('ru-RU')}
+										</span>
+										<span className='text-emerald-400'>
+											👤 {review.fromUser?.fullName || 'Пользователь'}
+										</span>
+									</div>
+								</div>
+							</div>
+						))}
 
-            <div className='flex items-center justify-between text-sm text-gray-500'>
-              <span>📅 {new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
-              <span className='text-emerald-400'>
-                👤 {review.fromUser?.fullName || 'Пользователь'}
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
+					{/* ==== Форма: заказчик -> отзыв исполнителю ==== */}
+					{isCustomer &&
+						!task.review?.some((r: any) => r.fromUserId === user?.id) && (
+							<div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
+								<div className='flex items-center gap-3 mb-4'>
+									<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+										<span className='text-sm text-black'>⭐</span>
+									</div>
+									<h3 className='text-lg font-semibold text-emerald-300'>
+										Оставить отзыв исполнителю
+									</h3>
+								</div>
+								<ReviewForm taskId={task.id} />
+							</div>
+						)}
 
-    {/* ==== Форма: заказчик -> отзыв исполнителю ==== */}
-    {isCustomer &&
-      !task.review?.some((r: any) => r.fromUserId === user?.id) && (
-        <div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
-          <div className='flex items-center gap-3 mb-4'>
-            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
-              <span className='text-sm text-black'>⭐</span>
-            </div>
-            <h3 className='text-lg font-semibold text-emerald-300'>
-              Оставить отзыв исполнителю
-            </h3>
-          </div>
-          <ReviewForm taskId={task.id} />
-        </div>
-      )}
-
-    {/* ==== Форма: исполнитель -> отзыв заказчику ==== */}
-    {isExecutor &&
-      !isCustomer &&
-      !task.review?.some((r: any) => r.fromUserId === user?.id) && (
-        <div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
-          <div className='flex items-center gap-3 mb-4'>
-            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
-              <span className='text-sm text-black'>⭐</span>
-            </div>
-            <h3 className='text-lg font-semibold text-emerald-300'>
-              Оставить отзыв заказчику
-            </h3>
-          </div>
-          <ReviewForm taskId={task.id} />
-        </div>
-      )}
-  </div>
-)}
-
-
-
-
+					{/* ==== Форма: исполнитель -> отзыв заказчику ==== */}
+					{isExecutor &&
+						!isCustomer &&
+						!task.review?.some((r: any) => r.fromUserId === user?.id) && (
+							<div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
+								<div className='flex items-center gap-3 mb-4'>
+									<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
+										<span className='text-sm text-black'>⭐</span>
+									</div>
+									<h3 className='text-lg font-semibold text-emerald-300'>
+										Оставить отзыв заказчику
+									</h3>
+								</div>
+								<ReviewForm taskId={task.id} />
+							</div>
+						)}
+				</div>
+			)}
 
 			{/* Форма отклика */}
 			{user?.role === 'executor' &&
@@ -660,7 +706,6 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 											<AssignExecutorButton
 												taskId={task.id}
 												executorId={response.userId}
-												currentUserId={user?.id}
 											/>
 										</div>
 									)}
@@ -740,20 +785,23 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 			)}
 
 			{/* 💥 Кнопка открытия спора */}
-			{!hasDispute &&
-				task.status === 'completed' &&
-				(isCustomer || isExecutor) && (
-					<div className='mt-6 bg-black/40 p-5 rounded-xl border border-red-800/40'>
-						<h3 className='text-lg font-semibold text-red-400 mb-3'>
-							Возникла проблема?
-						</h3>
-						<DisputeForm
-							taskId={task.id}
-							onSuccess={loadDispute}
-							token={token!}
-						/>
-					</div>
-				)}
+			{!hasDispute && (isCustomer || isExecutor) && (
+				<div className='mt-6 bg-black/40 p-5 rounded-xl border border-red-800/40 hover:border-red-700/50 transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.1)]'>
+					<h3 className='text-lg font-semibold text-red-400 mb-3 flex items-center gap-2'>
+						<span className='text-xl'>⚠️</span>
+						Возникла проблема?
+					</h3>
+					<p className='text-gray-400 text-sm mb-4'>
+						Если возникли сложности с выполнением задачи, вы можете открыть
+						спор. Администратор рассмотрит ситуацию и примет решение.
+					</p>
+					<DisputeForm
+						taskId={task.id}
+						onSuccess={loadDispute}
+						token={token!}
+					/>
+				</div>
+			)}
 
 			{/* Навигация */}
 			<div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pt-6 border-t border-gray-700/50'>
