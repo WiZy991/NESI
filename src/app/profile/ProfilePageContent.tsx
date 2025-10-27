@@ -309,19 +309,20 @@ export default function ProfilePageContent() {
 						</h3>
 						<div className='mb-4'>
 							<p className='text-2xl font-bold text-emerald-300'>
-								{(profile.balance ?? 0).toFixed(2)} ₽
+								{Number(profile.balance ?? 0).toFixed(2)} ₽
 							</p>
-							{profile.frozenBalance && profile.frozenBalance > 0 && (
+							{profile.frozenBalance && Number(profile.frozenBalance) > 0 && (
 								<div className='text-xs text-gray-400 mt-1'>
 									<span className='text-yellow-400'>
-										🔒 Заморожено: {profile.frozenBalance.toFixed(2)} ₽
+										🔒 Заморожено: {Number(profile.frozenBalance).toFixed(2)} ₽
 									</span>
 									<br />
 									<span className='text-emerald-400'>
 										✓ Доступно:{' '}
-										{((profile.balance ?? 0) - profile.frozenBalance).toFixed(
-											2
-										)}{' '}
+										{(
+											Number(profile.balance ?? 0) -
+											Number(profile.frozenBalance)
+										).toFixed(2)}{' '}
 										₽
 									</span>
 								</div>
