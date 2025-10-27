@@ -48,11 +48,18 @@ export default function FeedbackPage() {
 				headers: { Authorization: `Bearer ${token}` },
 			})
 			const data = await res.json()
+			console.log('Ответ от API:', data)
+			
 			if (res.ok) {
 				setFeedbacks(data.feedbacks || [])
+				console.log('Загружено отзывов:', data.feedbacks?.length || 0)
+			} else {
+				toast.error(`Ошибка: ${data.error || 'Неизвестная ошибка'}`)
+				console.error('Ошибка API:', data)
 			}
 		} catch (error) {
 			console.error('Ошибка при загрузке обратной связи:', error)
+			toast.error('Не удалось загрузить обратную связь')
 		} finally {
 			setLoading(false)
 		}
