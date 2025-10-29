@@ -113,6 +113,9 @@ export default function UserPublicProfilePage() {
 	)
 	const [hireId, setHireId] = useState<string | null>(null)
 	const [sendingHire, setSendingHire] = useState(false)
+	const [showHireModal, setShowHireModal] = useState(false)
+	const [hireMessage, setHireMessage] = useState('')
+	const [hireError, setHireError] = useState('')
 
 	// подгрузка публичного профиля
 	useEffect(() => {
@@ -170,19 +173,33 @@ export default function UserPublicProfilePage() {
 	}, [viewUser?.id, user?.role, user?.id])
 
 	async function sendHireRequest() {
-		if (!viewUser || sendingHire) return
+		if (!viewUser || sendingHire || !hireMessage.trim()) {
+			if (!hireMessage.trim()) {
+				setHireError('Напишите сопроводительное письмо')
+			}
+			return
+		}
+		
 		setSendingHire(true)
+		setHireError('')
+		
 		try {
 			const res = await fetch('/api/hire', {
 				method: 'POST',
 				headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
-				body: JSON.stringify({ executorId: viewUser.id }),
+				body: JSON.stringify({ 
+					executorId: viewUser.id,
+					message: hireMessage.trim()
+				}),
 			})
 
 			if (res.status === 201) {
 				const d = await res.json().catch(() => ({}))
 				setHireState('pending')
 				setHireId(d?.hireId ?? null)
+				setShowHireModal(false)
+				setHireMessage('')
+				alert('Запрос найма отправлен! Исполнитель получит уведомление в чате.')
 				return
 			}
 
@@ -190,13 +207,15 @@ export default function UserPublicProfilePage() {
 				const d = await res.json().catch(() => ({}))
 				setHireState(d?.status === 'accepted' ? 'accepted' : 'pending')
 				setHireId(d?.hireId ?? null)
+				setShowHireModal(false)
+				setHireMessage('')
 				return
 			}
 
 			const err = await res.json().catch(() => ({}))
-			alert(err?.error || 'Ошибка при отправке запроса')
+			setHireError(err?.error || 'Ошибка при отправке запроса')
 		} catch {
-			alert('Ошибка сети')
+			setHireError('Ошибка сети')
 		} finally {
 			setSendingHire(false)
 		}
@@ -465,15 +484,72 @@ export default function UserPublicProfilePage() {
 							</button>
 						) : (
 							<button
-								onClick={sendHireRequest}
+								onClick={() => setShowHireModal(true)}
 								disabled={sendingHire}
-								className='px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 font-semibold transition'
+								className='px-6 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white disabled:opacity-50 font-semibold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]'
 							>
-								{sendingHire ? 'Отправка...' : 'Нанять исполнителя'}
+								💼 Нанять за 1990₽
 							</button>
 						)}
 					</div>
 				)}
+
+			{/* Модальное окно найма */}
+			{showHireModal && (
+				<div 
+					className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'
+					onClick={() => setShowHireModal(false)}
+				>
+					<div 
+						className='bg-gray-900 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-md mx-4 p-6 md:p-8'
+						onClick={(e) => e.stopPropagation()}
+					>
+						<h2 className='text-2xl font-bold text-emerald-400 mb-2'>
+							Нанять исполнителя
+						</h2>
+						<p className='text-gray-400 text-sm mb-6'>
+							Стоимость: <span className='text-emerald-400 font-semibold'>1990₽</span>
+						</p>
+
+						<form onSubmit={(e) => { e.preventDefault(); sendHireRequest(); }} className="space-y-4">
+							<div>
+								<label className="block text-sm font-medium text-gray-300 mb-2">
+									Сопроводительное письмо
+								</label>
+								<textarea
+									value={hireMessage}
+									onChange={(e) => setHireMessage(e.target.value)}
+									placeholder="Напишите, почему вы хотите нанять этого исполнителя, какой проект у вас есть и т.д."
+									rows={6}
+									className='w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition resize-none'
+									required
+								/>
+								{hireError && (
+									<p className='text-red-400 text-sm mt-1'>{hireError}</p>
+								)}
+							</div>
+
+							<div className="flex gap-3">
+								<button
+									type='button'
+									onClick={() => setShowHireModal(false)}
+									className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg hover:bg-gray-700 transition-colors"
+									disabled={sendingHire}
+								>
+									Отмена
+								</button>
+								<button
+									type='submit'
+									className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+									disabled={sendingHire}
+								>
+									{sendingHire ? 'Отправка...' : 'Отправить предложение'}
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
 		</div>
 	)
 }

@@ -9,8 +9,7 @@
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "postinstall": "prisma generate"
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@prisma/client": "^6.17.1",
@@ -57,9 +56,6 @@
     "ts-jest": "^29.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
   },
   "overrides": {
     "picomatch": "^4.0.3"

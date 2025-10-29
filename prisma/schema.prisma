@@ -77,30 +77,30 @@ model UserSettings {
 }
 
 model Task {
-  id            String         @id @default(uuid())
-  title         String
-  description   String
-  price         Decimal?       @db.Decimal(10, 2)
-  deadline      DateTime?
-  status        String         @default("open")
-  customerId    String
-  executorId    String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  completedAt   DateTime?
-  subcategoryId String?
-  escrowAmount  Decimal        @default(0.00) @db.Decimal(10, 2)
-  Dispute       Dispute[]
-  files         File[]         @relation("TaskFiles")
-  messages      Message[]
-  review        Review[]
-  customer      User           @relation("Customer", fields: [customerId], references: [id])
-  executor      User?          @relation("Executor", fields: [executorId], references: [id])
-  subcategory   Subcategory?   @relation(fields: [subcategoryId], references: [id])
-  responses     TaskResponse[]
-  Transaction   Transaction[]
+  id                 String         @id @default(uuid())
+  title              String
+  description        String
+  price              Decimal?       @db.Decimal(10, 2)
+  deadline           DateTime?
+  status             String         @default("open")
+  customerId         String
+  executorId         String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  completedAt        DateTime?
+  subcategoryId      String?
+  escrowAmount       Decimal       @default(0.00) @db.Decimal(10, 2)
   customerLastReadAt DateTime?
   executorLastReadAt DateTime?
+  Dispute            Dispute[]
+  files              File[]         @relation("TaskFiles")
+  messages           Message[]
+  review             Review[]
+  customer           User           @relation("Customer", fields: [customerId], references: [id])
+  executor           User?          @relation("Executor", fields: [executorId], references: [id])
+  subcategory        Subcategory?   @relation(fields: [subcategoryId], references: [id])
+  responses          TaskResponse[]
+  Transaction        Transaction[]
 
   @@index([status])
   @@index([customerId])
@@ -305,6 +305,8 @@ model HireRequest {
   id         String   @id @default(uuid())
   customerId String
   executorId String
+  message    String?  @db.Text
+  amount     Decimal  @default(1990.00) @db.Decimal(10, 2)
   createdAt  DateTime @default(now())
   paid       Boolean  @default(false)
   status     String   @default("pending")
@@ -473,13 +475,6 @@ model Dispute {
   @@index([userId])
 }
 
-enum Role {
-  user
-  executor
-  admin
-  customer
-}
-
 model CommunityReport {
   id          String   @id @default(cuid())
   type        String
@@ -490,6 +485,26 @@ model CommunityReport {
   reporterId  String?
   createdAt   DateTime @default(now())
   reporter    User?    @relation("UserReports", fields: [reporterId], references: [id])
-  post        CommunityPost?    @relation(fields: [postId], references: [id])
-  comment     CommunityComment? @relation(fields: [commentId], references: [id])
+  post        CommunityPost?     @relation(fields: [postId], references: [id])
+  comment     CommunityComment? @relation(fields: [commentId], references: [id])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  message   String   @db.Text
+  type      String   @default("general")
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+  reviewedBy String?
+  notes     String?  @db.Text
+}
+
+enum Role {
+  user
+  executor
+  admin
+  customer
 }

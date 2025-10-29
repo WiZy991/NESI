@@ -15,6 +15,7 @@ const menuItems = [
 	{ href: '/admin/cert', label: 'Сертификация', icon: '🎓' },
 	{ href: '/admin/disputes', label: 'Споры', icon: '⚖️' },
 	{ href: '/admin/reports', label: 'Жалобы', icon: '🚨' },
+	{ href: '/admin/feedback', label: 'Обратная связь', icon: '💬' },
 ]
 
 export default function AdminLayout({

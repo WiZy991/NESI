@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     }
 
     // ✅ Всё ок — создаём токен
-    const token = signJWT({ userId: user.id })
+    const token = signJWT({ userId: user.id, role: user.role })
 
     // 📨 Создаём уведомление
     await createNotification(

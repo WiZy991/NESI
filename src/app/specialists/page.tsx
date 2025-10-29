@@ -136,59 +136,174 @@ export default function SpecialistsPage() {
     const calc = levelFromXp(xpValue)
     const reviews = u.reviewsCount ?? u._count?.reviewsReceived ?? 0
     const skillsStr = Array.isArray(u.skills) ? u.skills.join(', ') : (u.skills || '')
+    const [showHireModal, setShowHireModal] = useState(false)
+    const [hireMessage, setHireMessage] = useState('')
+    const [isHiring, setIsHiring] = useState(false)
+    const [hireError, setHireError] = useState('')
+
+    const handleHire = async (e: React.FormEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      if (!hireMessage.trim()) {
+        setHireError('Напишите сопроводительное письмо')
+        return
+      }
+
+      setIsHiring(true)
+      setHireError('')
+
+      try {
+        const res = await fetch('/api/hire', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            executorId: u.id,
+            message: hireMessage.trim()
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          setHireError(data.error || 'Ошибка при отправке запроса')
+          return
+        }
+
+        // Успех
+        setShowHireModal(false)
+        setHireMessage('')
+        alert('Запрос найма отправлен! Исполнитель получит уведомление в чате.')
+      } catch (err) {
+        setHireError('Ошибка сервера')
+      } finally {
+        setIsHiring(false)
+      }
+    }
 
     return (
-      <motion.div layout whileHover={{ scale: 1.05, y: -6 }} transition={spring}>
-        <Link
-          href={`/users/${u.id}`}
-          className="block bg-black/50 backdrop-blur-md text-white p-4 rounded-2xl border border-emerald-700/30 hover:border-emerald-500/50 transition cursor-pointer"
-        >
-          {u.avatarUrl ? (
-            <img src={u.avatarUrl} alt={name} className="w-12 h-12 rounded-full mb-2 object-cover" />
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-gray-700 mb-2 flex items-center justify-center text-base font-bold">
-              {letter}
-            </div>
-          )}
-          <h3 className="text-lg font-semibold leading-tight">{name}</h3>
-          <p className="text-xs text-gray-300 mb-3">{u.location || 'Без города'}</p>
+      <>
+        <motion.div layout whileHover={{ scale: 1.05, y: -6 }} transition={spring}>
+          <div className="relative bg-black/50 backdrop-blur-md text-white p-4 rounded-2xl border border-emerald-700/30 hover:border-emerald-500/50 transition">
+            <Link
+              href={`/users/${u.id}`}
+              className="block"
+            >
+              {u.avatarUrl ? (
+                <img src={u.avatarUrl} alt={name} className="w-12 h-12 rounded-full mb-2 object-cover" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gray-700 mb-2 flex items-center justify-center text-base font-bold">
+                  {letter}
+                </div>
+              )}
+              <h3 className="text-lg font-semibold leading-tight">{name}</h3>
+              <p className="text-xs text-gray-300 mb-3">{u.location || 'Без города'}</p>
 
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span>
-              Уровень: <span className="font-semibold">{calc.lvl}</span>
-            </span>
-            <span className="opacity-70">{xpValue} XP</span>
-          </div>
-
-          <div className="h-2 rounded bg-emerald-950/60 overflow-hidden mb-1">
-            <motion.div className="h-full bg-emerald-500" animate={{ width: `${calc.progress}%` }} />
-          </div>
-
-          <div className="text-[11px] text-gray-400 mb-3">
-            До следующего уровня: {calc.toNext > 0 ? `${calc.toNext} XP` : '—'}
-          </div>
-
-          {/* === Статистика === */}
-          <div className="grid grid-cols-2 gap-3 text-xs text-gray-200 justify-center">
-            <div className="rounded bg-emerald-950/60 p-3 text-center border border-emerald-800/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]">
-              <div className="text-base font-semibold text-emerald-400">
-                {(u.avgRating ?? 0).toFixed(1)}
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span>
+                  Уровень: <span className="font-semibold">{calc.lvl}</span>
+                </span>
+                <span className="opacity-70">{xpValue} XP</span>
               </div>
-              <div className="opacity-70 text-[11px]">Рейтинг</div>
-            </div>
-            <div className="rounded bg-emerald-950/60 p-3 text-center border border-emerald-800/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]">
-              <div className="text-base font-semibold text-emerald-400">{reviews}</div>
-              <div className="opacity-70 text-[11px]">Отзывы</div>
+
+              <div className="h-2 rounded bg-emerald-950/60 overflow-hidden mb-1">
+                <motion.div className="h-full bg-emerald-500" animate={{ width: `${calc.progress}%` }} />
+              </div>
+
+              <div className="text-[11px] text-gray-400 mb-3">
+                До следующего уровня: {calc.toNext > 0 ? `${calc.toNext} XP` : '—'}
+              </div>
+
+              {/* === Статистика === */}
+              <div className="grid grid-cols-2 gap-3 text-xs text-gray-200 justify-center">
+                <div className="rounded bg-emerald-950/60 p-3 text-center border border-emerald-800/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]">
+                  <div className="text-base font-semibold text-emerald-400">
+                    {(u.avgRating ?? 0).toFixed(1)}
+                  </div>
+                  <div className="opacity-70 text-[11px]">Рейтинг</div>
+                </div>
+                <div className="rounded bg-emerald-950/60 p-3 text-center border border-emerald-800/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]">
+                  <div className="text-base font-semibold text-emerald-400">{reviews}</div>
+                  <div className="opacity-70 text-[11px]">Отзывы</div>
+                </div>
+              </div>
+
+              {skillsStr && (
+                <p className="text-[11px] mt-3 text-gray-400 line-clamp-2">
+                  Навыки: {skillsStr}
+                </p>
+              )}
+            </Link>
+
+            {/* Кнопка найма для заказчиков */}
+            {user?.role === 'customer' && user.id !== u.id && (
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHireModal(true); }}
+                className="mt-3 w-full px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg font-semibold hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+              >
+                💼 Нанять за 1990₽
+              </button>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Модальное окно найма */}
+        {showHireModal && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowHireModal(false)}
+          >
+            <div 
+              className="bg-gray-900 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-md mx-4 p-6 md:p-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-2xl font-bold text-emerald-400 mb-2">
+                Нанять исполнителя
+              </h2>
+              <p className="text-gray-400 text-sm mb-6">
+                Стоимость: <span className="text-emerald-400 font-semibold">1990₽</span>
+              </p>
+
+              <form onSubmit={handleHire} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Сопроводительное письмо
+                  </label>
+                  <textarea
+                    value={hireMessage}
+                    onChange={(e) => setHireMessage(e.target.value)}
+                    placeholder="Напишите, почему вы хотите нанять этого исполнителя, какой проект у вас есть и т.д."
+                    rows={6}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition resize-none"
+                    required
+                  />
+                  {hireError && (
+                    <p className="text-red-400 text-sm mt-1">{hireError}</p>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowHireModal(false)}
+                    className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    disabled={isHiring}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isHiring}
+                  >
+                    {isHiring ? 'Отправка...' : 'Отправить предложение'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
-
-          {skillsStr && (
-            <p className="text-[11px] mt-3 text-gray-400 line-clamp-2">
-              Навыки: {skillsStr}
-            </p>
-          )}
-        </Link>
-      </motion.div>
+        )}
+      </>
     )
   }
 
