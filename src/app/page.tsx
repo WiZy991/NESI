@@ -216,6 +216,7 @@ export default function Home() {
 								{ text: 'О проекте', href: '/about' },
 								{ text: 'Политика конфиденциальности', href: '/privacy' },
 								{ text: 'Пользовательское соглашение', href: '/terms' },
+								{ text: 'Публичная оферта', href: '/offer' },
 								{ text: 'Служба поддержки', href: 'mailto:info@nesi.ru' },
 							].map(({ text, href }) => (
 								<Link

@@ -314,7 +314,13 @@ export default function PrivacyPage() {
 						href='/terms'
 						className='flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/30 transition'
 					>
-						<span>Пользовательское соглашение →</span>
+						<span>Пользовательское соглашение</span>
+					</Link>
+					<Link
+						href='/offer'
+						className='flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/30 transition'
+					>
+						<span>Публичная оферта →</span>
 					</Link>
 				</div>
 			</div>
