@@ -39,7 +39,7 @@ export default function PrivacyPage() {
 						<ul className='list-disc pl-6 space-y-2'>
 							<li>ООО «НЭСИ» (ИНН: 2205021414)</li>
 							<li>Адрес: Российская Федерация</li>
-							<li>Электронная почта: info@nesi.ru</li>
+							<li>Электронная почта: info.nesi@bk.ru</li>
 						</ul>
 						<p>
 							Используя Сервис, вы подтверждаете, что ознакомились с настоящей
@@ -230,7 +230,7 @@ export default function PrivacyPage() {
 						<p className='mt-4 text-sm text-gray-400'>
 							Для реализации ваших прав обращайтесь по адресу:{' '}
 							<a
-								href='mailto:info@nesi.ru'
+								href='mailto:info.nesi@bk.ru'
 								className='text-emerald-400 hover:underline'
 							>
 								info@nesi.ru
@@ -292,7 +292,7 @@ export default function PrivacyPage() {
 						<p>
 							<strong className='text-emerald-400'>Email:</strong>{' '}
 							<a
-								href='mailto:info@nesi.ru'
+								href='mailto:info.nesi@bk.ru'
 								className='text-emerald-400 hover:underline'
 							>
 								info@nesi.ru

@@ -131,7 +131,7 @@ export default function AboutPage() {
 							<p className='font-semibold text-emerald-400 mb-1'>
 								Электронная почта
 							</p>
-							<p>info@nesi.ru</p>
+							<p>info.nesi@bk.ru</p>
 						</div>
 					</div>
 				</div>

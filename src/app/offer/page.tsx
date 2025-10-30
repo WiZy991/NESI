@@ -680,10 +680,10 @@ export default function PublicOfferPage() {
 							</p>
 							<p>
 								<a
-									href='mailto:info@nesi.ru'
+									href='mailto:info.nesi@bk.ru'
 									className='text-emerald-400 hover:underline'
 								>
-									info@nesi.ru
+									info.nesi@bk.ru
 								</a>
 							</p>
 						</div>

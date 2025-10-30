@@ -179,17 +179,17 @@ export default function UserPublicProfilePage() {
 			}
 			return
 		}
-		
+
 		setSendingHire(true)
 		setHireError('')
-		
+
 		try {
 			const res = await fetch('/api/hire', {
 				method: 'POST',
 				headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
-				body: JSON.stringify({ 
+				body: JSON.stringify({
 					executorId: viewUser.id,
-					message: hireMessage.trim()
+					message: hireMessage.trim(),
 				}),
 			})
 
@@ -452,13 +452,13 @@ export default function UserPublicProfilePage() {
 				</div>
 			</div>
 
-			{/* CTA «Нанять исполнителя» */}
+			{/* CTA «Нанять исполнителя» — показываем на странице исполнителя */}
 			{user?.role === 'customer' &&
 				user?.id !== viewUser.id &&
 				viewUser.role === 'executor' && (
 					<div
 						className='bg-black/40 p-6 rounded-xl border border-green-500/30 
-                        shadow-[0_0_15px_rgba(0,255,150,0.2)] text-center'
+							shadow-[0_0_15px_rgba(0,255,150,0.2)] text-center'
 					>
 						<h3 className='text-xl font-semibold text-green-400 mb-4'>
 							💼 Сотрудничество
@@ -496,30 +496,37 @@ export default function UserPublicProfilePage() {
 
 			{/* Модальное окно найма */}
 			{showHireModal && (
-				<div 
+				<div
 					className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'
 					onClick={() => setShowHireModal(false)}
 				>
-					<div 
+					<div
 						className='bg-gray-900 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-md mx-4 p-6 md:p-8'
-						onClick={(e) => e.stopPropagation()}
+						onClick={e => e.stopPropagation()}
 					>
 						<h2 className='text-2xl font-bold text-emerald-400 mb-2'>
 							Нанять исполнителя
 						</h2>
 						<p className='text-gray-400 text-sm mb-6'>
-							Стоимость: <span className='text-emerald-400 font-semibold'>1990₽</span>
+							Стоимость:{' '}
+							<span className='text-emerald-400 font-semibold'>1990₽</span>
 						</p>
 
-						<form onSubmit={(e) => { e.preventDefault(); sendHireRequest(); }} className="space-y-4">
+						<form
+							onSubmit={e => {
+								e.preventDefault()
+								sendHireRequest()
+							}}
+							className='space-y-4'
+						>
 							<div>
-								<label className="block text-sm font-medium text-gray-300 mb-2">
+								<label className='block text-sm font-medium text-gray-300 mb-2'>
 									Сопроводительное письмо
 								</label>
 								<textarea
 									value={hireMessage}
-									onChange={(e) => setHireMessage(e.target.value)}
-									placeholder="Напишите, почему вы хотите нанять этого исполнителя, какой проект у вас есть и т.д."
+									onChange={e => setHireMessage(e.target.value)}
+									placeholder='Напишите, почему вы хотите нанять этого исполнителя, какой проект у вас есть и т.д.'
 									rows={6}
 									className='w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition resize-none'
 									required
@@ -529,18 +536,18 @@ export default function UserPublicProfilePage() {
 								)}
 							</div>
 
-							<div className="flex gap-3">
+							<div className='flex gap-3'>
 								<button
 									type='button'
 									onClick={() => setShowHireModal(false)}
-									className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg hover:bg-gray-700 transition-colors"
+									className='flex-1 px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg hover:bg-gray-700 transition-colors'
 									disabled={sendingHire}
 								>
 									Отмена
 								</button>
 								<button
 									type='submit'
-									className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+									className='flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:cursor-not-allowed'
 									disabled={sendingHire}
 								>
 									{sendingHire ? 'Отправка...' : 'Отправить предложение'}

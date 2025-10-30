@@ -265,10 +265,10 @@ export default function TermsPage() {
 						<p>
 							<strong className='text-emerald-400'>Email:</strong>{' '}
 							<a
-								href='mailto:info@nesi.ru'
+								href='mailto:info.nesi@bk.ru'
 								className='text-emerald-400 hover:underline'
 							>
-								info@nesi.ru
+								info.nesi@bk.ru
 							</a>
 						</p>
 						<p className='text-sm text-gray-400'>
