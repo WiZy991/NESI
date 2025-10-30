@@ -179,6 +179,20 @@ export default function Header() {
 			}
 		}
 
+		// Проверяем окружение: в production сразу включаем polling
+		const isProduction = process.env.NODE_ENV === 'production'
+		
+		if (isProduction) {
+			console.log('🌐 Production окружение: используем polling вместо SSE')
+			setUsePolling(true)
+			fetchUnreadMessages()
+			const interval = setInterval(fetchUnreadMessages, 30000)
+			return () => {
+				console.log('🧹 Header: Cleanup (polling mode)')
+				clearInterval(interval)
+			}
+		}
+
 		const connectSSE = () => {
 			if (eventSourceRef.current) {
 				console.log('⚠️ Закрываю старое SSE подключение')
