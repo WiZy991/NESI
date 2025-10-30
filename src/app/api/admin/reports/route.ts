@@ -36,6 +36,22 @@ export async function GET(req: NextRequest) {
             postId: true,
           },
         },
+        task: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            status: true,
+            createdAt: true,
+            customer: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -47,6 +63,8 @@ export async function GET(req: NextRequest) {
         targetLink = `/community/${r.post.id}`
       } else if (r.type === 'comment' && r.comment?.postId) {
         targetLink = `/community/${r.comment.postId}#comment-${r.comment.id}`
+      } else if (r.type === 'task' && r.task?.id) {
+        targetLink = `/tasks/${r.task.id}`
       }
 
       return {
@@ -62,7 +80,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 🗑️ Удаление поста или комментария администратором
+// 🗑️ Удаление поста, комментария или задачи администратором
 export async function DELETE(req: NextRequest) {
   try {
     const me = await getUserFromRequest(req).catch(() => null)
@@ -70,9 +88,17 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
     }
 
-    const { type, id } = await req.json().catch(() => ({}))
-    if (!type || !id)
-      return NextResponse.json({ error: 'Не указаны type и id' }, { status: 400 })
+    const body = await req.json().catch(() => ({}))
+    console.log('🗑️ DELETE request body:', body)
+    
+    const { type, id } = body
+    
+    if (!type || !id) {
+      console.error('❌ Missing type or id:', { type, id, body })
+      return NextResponse.json({ 
+        error: `Не указаны type и id. Получено: type=${type}, id=${id}` 
+      }, { status: 400 })
+    }
 
     if (type === 'post') {
       const existing = await prisma.communityPost.findUnique({ where: { id } })
@@ -90,6 +116,23 @@ export async function DELETE(req: NextRequest) {
 
       await prisma.communityComment.delete({ where: { id } })
       return NextResponse.json({ ok: true, message: 'Комментарий удалён' })
+    }
+
+    if (type === 'task') {
+      const existing = await prisma.task.findUnique({ where: { id } })
+      if (!existing)
+        return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
+
+      // Проверяем, что задачу можно удалить (не в работе)
+      if (existing.status === 'in_progress' || existing.status === 'completed') {
+        return NextResponse.json(
+          { error: 'Нельзя удалить задачу в работе или завершённую' },
+          { status: 400 }
+        )
+      }
+
+      await prisma.task.delete({ where: { id } })
+      return NextResponse.json({ ok: true, message: 'Задача удалена' })
     }
 
     return NextResponse.json({ error: 'Неверный тип' }, { status: 400 })

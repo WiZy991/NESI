@@ -80,7 +80,7 @@ export function ToastNotification({
 
 	return (
 		<div
-			className={`fixed bottom-6 right-6 w-96 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] p-4 cursor-pointer transition-all duration-300 z-[9999] hover:shadow-[0_0_35px_rgba(16,185,129,0.5)] hover:scale-105 ${
+			className={`fixed bottom-4 right-4 left-4 sm:left-auto sm:right-6 sm:w-96 sm:bottom-6 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] p-4 cursor-pointer transition-all duration-300 z-[9999] hover:shadow-[0_0_35px_rgba(16,185,129,0.5)] sm:hover:scale-105 ${
 				isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
 			}`}
 			onClick={handleClick}
@@ -90,18 +90,19 @@ export function ToastNotification({
 					e.stopPropagation()
 					handleClose()
 				}}
-				className='absolute top-2 right-2 text-gray-400 hover:text-white transition'
+				className='absolute top-2 right-2 w-8 h-8 sm:w-6 sm:h-6 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-all text-lg sm:text-sm z-10'
+				aria-label="Закрыть уведомление"
 			>
 				✕
 			</button>
 
-			<div className='flex items-start space-x-3'>
-				<div className='text-3xl'>{getIcon()}</div>
+			<div className='flex items-start space-x-3 pr-6'>
+				<div className='text-3xl sm:text-2xl flex-shrink-0'>{getIcon()}</div>
 				<div className='flex-1 min-w-0'>
-					<p className='text-sm font-semibold text-emerald-400 mb-1'>
+					<p className='text-sm sm:text-sm font-semibold text-emerald-400 mb-1'>
 						{notification.title}
 					</p>
-					<p className='text-sm text-gray-200 line-clamp-2'>
+					<p className='text-sm sm:text-sm text-gray-200 line-clamp-2'>
 						{notification.message}
 					</p>
 					<p className='text-xs text-gray-500 mt-2'>Нажмите, чтобы перейти →</p>
@@ -143,9 +144,12 @@ export function ToastContainer({
 	onClose: (id: string) => void
 }) {
 	return (
-		<div className='fixed bottom-0 right-0 p-6 space-y-4 z-[9999] pointer-events-none'>
-			{notifications.map(notification => (
-				<div key={notification.id} className='pointer-events-auto'>
+		<div className='fixed bottom-0 right-0 left-0 sm:left-auto p-4 sm:p-6 z-[9999] flex flex-col items-stretch sm:items-end gap-4'>
+			{notifications.map((notification) => (
+				<div 
+					key={notification.id} 
+					className='w-full sm:w-auto'
+				>
 					<ToastNotification
 						notification={notification}
 						onClose={() => onClose(notification.id)}

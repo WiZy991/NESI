@@ -2,6 +2,9 @@
 
 import { useUser } from '@/context/UserContext'
 import { useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
 type MessageInputProps = {
 	chatType: 'private' | 'task'
@@ -21,8 +24,10 @@ export default function MessageInput({
 	const [file, setFile] = useState<File | null>(null)
 	const [sending, setSending] = useState(false)
 	const [isTyping, setIsTyping] = useState(false)
+	const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+	const emojiPickerRef = useRef<HTMLDivElement>(null)
 
 	// Функция для отправки события набора
 	const sendTypingEvent = async (typing: boolean) => {
@@ -151,6 +156,32 @@ export default function MessageInput({
 		return `${truncatedName}...${extension ? `.${extension}` : ''}`
 	}
 
+	// Обработчик выбора эмоджи
+	const handleEmojiClick = (emojiData: any) => {
+		setMessage(prev => prev + emojiData.emoji)
+		setShowEmojiPicker(false)
+	}
+
+	// Закрытие emoji picker при клике вне его
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				emojiPickerRef.current &&
+				!emojiPickerRef.current.contains(event.target as Node)
+			) {
+				setShowEmojiPicker(false)
+			}
+		}
+
+		if (showEmojiPicker) {
+			document.addEventListener('mousedown', handleClickOutside)
+		}
+
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside)
+		}
+	}, [showEmojiPicker])
+
 	// Очистка таймаута при размонтировании
 	useEffect(() => {
 		return () => {
@@ -223,6 +254,29 @@ export default function MessageInput({
 						/>
 					</svg>
 				</label>
+
+				{/* Кнопка эмоджи */}
+				<div className='relative' ref={emojiPickerRef}>
+					<button
+						type='button'
+						onClick={() => setShowEmojiPicker(prev => !prev)}
+						className='flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors text-xl'
+					>
+						😊
+					</button>
+					{showEmojiPicker && (
+						<div className='absolute bottom-full mb-2 right-0 z-50'>
+							<EmojiPicker
+								onEmojiClick={handleEmojiClick}
+								width={280}
+								height={350}
+								theme='dark' as any
+								searchPlaceholder='Поиск эмоджи...'
+								previewConfig={{ showPreview: false }}
+							/>
+						</div>
+					)}
+				</div>
 
 				{/* Поле ввода сообщения */}
 				<div className='flex-1 relative'>

@@ -18,9 +18,9 @@ export async function GET(
     if (file.data) {
       return new NextResponse(file.data as Buffer, {
         headers: {
-          "Content-Type": file.mimeType || "application/octet-stream", 
-          "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(
-            file.name
+          "Content-Type": file.mimetype || "application/octet-stream", 
+          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
+            file.filename
           )}`, 
         },
       });

@@ -1,7 +1,7 @@
 'use client'
 
 import MessageInput from '@/components/ChatMessageInput'
-import FilePreview from '@/components/FilePreview'
+import ChatMessage from '@/components/ChatMessage'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -329,10 +329,7 @@ function ChatsPageContent() {
 		fetchMessages()
 	}, [selectedChat, token])
 
-	// Автоскролл к последнему сообщению
-	useEffect(() => {
-		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-	}, [messages])
+	// Автоскролл отключен - пользователь сам управляет прокруткой
 
 	// Автоматическое открытие чата при наличии параметра open
 	useEffect(() => {
@@ -844,8 +841,8 @@ function ChatsPageContent() {
 									</div>
 								</div>
 
-								{/* Сообщения - растягиваемая область */}
-								<div className='flex-1 overflow-y-auto px-3 pt-3 pb-20 sm:px-6 sm:pt-6 sm:pb-2 space-y-2 sm:space-y-4 custom-scrollbar'>
+							{/* Сообщения - растягиваемая область */}
+							<div className='flex-1 overflow-y-auto px-3 pt-3 pb-20 sm:px-6 sm:pt-6 sm:pb-2 custom-scrollbar'>
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
 											<div className='text-center text-gray-400'>
@@ -863,75 +860,52 @@ function ChatsPageContent() {
 												<p>Отправьте первое сообщение!</p>
 											</div>
 										</div>
-									) : (
-										messages
-											.map(msg => {
-												// Проверяем, что sender существует
-												if (!msg.sender) {
-													console.warn('Сообщение без отправителя:', msg)
-													return null
-												}
+								) : (
+									messages
+										.map((msg, index) => {
+											// Проверяем, что sender существует
+											if (!msg.sender) {
+												console.warn('Сообщение без отправителя:', msg)
+												return null
+											}
 
-												const isMine = msg.sender.id === user?.id
-												return (
-													<div
-														key={msg.id}
-														className={`flex ${
-															isMine ? 'justify-end' : 'justify-start'
-														}`}
-													>
-														<div
-															className={`max-w-[85%] sm:max-w-[70%] p-2 sm:p-3 rounded-2xl shadow-lg ${
-																isMine
-																	? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-br-sm'
-																	: 'bg-gray-700/80 backdrop-blur-sm text-gray-100 rounded-bl-sm border border-gray-600/50'
-															}`}
-														>
-															<div className='text-xs opacity-80 mb-1 flex items-center justify-between gap-2'>
-																<Link
-																	href={
-																		isMine
-																			? '/profile'
-																			: `/users/${msg.sender.id}`
-																	}
-																	className={`${
-																		isMine
-																			? 'text-emerald-100'
-																			: 'text-blue-400'
-																	} hover:underline font-medium truncate`}
-																>
-																	{msg.sender.fullName ||
-																		msg.sender.email ||
-																		'Неизвестный'}
-																</Link>
-																<span className='text-xs opacity-60 flex-shrink-0'>
-																	{new Date(msg.createdAt).toLocaleTimeString(
-																		'ru-RU',
-																		{
-																			hour: '2-digit',
-																			minute: '2-digit',
-																		}
-																	)}
-																</span>
-															</div>
-															{msg.content && (
-																<p className='text-sm sm:text-base leading-snug break-words whitespace-pre-wrap'>
-																	{msg.content}
-																</p>
-															)}
-															{msg.fileUrl && (
-																<FilePreview
-																	fileUrl={msg.fileUrl}
-																	fileName={msg.fileName}
-																	mimeType={msg.fileMimetype}
-																/>
-															)}
-														</div>
-													</div>
-												)
-											})
-											.filter(Boolean) // Убираем null значения
-									)}
+											// Определяем позицию в группе
+											const prevMsg = index > 0 ? messages[index - 1] : null
+											const nextMsg = index < messages.length - 1 ? messages[index + 1] : null
+											
+											const isFirstInGroup = !prevMsg || prevMsg.sender.id !== msg.sender.id
+											const isLastInGroup = !nextMsg || nextMsg.sender.id !== msg.sender.id
+											const showSenderName = isFirstInGroup
+
+											return (
+												<ChatMessage
+													key={msg.id}
+													message={msg}
+													chatType={selectedChat?.type || 'private'}
+													showSenderName={showSenderName}
+													isFirstInGroup={isFirstInGroup}
+													isLastInGroup={isLastInGroup}
+													onMessageUpdate={updatedMsg => {
+														setMessages(prev =>
+															prev.map(m =>
+																m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m
+															)
+														)
+													}}
+													onMessageDelete={messageId => {
+														setMessages(prev =>
+															prev.map(m =>
+																m.id === messageId
+																	? { ...m, content: '[Сообщение удалено]' }
+																	: m
+															)
+														)
+													}}
+												/>
+											)
+										})
+										.filter(Boolean) // Убираем null значения
+								)}
 
 									{/* Индикатор набора сообщения */}
 									{isTyping && typingUser && (

@@ -5,6 +5,8 @@ import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
+import ReportTaskModal from '@/components/ReportTaskModal'
+import { AlertTriangle } from 'lucide-react'
 
 type Task = {
 	id: string
@@ -34,6 +36,8 @@ export default function TaskCatalogPage() {
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 	const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+	const [reportTaskId, setReportTaskId] = useState<string | null>(null)
+	const [reportTaskTitle, setReportTaskTitle] = useState<string>('')
 
 	const searchParams = useSearchParams()
 	const router = useRouter()
@@ -268,11 +272,23 @@ export default function TaskCatalogPage() {
 							{tasks.map(task => (
 								<div
 									key={task.id}
-									className='p-4 sm:p-6 border border-emerald-500/30 rounded-xl bg-black/40 shadow-[0_0_25px_rgba(16,185,129,0.2)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transition space-y-3'
+									className='relative p-4 sm:p-6 border border-emerald-500/30 rounded-xl bg-black/40 shadow-[0_0_25px_rgba(16,185,129,0.2)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transition space-y-3'
 								>
+									{/* Кнопка жалобы */}
+									<button
+										onClick={() => {
+											setReportTaskId(task.id)
+											setReportTaskTitle(task.title)
+										}}
+										className='absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all group'
+										title='Пожаловаться на задачу'
+									>
+										<AlertTriangle className='w-4 h-4 sm:w-5 sm:h-5' />
+									</button>
+
 									{/* Категория */}
 									{task.subcategory && (
-										<div className='flex flex-wrap items-center gap-2'>
+										<div className='flex flex-wrap items-center gap-2 pr-10'>
 											<span className='inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs sm:text-sm font-medium text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]'>
 												<span className='text-base'>🏷️</span>
 												{task.subcategory.category.name}
@@ -286,7 +302,7 @@ export default function TaskCatalogPage() {
 
 									{/* Заголовок */}
 									<Link href={`/tasks/${task.id}`}>
-										<h2 className='text-lg sm:text-xl font-semibold text-emerald-300 hover:underline cursor-pointer line-clamp-2'>
+										<h2 className='text-lg sm:text-xl font-semibold text-emerald-300 hover:underline cursor-pointer line-clamp-2 pr-10'>
 											{task.title}
 										</h2>
 									</Link>
@@ -337,6 +353,18 @@ export default function TaskCatalogPage() {
 					)}
 				</div>
 			</div>
+
+			{/* Модальное окно жалобы */}
+			{reportTaskId && (
+				<ReportTaskModal
+					taskId={reportTaskId}
+					taskTitle={reportTaskTitle}
+					onClose={() => {
+						setReportTaskId(null)
+						setReportTaskTitle('')
+					}}
+				/>
+			)}
 		</div>
 	)
 }

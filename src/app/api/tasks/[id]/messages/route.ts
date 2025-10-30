@@ -25,6 +25,7 @@ export async function GET(
 		id: m.id,
 		content: m.content,
 		createdAt: m.createdAt,
+		editedAt: m.editedAt,
 		sender: m.sender,
 		fileId: m.file?.id || null,
 		fileName: m.file?.filename || null,

@@ -51,9 +51,9 @@ model User {
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
 
-  balance       Decimal       @default(100.00) @db.Decimal(10, 2)
+  balance       Decimal       @default(100.00) @db.Decimal(15, 2)
   transactions  Transaction[]
-  frozenBalance Decimal       @default(0.00) @db.Decimal(10, 2)
+  frozenBalance Decimal       @default(0.00) @db.Decimal(15, 2)
 
   communityPosts          CommunityPost[]
   communityComments       CommunityComment[]
@@ -80,7 +80,7 @@ model Task {
   id                 String         @id @default(uuid())
   title              String
   description        String
-  price              Decimal?       @db.Decimal(10, 2)
+  price              Decimal?       @db.Decimal(15, 2)
   deadline           DateTime?
   status             String         @default("open")
   customerId         String
@@ -89,7 +89,7 @@ model Task {
   updatedAt          DateTime       @updatedAt
   completedAt        DateTime?
   subcategoryId      String?
-  escrowAmount       Decimal       @default(0.00) @db.Decimal(10, 2)
+  escrowAmount       Decimal       @default(0.00) @db.Decimal(15, 2)
   customerLastReadAt DateTime?
   executorLastReadAt DateTime?
   Dispute            Dispute[]
@@ -101,6 +101,7 @@ model Task {
   subcategory        Subcategory?   @relation(fields: [subcategoryId], references: [id])
   responses          TaskResponse[]
   Transaction        Transaction[]
+  reports            CommunityReport[]  // Жалобы на задачу
 
   @@index([status])
   @@index([customerId])
@@ -118,7 +119,7 @@ model TaskResponse {
   userId    String
   message   String?
   createdAt DateTime @default(now())
-  price     Decimal? @db.Decimal(10, 2)
+  price     Decimal? @db.Decimal(15, 2)
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id])
 
@@ -147,16 +148,18 @@ model Review {
 
 
 model Message {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  deletedAt DateTime?
   taskId    String
   senderId  String
   content   String
   fileUrl   String?
   fileId    String?
-  file      File?    @relation("MessageFile", fields: [fileId], references: [id])
-  sender    User     @relation("MessageSender", fields: [senderId], references: [id])
-  task      Task     @relation(fields: [taskId], references: [id])
+  file      File?     @relation("MessageFile", fields: [fileId], references: [id])
+  sender    User      @relation("MessageSender", fields: [senderId], references: [id])
+  task      Task      @relation(fields: [taskId], references: [id])
 
   @@index([taskId])
   @@index([senderId])
@@ -203,7 +206,7 @@ model Subcategory {
   categoryId         String
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
-  minPrice           Decimal             @default(500.00) @db.Decimal(10, 2)
+  minPrice           Decimal             @default(500.00) @db.Decimal(15, 2)
   certificationTest  CertificationTest?
   category           Category            @relation(fields: [categoryId], references: [id])
   tasks              Task[]
@@ -306,7 +309,7 @@ model HireRequest {
   customerId String
   executorId String
   message    String?  @db.Text
-  amount     Decimal  @default(1990.00) @db.Decimal(10, 2)
+  amount     Decimal  @default(1990.00) @db.Decimal(15, 2)
   createdAt  DateTime @default(now())
   paid       Boolean  @default(false)
   status     String   @default("pending")
@@ -315,7 +318,7 @@ model HireRequest {
 }
 
 model PrivateMessage {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   senderId    String
   recipientId String
   content     String?
@@ -323,11 +326,13 @@ model PrivateMessage {
   mimeType    String?
   fileName    String?
   size        Int?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  editedAt    DateTime?
+  deletedAt   DateTime?
   fileId      String?
-  file        File?    @relation("PrivateMessageFile", fields: [fileId], references: [id])
-  recipient   User     @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
-  sender      User     @relation("PrivateMessageSender", fields: [senderId], references: [id])
+  file        File?     @relation("PrivateMessageFile", fields: [fileId], references: [id])
+  recipient   User      @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
+  sender      User      @relation("PrivateMessageSender", fields: [senderId], references: [id])
 }
 
 model AdminInvite {
@@ -342,7 +347,7 @@ model AdminInvite {
 model Transaction {
   id         String   @id @default(cuid())
   userId     String
-  amount     Decimal  @db.Decimal(10, 2)
+  amount     Decimal  @db.Decimal(15, 2)
   type       String
   reason     String
   createdAt  DateTime @default(now())
@@ -477,9 +482,10 @@ model Dispute {
 
 model CommunityReport {
   id          String   @id @default(cuid())
-  type        String
+  type        String   // "post", "comment", "task"
   postId      String?
   commentId   String?
+  taskId      String?  // Новое поле для жалоб на задачи
   reason      String
   description String?
   reporterId  String?
@@ -487,6 +493,11 @@ model CommunityReport {
   reporter    User?    @relation("UserReports", fields: [reporterId], references: [id])
   post        CommunityPost?     @relation(fields: [postId], references: [id])
   comment     CommunityComment? @relation(fields: [commentId], references: [id])
+  task        Task?              @relation(fields: [taskId], references: [id])
+  
+  @@index([taskId])
+  @@index([reporterId])
+  @@index([type])
 }
 
 model Feedback {

@@ -291,8 +291,8 @@ export default function Header() {
 							</button>
 
 							{notifOpen && (
-								<div className='absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden animate-fadeIn'>
-									<div className='max-h-64 overflow-y-auto custom-scrollbar'>
+								<div className='absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-80 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-[100] overflow-hidden animate-fadeIn'>
+									<div className='max-h-64 sm:max-h-80 overflow-y-auto custom-scrollbar'>
 										{notifications.length === 0 ? (
 											<div className='p-4 text-center text-gray-400'>
 												<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
@@ -302,28 +302,34 @@ export default function Header() {
 											notifications.map((notif, index) => (
 												<div
 													key={index}
-													className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
-													onClick={() => handleNotificationClick(notif)}
+													className='p-4 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer active:bg-gray-800 touch-manipulation'
+													onClick={(e) => {
+														e.preventDefault()
+														e.stopPropagation()
+														handleNotificationClick(notif)
+													}}
+													role="button"
+													tabIndex={0}
 												>
 													<div className='flex items-start space-x-3'>
-														<div className='w-8 h-8 rounded-full flex items-center justify-center bg-emerald-900/40 border border-emerald-500/30'>
+														<div className='w-10 h-10 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-emerald-900/40 border border-emerald-500/30 flex-shrink-0'>
 															{notif.type === 'message' ? (
-																<MessageSquare className='w-4 h-4 text-blue-400' />
+																<MessageSquare className='w-5 h-5 sm:w-4 sm:h-4 text-blue-400' />
 															) : notif.type === 'review' ? (
-																<Star className='w-4 h-4 text-yellow-400' />
+																<Star className='w-5 h-5 sm:w-4 sm:h-4 text-yellow-400' />
 															) : notif.type === 'task' ? (
-																<CheckCircle className='w-4 h-4 text-green-400' />
+																<CheckCircle className='w-5 h-5 sm:w-4 sm:h-4 text-green-400' />
 															) : notif.type === 'warning' ? (
-																<AlertTriangle className='w-4 h-4 text-red-500' />
+																<AlertTriangle className='w-5 h-5 sm:w-4 sm:h-4 text-red-500' />
 															) : (
-																<Bell className='w-4 h-4 text-emerald-400' />
+																<Bell className='w-5 h-5 sm:w-4 sm:h-4 text-emerald-400' />
 															)}
 														</div>
 														<div className='flex-1 min-w-0'>
-															<p className='text-sm text-white font-medium truncate'>
+															<p className='text-sm sm:text-sm text-white font-medium line-clamp-2'>
 																{notif.title}
 															</p>
-															<p className='text-xs text-gray-400 truncate'>
+															<p className='text-xs text-gray-400 line-clamp-2'>
 																{notif.sender ? (
 																	<>
 																		<strong className='text-gray-300'>
@@ -354,10 +360,15 @@ export default function Header() {
 											))
 										)}
 									</div>
-									<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+									<div className='p-4 sm:p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
 										<button
-											onClick={handleGoToNotifications}
-											className='text-emerald-400 hover:underline text-sm font-medium'
+											onClick={(e) => {
+												e.preventDefault()
+												e.stopPropagation()
+												handleGoToNotifications()
+											}}
+											className='w-full py-2 sm:py-0 text-emerald-400 hover:text-emerald-300 active:text-emerald-500 text-sm sm:text-sm font-medium transition-colors touch-manipulation'
+											role="button"
 										>
 											Перейти к уведомлениям →
 										</button>
@@ -599,10 +610,10 @@ export default function Header() {
 								{notifOpen && (
 									<div
 										className='absolute right-0 mt-3 w-80 bg-gray-900 border border-emerald-500/30 rounded-xl 
-                       shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 overflow-hidden 
+                       shadow-[0_0_25px_rgba(16,185,129,0.3)] z-[100] overflow-hidden 
                        animate-fadeIn transition-all duration-300 ease-in-out origin-top'
 									>
-										<div className='max-h-64 overflow-y-auto custom-scrollbar'>
+										<div className='max-h-80 overflow-y-auto custom-scrollbar'>
 											{notifications.length === 0 ? (
 												<div className='p-4 text-center text-gray-400'>
 													<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
@@ -612,15 +623,21 @@ export default function Header() {
 												notifications.map((notif, index) => (
 													<div
 														key={index}
-														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer'
-														onClick={() => handleNotificationClick(notif)}
+														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-800 transition cursor-pointer touch-manipulation'
+														onClick={(e) => {
+															e.preventDefault()
+															e.stopPropagation()
+															handleNotificationClick(notif)
+														}}
+														role="button"
+														tabIndex={0}
 													>
 														<div className='flex items-start space-x-3'>
 															{/* 🎯 Иконка в зависимости от типа уведомления */}
 															<div
 																className='w-8 h-8 rounded-full flex items-center justify-center 
                                              bg-emerald-900/40 border border-emerald-500/30 
-                                             shadow-[0_0_6px_rgba(16,185,129,0.3)]'
+                                             shadow-[0_0_6px_rgba(16,185,129,0.3)] flex-shrink-0'
 															>
 																{notif.type === 'message' ? (
 																	<MessageSquare className='w-4 h-4 text-blue-400' />
@@ -637,12 +654,12 @@ export default function Header() {
 
 															{/* 💬 Текст уведомления */}
 															<div className='flex-1 min-w-0'>
-																<p className='text-sm text-white font-medium truncate'>
+																<p className='text-sm text-white font-medium line-clamp-2'>
 																	{notif.title}
 																</p>
 
 																{/* ✅ Исправленный вывод имени и сообщения */}
-																<p className='text-xs text-gray-400 truncate'>
+																<p className='text-xs text-gray-400 line-clamp-2'>
 																	{notif.sender ? (
 																		<>
 																			<strong className='text-gray-300'>
@@ -679,8 +696,13 @@ export default function Header() {
 										{/* 📎 Ссылка внизу */}
 										<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
 											<button
-												onClick={handleGoToNotifications}
-												className='text-emerald-400 hover:underline text-sm font-medium'
+												onClick={(e) => {
+													e.preventDefault()
+													e.stopPropagation()
+													handleGoToNotifications()
+												}}
+												className='w-full text-emerald-400 hover:text-emerald-300 active:text-emerald-500 text-sm font-medium transition-colors touch-manipulation'
+												role="button"
 											>
 												Перейти к уведомлениям →
 											</button>

@@ -29,9 +29,28 @@ export default function AdminReportsPage() {
 		fetchReports()
 	}, [])
 
-	// 🔹 Удаление поста или комментария
+	// 🔹 Удаление поста, комментария или задачи
 	const handleDelete = async (report: any) => {
-		if (!confirm(`Удалить ${report.type === 'post' ? 'пост' : 'комментарий'}?`))
+		const typeName = report.type === 'post' ? 'пост' : report.type === 'comment' ? 'комментарий' : 'задачу'
+		
+		// Определяем ID объекта
+		let targetId = null
+		if (report.type === 'post') {
+			targetId = report.post?.id
+		} else if (report.type === 'comment') {
+			targetId = report.comment?.id
+		} else if (report.type === 'task') {
+			targetId = report.task?.id
+		}
+
+		console.log('🗑️ Удаление:', { type: report.type, id: targetId, report })
+
+		if (!targetId) {
+			alert(`Ошибка: не найден ID для ${typeName}`)
+			return
+		}
+
+		if (!confirm(`Удалить ${typeName}?`))
 			return
 
 		try {
@@ -40,7 +59,7 @@ export default function AdminReportsPage() {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					type: report.type,
-					id: report.type === 'post' ? report.post?.id : report.comment?.id,
+					id: targetId,
 				}),
 			})
 
@@ -80,17 +99,36 @@ export default function AdminReportsPage() {
 				{reports.map(r => (
 					<Card
 						key={r.id}
-						className='bg-black/40 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:border-emerald-500/30 transition hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+						className={`bg-black/40 border shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition ${
+							r.type === 'task' 
+								? 'border-orange-500/20 hover:border-orange-500/30' 
+								: 'border-emerald-500/20 hover:border-emerald-500/30'
+						}`}
 					>
 						<CardContent className='p-4 space-y-2'>
 							<div className='flex justify-between items-start'>
-								<span className='text-emerald-300 font-semibold'>
-									{r.type === 'post' ? '📄 Пост' : '💬 Комментарий'}
+								<span className={`font-semibold ${
+									r.type === 'task' ? 'text-orange-400' : 'text-emerald-300'
+								}`}>
+									{r.type === 'post' ? '📄 Пост' : r.type === 'comment' ? '💬 Комментарий' : '📋 Задача'}
 								</span>
 								<span className='text-xs text-gray-400'>
 									{new Date(r.createdAt).toLocaleString('ru-RU')}
 								</span>
 							</div>
+
+							{/* Информация о задаче */}
+							{r.type === 'task' && r.task && (
+								<div className='bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-1'>
+									<p className='text-white font-medium'>{r.task.title}</p>
+									<p className='text-xs text-gray-400'>
+										Автор: {r.task.customer?.fullName || r.task.customer?.email || 'Неизвестно'}
+									</p>
+									<p className='text-xs text-gray-500'>
+										Статус: <span className='text-emerald-400'>{r.task.status}</span>
+									</p>
+								</div>
+							)}
 
 							<p className='text-gray-200'>
 								<b>Причина:</b> {r.reason}

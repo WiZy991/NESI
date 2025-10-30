@@ -56,6 +56,7 @@ export async function GET(
 		id: msg.id,
 		content: msg.content,
 		createdAt: msg.createdAt,
+		editedAt: msg.editedAt,
 		sender: msg.sender,
 		fileUrl: msg.fileUrl || (msg.file ? `/api/files/${msg.file.id}` : null),
 		fileName: msg.fileName || msg.file?.filename || null,

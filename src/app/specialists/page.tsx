@@ -56,8 +56,6 @@ export default function SpecialistsPage() {
 	const [q, setQ] = useState('')
 	const [city, setCity] = useState('')
 	const [skill, setSkill] = useState('')
-	const [minXp, setMinXp] = useState('')
-	const [minRating, setMinRating] = useState('')
 	const [page, setPage] = useState(1)
 	const [sort, setSort] = useState<'rating' | 'reviews' | 'xp'>('rating') // 💡 новый стейт сортировки
 
@@ -74,13 +72,11 @@ export default function SpecialistsPage() {
 		if (q.trim()) p.set('q', q.trim())
 		if (city.trim()) p.set('city', city.trim())
 		if (skill.trim()) p.set('skill', skill.trim())
-		if (minXp.trim()) p.set('minXp', String(parseInt(minXp, 10) || 0))
-		if (minRating.trim()) p.set('minRating', String(parseFloat(minRating) || 0))
 		p.set('sort', sort) // 👈 теперь отправляем выбранную сортировку
 		p.set('page', String(page))
 		p.set('take', String(take))
 		return p.toString()
-	}, [q, city, skill, minXp, minRating, page, sort]) // добавили зависимость sort
+	}, [q, city, skill, page, sort]) // добавили зависимость sort
 
 	const abortRef = useRef<AbortController | null>(null)
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -127,7 +123,7 @@ export default function SpecialistsPage() {
 
 	useEffect(() => {
 		setPage(1)
-	}, [q, city, skill, minXp, minRating, sort])
+	}, [q, city, skill, sort])
 
 	const spring = {
 		type: 'spring',
@@ -301,56 +297,36 @@ export default function SpecialistsPage() {
 				⚡ Подиум исполнителей
 			</h2>
 
-			{/* Фильтры */}
-			<div className='grid grid-cols-1 md:grid-cols-6 gap-3 items-end bg-black/40 backdrop-blur-sm border border-emerald-800/40 rounded-xl p-4 mb-6'>
-				<div className='md:col-span-2'>
-					<label className='block text-xs text-gray-400 mb-1'>Поиск</label>
-					<input
-						value={q}
-						onChange={e => setQ(e.target.value)}
-						placeholder='имя или почта'
-						className='w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500'
-					/>
-				</div>
-				<div>
-					<label className='block text-xs text-gray-400 mb-1'>Город</label>
-					<input
-						value={city}
-						onChange={e => setCity(e.target.value)}
-						placeholder='например: Москва'
-						className='w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500'
-					/>
-				</div>
-				<div>
-					<label className='block text-xs text-gray-400 mb-1'>Навык</label>
-					<input
-						value={skill}
-						onChange={e => setSkill(e.target.value)}
-						placeholder='точно из списка навыков'
-						className='w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500'
-					/>
-				</div>
-				<div>
-					<label className='block text-xs text-gray-400 mb-1'>Мин. XP</label>
-					<input
-						value={minXp}
-						onChange={e => setMinXp(e.target.value)}
-						placeholder='например: 50'
-						className='w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500'
-					/>
-				</div>
-				<div>
-					<label className='block text-xs text-gray-400 mb-1'>
-						Мин. рейтинг
-					</label>
-					<input
-						value={minRating}
-						onChange={e => setMinRating(e.target.value)}
-						placeholder='например: 4.0'
-						className='w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500'
-					/>
-				</div>
+		{/* Фильтры */}
+		<div className='grid grid-cols-1 md:grid-cols-4 gap-3 items-end bg-black/40 backdrop-blur-sm border border-emerald-800/40 rounded-xl p-4 mb-6'>
+			<div className='md:col-span-2'>
+				<label className='block text-xs text-gray-400 mb-1'>Поиск</label>
+				<input
+					value={q}
+					onChange={e => setQ(e.target.value)}
+					placeholder='имя или почта'
+					className='w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500'
+				/>
 			</div>
+			<div>
+				<label className='block text-xs text-gray-400 mb-1'>Город</label>
+				<input
+					value={city}
+					onChange={e => setCity(e.target.value)}
+					placeholder='например: Москва'
+					className='w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500'
+				/>
+			</div>
+			<div>
+				<label className='block text-xs text-gray-400 mb-1'>Навык</label>
+				<input
+					value={skill}
+					onChange={e => setSkill(e.target.value)}
+					placeholder='точно из списка навыков'
+					className='w-full rounded bg-black/60 text-white px-3 py-2 outline-none border border-emerald-800/50 focus:border-emerald-500'
+				/>
+			</div>
+		</div>
 
 			{/* Переключатель сортировки */}
 			<div className='flex items-center gap-4 text-white mb-6'>
