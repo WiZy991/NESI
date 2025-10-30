@@ -1,14 +1,7 @@
 'use client'
 
+import { Mail } from 'lucide-react'
 import Link from 'next/link'
-import {
-	Mail,
-	Facebook,
-	Twitter,
-	Instagram,
-	Linkedin,
-	Github,
-} from 'lucide-react'
 
 export default function Footer() {
 	const currentYear = new Date().getFullYear()
@@ -22,18 +15,16 @@ export default function Footer() {
 				<div className='grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 mb-8'>
 					{/* О компании */}
 					<div className='space-y-4'>
-						<h3 className='text-xl font-bold text-emerald-400'>
-							NESI
-						</h3>
+						<h3 className='text-xl font-bold text-emerald-400'>NESI</h3>
 						<p className='text-gray-400 text-sm leading-relaxed'>
-							Платформа для заказчиков и исполнителей в сфере IT и
-							цифровых услуг. Создаём пространство, где бизнес
-							встречает настоящие таланты.
+							Платформа для заказчиков и исполнителей в сфере IT и цифровых
+							услуг. Создаём пространство, где бизнес встречает настоящие
+							таланты.
 						</p>
 						{/* Социальные сети */}
 						<div className='flex gap-3'>
 							<a
-								href='mailto:info@nesi.ru'
+								href='mailto:info.nesi@bk.ru'
 								className='w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors'
 								aria-label='Email'
 							>
@@ -44,9 +35,7 @@ export default function Footer() {
 
 					{/* Быстрые ссылки */}
 					<div className='space-y-4'>
-						<h4 className='text-lg font-semibold text-white'>
-							Платформа
-						</h4>
+						<h4 className='text-lg font-semibold text-white'>Платформа</h4>
 						<ul className='space-y-2'>
 							<li>
 								<Link
@@ -85,9 +74,7 @@ export default function Footer() {
 
 					{/* Поддержка */}
 					<div className='space-y-4'>
-						<h4 className='text-lg font-semibold text-white'>
-							Поддержка
-						</h4>
+						<h4 className='text-lg font-semibold text-white'>Поддержка</h4>
 						<ul className='space-y-2'>
 							<li>
 								<Link
@@ -107,7 +94,7 @@ export default function Footer() {
 							</li>
 							<li>
 								<a
-									href='mailto:info@nesi.ru'
+									href='mailto:info.nesi@bk.ru'
 									className='text-gray-400 hover:text-emerald-400 transition-colors text-sm'
 								>
 									Связаться с нами
@@ -118,9 +105,7 @@ export default function Footer() {
 
 					{/* Контакты */}
 					<div className='space-y-4'>
-						<h4 className='text-lg font-semibold text-white'>
-							Контакты
-						</h4>
+						<h4 className='text-lg font-semibold text-white'>Контакты</h4>
 						<ul className='space-y-2 text-sm text-gray-400'>
 							<li>
 								<p className='font-medium text-white'>ООО «НЭСИ»</p>
@@ -129,10 +114,10 @@ export default function Footer() {
 							<li className='flex items-center gap-2'>
 								<Mail className='w-4 h-4 text-emerald-400' />
 								<a
-									href='mailto:info@nesi.ru'
+									href='mailto:info.nesi@bk.ru'
 									className='hover:text-emerald-400 transition-colors'
 								>
-									info@nesi.ru
+									info.nesi@bk.ru
 								</a>
 							</li>
 						</ul>
@@ -177,4 +162,3 @@ export default function Footer() {
 		</footer>
 	)
 }
-

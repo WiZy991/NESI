@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import EmailLink from '@/components/EmailLink'
 
 export default function TermsPage() {
 	return (
@@ -39,10 +40,9 @@ export default function TermsPage() {
 							<strong className='text-emerald-400'>Исполнитель</strong> —
 							Пользователь, выполняющий задачи на Платформе.
 						</p>
-						<p>
-							<strong className='text-emerald-400'>Платформа</strong> — веб-сайт
-							и мобильное приложение NESI.
-						</p>
+					<p>
+						<strong className='text-emerald-400'>Платформа</strong> — веб-сайт NESI.
+					</p>
 						<p>
 							<strong className='text-emerald-400'>Задача</strong> — проект,
 							размещённый Заказчиком для выполнения Исполнителем.
@@ -90,8 +90,8 @@ export default function TermsPage() {
 						</p>
 						<ul className='list-disc pl-6 space-y-2'>
 							<li>
-								Пополнение баланса осуществляется через платёжный провайдер
-								YooKassa
+								Пополнение баланса осуществляется через платёжные системы,
+								поддерживаемые платформой
 							</li>
 							<li>
 								При создании задачи средства резервируются на балансе Заказчика
@@ -258,19 +258,21 @@ export default function TermsPage() {
 						9. Контакты
 					</h2>
 					<div className='space-y-3 text-gray-300'>
-						<p>
-							<strong className='text-emerald-400'>ООО «НЭСИ»</strong>
-						</p>
-						<p>ИНН: 2205021414</p>
-						<p>
-							<strong className='text-emerald-400'>Email:</strong>{' '}
-							<a
-								href='mailto:info@nesi.ru'
-								className='text-emerald-400 hover:underline'
-							>
-								info@nesi.ru
-							</a>
-						</p>
+					<p>
+						<strong className='text-emerald-400'>ООО «НЭСИ»</strong>
+					</p>
+					<p>ИНН: 2205021414</p>
+					<p>
+						<strong className='text-emerald-400'>Юридический адрес:</strong>{' '}
+						Алтайский край, г. Заринск, ул. Центральная 22, кв 1
+					</p>
+					<p>
+						<strong className='text-emerald-400'>Email:</strong>{' '}
+						<EmailLink
+							email='info.nesi@bk.ru'
+							className='text-emerald-400 hover:underline'
+						/>
+					</p>
 						<p className='text-sm text-gray-400'>
 							По всем вопросам работы Платформы обращайтесь по указанному адресу
 							электронной почты.

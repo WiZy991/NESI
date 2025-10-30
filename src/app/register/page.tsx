@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
 import { Eye, EyeOff, X } from 'lucide-react'
+import EmailLink from '@/components/EmailLink'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -224,7 +225,7 @@ export default function RegisterPage() {
                   <p><strong className="text-emerald-400">Пользователь</strong> — физическое или юридическое лицо, использующее Платформу.</p>
                   <p><strong className="text-emerald-400">Заказчик</strong> — Пользователь, размещающий задачи на Платформе.</p>
                   <p><strong className="text-emerald-400">Исполнитель</strong> — Пользователь, выполняющий задачи на Платформе.</p>
-                  <p><strong className="text-emerald-400">Платформа</strong> — веб-сайт и мобильное приложение NESI.</p>
+                  <p><strong className="text-emerald-400">Платформа</strong> — веб-сайт NESI.</p>
                 </div>
               </div>
 
@@ -252,7 +253,7 @@ export default function RegisterPage() {
                 <div className="space-y-2 text-gray-300 text-sm">
                   <p><strong className="text-emerald-400">Порядок оплаты:</strong></p>
                   <ul className="list-disc pl-6 space-y-1">
-                    <li>Пополнение баланса осуществляется через платёжный провайдер YooKassa</li>
+                    <li>Пополнение баланса осуществляется через платёжные системы, поддерживаемые платформой</li>
                     <li>При создании задачи средства резервируются на балансе Заказчика</li>
                     <li>После выполнения задачи средства переводятся Исполнителю</li>
                   </ul>
@@ -318,7 +319,7 @@ export default function RegisterPage() {
                     <li>Действия Пользователей на Платформе</li>
                     <li>Убытки, возникшие в результате технических сбоев</li>
                   </ul>
-                  <p className="mt-2">В случае споров между Пользователями рекомендуется обратиться в службу поддержки: <a href="mailto:info@nesi.ru" className="text-emerald-400 hover:underline">info@nesi.ru</a></p>
+                  <p className="mt-2">В случае споров между Пользователями рекомендуется обратиться в службу поддержки: <EmailLink email="info.nesi@bk.ru" className="text-emerald-400 hover:underline" /></p>
                 </div>
               </div>
 
@@ -330,7 +331,8 @@ export default function RegisterPage() {
                 <div className="space-y-1 text-gray-300 text-sm">
                   <p><strong>ООО «НЭСИ»</strong></p>
                   <p>ИНН: 2205021414</p>
-                  <p>Email: <a href="mailto:info@nesi.ru" className="text-emerald-400 hover:underline">info@nesi.ru</a></p>
+                  <p>Юридический адрес: Алтайский край, г. Заринск, ул. Центральная 22, кв 1</p>
+                  <p>Email: <EmailLink email="info.nesi@bk.ru" className="text-emerald-400 hover:underline" /></p>
                   <p>Сайт: <a href="https://nesi.ru" className="text-emerald-400 hover:underline">nesi.ru</a></p>
                 </div>
               </div>

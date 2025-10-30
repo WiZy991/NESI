@@ -217,7 +217,7 @@ export default function Home() {
 								{ text: 'Политика конфиденциальности', href: '/privacy' },
 								{ text: 'Пользовательское соглашение', href: '/terms' },
 								{ text: 'Публичная оферта', href: '/offer' },
-								{ text: 'Служба поддержки', href: 'mailto:info@nesi.ru' },
+								{ text: 'Служба поддержки', href: 'mailto:info.nesi@bk.ru' },
 							].map(({ text, href }) => (
 								<Link
 									key={text}

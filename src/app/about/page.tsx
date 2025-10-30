@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import EmailLink from '@/components/EmailLink'
 
 export default function AboutPage() {
 	return (
@@ -85,7 +86,7 @@ export default function AboutPage() {
 								Система оплаты
 							</h3>
 							<p className='text-gray-300 text-sm'>
-								Удобное пополнение баланса через YooKassa и безопасные переводы
+								Удобное пополнение баланса и безопасные переводы через надежные платежные системы
 							</p>
 						</div>
 						<div className='bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4'>
@@ -123,16 +124,28 @@ export default function AboutPage() {
 							<p>Общество с ограниченной ответственностью «НЭСИ»</p>
 							<p className='text-sm text-gray-400'>ООО «НЭСИ»</p>
 						</div>
-						<div>
-							<p className='font-semibold text-emerald-400 mb-1'>ИНН</p>
-							<p>2205021414</p>
-						</div>
-						<div>
-							<p className='font-semibold text-emerald-400 mb-1'>
-								Электронная почта
-							</p>
-							<p>info@nesi.ru</p>
-						</div>
+					<div>
+						<p className='font-semibold text-emerald-400 mb-1'>ИНН</p>
+						<p>2205021414</p>
+					</div>
+					<div>
+						<p className='font-semibold text-emerald-400 mb-1'>
+							Юридический адрес
+						</p>
+						<p>Алтайский край, г. Заринск,</p>
+						<p>ул. Центральная 22, кв 1</p>
+					</div>
+					<div>
+						<p className='font-semibold text-emerald-400 mb-1'>
+							Электронная почта
+						</p>
+						<p>
+							<EmailLink
+								email='info.nesi@bk.ru'
+								className='text-emerald-400 hover:underline'
+							/>
+						</p>
+					</div>
 					</div>
 				</div>
 

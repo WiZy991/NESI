@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import EmailLink from '@/components/EmailLink'
 
 export default function PrivacyPage() {
 	return (
@@ -36,11 +37,17 @@ export default function PrivacyPage() {
 								Администратор персональных данных:
 							</strong>
 						</p>
-						<ul className='list-disc pl-6 space-y-2'>
-							<li>ООО «НЭСИ» (ИНН: 2205021414)</li>
-							<li>Адрес: Российская Федерация</li>
-							<li>Электронная почта: info@nesi.ru</li>
-						</ul>
+					<ul className='list-disc pl-6 space-y-2'>
+						<li>ООО «НЭСИ» (ИНН: 2205021414)</li>
+						<li>Адрес: Алтайский край, г. Заринск, ул. Центральная 22, кв 1</li>
+						<li>
+							Электронная почта:{' '}
+							<EmailLink
+								email='info.nesi@bk.ru'
+								className='text-emerald-400 hover:underline'
+							/>
+						</li>
+					</ul>
 						<p>
 							Используя Сервис, вы подтверждаете, что ознакомились с настоящей
 							Политикой и соглашаетесь с условиями обработки ваших персональных
@@ -81,8 +88,8 @@ export default function PrivacyPage() {
 									<strong className='text-emerald-400'>
 										Финансовые данные:
 									</strong>{' '}
-									информация о платежах и транзакциях (обрабатывается платёжным
-									провайдером YooKassa)
+									информация о платежах и транзакциях (обрабатывается платёжными
+									провайдерами, поддерживаемыми платформой)
 								</div>
 							</li>
 							<li className='flex items-start gap-2'>
@@ -227,15 +234,13 @@ export default function PrivacyPage() {
 								</span>
 							</li>
 						</ul>
-						<p className='mt-4 text-sm text-gray-400'>
-							Для реализации ваших прав обращайтесь по адресу:{' '}
-							<a
-								href='mailto:info@nesi.ru'
-								className='text-emerald-400 hover:underline'
-							>
-								info@nesi.ru
-							</a>
-						</p>
+					<p className='mt-4 text-sm text-gray-400'>
+						Для реализации ваших прав обращайтесь по адресу:{' '}
+						<EmailLink
+							email='info.nesi@bk.ru'
+							className='text-emerald-400 hover:underline'
+						/>
+					</p>
 					</div>
 				</div>
 
@@ -285,19 +290,21 @@ export default function PrivacyPage() {
 							Если у вас есть вопросы по настоящей Политике конфиденциальности,
 							свяжитесь с нами:
 						</p>
-						<p>
-							<strong className='text-emerald-400'>ООО «НЭСИ»</strong>
-						</p>
-						<p>ИНН: 2205021414</p>
-						<p>
-							<strong className='text-emerald-400'>Email:</strong>{' '}
-							<a
-								href='mailto:info@nesi.ru'
-								className='text-emerald-400 hover:underline'
-							>
-								info@nesi.ru
-							</a>
-						</p>
+					<p>
+						<strong className='text-emerald-400'>ООО «НЭСИ»</strong>
+					</p>
+				<p>ИНН: 2205021414</p>
+				<p>
+					<strong className='text-emerald-400'>Юридический адрес:</strong>{' '}
+					Алтайский край, г. Заринск, ул. Центральная 22, кв 1
+				</p>
+				<p>
+					<strong className='text-emerald-400'>Email:</strong>{' '}
+					<EmailLink
+						email='info.nesi@bk.ru'
+						className='text-emerald-400 hover:underline'
+					/>
+				</p>
 					</div>
 				</div>
 

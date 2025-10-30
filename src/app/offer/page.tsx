@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import EmailLink from '@/components/EmailLink'
 
 export default function PublicOfferPage() {
 	return (
@@ -67,12 +68,12 @@ export default function PublicOfferPage() {
 							безоговорочное принятие Пользователем условий настоящей Оферты
 							путем регистрации на Платформе и начала использования услуг.
 						</p>
-						<p>
-							<strong className='text-emerald-400'>Платформа</strong> —
-							интернет-сайт и мобильное приложение NESI, доступные по адресу{' '}
-							<span className='text-emerald-400'>nesi.ru</span>, обеспечивающие
-							взаимодействие между Заказчиками и Исполнителями.
-						</p>
+					<p>
+						<strong className='text-emerald-400'>Платформа</strong> —
+						интернет-сайт NESI, доступный по адресу{' '}
+						<span className='text-emerald-400'>nesi.ru</span>, обеспечивающий
+						взаимодействие между Заказчиками и Исполнителями.
+					</p>
 						<p>
 							<strong className='text-emerald-400'>Пользователь</strong> —
 							физическое или юридическое лицо, зарегистрированное на Платформе и
@@ -306,8 +307,8 @@ export default function PublicOfferPage() {
 						</p>
 						<p>
 							<strong className='text-emerald-400'>5.5.</strong> Пополнение
-							баланса на Платформе осуществляется через платёжного провайдера
-							YooKassa и иные способы, предусмотренные на Платформе.
+							баланса на Платформе осуществляется через платёжные системы,
+							поддерживаемые платформой.
 						</p>
 						<p>
 							<strong className='text-emerald-400'>5.6.</strong> Вывод средств
@@ -668,25 +669,30 @@ export default function PublicOfferPage() {
 							<p>Общество с ограниченной ответственностью «НЭСИ»</p>
 							<p className='text-sm text-gray-400'>ООО «НЭСИ»</p>
 						</div>
-						<div>
-							<p className='font-semibold text-emerald-400 mb-1'>
-								Идентификационный номер налогоплательщика
-							</p>
-							<p>2205021414</p>
-						</div>
-						<div>
-							<p className='font-semibold text-emerald-400 mb-1'>
-								Электронная почта
-							</p>
-							<p>
-								<a
-									href='mailto:info@nesi.ru'
-									className='text-emerald-400 hover:underline'
-								>
-									info@nesi.ru
-								</a>
-							</p>
-						</div>
+					<div>
+						<p className='font-semibold text-emerald-400 mb-1'>
+							Идентификационный номер налогоплательщика
+						</p>
+						<p>2205021414</p>
+					</div>
+					<div>
+						<p className='font-semibold text-emerald-400 mb-1'>
+							Юридический адрес
+						</p>
+						<p>Алтайский край, г. Заринск,</p>
+						<p>ул. Центральная 22, кв 1</p>
+					</div>
+					<div>
+						<p className='font-semibold text-emerald-400 mb-1'>
+							Электронная почта
+						</p>
+						<p>
+							<EmailLink
+								email='info.nesi@bk.ru'
+								className='text-emerald-400 hover:underline'
+							/>
+						</p>
+					</div>
 						<div>
 							<p className='font-semibold text-emerald-400 mb-1'>Веб-сайт</p>
 							<p>

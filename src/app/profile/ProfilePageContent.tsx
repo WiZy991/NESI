@@ -1,6 +1,5 @@
 'use client'
 
-import DepositBalanceModal from '@/components/DepositBalanceModal'
 import EditProfileModal from '@/components/EditProfileModal'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
@@ -116,7 +115,6 @@ export default function ProfilePageContent() {
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [amount, setAmount] = useState(100)
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-	const [isDepositModalOpen, setIsDepositModalOpen] = useState(false)
 
 	const fetchProfile = async () => {
 		if (!token) return
@@ -165,11 +163,6 @@ export default function ProfilePageContent() {
 
 		fetchReviews()
 	}, [user, token])
-
-	const handleDepositSuccess = () => {
-		setIsDepositModalOpen(false)
-		fetchProfile() // Обновляем профиль после пополнения
-	}
 
 	const handleWithdraw = async () => {
 		await fetch('/api/wallet/withdraw', {
@@ -327,18 +320,8 @@ export default function ProfilePageContent() {
 									</span>
 								</div>
 							)}
-						</div>
-						<div className='flex gap-2 mb-4'>
-							<button
-								onClick={() => setIsDepositModalOpen(true)}
-								className='flex-1 px-4 py-2 rounded border border-emerald-400 
-                                                         text-emerald-400 hover:bg-emerald-400 
-                                                         hover:text-black transition text-sm font-medium'
-							>
-								💳 Пополнить через ЮKassa
-							</button>
-						</div>
-						<div className='flex gap-2 mb-4'>
+					</div>
+					<div className='flex gap-2 mb-4'>
 							<input
 								type='number'
 								value={amount}
@@ -707,23 +690,16 @@ export default function ProfilePageContent() {
 				)}
 			</div>
 
-			{/* Модальное окно редактирования профиля */}
-			{token && (
-				<EditProfileModal
-					isOpen={isEditModalOpen}
-					onClose={() => setIsEditModalOpen(false)}
-					user={profile}
-					token={token}
-					onSuccess={handleProfileUpdateSuccess}
-				/>
-			)}
-
-			{/* Модальное окно пополнения баланса через ЮKassa */}
-			<DepositBalanceModal
-				isOpen={isDepositModalOpen}
-				onClose={() => setIsDepositModalOpen(false)}
-				onSuccess={handleDepositSuccess}
+		{/* Модальное окно редактирования профиля */}
+		{token && (
+			<EditProfileModal
+				isOpen={isEditModalOpen}
+				onClose={() => setIsEditModalOpen(false)}
+				user={profile}
+				token={token}
+				onSuccess={handleProfileUpdateSuccess}
 			/>
-		</div>
+		)}
+	</div>
 	)
 }
