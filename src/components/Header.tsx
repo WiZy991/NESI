@@ -10,8 +10,9 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { ToastContainer } from './ToastNotification'
+import { NotificationPolling } from './NotificationPolling'
 
 // Функция для форматирования времени уведомления
 const formatNotificationTime = (timestamp: string) => {
@@ -43,12 +44,14 @@ export default function Header() {
 	const [notifications, setNotifications] = useState<any[]>([])
 	const [unreadMessagesCount, setUnreadMessagesCount] = useState(0)
 	const [sseConnected, setSseConnected] = useState(false)
+	const [usePolling, setUsePolling] = useState(false)
 	const [toastNotifications, setToastNotifications] = useState<any[]>([])
 	const menuRef = useRef<HTMLDivElement | null>(null)
 	const notifRef = useRef<HTMLDivElement | null>(null)
 	const mobileMenuRef = useRef<HTMLDivElement | null>(null)
 	const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
+	const sseFailCountRef = useRef(0)
 
 	const handleLogout = () => {
 		logout()
@@ -101,6 +104,59 @@ export default function Header() {
 		}
 		fetchNotifications()
 	}, [user, token])
+
+	// Функция показа уведомлений (вынесена до useEffect чтобы использовать в NotificationPolling)
+	const showNotification = useCallback((data: any) => {
+		console.log('🎉 showNotification вызвана с data:', data)
+		
+		if (data.playSound) {
+			console.log('🔊 Попытка воспроизвести звук')
+			try {
+				const AudioContextClass =
+					window.AudioContext || (window as any).webkitAudioContext
+				const audioContext = new AudioContextClass()
+				const oscillator = audioContext.createOscillator()
+				const gainNode = audioContext.createGain()
+				oscillator.connect(gainNode)
+				gainNode.connect(audioContext.destination)
+				oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
+				gainNode.gain.setValueAtTime(0, audioContext.currentTime)
+				gainNode.gain.linearRampToValueAtTime(
+					0.2,
+					audioContext.currentTime + 0.01
+				)
+				gainNode.gain.exponentialRampToValueAtTime(
+					0.01,
+					audioContext.currentTime + 0.3
+				)
+				oscillator.start(audioContext.currentTime)
+				oscillator.stop(audioContext.currentTime + 0.3)
+			} catch {}
+		}
+
+		// Обновляем уведомления и счетчик непрочитанных
+		setNotifications(prev => [data, ...prev.slice(0, 4)])
+		setUnreadCount(unreadCount + 1)
+
+		// Добавляем toast уведомление
+		const toastNotification = {
+			id: `${Date.now()}-${Math.random()}`,
+			type: data.type || 'notification',
+			title: data.title || 'Новое уведомление',
+			message: data.message || '',
+			link: data.link,
+			userId: data.userId,
+			senderId: data.senderId,
+			timestamp: data.timestamp || new Date().toISOString(),
+		}
+		
+		console.log('🎉 Добавление toast уведомления:', toastNotification)
+		setToastNotifications(prev => {
+			const newNotifications = [...prev, toastNotification]
+			console.log('📋 Текущие toast уведомления:', newNotifications.length)
+			return newNotifications
+		})
+	}, [unreadCount])
 
 	// Загрузка количества непрочитанных сообщений и SSE
 	useEffect(() => {
@@ -171,73 +227,31 @@ export default function Header() {
 				}
 			}
 
-			eventSource.onerror = (error) => {
-				console.error('❌ Ошибка SSE подключения:', error)
-				console.log('📊 SSE readyState:', eventSource.readyState)
-				setSseConnected(false)
-				
-				eventSourceRef.current = null
-				
-				setTimeout(() => {
-					console.log('🔄 Попытка переподключения SSE...')
-					if (user && token) connectSSE()
-				}, 5000)
+		eventSource.onerror = (error) => {
+			console.error('❌ Ошибка SSE подключения:', error)
+			console.log('📊 SSE readyState:', eventSource.readyState)
+			setSseConnected(false)
+			
+			eventSourceRef.current = null
+			sseFailCountRef.current++
+			
+			console.log('⚠️ Количество ошибок SSE:', sseFailCountRef.current)
+			
+			// После 3 неудачных попыток переключаемся на polling
+			if (sseFailCountRef.current >= 3) {
+				console.log('🔄 SSE не работает, переключаюсь на polling')
+				setUsePolling(true)
+				return
 			}
+			
+			setTimeout(() => {
+				console.log('🔄 Попытка переподключения SSE...')
+				if (user && token) connectSSE()
+			}, 5000)
+		}
 
 			eventSourceRef.current = eventSource
 			console.log('📡 SSE EventSource создан')
-		}
-
-		const showNotification = (data: any) => {
-			console.log('🎉 showNotification вызвана с data:', data)
-			
-			if (data.playSound) {
-				console.log('🔊 Попытка воспроизвести звук')
-				try {
-					const AudioContextClass =
-						window.AudioContext || (window as any).webkitAudioContext
-					const audioContext = new AudioContextClass()
-					const oscillator = audioContext.createOscillator()
-					const gainNode = audioContext.createGain()
-					oscillator.connect(gainNode)
-					gainNode.connect(audioContext.destination)
-					oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
-					gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-					gainNode.gain.linearRampToValueAtTime(
-						0.2,
-						audioContext.currentTime + 0.01
-					)
-					gainNode.gain.exponentialRampToValueAtTime(
-						0.01,
-						audioContext.currentTime + 0.3
-					)
-					oscillator.start(audioContext.currentTime)
-					oscillator.stop(audioContext.currentTime + 0.3)
-				} catch {}
-			}
-
-			// Обновляем уведомления и счетчик непрочитанных
-			setNotifications(prev => [data, ...prev.slice(0, 4)])
-			setUnreadCount(unreadCount + 1)
-
-			// Добавляем toast уведомление
-			const toastNotification = {
-				id: `${Date.now()}-${Math.random()}`,
-				type: data.type || 'notification',
-				title: data.title || 'Новое уведомление',
-				message: data.message || '',
-				link: data.link,
-				userId: data.userId,
-				senderId: data.senderId,
-				timestamp: data.timestamp || new Date().toISOString(),
-			}
-			
-			console.log('🎉 Добавление toast уведомления:', toastNotification)
-			setToastNotifications(prev => {
-				const newNotifications = [...prev, toastNotification]
-				console.log('📋 Текущие toast уведомления:', newNotifications.length)
-				return newNotifications
-			})
 		}
 
 		console.log('🚀 Header: Инициализация с user:', user?.id, 'token:', token ? 'есть' : 'нет')
@@ -254,7 +268,7 @@ export default function Header() {
 				eventSourceRef.current = null
 			}
 		}
-	}, [user, token])
+	}, [user, token, showNotification])
 
 	// 📭 Пометить все уведомления как прочитанные
 	const markAllRead = async () => {
@@ -306,6 +320,15 @@ export default function Header() {
 				notifications={toastNotifications}
 				onClose={handleToastClose}
 			/>
+			{user && token && (
+				<NotificationPolling
+					userId={user.id}
+					token={token}
+					onNotification={showNotification}
+					enabled={usePolling}
+					interval={5000}
+				/>
+			)}
 			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50'>
 				<Link
 					href='/'
