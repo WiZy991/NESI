@@ -256,9 +256,16 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
           <>
             {/* Текст сообщения */}
             {message.content && (
-              <div className={`text-sm sm:text-sm leading-relaxed break-words whitespace-pre-wrap ${
-                isDeleted ? 'italic text-gray-500 text-center' : ''
-              }`}>
+              <div 
+                className={`text-sm sm:text-sm leading-relaxed whitespace-pre-wrap ${
+                  isDeleted ? 'italic text-gray-500 text-center' : ''
+                }`}
+                style={{
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  wordWrap: 'break-word'
+                }}
+              >
                 {message.content}
               </div>
             )}

@@ -17,11 +17,15 @@ type ToastNotification = {
 type ToastNotificationProps = {
 	notification: ToastNotification
 	onClose: () => void
+	token?: string
+	onNotificationRead?: () => void
 }
 
 export function ToastNotification({
 	notification,
 	onClose,
+	token,
+	onNotificationRead,
 }: ToastNotificationProps) {
 	const router = useRouter()
 	const [isVisible, setIsVisible] = useState(false)
@@ -43,8 +47,36 @@ export function ToastNotification({
 		setTimeout(onClose, 300) // Даём время на анимацию исчезновения
 	}
 
-	const handleClick = () => {
+	const handleClick = async () => {
 		handleClose()
+
+		// Удаляем уведомления в зависимости от типа
+		if (token) {
+			try {
+				// Для сообщений - удаляются через handleSelectChat в chats/page.tsx
+				// Остальные типы удаляем здесь
+				if (notification.type !== 'message' && notification.link) {
+					console.log('🗑️ Удаление уведомлений по ссылке:', notification.link)
+					
+					// Удаляем уведомления с этой ссылкой
+					await fetch('/api/notifications/mark-read-by-link', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify({ link: notification.link }),
+					})
+
+					// Уведомляем родителя об обновлении счетчика
+					if (onNotificationRead) {
+						onNotificationRead()
+					}
+				}
+			} catch (error) {
+				console.error('Ошибка при удалении уведомлений:', error)
+			}
+		}
 
 		// Переход по ссылке
 		if (notification.userId || notification.senderId) {
@@ -139,9 +171,13 @@ export function ToastNotification({
 export function ToastContainer({
 	notifications,
 	onClose,
+	token,
+	onNotificationRead,
 }: {
 	notifications: ToastNotification[]
 	onClose: (id: string) => void
+	token?: string
+	onNotificationRead?: () => void
 }) {
 	return (
 		<div className='fixed bottom-0 right-0 left-0 sm:left-auto p-4 sm:p-6 z-[9999] flex flex-col items-stretch sm:items-end gap-4'>
@@ -153,6 +189,8 @@ export function ToastContainer({
 					<ToastNotification
 						notification={notification}
 						onClose={() => onClose(notification.id)}
+						token={token}
+						onNotificationRead={onNotificationRead}
 					/>
 				</div>
 			))}

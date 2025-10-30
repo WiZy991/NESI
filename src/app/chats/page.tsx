@@ -703,15 +703,15 @@ function ChatsPageContent() {
 
 	if (loading) {
 		return (
-			<div className='min-h-screen bg-transparent flex items-center justify-center'>
+			<div className='fixed inset-0 bg-transparent flex items-center justify-center'>
 				<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
 			</div>
 		)
 	}
 
 	return (
-		<div className='h-[100dvh] sm:min-h-screen bg-transparent from-gray-900 via-black to-gray-900 p-0 sm:p-4'>
-			<div className='max-w-7xl mx-auto h-full sm:h-[calc(100vh-2rem)] bg-gray-900/20 backdrop-blur-sm rounded-2xl overflow-hidden'>
+		<div className='fixed inset-0 bg-transparent from-gray-900 via-black to-gray-900 p-0 sm:p-4 overflow-hidden'>
+			<div className='max-w-7xl mx-auto h-full bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden'>
 				<div className='flex h-full'>
 					{/* Левая колонка - список чатов */}
 					<div
@@ -870,7 +870,7 @@ function ChatsPageContent() {
 								</div>
 
 							{/* Сообщения - растягиваемая область */}
-							<div className='flex-1 overflow-y-auto px-3 pt-3 pb-24 sm:px-6 sm:pt-6 sm:pb-2 custom-scrollbar'>
+							<div className='flex-1 overflow-y-auto px-3 pt-3 pb-32 sm:px-6 sm:pt-6 sm:pb-4 custom-scrollbar'>
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
 											<div className='text-center text-gray-400'>
@@ -996,7 +996,7 @@ export default function ChatsPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className='h-[100dvh] flex items-center justify-center bg-gray-900'>
+				<div className='fixed inset-0 flex items-center justify-center bg-gray-900'>
 					<div className='text-center'>
 						<div className='animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4'></div>
 						<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>

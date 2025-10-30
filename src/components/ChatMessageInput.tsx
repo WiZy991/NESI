@@ -26,6 +26,7 @@ export default function MessageInput({
 	const [isTyping, setIsTyping] = useState(false)
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 	const fileInputRef = useRef<HTMLInputElement>(null)
+	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 	const emojiPickerRef = useRef<HTMLDivElement>(null)
 
@@ -53,8 +54,27 @@ export default function MessageInput({
 		}
 	}
 
+	// Автоматическое изменение высоты textarea при изменении текста
+	useEffect(() => {
+		const textarea = textareaRef.current
+		if (textarea) {
+			// Если сообщение пустое, устанавливаем минимальную высоту
+			if (!message.trim()) {
+				textarea.style.height = '44px'
+				return
+			}
+			
+			// Сбрасываем высоту для корректного расчета scrollHeight
+			textarea.style.height = 'auto'
+			
+			// Вычисляем новую высоту на основе содержимого
+			const newHeight = Math.max(44, Math.min(textarea.scrollHeight, 150))
+			textarea.style.height = `${newHeight}px`
+		}
+	}, [message])
+
 	// Обработчик изменения текста
-	const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
 		const value = e.target.value
 		setMessage(value)
 
@@ -119,6 +139,12 @@ export default function MessageInput({
 				onMessageSent(newMessage)
 				setMessage('')
 				setFile(null)
+				
+				// Сбрасываем высоту textarea к начальному размеру
+				if (textareaRef.current) {
+					textareaRef.current.style.height = '44px'
+				}
+				
 				if (fileInputRef.current) {
 					fileInputRef.current.value = ''
 				}
@@ -280,13 +306,29 @@ export default function MessageInput({
 
 				{/* Поле ввода сообщения */}
 				<div className='flex-1 relative'>
-					<input
-						type='text'
+					<textarea
+						ref={textareaRef}
 						value={message}
 						onChange={handleMessageChange}
+						onKeyDown={(e) => {
+							// Enter без Shift - отправка
+							if (e.key === 'Enter' && !e.shiftKey) {
+								e.preventDefault()
+								handleSubmit(e as any)
+							}
+						}}
 						placeholder='Сообщение...'
-						className='w-full px-4 sm:px-4 py-3 sm:py-2.5 bg-gray-700/50 border border-gray-600/50 rounded-3xl text-white text-base sm:text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 transition-all'
+						rows={1}
+						className='w-full px-4 sm:px-4 py-3 sm:py-2.5 bg-gray-700/50 border border-gray-600/50 rounded-3xl text-white text-base sm:text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none custom-scrollbar'
 						disabled={sending}
+						style={{ 
+							height: '44px',
+							minHeight: '44px', 
+							maxHeight: '150px',
+							lineHeight: '1.5',
+							overflow: 'auto',
+							transition: 'height 0.1s ease'
+						}}
 					/>
 				</div>
 

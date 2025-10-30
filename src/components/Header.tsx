@@ -344,11 +344,28 @@ export default function Header() {
 		})
 	}
 
+	const handleNotificationRead = async () => {
+		// Обновляем счетчик непрочитанных уведомлений
+		try {
+			const notifRes = await fetch('/api/notifications/unread-count', {
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			if (notifRes.ok) {
+				const notifData = await notifRes.json()
+				setUnreadCount(notifData.count || 0)
+			}
+		} catch (error) {
+			console.error('Ошибка обновления счетчика:', error)
+		}
+	}
+
 	return (
 		<>
 			<ToastContainer
 				notifications={toastNotifications}
 				onClose={handleToastClose}
+				token={token}
+				onNotificationRead={handleNotificationRead}
 			/>
 			{user && token && (
 				<NotificationPolling
