@@ -63,7 +63,7 @@ type Message = {
 }
 
 function ChatsPageContent() {
-	const { user, token } = useUser()
+	const { user, token, setUnreadCount } = useUser()
 	const searchParams = useSearchParams()
 	const openUserId = searchParams?.get('open')
 
@@ -329,7 +329,16 @@ function ChatsPageContent() {
 		fetchMessages()
 	}, [selectedChat, token])
 
-	// Автоскролл отключен - пользователь сам управляет прокруткой
+	// Автоскролл к последнему сообщению при открытии чата
+	useEffect(() => {
+		if (messages.length > 0 && messagesEndRef.current && !messagesLoading) {
+			console.log('📜 Автоскролл к последнему сообщению')
+			// Используем setTimeout чтобы дать время на рендер
+			setTimeout(() => {
+				messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+			}, 100)
+		}
+	}, [messages.length, messagesLoading])
 
 	// Автоматическое открытие чата при наличии параметра open
 	useEffect(() => {
@@ -429,8 +438,9 @@ function ChatsPageContent() {
 
 			// Помечаем сообщения как прочитанные
 			try {
+				let response
 				if (chat.type === 'private' && chat.otherUser?.id) {
-					await fetch('/api/chats/mark-private-read', {
+					response = await fetch('/api/chats/mark-private-read', {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
@@ -439,7 +449,7 @@ function ChatsPageContent() {
 						body: JSON.stringify({ otherUserId: chat.otherUser.id }),
 					})
 				} else if (chat.type === 'task' && chat.task?.id) {
-					await fetch('/api/chats/mark-task-read', {
+					response = await fetch('/api/chats/mark-task-read', {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
@@ -447,6 +457,24 @@ function ChatsPageContent() {
 						},
 						body: JSON.stringify({ taskId: chat.task.id }),
 					})
+				}
+
+				// Обрабатываем ответ и обновляем счетчик уведомлений
+				if (response && response.ok) {
+					const data = await response.json()
+					console.log(`✅ Прочитано, удалено уведомлений: ${data.deletedNotifications}`)
+					
+					// Обновляем счетчик непрочитанных уведомлений
+					if (data.deletedNotifications > 0) {
+						// Получаем актуальное количество непрочитанных уведомлений
+						const notifRes = await fetch('/api/notifications/unread-count', {
+							headers: { Authorization: `Bearer ${token}` },
+						})
+						if (notifRes.ok) {
+							const notifData = await notifRes.json()
+							setUnreadCount(notifData.count || 0)
+						}
+					}
 				}
 			} catch (error) {
 				console.error('Ошибка при пометке сообщений как прочитанных:', error)

@@ -29,8 +29,23 @@ export async function POST(req: NextRequest) {
 			data: { lastPrivateMessageReadAt: new Date() },
 		})
 
-		console.log('✅ Приватные сообщения помечены как прочитанные')
-		return NextResponse.json({ success: true })
+		// Удаляем уведомления о сообщениях от этого пользователя
+		const deletedNotifications = await prisma.notification.deleteMany({
+			where: {
+				userId: user.id,
+				type: 'message',
+				link: {
+					contains: `open=${otherUserId}`,
+				},
+			},
+		})
+
+		console.log(`✅ Приватные сообщения помечены как прочитанные, удалено уведомлений: ${deletedNotifications.count}`)
+		
+		return NextResponse.json({ 
+			success: true,
+			deletedNotifications: deletedNotifications.count
+		})
 	} catch (error) {
 		console.error(
 			'Ошибка при пометке приватных сообщений как прочитанных:',

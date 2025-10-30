@@ -52,8 +52,21 @@ export async function POST(req: NextRequest) {
 			data: updateData,
 		})
 
-		console.log('✅ Сообщения задачи помечены как прочитанные')
-		return NextResponse.json({ success: true })
+		// Удаляем уведомления о сообщениях в этой задаче
+		const deletedNotifications = await prisma.notification.deleteMany({
+			where: {
+				userId: user.id,
+				type: 'message',
+				link: `/tasks/${taskId}`,
+			},
+		})
+
+		console.log(`✅ Сообщения задачи помечены как прочитанные, удалено уведомлений: ${deletedNotifications.count}`)
+		
+		return NextResponse.json({ 
+			success: true,
+			deletedNotifications: deletedNotifications.count
+		})
 	} catch (error) {
 		console.error('Ошибка при пометке сообщений задачи как прочитанных:', error)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })

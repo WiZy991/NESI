@@ -179,20 +179,6 @@ export default function Header() {
 			}
 		}
 
-		// Проверяем окружение: в production сразу включаем polling
-		const isProduction = process.env.NODE_ENV === 'production'
-		
-		if (isProduction) {
-			console.log('🌐 Production окружение: используем polling вместо SSE')
-			setUsePolling(true)
-			fetchUnreadMessages()
-			const interval = setInterval(fetchUnreadMessages, 30000)
-			return () => {
-				console.log('🧹 Header: Cleanup (polling mode)')
-				clearInterval(interval)
-			}
-		}
-
 		const connectSSE = () => {
 			if (eventSourceRef.current) {
 				console.log('⚠️ Закрываю старое SSE подключение')
@@ -360,20 +346,12 @@ export default function Header() {
 				/>
 			)}
 			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50'>
-				<div className='flex items-center gap-3'>
-					<Link
-						href='/'
-						className='text-xl md:text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
-					>
-						NESI
-					</Link>
-					{user && (
-						<div className='hidden md:flex items-center gap-1.5 text-xs' title={usePolling ? 'Polling активен' : sseConnected ? 'SSE подключен' : 'Подключение...'}>
-							<div className={`w-2 h-2 rounded-full ${usePolling ? 'bg-blue-400' : sseConnected ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'}`}></div>
-							<span className='text-gray-400'>{usePolling ? 'Polling' : sseConnected ? 'Live' : 'Connecting...'}</span>
-						</div>
-					)}
-				</div>
+				<Link
+					href='/'
+					className='text-xl md:text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
+				>
+					NESI
+				</Link>
 
 				{/* Мобильная кнопка и уведомления */}
 				<div className='flex items-center gap-3 md:hidden'>
