@@ -359,9 +359,9 @@ function ChatsPageContent() {
 
 		if (existingChat) {
 			console.log('✅ Чат найден, открываем:', existingChat)
-			setSelectedChat(existingChat)
-			setMessages([])
-			setMessagesLoading(true)
+			// Используем handleSelectChat вместо прямого setSelectedChat
+			// чтобы сработала пометка как прочитанное
+			handleSelectChat(existingChat)
 			setShouldAutoOpen(false)
 			window.history.replaceState({}, '', '/chats')
 		} else {
@@ -719,19 +719,19 @@ function ChatsPageContent() {
 							selectedChat ? 'hidden md:flex' : 'flex'
 						} w-full md:w-1/3 bg-gray-800/20 backdrop-blur-sm flex-col`}
 					>
-						{/* Заголовок и поиск */}
-						<div className='flex-shrink-0 p-4 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent'>
-							<h1 className='text-xl sm:text-2xl font-bold text-emerald-400 mb-3 sm:mb-4 flex items-center'>
-								💬 Чаты
-							</h1>
-							<input
-								type='text'
-								placeholder='Поиск чатов...'
-								value={searchQuery}
-								onChange={e => setSearchQuery(e.target.value)}
-								className='w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all'
-							/>
-						</div>
+					{/* Заголовок и поиск */}
+					<div className='flex-shrink-0 p-3 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent'>
+						<h1 className='text-lg sm:text-2xl font-bold text-emerald-400 mb-2 sm:mb-4 flex items-center'>
+							💬 Чаты
+						</h1>
+						<input
+							type='text'
+							placeholder='Поиск чатов...'
+							value={searchQuery}
+							onChange={e => setSearchQuery(e.target.value)}
+							className='w-full px-4 py-2.5 sm:py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white text-sm sm:text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all'
+						/>
+					</div>
 
 						{/* Список чатов */}
 						<div className='flex-1 overflow-y-auto custom-scrollbar'>
@@ -752,13 +752,13 @@ function ChatsPageContent() {
 									<div
 										key={chat.id}
 										onClick={() => handleSelectChat(chat)}
-										className={`p-4 mx-3 my-2 rounded-xl cursor-pointer transition-all duration-200 hover:bg-gray-700/50 ${
+										className={`p-3 sm:p-4 mx-2 sm:mx-3 my-1.5 sm:my-2 rounded-xl cursor-pointer transition-all duration-200 hover:bg-gray-700/50 active:bg-gray-700 touch-manipulation ${
 											selectedChat?.id === chat.id
 												? 'bg-emerald-900/30 border border-emerald-500/40 shadow-lg shadow-emerald-500/10'
 												: 'hover:shadow-md'
 										}`}
 									>
-										<div className='flex items-center space-x-3'>
+										<div className='flex items-center space-x-2 sm:space-x-3'>
 											{/* Аватар */}
 											{chat.type === 'private' ? (
 												<AvatarComponent
@@ -768,30 +768,30 @@ function ChatsPageContent() {
 														chat.otherUser?.email ||
 														'?'
 													}
-													size={48}
+													size={window.innerWidth < 640 ? 44 : 48}
 													userId={chat.otherUser?.id}
 												/>
 											) : (
-												<div className='w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'>
-													📋
+												<div className='w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
+													<span className='text-lg sm:text-xl'>📋</span>
 												</div>
 											)}
 
 											{/* Информация о чате */}
 											<div className='flex-1 min-w-0'>
-												<div className='flex items-center justify-between'>
-													<h3 className='text-white font-medium truncate'>
+												<div className='flex items-center justify-between gap-2'>
+													<h3 className='text-white font-medium truncate text-sm sm:text-base'>
 														{getChatTitle(chat)}
 													</h3>
-													<span className='text-xs text-gray-400 ml-2 bg-gray-700/50 px-2 py-1 rounded-full'>
+													<span className='text-[10px] sm:text-xs text-gray-400 bg-gray-700/50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full flex-shrink-0'>
 														{formatTime(chat.lastMessage.createdAt)}
 													</span>
 												</div>
-												<p className='text-sm text-gray-400 truncate mt-1'>
+												<p className='text-xs sm:text-sm text-gray-400 truncate mt-0.5 sm:mt-1'>
 													{getChatSubtitle(chat)}
 												</p>
 												{chat.type === 'task' && (
-													<p className='text-xs text-emerald-400 mt-1 bg-emerald-900/20 px-2 py-1 rounded-full inline-block'>
+													<p className='text-[10px] sm:text-xs text-emerald-400 mt-0.5 sm:mt-1 bg-emerald-900/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full inline-block truncate max-w-full'>
 														📋 {chat.task?.title}
 													</p>
 												)}
@@ -799,7 +799,7 @@ function ChatsPageContent() {
 
 											{/* Индикатор непрочитанных */}
 											{chat.unreadCount > 0 && (
-												<div className='bg-emerald-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shadow-lg'>
+												<div className='bg-emerald-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center shadow-lg flex-shrink-0'>
 													{chat.unreadCount}
 												</div>
 											)}
@@ -819,15 +819,15 @@ function ChatsPageContent() {
 						{selectedChat ? (
 							<>
 								{/* Заголовок чата - фиксированный */}
-								<div className='flex-shrink-0 p-4 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent border-b border-gray-700/50'>
+								<div className='flex-shrink-0 p-3 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent border-b border-gray-700/50'>
 									<div className='flex items-center space-x-3 sm:space-x-4'>
 										{/* Кнопка "Назад" для мобильных */}
 										<button
 											onClick={() => setSelectedChat(null)}
-											className='md:hidden flex items-center justify-center w-10 h-10 rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors'
+											className='md:hidden flex items-center justify-center w-12 h-12 rounded-full bg-gray-700/50 hover:bg-gray-700 active:bg-gray-600 transition-colors touch-manipulation'
 										>
 											<svg
-												className='w-5 h-5 text-white'
+												className='w-6 h-6 text-white'
 												fill='none'
 												stroke='currentColor'
 												viewBox='0 0 24 24'
@@ -840,7 +840,7 @@ function ChatsPageContent() {
 												/>
 											</svg>
 										</button>
-										<div className='w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'>
+										<div className='w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
 											{selectedChat.type === 'private' ? (
 												<AvatarComponent
 													avatarUrl={selectedChat.otherUser?.avatarUrl}
@@ -849,19 +849,19 @@ function ChatsPageContent() {
 														selectedChat.otherUser?.email ||
 														'?'
 													}
-													size={40}
+													size={window.innerWidth < 640 ? 40 : 48}
 													userId={selectedChat.otherUser?.id}
 												/>
 											) : (
-												'📋'
+												<span className='text-xl sm:text-2xl'>📋</span>
 											)}
 										</div>
 										<div className='flex-1 min-w-0'>
-											<h2 className='text-white font-semibold text-base sm:text-lg truncate'>
+											<h2 className='text-white font-semibold text-sm sm:text-lg truncate'>
 												{getChatTitle(selectedChat)}
 											</h2>
 											{selectedChat.type === 'task' && (
-												<p className='text-xs sm:text-sm text-emerald-400 bg-emerald-900/20 px-2 sm:px-3 py-1 rounded-full inline-block mt-1 truncate max-w-full'>
+												<p className='text-[10px] sm:text-sm text-emerald-400 bg-emerald-900/20 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full inline-block mt-1 truncate max-w-full'>
 													📋 {selectedChat.task?.title}
 												</p>
 											)}
@@ -870,7 +870,7 @@ function ChatsPageContent() {
 								</div>
 
 							{/* Сообщения - растягиваемая область */}
-							<div className='flex-1 overflow-y-auto px-3 pt-3 pb-20 sm:px-6 sm:pt-6 sm:pb-2 custom-scrollbar'>
+							<div className='flex-1 overflow-y-auto px-3 pt-3 pb-24 sm:px-6 sm:pt-6 sm:pb-2 custom-scrollbar'>
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
 											<div className='text-center text-gray-400'>
@@ -963,7 +963,7 @@ function ChatsPageContent() {
 								</div>
 
 								{/* Поле ввода сообщения - фиксированное внизу */}
-								<div className='fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto flex-shrink-0 border-t border-gray-700/50 bg-gray-900/95 backdrop-blur-md z-10'>
+								<div className='fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto flex-shrink-0 border-t border-gray-700/50 bg-gray-900/95 md:bg-gray-900/50 backdrop-blur-md z-10 pb-safe'>
 									<MessageInput
 										chatType={selectedChat.type}
 										otherUserId={selectedChat.otherUser?.id}
