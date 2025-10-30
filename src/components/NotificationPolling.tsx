@@ -23,38 +23,47 @@ export function NotificationPolling({
 
 	useEffect(() => {
 		if (!enabled || !userId || !token) {
-			console.log('🔕 Polling отключен')
+			console.log('🔕 Polling отключен (enabled:', enabled, 'userId:', !!userId, 'token:', !!token, ')')
 			return
 		}
 
-		console.log('📡 Запуск polling для уведомлений (интервал:', interval, 'мс)')
+		console.log('📡 Запуск polling для уведомлений (интервал:', interval, 'мс, userId:', userId, ')')
 
 		const checkNotifications = async () => {
 			try {
-				const response = await fetch(
-					`/api/notifications/poll?since=${lastCheckRef.current.toISOString()}`,
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					}
-				)
+				const since = lastCheckRef.current.toISOString()
+				const url = `/api/notifications/poll?since=${since}`
+				
+				console.log('📡 Polling запрос:', url)
+				
+				const response = await fetch(url, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				})
+
+				console.log('📊 Polling ответ:', response.status, response.statusText)
 
 				if (!response.ok) {
-					console.error('❌ Ошибка polling:', response.status)
+					const errorText = await response.text()
+					console.error('❌ Ошибка polling:', response.status, errorText)
 					return
 				}
 
 				const data = await response.json()
+				console.log('📦 Polling данные:', data)
 
 				if (data.notifications && data.notifications.length > 0) {
 					console.log('📬 Получено уведомлений через polling:', data.notifications.length)
 					
 					data.notifications.forEach((notification: any) => {
+						console.log('📨 Обработка уведомления:', notification)
 						onNotification(notification)
 					})
 
 					lastCheckRef.current = new Date()
+				} else {
+					console.log('📭 Новых уведомлений нет')
 				}
 			} catch (error) {
 				console.error('❌ Ошибка при polling уведомлений:', error)
@@ -62,10 +71,14 @@ export function NotificationPolling({
 		}
 
 		// Первая проверка сразу
+		console.log('🚀 Первая проверка polling...')
 		checkNotifications()
 
 		// Периодические проверки
-		const intervalId = setInterval(checkNotifications, interval)
+		const intervalId = setInterval(() => {
+			console.log('⏰ Периодическая проверка polling...')
+			checkNotifications()
+		}, interval)
 
 		return () => {
 			console.log('🧹 Остановка polling')

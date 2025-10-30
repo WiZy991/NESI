@@ -179,6 +179,20 @@ export default function Header() {
 			}
 		}
 
+		// Проверяем окружение: в production сразу включаем polling
+		const isProduction = process.env.NODE_ENV === 'production'
+		
+		if (isProduction) {
+			console.log('🌐 Production окружение: используем polling вместо SSE')
+			setUsePolling(true)
+			fetchUnreadMessages()
+			const interval = setInterval(fetchUnreadMessages, 30000)
+			return () => {
+				console.log('🧹 Header: Cleanup (polling mode)')
+				clearInterval(interval)
+			}
+		}
+
 		const connectSSE = () => {
 			if (eventSourceRef.current) {
 				console.log('⚠️ Закрываю старое SSE подключение')
@@ -186,13 +200,27 @@ export default function Header() {
 			}
 
 			console.log('🔌 Подключение к SSE:', `/api/notifications/stream?token=${token.substring(0,10)}...`)
+			
+			// Таймаут для определения что SSE не работает
+			const sseTimeout = setTimeout(() => {
+				console.log('⏰ SSE таймаут: подключение не установлено за 5 секунд')
+				sseFailCountRef.current = 3
+				setUsePolling(true)
+				if (eventSourceRef.current) {
+					eventSourceRef.current.close()
+					eventSourceRef.current = null
+				}
+			}, 5000)
+			
 			const eventSource = new EventSource(
 				`/api/notifications/stream?token=${encodeURIComponent(token)}`
 			)
 
 			eventSource.onopen = () => {
 				console.log('✅ SSE подключение установлено успешно')
+				clearTimeout(sseTimeout)
 				setSseConnected(true)
+				sseFailCountRef.current = 0 // Сбрасываем счетчик
 			}
 
 			eventSource.onmessage = event => {
@@ -231,14 +259,15 @@ export default function Header() {
 			console.error('❌ Ошибка SSE подключения:', error)
 			console.log('📊 SSE readyState:', eventSource.readyState)
 			setSseConnected(false)
+			clearTimeout(sseTimeout)
 			
 			eventSourceRef.current = null
 			sseFailCountRef.current++
 			
 			console.log('⚠️ Количество ошибок SSE:', sseFailCountRef.current)
 			
-			// После 3 неудачных попыток переключаемся на polling
-			if (sseFailCountRef.current >= 3) {
+			// После 2 неудачных попыток переключаемся на polling (было 3, уменьшил до 2)
+			if (sseFailCountRef.current >= 2) {
 				console.log('🔄 SSE не работает, переключаюсь на polling')
 				setUsePolling(true)
 				return
@@ -247,13 +276,14 @@ export default function Header() {
 			setTimeout(() => {
 				console.log('🔄 Попытка переподключения SSE...')
 				if (user && token) connectSSE()
-			}, 5000)
+			}, 3000)
 		}
 
 			eventSourceRef.current = eventSource
 			console.log('📡 SSE EventSource создан')
 		}
 
+		// Development окружение: используем SSE
 		console.log('🚀 Header: Инициализация с user:', user?.id, 'token:', token ? 'есть' : 'нет')
 		
 		fetchUnreadMessages()
@@ -261,7 +291,7 @@ export default function Header() {
 
 		const interval = setInterval(fetchUnreadMessages, 30000)
 		return () => {
-			console.log('🧹 Header: Cleanup')
+			console.log('🧹 Header: Cleanup (SSE mode)')
 			clearInterval(interval)
 			if (eventSourceRef.current) {
 				eventSourceRef.current.close()
@@ -330,12 +360,20 @@ export default function Header() {
 				/>
 			)}
 			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50'>
-				<Link
-					href='/'
-					className='text-xl md:text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
-				>
-					NESI
-				</Link>
+				<div className='flex items-center gap-3'>
+					<Link
+						href='/'
+						className='text-xl md:text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
+					>
+						NESI
+					</Link>
+					{user && (
+						<div className='hidden md:flex items-center gap-1.5 text-xs' title={usePolling ? 'Polling активен' : sseConnected ? 'SSE подключен' : 'Подключение...'}>
+							<div className={`w-2 h-2 rounded-full ${usePolling ? 'bg-blue-400' : sseConnected ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'}`}></div>
+							<span className='text-gray-400'>{usePolling ? 'Polling' : sseConnected ? 'Live' : 'Connecting...'}</span>
+						</div>
+					)}
+				</div>
 
 				{/* Мобильная кнопка и уведомления */}
 				<div className='flex items-center gap-3 md:hidden'>
