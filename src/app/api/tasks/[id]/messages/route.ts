@@ -97,20 +97,25 @@ export async function POST(
 
 	// Отправляем уведомление получателю в реальном времени
 	if (recipientId) {
+		console.log('🔔 Подготовка уведомления для получателя:', recipientId)
+		
 		// Создаем уведомление в базе данных
 		const notificationMessage = `${
 			message.sender.fullName || message.sender.email
 		} написал в задаче "${message.task.title}": ${
 			content || (savedFile ? `Файл: ${savedFile.filename}` : 'Новое сообщение')
 		}`
+		
+		console.log('💾 Сохраняю уведомление в БД...')
 		await createNotification({
 			userId: recipientId,
 			message: notificationMessage,
 			link: `/tasks/${taskId}`,
 			type: 'message',
 		})
+		console.log('✅ Уведомление сохранено в БД')
 
-		sendNotificationToUser(recipientId, {
+		const sseNotification = {
 			type: 'message',
 			title: 'Новое сообщение в задаче',
 			message:
@@ -125,13 +130,19 @@ export async function POST(
 			hasFile: !!savedFile,
 			fileName: savedFile?.filename,
 			playSound: true, // Указываем, что нужно воспроизвести звук
-		})
+			link: `/tasks/${taskId}`,
+		}
+		
+		console.log('📡 Отправка SSE уведомления:', sseNotification)
+		const sent = sendNotificationToUser(recipientId, sseNotification)
+		console.log('📨 Результат отправки SSE:', sent ? 'успешно' : 'ошибка')
 
 		console.log('📨 Сообщение в задаче отправлено и уведомление разослано:', {
 			senderId: user.id,
 			recipientId,
 			taskId,
 			messageId: message.id,
+			sseSent: sent,
 		})
 	}
 

@@ -84,8 +84,24 @@ export async function GET(req: NextRequest) {
 
 // Функция для отправки уведомления конкретному пользователю
 export function sendNotificationToUser(userId: string, notification: any) {
+	console.log('📤 sendNotificationToUser вызвана:', {
+		userId,
+		notificationType: notification.type,
+		title: notification.title,
+		message: notification.message?.substring(0, 50),
+	})
+	
 	const connections = globalThis.sseConnections
-	if (!connections || !connections.has(userId)) {
+	
+	if (!connections) {
+		console.log('❌ globalThis.sseConnections не инициализирован')
+		return false
+	}
+	
+	console.log('📊 Всего подключений SSE:', connections.size)
+	console.log('📋 Подключенные пользователи:', Array.from(connections.keys()))
+	
+	if (!connections.has(userId)) {
 		console.log('📭 Пользователь не подключен к SSE:', userId)
 		return false
 	}
@@ -103,11 +119,12 @@ export function sendNotificationToUser(userId: string, notification: any) {
 			timestamp: new Date().toISOString(),
 		})
 
+		console.log('📨 Отправка данных через SSE:', data.substring(0, 100))
 		controller.enqueue(`data: ${data}\n\n`)
-		console.log('📨 Уведомление отправлено пользователю:', userId)
+		console.log('✅ Уведомление успешно отправлено пользователю:', userId)
 		return true
 	} catch (error) {
-		console.error('Ошибка отправки уведомления:', error)
+		console.error('❌ Ошибка отправки уведомления:', error)
 		connections.delete(userId)
 		return false
 	}

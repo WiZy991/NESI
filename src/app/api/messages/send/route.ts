@@ -159,37 +159,48 @@ export async function POST(req: NextRequest) {
 			fileMimetype: msg.mimeType || msg.file?.mimetype || null,
 		}
 
-		// Создаем уведомление в базе данных
-		const notificationMessage = `${msg.sender.fullName || msg.sender.email}: ${
-			content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение')
-		}`
-		await createNotification({
-			userId: recipientId,
-			message: notificationMessage,
-			link: `/chats?open=${me.id}`,
-			type: 'message',
-		})
+	console.log('🔔 Подготовка уведомления для получателя:', recipientId)
+	
+	// Создаем уведомление в базе данных
+	const notificationMessage = `${msg.sender.fullName || msg.sender.email}: ${
+		content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение')
+	}`
+	
+	console.log('💾 Сохраняю уведомление в БД...')
+	await createNotification({
+		userId: recipientId,
+		message: notificationMessage,
+		link: `/chats?open=${me.id}`,
+		type: 'message',
+	})
+	console.log('✅ Уведомление сохранено в БД')
 
-		// Отправляем уведомление получателю в реальном времени
-		sendNotificationToUser(recipientId, {
-			type: 'message',
-			title: 'Новое сообщение',
-			message: content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение'),
-			sender: msg.sender.fullName || msg.sender.email,
-			senderId: msg.sender.id,
-			chatType: 'private',
-			chatId: `private_${me.id}`,
-			messageId: msg.id,
-			hasFile: !!fileUrl,
-			fileName: fileName,
-			playSound: true, // Указываем, что нужно воспроизвести звук
-		})
+	// Отправляем уведомление получателю в реальном времени
+	const sseNotification = {
+		type: 'message',
+		title: 'Новое сообщение',
+		message: content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение'),
+		sender: msg.sender.fullName || msg.sender.email,
+		senderId: msg.sender.id,
+		chatType: 'private',
+		chatId: `private_${me.id}`,
+		messageId: msg.id,
+		hasFile: !!fileUrl,
+		fileName: fileName,
+		playSound: true, // Указываем, что нужно воспроизвести звук
+		link: `/chats?open=${me.id}`,
+	}
+	
+	console.log('📡 Отправка SSE уведомления:', sseNotification)
+	const sent = sendNotificationToUser(recipientId, sseNotification)
+	console.log('📨 Результат отправки SSE:', sent ? 'успешно' : 'ошибка')
 
-		console.log('📨 Сообщение отправлено и уведомление разослано:', {
-			senderId: me.id,
-			recipientId,
-			messageId: msg.id,
-		})
+	console.log('📨 Сообщение отправлено и уведомление разослано:', {
+		senderId: me.id,
+		recipientId,
+		messageId: msg.id,
+		sseSent: sent,
+	})
 
 		return NextResponse.json(result, { status: 201 })
 	} catch (err) {

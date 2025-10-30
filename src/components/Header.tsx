@@ -124,22 +124,34 @@ export default function Header() {
 		}
 
 		const connectSSE = () => {
-			if (eventSourceRef.current) eventSourceRef.current.close()
+			if (eventSourceRef.current) {
+				console.log('⚠️ Закрываю старое SSE подключение')
+				eventSourceRef.current.close()
+			}
 
+			console.log('🔌 Подключение к SSE:', `/api/notifications/stream?token=${token.substring(0,10)}...`)
 			const eventSource = new EventSource(
 				`/api/notifications/stream?token=${encodeURIComponent(token)}`
 			)
 
 			eventSource.onopen = () => {
-				console.log('🔔 SSE подключение установлено')
+				console.log('✅ SSE подключение установлено успешно')
 				setSseConnected(true)
 			}
 
 			eventSource.onmessage = event => {
 				try {
+					console.log('📨 SSE сообщение:', event.data)
 					const data = JSON.parse(event.data)
+					
 					// Пропускаем служебные события
-					if (data.type === 'heartbeat' || data.type === 'connected') {
+					if (data.type === 'heartbeat') {
+						console.log('💓 Heartbeat')
+						return
+					}
+					
+					if (data.type === 'connected') {
+						console.log('✅ Подтверждение подключения')
 						return
 					}
 
@@ -149,27 +161,38 @@ export default function Header() {
 					}
 
 					// Обрабатываем остальные уведомления
+					console.log('🔔 Обработка уведомления:', data)
 					showNotification(data)
 					if (data.type === 'message') {
 						fetchUnreadMessages()
 					}
 				} catch (error) {
-					console.error('Ошибка SSE:', error)
+					console.error('❌ Ошибка SSE:', error)
 				}
 			}
 
-			eventSource.onerror = () => {
+			eventSource.onerror = (error) => {
+				console.error('❌ Ошибка SSE подключения:', error)
+				console.log('📊 SSE readyState:', eventSource.readyState)
 				setSseConnected(false)
+				
+				eventSourceRef.current = null
+				
 				setTimeout(() => {
+					console.log('🔄 Попытка переподключения SSE...')
 					if (user && token) connectSSE()
 				}, 5000)
 			}
 
 			eventSourceRef.current = eventSource
+			console.log('📡 SSE EventSource создан')
 		}
 
 		const showNotification = (data: any) => {
+			console.log('🎉 showNotification вызвана с data:', data)
+			
 			if (data.playSound) {
+				console.log('🔊 Попытка воспроизвести звук')
 				try {
 					const AudioContextClass =
 						window.AudioContext || (window as any).webkitAudioContext
@@ -208,16 +231,28 @@ export default function Header() {
 				senderId: data.senderId,
 				timestamp: data.timestamp || new Date().toISOString(),
 			}
-			setToastNotifications(prev => [...prev, toastNotification])
+			
+			console.log('🎉 Добавление toast уведомления:', toastNotification)
+			setToastNotifications(prev => {
+				const newNotifications = [...prev, toastNotification]
+				console.log('📋 Текущие toast уведомления:', newNotifications.length)
+				return newNotifications
+			})
 		}
 
+		console.log('🚀 Header: Инициализация с user:', user?.id, 'token:', token ? 'есть' : 'нет')
+		
 		fetchUnreadMessages()
 		connectSSE()
 
 		const interval = setInterval(fetchUnreadMessages, 30000)
 		return () => {
+			console.log('🧹 Header: Cleanup')
 			clearInterval(interval)
-			if (eventSourceRef.current) eventSourceRef.current.close()
+			if (eventSourceRef.current) {
+				eventSourceRef.current.close()
+				eventSourceRef.current = null
+			}
 		}
 	}, [user, token])
 
@@ -257,7 +292,12 @@ export default function Header() {
 		'font-medium text-[15px] tracking-wide px-2 py-1 relative transition-all duration-300 hover:text-emerald-400 hover:drop-shadow-[0_0_6px_rgba(16,185,129,0.6)] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-emerald-400 after:transition-all after:duration-300 hover:after:w-full'
 
 	const handleToastClose = (id: string) => {
-		setToastNotifications(prev => prev.filter(toast => toast.id !== id))
+		console.log('🗑️ Закрытие toast уведомления:', id)
+		setToastNotifications(prev => {
+			const filtered = prev.filter(toast => toast.id !== id)
+			console.log('📋 Осталось toast уведомлений:', filtered.length)
+			return filtered
+		})
 	}
 
 	return (
