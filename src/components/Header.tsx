@@ -52,6 +52,7 @@ export default function Header() {
 	const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 	const sseFailCountRef = useRef(0)
+	const shownNotificationsRef = useRef<Set<string>>(new Set())
 
 	const handleLogout = () => {
 		logout()
@@ -109,6 +110,24 @@ export default function Header() {
 	const showNotification = useCallback((data: any) => {
 		console.log('🎉 showNotification вызвана с data:', data)
 		
+		// Создаем уникальный ключ для уведомления
+		const notificationKey = data.id || `${data.type}-${data.messageId || data.link || ''}-${data.timestamp}`
+		
+		// Проверяем, не показывали ли мы уже это уведомление
+		if (shownNotificationsRef.current.has(notificationKey)) {
+			console.log('⏭️ Пропускаем дубликат уведомления:', notificationKey)
+			return
+		}
+		
+		// Добавляем в список показанных
+		shownNotificationsRef.current.add(notificationKey)
+		
+		// Ограничиваем размер Set (храним последние 100 уведомлений)
+		if (shownNotificationsRef.current.size > 100) {
+			const firstKey = shownNotificationsRef.current.values().next().value
+			shownNotificationsRef.current.delete(firstKey)
+		}
+		
 		if (data.playSound) {
 			console.log('🔊 Попытка воспроизвести звук')
 			try {
@@ -134,9 +153,9 @@ export default function Header() {
 			} catch {}
 		}
 
-		// Обновляем уведомления и счетчик непрочитанных
+		// Обновляем уведомления и счетчик непрочитанных (используем функциональное обновление)
 		setNotifications(prev => [data, ...prev.slice(0, 4)])
-		setUnreadCount(unreadCount + 1)
+		setUnreadCount(prev => prev + 1)
 
 		// Добавляем toast уведомление
 		const toastNotification = {
@@ -156,7 +175,7 @@ export default function Header() {
 			console.log('📋 Текущие toast уведомления:', newNotifications.length)
 			return newNotifications
 		})
-	}, [unreadCount])
+	}, [])
 
 	// Загрузка количества непрочитанных сообщений и SSE
 	useEffect(() => {
