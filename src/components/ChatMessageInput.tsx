@@ -60,7 +60,7 @@ export default function MessageInput({
 		if (textarea) {
 			// Если сообщение пустое, устанавливаем минимальную высоту
 			if (!message.trim()) {
-				textarea.style.height = '44px'
+				textarea.style.height = '48px'
 				return
 			}
 			
@@ -68,7 +68,7 @@ export default function MessageInput({
 			textarea.style.height = 'auto'
 			
 			// Вычисляем новую высоту на основе содержимого
-			const newHeight = Math.max(44, Math.min(textarea.scrollHeight, 150))
+			const newHeight = Math.max(48, Math.min(textarea.scrollHeight, 150))
 			textarea.style.height = `${newHeight}px`
 		}
 	}, [message])
@@ -142,7 +142,7 @@ export default function MessageInput({
 				
 				// Сбрасываем высоту textarea к начальному размеру
 				if (textareaRef.current) {
-					textareaRef.current.style.height = '44px'
+					textareaRef.current.style.height = '48px'
 				}
 				
 				if (fileInputRef.current) {
@@ -256,9 +256,9 @@ export default function MessageInput({
 				</div>
 			)}
 
-			<div className='flex items-end gap-2 sm:gap-2'>
+			<div className='flex items-end gap-2'>
 				{/* Кнопка прикрепления файла */}
-				<label className='cursor-pointer flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 active:bg-gray-600 transition-colors touch-manipulation'>
+				<label className='cursor-pointer flex-shrink-0 w-12 h-12 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 active:bg-gray-600 transition-colors touch-manipulation'>
 					<input
 						ref={fileInputRef}
 						type='file'
@@ -286,7 +286,7 @@ export default function MessageInput({
 					<button
 						type='button'
 						onClick={() => setShowEmojiPicker(prev => !prev)}
-						className='flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 active:bg-gray-600 transition-colors text-xl sm:text-lg touch-manipulation'
+						className='flex-shrink-0 w-12 h-12 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 active:bg-gray-600 transition-colors text-2xl sm:text-lg touch-manipulation'
 					>
 						😊
 					</button>
@@ -319,11 +319,11 @@ export default function MessageInput({
 						}}
 						placeholder='Сообщение...'
 						rows={1}
-						className='w-full px-4 sm:px-4 py-3 sm:py-2.5 bg-gray-700/50 border border-gray-600/50 rounded-3xl text-white text-base sm:text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none custom-scrollbar'
+						className='w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-3xl text-white text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none custom-scrollbar'
 						disabled={sending}
 						style={{ 
-							height: '44px',
-							minHeight: '44px', 
+							height: '48px',
+							minHeight: '48px', 
 							maxHeight: '150px',
 							lineHeight: '1.5',
 							overflow: 'auto',
@@ -336,7 +336,7 @@ export default function MessageInput({
 				<button
 					type='submit'
 					disabled={sending || (!message.trim() && !file)}
-					className='flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center touch-manipulation'
+					className='flex-shrink-0 w-12 h-12 sm:w-10 sm:h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center touch-manipulation'
 					title={sending ? 'Отправка...' : 'Отправить'}
 				>
 					{sending ? (

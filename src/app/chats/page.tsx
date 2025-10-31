@@ -898,7 +898,7 @@ function ChatsPageContent() {
 
 							{/* Сообщения - растягиваемая область */}
 							<div 
-								className='flex-1 overflow-y-auto px-3 pt-3 pb-32 sm:px-6 sm:pt-6 sm:pb-4 custom-scrollbar'
+								className='flex-1 overflow-y-auto px-3 pt-3 pb-24 sm:px-6 sm:pt-6 sm:pb-4 custom-scrollbar'
 								style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 							>
 									{messagesLoading ? (
@@ -993,13 +993,17 @@ function ChatsPageContent() {
 								</div>
 
 								{/* Поле ввода сообщения - фиксированное внизу */}
-								<div className='fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto flex-shrink-0 border-t border-gray-700/50 bg-gray-900/95 md:bg-gray-900/50 backdrop-blur-md z-10 pb-safe'>
-									<MessageInput
-										chatType={selectedChat.type}
-										otherUserId={selectedChat.otherUser?.id}
-										taskId={selectedChat.task?.id}
-										onMessageSent={handleNewMessage}
-									/>
+								<div className='fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto flex-shrink-0 border-t border-gray-700/50 bg-gray-900 md:bg-gray-900/50 backdrop-blur-md z-50 shadow-2xl'>
+									<div className='p-3 sm:p-4'>
+										<MessageInput
+											chatType={selectedChat.type}
+											otherUserId={selectedChat.otherUser?.id}
+											taskId={selectedChat.task?.id}
+											onMessageSent={handleNewMessage}
+										/>
+									</div>
+									{/* Безопасная зона для iOS */}
+									<div className='h-safe-bottom md:hidden' style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
 								</div>
 							</>
 						) : (
