@@ -115,6 +115,8 @@ export default function ProfilePageContent() {
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [amount, setAmount] = useState(100)
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+	const [withdrawError, setWithdrawError] = useState<string | null>(null)
+	const [withdrawLoading, setWithdrawLoading] = useState(false)
 
 	const fetchProfile = async () => {
 		if (!token) return
@@ -165,15 +167,41 @@ export default function ProfilePageContent() {
 	}, [user, token])
 
 	const handleWithdraw = async () => {
-		await fetch('/api/wallet/withdraw', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${token}`,
-			},
-			body: JSON.stringify({ amount }),
-		})
-		location.reload()
+		if (!amount || amount <= 0) {
+			setWithdrawError('Укажите сумму для вывода')
+			return
+		}
+
+		setWithdrawError(null)
+		setWithdrawLoading(true)
+
+		try {
+			const res = await fetch('/api/wallet/withdraw', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ amount }),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				// Показываем ошибку пользователю
+				setWithdrawError(data.error || 'Не удалось вывести средства')
+				return
+			}
+
+			// Успешно - обновляем профиль
+			await fetchProfile()
+			setAmount(100)
+			setWithdrawError(null)
+		} catch (err: any) {
+			setWithdrawError(err.message || 'Ошибка при выводе средств')
+		} finally {
+			setWithdrawLoading(false)
+		}
 	}
 
 	const handleProfileUpdateSuccess = () => {
@@ -320,25 +348,45 @@ export default function ProfilePageContent() {
 									</span>
 								</div>
 							)}
-					</div>
-					<div className='flex gap-2 mb-4'>
-							<input
-								type='number'
-								value={amount}
-								onChange={e => setAmount(parseInt(e.target.value))}
-								className='bg-transparent border border-emerald-500/30 text-white p-2 
+						</div>
+						<div className='flex flex-col gap-2 mb-4'>
+							<div className='flex gap-2'>
+								<input
+									type='number'
+									value={amount}
+									onChange={e => {
+										setAmount(parseInt(e.target.value))
+										if (withdrawError) setWithdrawError(null)
+									}}
+									className='bg-transparent border border-emerald-500/30 text-white p-2 
                            rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-24 text-sm'
-								placeholder='Сумма'
-							/>
-							<button
-								onClick={handleWithdraw}
-								className='px-3 py-2 rounded border border-red-400 
+									placeholder='Сумма'
+									disabled={withdrawLoading}
+								/>
+								<button
+									onClick={handleWithdraw}
+									disabled={withdrawLoading}
+									className='px-3 py-2 rounded border border-red-400 
                                                           text-red-400 hover:bg-red-400 
-                                                          hover:text-black transition text-sm'
-								title='Вывод средств'
-							>
-								- Вывести
-							</button>
+                                                          hover:text-black transition text-sm disabled:opacity-50 disabled:cursor-not-allowed'
+									title='Вывод средств'
+								>
+									{withdrawLoading ? (
+										<span className='flex items-center gap-2'>
+											<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
+											Обработка...
+										</span>
+									) : (
+										'- Вывести'
+									)}
+								</button>
+							</div>
+							{withdrawError && (
+								<div className='bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
+									<span className='font-semibold'>⚠️ Ошибка:</span>{' '}
+									{withdrawError}
+								</div>
+							)}
 						</div>
 
 						<h4 className='text-sm font-semibold text-emerald-300 mb-2'>
@@ -690,16 +738,16 @@ export default function ProfilePageContent() {
 				)}
 			</div>
 
-		{/* Модальное окно редактирования профиля */}
-		{token && (
-			<EditProfileModal
-				isOpen={isEditModalOpen}
-				onClose={() => setIsEditModalOpen(false)}
-				user={profile}
-				token={token}
-				onSuccess={handleProfileUpdateSuccess}
-			/>
-		)}
-	</div>
+			{/* Модальное окно редактирования профиля */}
+			{token && (
+				<EditProfileModal
+					isOpen={isEditModalOpen}
+					onClose={() => setIsEditModalOpen(false)}
+					user={profile}
+					token={token}
+					onSuccess={handleProfileUpdateSuccess}
+				/>
+			)}
+		</div>
 	)
 }
