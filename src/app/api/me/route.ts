@@ -16,19 +16,14 @@ export async function GET(req: Request) {
 				if (payload?.userId) {
 					const blockedUser = await prisma.user.findUnique({
 						where: { id: payload.userId },
-						select: { blocked: true, blockedUntil: true, blockedReason: true, email: true },
+						select: { blocked: true, email: true },
 					})
 					
 					if (blockedUser && blockedUser.blocked) {
-						const message = blockedUser.blockedUntil && blockedUser.blockedUntil > new Date()
-							? `Ваш аккаунт заблокирован до ${blockedUser.blockedUntil.toLocaleString('ru-RU')}`
-							: 'Ваш аккаунт заблокирован навсегда'
-						
 						return NextResponse.json({
-							error: message,
+							error: 'Ваш аккаунт заблокирован',
 							blocked: true,
-							reason: blockedUser.blockedReason || 'Нарушение правил платформы',
-							until: blockedUser.blockedUntil,
+							reason: 'Нарушение правил платформы',
 						}, { status: 403 })
 					}
 				}

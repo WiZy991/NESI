@@ -15,8 +15,6 @@ model User {
   role        Role                 @default(user)
   verified    Boolean              @default(false)
   blocked     Boolean              @default(false)
-  blockedUntil DateTime?
-  blockedReason String?
   fullName    String?
   createdAt   DateTime             @default(now())
 
@@ -66,7 +64,6 @@ model User {
 
   settings UserSettings?
   reports   CommunityReport[]  @relation("UserReports")
-  activityLogs ActivityLog[]
 }
 
 model UserSettings {
@@ -514,22 +511,6 @@ model Feedback {
   reviewedAt DateTime?
   reviewedBy String?
   notes     String?  @db.Text
-}
-
-model ActivityLog {
-  id         String   @id @default(cuid())
-  userId     String
-  action     String
-  ipAddress  String?
-  userAgent  String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-  
-  user User @relation(fields: [userId], references: [id])
-  
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
 }
 
 enum Role {

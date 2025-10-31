@@ -25,42 +25,12 @@ export async function GET(req: NextRequest) {
       where.action = action
     }
 
-    const logs = await prisma.activityLog.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            fullName: true,
-            blocked: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    })
-    
-    // Статистика по IP
-    const ipStats = await prisma.activityLog.groupBy({
-      by: ['ipAddress'],
-      _count: { ipAddress: true },
-      where: {
-        ipAddress: { not: null },
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // За последние 7 дней
-        },
-      },
-      orderBy: {
-        _count: { ipAddress: 'desc' },
-      },
-      take: 10,
-    })
-
+    // Таблица ActivityLog не создана - возвращаем пустые данные
     return NextResponse.json({
-      logs,
-      ipStats,
-      total: logs.length,
+      logs: [],
+      ipStats: [],
+      total: 0,
+      message: 'Anti-fraud мониторинг отключен. Таблица ActivityLog не создана.',
     })
   } catch (error) {
     console.error('❌ Ошибка получения логов:', error)

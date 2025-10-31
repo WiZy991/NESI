@@ -40,28 +40,8 @@ export async function getUserFromRequest(req: Request) {
 
     // 🔒 Проверяем блокировку пользователя
     if (user.blocked) {
-      // Постоянная блокировка
-      if (!user.blockedUntil) {
-        console.warn(`🚫 Попытка доступа заблокированного пользователя: ${user.email}`)
-        return null
-      }
-      
-      // Временная блокировка
-      const now = new Date()
-      if (user.blockedUntil > now) {
-        console.warn(`🚫 Попытка доступа временно заблокированного пользователя: ${user.email} (до ${user.blockedUntil})`)
-        return null
-      } else {
-        // Блокировка истекла, снимаем её
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { blocked: false, blockedUntil: null, blockedReason: null },
-        })
-        console.log(`✅ Временная блокировка снята: ${user.email}`)
-        user.blocked = false
-        user.blockedUntil = null
-        user.blockedReason = null
-      }
+      console.warn(`🚫 Попытка доступа заблокированного пользователя: ${user.email}`)
+      return null
     }
 
     return user
