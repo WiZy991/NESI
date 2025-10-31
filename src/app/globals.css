@@ -24,9 +24,14 @@
 	}
 }
 
-/* 🧠 Базовый стиль body */
+/* 🧠 Базовый стиль html и body */
+html {
+	background-color: #111827;
+}
+
 body {
 	color: var(--foreground);
+	background-color: #111827;
 	font-family: 'Poppins', sans-serif;
 	font-weight: 400;
 	letter-spacing: 0.02em;

@@ -79,11 +79,15 @@ function ChatsPageContent() {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 
-	// Предотвращаем прокрутку body на мобильных устройствах
+	// Предотвращаем прокрутку body на мобильных устройствах и устанавливаем темный фон
 	useEffect(() => {
 		// Сохраняем исходное значение
 		const originalOverflow = document.body.style.overflow
 		const originalPosition = document.body.style.position
+		const originalBg = document.body.style.backgroundColor
+		
+		// Устанавливаем темный фон для всей страницы
+		document.body.style.backgroundColor = '#111827' // gray-900
 		
 		// Блокируем прокрутку на мобильных
 		if (window.innerWidth < 768) {
@@ -97,6 +101,7 @@ function ChatsPageContent() {
 			document.body.style.overflow = originalOverflow
 			document.body.style.position = originalPosition
 			document.body.style.width = ''
+			document.body.style.backgroundColor = originalBg
 		}
 	}, [])
 
@@ -732,10 +737,10 @@ function ChatsPageContent() {
 
 	return (
 		<div 
-			className='h-screen w-full bg-transparent from-gray-900 via-black to-gray-900 p-0 sm:p-4 overflow-hidden fixed inset-0'
+			className='h-screen w-full bg-gray-900 p-0 sm:p-4 overflow-hidden fixed inset-0'
 			style={{ touchAction: 'none' }}
 		>
-			<div className='max-w-7xl mx-auto h-full bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden flex flex-col'>
+			<div className='max-w-7xl mx-auto h-full bg-gray-900 sm:bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden flex flex-col'>
 				<div className='flex flex-1 overflow-hidden min-h-0' style={{ touchAction: 'pan-y' }}>
 					{/* Левая колонка - список чатов */}
 					<div
@@ -867,8 +872,8 @@ function ChatsPageContent() {
 												/>
 											</svg>
 										</button>
-										<div className='w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
-											{selectedChat.type === 'private' ? (
+										{selectedChat.type === 'private' ? (
+											<div className='flex-shrink-0'>
 												<AvatarComponent
 													avatarUrl={selectedChat.otherUser?.avatarUrl}
 													fallbackText={
@@ -879,10 +884,12 @@ function ChatsPageContent() {
 													size={window.innerWidth < 640 ? 40 : 48}
 													userId={selectedChat.otherUser?.id}
 												/>
-											) : (
+											</div>
+										) : (
+											<div className='w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
 												<span className='text-xl sm:text-2xl'>📋</span>
-											)}
-										</div>
+											</div>
+										)}
 										<div className='flex-1 min-w-0'>
 											<h2 className='text-white font-semibold text-sm sm:text-lg truncate'>
 												{getChatTitle(selectedChat)}
@@ -898,7 +905,7 @@ function ChatsPageContent() {
 
 							{/* Сообщения - растягиваемая область */}
 							<div 
-								className='flex-1 overflow-y-auto px-3 pt-3 pb-24 sm:px-6 sm:pt-6 sm:pb-4 custom-scrollbar'
+								className='flex-1 overflow-y-auto px-3 pt-3 pb-4 sm:px-6 sm:pt-6 sm:pb-4 custom-scrollbar'
 								style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 							>
 									{messagesLoading ? (
