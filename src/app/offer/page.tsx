@@ -413,14 +413,135 @@ export default function PublicOfferPage() {
 					</div>
 				</div>
 
+				{/* Запрещённые товары и услуги */}
+				<div className='bg-black/40 border border-red-500/20 rounded-2xl p-6 sm:p-8 shadow-[0_0_25px_rgba(239,68,68,0.1)]'>
+					<h2 className='text-2xl font-bold text-red-400 mb-4'>
+						7. Запрещённые товары и услуги
+					</h2>
+					<div className='space-y-4 text-gray-300 leading-relaxed text-sm sm:text-base'>
+						<p>
+							<strong className='text-red-400'>7.1.</strong> На Платформе{' '}
+							<strong className='text-red-400'>СТРОГО ЗАПРЕЩЕНО</strong> размещать
+							Задания, связанные со следующими категориями товаров и услуг:
+						</p>
+						
+						<div className='bg-red-500/10 border border-red-500/30 rounded-xl p-4 mt-3'>
+							<ul className='list-disc pl-6 space-y-2 ml-2'>
+								<li>
+									<strong>Наркотические средства, психотропные вещества</strong> и
+									их прекурсоры, а также оборудование и материалы для их
+									производства или употребления
+								</li>
+								<li>
+									<strong>Оружие, боеприпасы, взрывчатые вещества</strong>,
+									комплектующие к ним, а также газовое, травматическое и
+									холодное оружие без соответствующих разрешений
+								</li>
+								<li>
+									<strong>Азартные игры, букмекерские услуги</strong>, казино,
+									тотализаторы и любые формы незаконных игр на деньги
+								</li>
+								<li>
+									<strong>Порнографические материалы</strong>, услуги
+									сексуального характера, эскорт-услуги
+								</li>
+								<li>
+									<strong>Поддельные документы</strong>, дипломы, удостоверения,
+									водительские права, паспорта и любые другие официальные
+									документы
+								</li>
+								<li>
+									<strong>Пиратский контент</strong>: нелегальное
+									распространение программного обеспечения, фильмов, музыки,
+									книг и других объектов авторского права
+								</li>
+								<li>
+									<strong>Финансовые пирамиды</strong>, схемы мошенничества,
+									обналичивание денежных средств, отмывание денег
+								</li>
+								<li>
+									<strong>Услуги хакинга</strong>, взлома аккаунтов, DDoS-атак,
+									распространение вредоносного ПО
+								</li>
+								<li>
+									<strong>Контрафактная продукция</strong>, поддельные товары,
+									нарушающие права на товарные знаки
+								</li>
+								<li>
+									<strong>Табачные изделия без лицензии</strong>, алкогольная
+									продукция без соответствующих разрешений
+								</li>
+								<li>
+									<strong>Услуги по написанию дипломных работ</strong>,
+									курсовых, экзаменационных работ для учебных заведений
+								</li>
+								<li>
+									<strong>Медицинские услуги</strong> без лицензии, продажа
+									рецептурных лекарств без рецепта
+								</li>
+								<li>
+									<strong>Органы и ткани человека</strong>, услуги суррогатного
+									материнства в обход законодательства
+								</li>
+								<li>
+									<strong>Экстремистские материалы</strong>, призывы к насилию,
+									разжигание межнациональной розни
+								</li>
+								<li>
+									<strong>Персональные данные третьих лиц</strong>, базы
+									данных, полученные незаконным путём
+								</li>
+							</ul>
+						</div>
+
+						<p className='mt-4'>
+							<strong className='text-red-400'>7.2.</strong> Компания оставляет
+							за собой право по своему усмотрению дополнять список запрещённых
+							категорий товаров и услуг без предварительного уведомления
+							Пользователей.
+						</p>
+
+						<p>
+							<strong className='text-red-400'>7.3.</strong> В случае выявления
+							размещения Заданий, связанных с запрещёнными товарами или
+							услугами, Компания имеет право:
+						</p>
+						<ul className='list-disc pl-6 space-y-2 ml-4'>
+							<li>Немедленно удалить соответствующее Задание</li>
+							<li>
+								Заблокировать учётную запись Пользователя без возврата средств
+							</li>
+							<li>
+								Передать информацию о нарушении в правоохранительные органы
+							</li>
+							<li>
+								Удержать все средства на балансе нарушителя в качестве штрафа
+							</li>
+						</ul>
+
+						<p className='mt-4'>
+							<strong className='text-red-400'>7.4.</strong> Пользователь несёт
+							полную ответственность за соответствие размещаемых Заданий
+							законодательству Российской Федерации и условиям настоящей Оферты.
+						</p>
+
+						<p className='text-red-400 font-bold text-base mt-4 p-4 bg-red-500/20 rounded-xl border border-red-500/40'>
+							⚠️ ВНИМАНИЕ: Нарушение данных правил влечёт за собой
+							безвозвратную блокировку аккаунта, конфискацию средств и
+							возможное привлечение к административной и уголовной
+							ответственности в соответствии с законодательством РФ.
+						</p>
+					</div>
+				</div>
+
 				{/* Ответственность сторон */}
 				<div className='bg-black/40 border border-emerald-500/20 rounded-2xl p-6 sm:p-8 shadow-[0_0_25px_rgba(16,185,129,0.15)]'>
 					<h2 className='text-2xl font-bold text-emerald-300 mb-4'>
-						7. Ответственность сторон
+						8. Ответственность сторон
 					</h2>
 					<div className='space-y-3 text-gray-300 leading-relaxed text-sm sm:text-base'>
 						<p>
-							<strong className='text-emerald-400'>7.1.</strong> Компания не
+							<strong className='text-emerald-400'>8.1.</strong> Компания не
 							несёт ответственности за:
 						</p>
 						<ul className='list-disc pl-6 space-y-2 ml-4'>
@@ -449,13 +570,13 @@ export default function PublicOfferPage() {
 							</li>
 						</ul>
 						<p className='mt-4'>
-							<strong className='text-emerald-400'>7.2.</strong> Компания несёт
+							<strong className='text-emerald-400'>8.2.</strong> Компания несёт
 							ответственность за техническое функционирование Платформы в
 							соответствии с принципом разумной осмотрительности, но не
 							гарантирует абсолютной бесперебойности работы Платформы.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>7.3.</strong> Пользователь
+							<strong className='text-emerald-400'>8.3.</strong> Пользователь
 							несёт полную ответственность за:
 						</p>
 						<ul className='list-disc pl-6 space-y-2 ml-4'>
@@ -476,7 +597,7 @@ export default function PublicOfferPage() {
 							<li>Своевременную оплату размещённых Заданий (для Заказчика)</li>
 						</ul>
 						<p className='mt-4'>
-							<strong className='text-emerald-400'>7.4.</strong> В случае
+							<strong className='text-emerald-400'>8.4.</strong> В случае
 							нарушения Пользователем условий настоящей Оферты Компания вправе
 							приостановить или прекратить доступ Пользователя к Платформе без
 							возврата внесённых средств и компенсации каких-либо убытков.
@@ -487,32 +608,32 @@ export default function PublicOfferPage() {
 				{/* Разрешение споров */}
 				<div className='bg-black/40 border border-emerald-500/20 rounded-2xl p-6 sm:p-8 shadow-[0_0_25px_rgba(16,185,129,0.15)]'>
 					<h2 className='text-2xl font-bold text-emerald-300 mb-4'>
-						8. Разрешение споров
+						9. Разрешение споров
 					</h2>
 					<div className='space-y-3 text-gray-300 leading-relaxed text-sm sm:text-base'>
 						<p>
-							<strong className='text-emerald-400'>8.1.</strong> Все споры и
+							<strong className='text-emerald-400'>9.1.</strong> Все споры и
 							разногласия, возникающие между Заказчиком и Исполнителем в связи с
 							выполнением Задания, подлежат разрешению через систему разрешения
 							споров, организованную Компанией на Платформе.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>8.2.</strong> Компания
+							<strong className='text-emerald-400'>9.2.</strong> Компания
 							выступает в качестве арбитра при разрешении споров между
 							Пользователями и принимает решения на основе предоставленных
 							доказательств и в соответствии с правилами Платформы.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>8.3.</strong> Решение
+							<strong className='text-emerald-400'>9.3.</strong> Решение
 							Компании по спору является окончательным и обязательным для сторон
 							спора, если иное не предусмотрено законодательством Российской
 							Федерации.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>8.4.</strong> В случае, если
+							<strong className='text-emerald-400'>9.4.</strong> В случае, если
 							спор между Пользователем и Компанией не может быть разрешён
 							претензионным порядком, он подлежит рассмотрению в суде по месту
-							нахождения Компании в соответствии с законодательством Российской
+			нахождения Компании в соответствии с законодательством Российской
 							Федерации.
 						</p>
 					</div>
@@ -521,11 +642,11 @@ export default function PublicOfferPage() {
 				{/* Защита персональных данных */}
 				<div className='bg-black/40 border border-emerald-500/20 rounded-2xl p-6 sm:p-8 shadow-[0_0_25px_rgba(16,185,129,0.15)]'>
 					<h2 className='text-2xl font-bold text-emerald-300 mb-4'>
-						9. Защита персональных данных
+						10. Защита персональных данных
 					</h2>
 					<div className='space-y-3 text-gray-300 leading-relaxed text-sm sm:text-base'>
 						<p>
-							<strong className='text-emerald-400'>9.1.</strong> Обработка
+							<strong className='text-emerald-400'>10.1.</strong> Обработка
 							персональных данных Пользователей осуществляется Компанией в
 							соответствии с Федеральным законом № 152-ФЗ «О персональных
 							данных» и политикой конфиденциальности, размещённой по адресу{' '}
@@ -538,7 +659,7 @@ export default function PublicOfferPage() {
 							.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>9.2.</strong> Регистрируясь
+							<strong className='text-emerald-400'>10.2.</strong> Регистрируясь
 							на Платформе, Пользователь даёт согласие на обработку его
 							персональных данных в объёме, необходимом для оказания
 							посреднических услуг и функционирования Платформы.
@@ -549,33 +670,33 @@ export default function PublicOfferPage() {
 				{/* Изменение условий оферты */}
 				<div className='bg-black/40 border border-emerald-500/20 rounded-2xl p-6 sm:p-8 shadow-[0_0_25px_rgba(16,185,129,0.15)]'>
 					<h2 className='text-2xl font-bold text-emerald-300 mb-4'>
-						10. Изменение условий оферты
+						11. Изменение условий оферты
 					</h2>
 					<div className='space-y-3 text-gray-300 leading-relaxed text-sm sm:text-base'>
 						<p>
-							<strong className='text-emerald-400'>10.1.</strong> Компания
+							<strong className='text-emerald-400'>11.1.</strong> Компания
 							оставляет за собой право в одностороннем порядке вносить изменения
 							в настоящую Оферту с обязательным уведомлением Пользователей через
 							Платформу.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>10.2.</strong> О существенных
+							<strong className='text-emerald-400'>11.2.</strong> О существенных
 							изменениях условий Оферты (включая изменение размера комиссии)
 							Пользователи уведомляются не менее чем за 30 календарных дней до
 							вступления таких изменений в силу.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>10.3.</strong> Изменения
+							<strong className='text-emerald-400'>11.3.</strong> Изменения
 							Оферты вступают в силу с момента их опубликования на Платформе,
 							если иное не указано в уведомлении.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>10.4.</strong> Продолжение
-							использования Платформы после вступления изменений в силу означает
+							<strong className='text-emerald-400'>11.4.</strong> Продолжение
+			использования Платформы после вступления изменений в силу означает
 							принятие Пользователем новых условий Оферты.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>10.5.</strong> В случае
+							<strong className='text-emerald-400'>11.5.</strong> В случае
 							несогласия с изменениями Пользователь вправе прекратить
 							использование Платформы и расторгнуть договор в любое время.
 						</p>
@@ -585,19 +706,19 @@ export default function PublicOfferPage() {
 				{/* Расторжение договора */}
 				<div className='bg-black/40 border border-emerald-500/20 rounded-2xl p-6 sm:p-8 shadow-[0_0_25px_rgba(16,185,129,0.15)]'>
 					<h2 className='text-2xl font-bold text-emerald-300 mb-4'>
-						11. Расторжение договора
+						12. Расторжение договора
 					</h2>
 					<div className='space-y-3 text-gray-300 leading-relaxed text-sm sm:text-base'>
 						<p>
-							<strong className='text-emerald-400'>11.1.</strong> Пользователь
+							<strong className='text-emerald-400'>12.1.</strong> Пользователь
 							вправе в любое время прекратить использование Платформы и
 							расторгнуть договор, удалив свою учётную запись через интерфейс
 							Платформы или обратившись в службу поддержки.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>11.2.</strong> Компания
+							<strong className='text-emerald-400'>12.2.</strong> Компания
 							вправе прекратить предоставление услуг Пользователю и расторгнуть
-							договор в одностороннем внесудебном порядке в случае:
+			договор в одностороннем внесудебном порядке в случае:
 						</p>
 						<ul className='list-disc pl-6 space-y-2 ml-4'>
 							<li>Нарушения Пользователем условий настоящей Оферты</li>
@@ -612,7 +733,7 @@ export default function PublicOfferPage() {
 							</li>
 						</ul>
 						<p className='mt-4'>
-							<strong className='text-emerald-400'>11.3.</strong> При
+							<strong className='text-emerald-400'>12.3.</strong> При
 							расторжении договора Пользователь вправе получить остаток средств
 							на своём балансе на Платформе, если таковой имеется, за вычетом
 							сумм, причитающихся Компании, в порядке, предусмотренном правилами
@@ -624,33 +745,33 @@ export default function PublicOfferPage() {
 				{/* Прочие условия */}
 				<div className='bg-black/40 border border-emerald-500/20 rounded-2xl p-6 sm:p-8 shadow-[0_0_25px_rgba(16,185,129,0.15)]'>
 					<h2 className='text-2xl font-bold text-emerald-300 mb-4'>
-						12. Прочие условия
+						13. Прочие условия
 					</h2>
 					<div className='space-y-3 text-gray-300 leading-relaxed text-sm sm:text-base'>
 						<p>
-							<strong className='text-emerald-400'>12.1.</strong> Настоящая
+							<strong className='text-emerald-400'>13.1.</strong> Настоящая
 							Оферта регулируется законодательством Российской Федерации.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>12.2.</strong> Все вопросы,
+							<strong className='text-emerald-400'>13.2.</strong> Все вопросы,
 							не урегулированные настоящей Офертой, решаются в соответствии с
 							законодательством Российской Федерации.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>12.3.</strong> Если
-							какое-либо положение настоящей Оферты признано недействительным
+							<strong className='text-emerald-400'>13.3.</strong> Если
+			какое-либо положение настоящей Оферты признано недействительным
 							или неприменимым, остальные положения продолжают действовать в
 							полном объёме.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>12.4.</strong> Настоящая
+							<strong className='text-emerald-400'>13.4.</strong> Настоящая
 							Оферта действует бессрочно до момента её отзыва Компанией или
 							изменения на новую редакцию.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>12.5.</strong> Компания не
+							<strong className='text-emerald-400'>13.5.</strong> Компания не
 							несёт ответственности за невозможность использования Платформы в
-							результате действий третьих лиц, сбоев в работе оборудования,
+			результате действий третьих лиц, сбоев в работе оборудования,
 							программного обеспечения или сетей связи.
 						</p>
 					</div>
@@ -659,7 +780,7 @@ export default function PublicOfferPage() {
 				{/* Реквизиты и контакты */}
 				<div className='bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/30 rounded-2xl p-6 sm:p-8 shadow-[0_0_25px_rgba(16,185,129,0.2)]'>
 					<h2 className='text-2xl font-bold text-emerald-300 mb-6'>
-						13. Реквизиты Исполнителя (Компании)
+						14. Реквизиты Исполнителя (Компании)
 					</h2>
 					<div className='space-y-4 text-gray-300'>
 						<div>
