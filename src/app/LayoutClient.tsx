@@ -22,18 +22,19 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
   const isHome = pathname === '/'
   const isAuthPage = ['/login', '/register', '/forgot-password'].includes(pathname)
+  const isChatPage = pathname === '/chats'
 
   return (
     <UserProvider>
-      {/* Звёздный фон — всегда активен */}
-      <Starfield />
+      {/* Звёздный фон — везде кроме чата */}
+      {!isChatPage && <Starfield />}
 
       {/* Хедер показываем только там, где нужно */}
       {!isHome && !isAuthPage && <Header />}
 
       <main className="relative min-h-screen w-full overflow-hidden text-white">
-        {/* Градиент — только для обычных страниц (не авторизация, не главная) */}
-        {!isHome && !isAuthPage && (
+        {/* Градиент — только для обычных страниц (не авторизация, не главная, не чат) */}
+        {!isHome && !isAuthPage && !isChatPage && (
           <>
             <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0a] to-[#04382A] opacity-40 z-0" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.25),transparent_70%)] opacity-40 z-0" />
@@ -50,7 +51,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         {/* Контент */}
         <div
           className={`relative z-10 ${
-            isHome || isAuthPage
+            isHome || isAuthPage || isChatPage
               ? 'flex items-center justify-center w-full px-0 py-0'
               : 'max-w-screen-xl mx-auto px-4 py-10 md:px-8'
           } animate-fade-in min-h-[calc(100vh-200px)]`}
@@ -59,11 +60,11 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         </div>
       </main>
 
-      {/* Футер показываем везде кроме страниц авторизации */}
-      {!isAuthPage && <Footer />}
+      {/* Футер показываем везде кроме страниц авторизации и чата */}
+      {!isAuthPage && !isChatPage && <Footer />}
 
-      {/* Виджет обратной связи показываем везде кроме авторизации */}
-      {!isAuthPage && <FeedbackWidget />}
+      {/* Виджет обратной связи показываем везде кроме авторизации и чата */}
+      {!isAuthPage && !isChatPage && <FeedbackWidget />}
 
       {/* Уведомления */}
       <Toaster position="top-center" richColors />

@@ -79,28 +79,12 @@ function ChatsPageContent() {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 
-	// Предотвращаем прокрутку body на мобильных устройствах и устанавливаем темный фон
+	// Устанавливаем темный фон для страницы чата
 	useEffect(() => {
-		// Сохраняем исходное значение
-		const originalOverflow = document.body.style.overflow
-		const originalPosition = document.body.style.position
 		const originalBg = document.body.style.backgroundColor
-		
-		// Устанавливаем темный фон для всей страницы
 		document.body.style.backgroundColor = '#111827' // gray-900
 		
-		// Блокируем прокрутку на мобильных
-		if (window.innerWidth < 768) {
-			document.body.style.overflow = 'hidden'
-			document.body.style.position = 'fixed'
-			document.body.style.width = '100%'
-		}
-		
-		// Восстанавливаем при размонтировании
 		return () => {
-			document.body.style.overflow = originalOverflow
-			document.body.style.position = originalPosition
-			document.body.style.width = ''
 			document.body.style.backgroundColor = originalBg
 		}
 	}, [])
@@ -729,7 +713,7 @@ function ChatsPageContent() {
 
 	if (loading) {
 		return (
-			<div className='fixed inset-0 bg-transparent flex items-center justify-center'>
+			<div className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 bg-gray-900 flex items-center justify-center'>
 				<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
 			</div>
 		)
@@ -737,7 +721,7 @@ function ChatsPageContent() {
 
 	return (
 		<div 
-			className='h-screen w-full bg-gray-900 p-0 sm:p-4 overflow-hidden fixed inset-0'
+			className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 bg-gray-900 p-0 sm:p-4 overflow-hidden'
 			style={{ touchAction: 'none' }}
 		>
 			<div className='max-w-7xl mx-auto h-full bg-gray-900 sm:bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden flex flex-col'>
@@ -1037,7 +1021,7 @@ export default function ChatsPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className='fixed inset-0 flex items-center justify-center bg-gray-900'>
+				<div className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 flex items-center justify-center bg-gray-900'>
 					<div className='text-center'>
 						<div className='animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4'></div>
 						<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
