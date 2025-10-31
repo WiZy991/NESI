@@ -66,6 +66,7 @@ function ChatsPageContent() {
 	const { user, token, setUnreadCount } = useUser()
 	const searchParams = useSearchParams()
 	const openUserId = searchParams?.get('open')
+	const openTaskId = searchParams?.get('taskId')
 
 	const [chats, setChats] = useState<Chat[]>([])
 	const [selectedChat, setSelectedChat] = useState<Chat | null>(null)
@@ -79,13 +80,23 @@ function ChatsPageContent() {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 
-	// Устанавливаем темный фон для страницы чата
+	// Блокируем скролл страницы на мобильной версии
 	useEffect(() => {
-		const originalBg = document.body.style.backgroundColor
-		document.body.style.backgroundColor = '#111827' // gray-900
+		// Сохраняем текущие стили
+		const originalOverflow = document.body.style.overflow
+		const originalHeight = document.body.style.height
+		const originalHtmlOverflow = document.documentElement.style.overflow
+		
+		// Блокируем скролл на body и html
+		document.body.style.overflow = 'hidden'
+		document.body.style.height = '100vh'
+		document.documentElement.style.overflow = 'hidden'
 		
 		return () => {
-			document.body.style.backgroundColor = originalBg
+			// Восстанавливаем при размонтировании
+			document.body.style.overflow = originalOverflow
+			document.body.style.height = originalHeight
+			document.documentElement.style.overflow = originalHtmlOverflow
 		}
 	}, [])
 
@@ -107,8 +118,8 @@ function ChatsPageContent() {
 					console.log('✅ Чаты загружены:', loadedChats.length)
 
 					// Устанавливаем флаг для автооткрытия чата
-					if (openUserId) {
-						console.log('🔍 Обнаружен параметр open:', openUserId)
+					if (openUserId || openTaskId) {
+						console.log('🔍 Обнаружен параметр для автооткрытия:', { openUserId, openTaskId })
 						setShouldAutoOpen(true)
 					}
 
@@ -350,15 +361,39 @@ function ChatsPageContent() {
 		}
 	}, [messages.length, messagesLoading])
 
-	// Автоматическое открытие чата при наличии параметра open
+	// Автоматическое открытие чата при наличии параметра open или taskId
 	useEffect(() => {
-		if (!openUserId || !shouldAutoOpen || !user || !token) {
-			if (openUserId && shouldAutoOpen) {
+		if ((!openUserId && !openTaskId) || !shouldAutoOpen || !user || !token) {
+			if ((openUserId || openTaskId) && shouldAutoOpen) {
 				console.log('⏳ Ждем загрузки данных пользователя и токена...')
 			}
 			return
 		}
 
+		// Если открываем чат задачи
+		if (openTaskId) {
+			console.log('🔍 Пытаемся открыть чат задачи:', openTaskId)
+			
+			// Ищем существующий чат задачи
+			const existingTaskChat = chats.find(
+				(chat: Chat) =>
+					chat.type === 'task' && chat.task?.id === openTaskId
+			)
+
+			if (existingTaskChat) {
+				console.log('✅ Чат задачи найден, открываем:', existingTaskChat)
+				handleSelectChat(existingTaskChat)
+				setShouldAutoOpen(false)
+				window.history.replaceState({}, '', '/chats')
+			} else {
+				console.log('⚠️ Чат задачи не найден в списке')
+				setShouldAutoOpen(false)
+				window.history.replaceState({}, '', '/chats')
+			}
+			return
+		}
+
+		// Если открываем приватный чат
 		console.log('🔍 Пытаемся открыть чат с пользователем:', openUserId)
 
 		// Ищем существующий чат
@@ -432,7 +467,7 @@ function ChatsPageContent() {
 
 			createNewChat()
 		}
-	}, [openUserId, shouldAutoOpen, chats, user, token])
+	}, [openUserId, openTaskId, shouldAutoOpen, chats, user, token])
 
 	// Функция для выбора чата
 	const handleSelectChat = async (chat: Chat) => {
@@ -713,7 +748,7 @@ function ChatsPageContent() {
 
 	if (loading) {
 		return (
-			<div className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 bg-gray-900 flex items-center justify-center'>
+			<div className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 bg-gray-900 md:bg-transparent flex items-center justify-center'>
 				<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
 			</div>
 		)
@@ -721,10 +756,10 @@ function ChatsPageContent() {
 
 	return (
 		<div 
-			className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 bg-gray-900 p-0 sm:p-4 overflow-hidden'
+			className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 bg-gray-900 md:bg-transparent p-0 md:p-4 overflow-hidden'
 			style={{ touchAction: 'none' }}
 		>
-			<div className='max-w-7xl mx-auto h-full bg-gray-900 sm:bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden flex flex-col'>
+			<div className='max-w-7xl mx-auto h-full bg-gray-900 md:bg-gray-900/20 backdrop-blur-sm md:rounded-2xl overflow-hidden flex flex-col'>
 				<div className='flex flex-1 overflow-hidden min-h-0' style={{ touchAction: 'pan-y' }}>
 					{/* Левая колонка - список чатов */}
 					<div
@@ -806,10 +841,15 @@ function ChatsPageContent() {
 												<p className='text-xs sm:text-sm text-gray-400 truncate mt-0.5 sm:mt-1'>
 													{getChatSubtitle(chat)}
 												</p>
-												{chat.type === 'task' && (
-													<p className='text-[10px] sm:text-xs text-emerald-400 mt-0.5 sm:mt-1 bg-emerald-900/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full inline-block truncate max-w-full'>
-														📋 {chat.task?.title}
-													</p>
+												{chat.type === 'task' && chat.task?.id && (
+													<Link
+														href={`/tasks/${chat.task.id}`}
+														className='text-[10px] sm:text-xs text-emerald-400 mt-0.5 sm:mt-1 bg-emerald-900/20 hover:bg-emerald-900/40 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full inline-block truncate max-w-full transition-all duration-200'
+														onClick={(e) => e.stopPropagation()}
+														title='Перейти к задаче'
+													>
+														📋 {chat.task.title}
+													</Link>
 												)}
 											</div>
 
@@ -878,10 +918,14 @@ function ChatsPageContent() {
 											<h2 className='text-white font-semibold text-sm sm:text-lg truncate'>
 												{getChatTitle(selectedChat)}
 											</h2>
-											{selectedChat.type === 'task' && (
-												<p className='text-[10px] sm:text-sm text-emerald-400 bg-emerald-900/20 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full inline-block mt-1 truncate max-w-full'>
-													📋 {selectedChat.task?.title}
-												</p>
+											{selectedChat.type === 'task' && selectedChat.task?.id && (
+												<Link
+													href={`/tasks/${selectedChat.task.id}`}
+													className='text-[10px] sm:text-sm text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/40 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full inline-block mt-1 truncate max-w-full transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/20'
+													title='Перейти к задаче'
+												>
+													📋 {selectedChat.task.title}
+												</Link>
 											)}
 										</div>
 									</div>
@@ -1021,7 +1065,7 @@ export default function ChatsPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 flex items-center justify-center bg-gray-900'>
+				<div className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 flex items-center justify-center bg-gray-900 md:bg-transparent'>
 					<div className='text-center'>
 						<div className='animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4'></div>
 						<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
