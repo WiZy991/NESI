@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import EmailLink from '@/components/EmailLink'
+import Link from 'next/link'
 
 export default function PublicOfferPage() {
 	return (
@@ -68,12 +68,12 @@ export default function PublicOfferPage() {
 							безоговорочное принятие Пользователем условий настоящей Оферты
 							путем регистрации на Платформе и начала использования услуг.
 						</p>
-					<p>
-						<strong className='text-emerald-400'>Платформа</strong> —
-						интернет-сайт NESI, доступный по адресу{' '}
-						<span className='text-emerald-400'>nesi.ru</span>, обеспечивающий
-						взаимодействие между Заказчиками и Исполнителями.
-					</p>
+						<p>
+							<strong className='text-emerald-400'>Платформа</strong> —
+							интернет-сайт NESI, доступный по адресу{' '}
+							<span className='text-emerald-400'>nesi.ru</span>, обеспечивающий
+							взаимодействие между Заказчиками и Исполнителями.
+						</p>
 						<p>
 							<strong className='text-emerald-400'>Пользователь</strong> —
 							физическое или юридическое лицо, зарегистрированное на Платформе и
@@ -401,6 +401,11 @@ export default function PublicOfferPage() {
 									принятия Заказчиком
 								</li>
 								<li>
+									Самостоятельно уплачивать все применимые налоги и сборы с
+									полученного от Заказчика вознаграждения в соответствии с
+									законодательством Российской Федерации
+								</li>
+								<li>
 									Соблюдать профессиональную этику и не нарушать права
 									интеллектуальной собственности третьих лиц
 								</li>
@@ -421,15 +426,16 @@ export default function PublicOfferPage() {
 					<div className='space-y-4 text-gray-300 leading-relaxed text-sm sm:text-base'>
 						<p>
 							<strong className='text-red-400'>7.1.</strong> На Платформе{' '}
-							<strong className='text-red-400'>СТРОГО ЗАПРЕЩЕНО</strong> размещать
-							Задания, связанные со следующими категориями товаров и услуг:
+							<strong className='text-red-400'>СТРОГО ЗАПРЕЩЕНО</strong>{' '}
+							размещать Задания, связанные со следующими категориями товаров и
+							услуг:
 						</p>
-						
+
 						<div className='bg-red-500/10 border border-red-500/30 rounded-xl p-4 mt-3'>
 							<ul className='list-disc pl-6 space-y-2 ml-2'>
 								<li>
-									<strong>Наркотические средства, психотропные вещества</strong> и
-									их прекурсоры, а также оборудование и материалы для их
+									<strong>Наркотические средства, психотропные вещества</strong>{' '}
+									и их прекурсоры, а также оборудование и материалы для их
 									производства или употребления
 								</li>
 								<li>
@@ -488,8 +494,8 @@ export default function PublicOfferPage() {
 									разжигание межнациональной розни
 								</li>
 								<li>
-									<strong>Персональные данные третьих лиц</strong>, базы
-									данных, полученные незаконным путём
+									<strong>Персональные данные третьих лиц</strong>, базы данных,
+									полученные незаконным путём
 								</li>
 							</ul>
 						</div>
@@ -526,10 +532,10 @@ export default function PublicOfferPage() {
 						</p>
 
 						<p className='text-red-400 font-bold text-base mt-4 p-4 bg-red-500/20 rounded-xl border border-red-500/40'>
-							⚠️ ВНИМАНИЕ: Нарушение данных правил влечёт за собой
-							безвозвратную блокировку аккаунта, конфискацию средств и
-							возможное привлечение к административной и уголовной
-							ответственности в соответствии с законодательством РФ.
+							⚠️ ВНИМАНИЕ: Нарушение данных правил влечёт за собой безвозвратную
+							блокировку аккаунта, конфискацию средств и возможное привлечение к
+							административной и уголовной ответственности в соответствии с
+							законодательством РФ.
 						</p>
 					</div>
 				</div>
@@ -633,7 +639,7 @@ export default function PublicOfferPage() {
 							<strong className='text-emerald-400'>9.4.</strong> В случае, если
 							спор между Пользователем и Компанией не может быть разрешён
 							претензионным порядком, он подлежит рассмотрению в суде по месту
-			нахождения Компании в соответствии с законодательством Российской
+							нахождения Компании в соответствии с законодательством Российской
 							Федерации.
 						</p>
 					</div>
@@ -692,7 +698,7 @@ export default function PublicOfferPage() {
 						</p>
 						<p>
 							<strong className='text-emerald-400'>11.4.</strong> Продолжение
-			использования Платформы после вступления изменений в силу означает
+							использования Платформы после вступления изменений в силу означает
 							принятие Пользователем новых условий Оферты.
 						</p>
 						<p>
@@ -718,7 +724,7 @@ export default function PublicOfferPage() {
 						<p>
 							<strong className='text-emerald-400'>12.2.</strong> Компания
 							вправе прекратить предоставление услуг Пользователю и расторгнуть
-			договор в одностороннем внесудебном порядке в случае:
+							договор в одностороннем внесудебном порядке в случае:
 						</p>
 						<ul className='list-disc pl-6 space-y-2 ml-4'>
 							<li>Нарушения Пользователем условий настоящей Оферты</li>
@@ -759,7 +765,7 @@ export default function PublicOfferPage() {
 						</p>
 						<p>
 							<strong className='text-emerald-400'>13.3.</strong> Если
-			какое-либо положение настоящей Оферты признано недействительным
+							какое-либо положение настоящей Оферты признано недействительным
 							или неприменимым, остальные положения продолжают действовать в
 							полном объёме.
 						</p>
@@ -771,7 +777,7 @@ export default function PublicOfferPage() {
 						<p>
 							<strong className='text-emerald-400'>13.5.</strong> Компания не
 							несёт ответственности за невозможность использования Платформы в
-			результате действий третьих лиц, сбоев в работе оборудования,
+							результате действий третьих лиц, сбоев в работе оборудования,
 							программного обеспечения или сетей связи.
 						</p>
 					</div>
@@ -790,30 +796,30 @@ export default function PublicOfferPage() {
 							<p>Общество с ограниченной ответственностью «НЭСИ»</p>
 							<p className='text-sm text-gray-400'>ООО «НЭСИ»</p>
 						</div>
-					<div>
-						<p className='font-semibold text-emerald-400 mb-1'>
-							Идентификационный номер налогоплательщика
-						</p>
-						<p>2205021414</p>
-					</div>
-					<div>
-						<p className='font-semibold text-emerald-400 mb-1'>
-							Юридический адрес
-						</p>
-						<p>Алтайский край, г. Заринск,</p>
-						<p>ул. Центральная 22, кв 1</p>
-					</div>
-					<div>
-						<p className='font-semibold text-emerald-400 mb-1'>
-							Электронная почта
-						</p>
-						<p>
-							<EmailLink
-								email='info.nesi@bk.ru'
-								className='text-emerald-400 hover:underline'
-							/>
-						</p>
-					</div>
+						<div>
+							<p className='font-semibold text-emerald-400 mb-1'>
+								Идентификационный номер налогоплательщика
+							</p>
+							<p>2205021414</p>
+						</div>
+						<div>
+							<p className='font-semibold text-emerald-400 mb-1'>
+								Юридический адрес
+							</p>
+							<p>Алтайский край, г. Заринск,</p>
+							<p>ул. Центральная 22, кв 1</p>
+						</div>
+						<div>
+							<p className='font-semibold text-emerald-400 mb-1'>
+								Электронная почта
+							</p>
+							<p>
+								<EmailLink
+									email='info.nesi@bk.ru'
+									className='text-emerald-400 hover:underline'
+								/>
+							</p>
+						</div>
 						<div>
 							<p className='font-semibold text-emerald-400 mb-1'>Веб-сайт</p>
 							<p>
