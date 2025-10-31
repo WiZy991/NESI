@@ -79,6 +79,27 @@ function ChatsPageContent() {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 
+	// Предотвращаем прокрутку body на мобильных устройствах
+	useEffect(() => {
+		// Сохраняем исходное значение
+		const originalOverflow = document.body.style.overflow
+		const originalPosition = document.body.style.position
+		
+		// Блокируем прокрутку на мобильных
+		if (window.innerWidth < 768) {
+			document.body.style.overflow = 'hidden'
+			document.body.style.position = 'fixed'
+			document.body.style.width = '100%'
+		}
+		
+		// Восстанавливаем при размонтировании
+		return () => {
+			document.body.style.overflow = originalOverflow
+			document.body.style.position = originalPosition
+			document.body.style.width = ''
+		}
+	}, [])
+
 	// Загрузка списка чатов и подключение к SSE
 	useEffect(() => {
 		if (!token) return
@@ -710,9 +731,12 @@ function ChatsPageContent() {
 	}
 
 	return (
-		<div className='fixed inset-0 bg-transparent from-gray-900 via-black to-gray-900 p-0 sm:p-4 overflow-hidden'>
-			<div className='max-w-7xl mx-auto h-full bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden'>
-				<div className='flex h-full'>
+		<div 
+			className='h-screen w-full bg-transparent from-gray-900 via-black to-gray-900 p-0 sm:p-4 overflow-hidden fixed inset-0'
+			style={{ touchAction: 'none' }}
+		>
+			<div className='max-w-7xl mx-auto h-full bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden flex flex-col'>
+				<div className='flex flex-1 overflow-hidden' style={{ touchAction: 'pan-y' }}>
 					{/* Левая колонка - список чатов */}
 					<div
 						className={`${
@@ -734,7 +758,10 @@ function ChatsPageContent() {
 					</div>
 
 						{/* Список чатов */}
-						<div className='flex-1 overflow-y-auto custom-scrollbar'>
+						<div 
+							className='flex-1 overflow-y-auto custom-scrollbar'
+							style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+						>
 							{filteredChats.length === 0 ? (
 								<div className='p-6 text-center text-gray-400'>
 									<div className='text-4xl mb-3'>💭</div>
@@ -870,7 +897,10 @@ function ChatsPageContent() {
 								</div>
 
 							{/* Сообщения - растягиваемая область */}
-							<div className='flex-1 overflow-y-auto px-3 pt-3 pb-32 sm:px-6 sm:pt-6 sm:pb-4 custom-scrollbar'>
+							<div 
+								className='flex-1 overflow-y-auto px-3 pt-3 pb-32 sm:px-6 sm:pt-6 sm:pb-4 custom-scrollbar'
+								style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+							>
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
 											<div className='text-center text-gray-400'>
