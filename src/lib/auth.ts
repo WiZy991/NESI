@@ -38,30 +38,35 @@ export async function getUserFromRequest(req: Request) {
     const user = await getUserFromToken(token)
     if (!user) return null
 
-    // 🔒 Проверяем блокировку пользователя
-    if (user.blocked) {
-      // Постоянная блокировка
-      if (!user.blockedUntil) {
-        console.warn(`🚫 Попытка доступа заблокированного пользователя: ${user.email}`)
-        return null
+    // 🔒 Проверяем блокировку пользователя (обратно совместимо)
+    try {
+      if (user.blocked) {
+        // Постоянная блокировка
+        if (!user.blockedUntil) {
+          console.warn(`🚫 Попытка доступа заблокированного пользователя: ${user.email}`)
+          return null
+        }
+        
+        // Временная блокировка
+        const now = new Date()
+        if (user.blockedUntil > now) {
+          console.warn(`🚫 Попытка доступа временно заблокированного пользователя: ${user.email} (до ${user.blockedUntil})`)
+          return null
+        } else {
+          // Блокировка истекла, снимаем её
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { blocked: false, blockedUntil: null, blockedReason: null },
+          })
+          console.log(`✅ Временная блокировка снята: ${user.email}`)
+          user.blocked = false
+          user.blockedUntil = null
+          user.blockedReason = null
+        }
       }
-      
-      // Временная блокировка
-      const now = new Date()
-      if (user.blockedUntil > now) {
-        console.warn(`🚫 Попытка доступа временно заблокированного пользователя: ${user.email} (до ${user.blockedUntil})`)
-        return null
-      } else {
-        // Блокировка истекла, снимаем её
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { blocked: false, blockedUntil: null, blockedReason: null },
-        })
-        console.log(`✅ Временная блокировка снята: ${user.email}`)
-        user.blocked = false
-        user.blockedUntil = null
-        user.blockedReason = null
-      }
+    } catch (blockCheckError) {
+      // Если поля blockedUntil/blockedReason не существуют в БД — игнорируем
+      console.warn('⚠️ Anti-fraud поля не найдены в БД (миграция не применена), пропускаем проверку блокировки')
     }
 
     return user

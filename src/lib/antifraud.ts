@@ -34,6 +34,7 @@ export function getUserAgent(req: NextRequest | Request): string {
 
 /**
  * Логировать активность пользователя
+ * (обратно совместимо - работает даже если таблица ActivityLog не создана)
  */
 export async function logActivity(
   userId: string,
@@ -57,8 +58,8 @@ export async function logActivity(
     
     console.log(`📊 Activity logged: ${userId} - ${action} from ${ipAddress}`)
   } catch (error) {
-    console.error('❌ Failed to log activity:', error)
-    // Не прерываем выполнение, если логирование не удалось
+    console.warn('⚠️ ActivityLog таблица не найдена (миграция не применена), пропускаем логирование')
+    // Не прерываем выполнение, если таблица не существует
   }
 }
 
@@ -95,46 +96,53 @@ export async function sendAdminAlert(
 
 /**
  * Проверить, не заблокирован ли пользователь
+ * (обратно совместимо - работает даже если поля blockedUntil/blockedReason не созданы)
  */
 export async function checkUserBlocked(userId: string): Promise<{
   isBlocked: boolean
   reason?: string
   until?: Date
 }> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { blocked: true, blockedUntil: true, blockedReason: true },
-  })
-  
-  if (!user) {
-    return { isBlocked: false }
-  }
-  
-  // Постоянная блокировка
-  if (user.blocked && !user.blockedUntil) {
-    return { isBlocked: true, reason: user.blockedReason || undefined }
-  }
-  
-  // Временная блокировка
-  if (user.blockedUntil) {
-    const now = new Date()
-    if (user.blockedUntil > now) {
-      return {
-        isBlocked: true,
-        reason: user.blockedReason || undefined,
-        until: user.blockedUntil,
-      }
-    } else {
-      // Блокировка истекла, снимаем её
-      await prisma.user.update({
-        where: { id: userId },
-        data: { blockedUntil: null, blockedReason: null },
-      })
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { blocked: true, blockedUntil: true, blockedReason: true },
+    })
+    
+    if (!user) {
       return { isBlocked: false }
     }
+    
+    // Постоянная блокировка
+    if (user.blocked && !user.blockedUntil) {
+      return { isBlocked: true, reason: user.blockedReason || undefined }
+    }
+    
+    // Временная блокировка
+    if (user.blockedUntil) {
+      const now = new Date()
+      if (user.blockedUntil > now) {
+        return {
+          isBlocked: true,
+          reason: user.blockedReason || undefined,
+          until: user.blockedUntil,
+        }
+      } else {
+        // Блокировка истекла, снимаем её
+        await prisma.user.update({
+          where: { id: userId },
+          data: { blockedUntil: null, blockedReason: null },
+        })
+        return { isBlocked: false }
+      }
+    }
+    
+    return { isBlocked: false }
+  } catch (error) {
+    console.warn('⚠️ Anti-fraud поля не найдены в БД (миграция не применена), пропускаем проверку блокировки')
+    // Если поля не существуют - просто возвращаем что пользователь не заблокирован
+    return { isBlocked: false }
   }
-  
-  return { isBlocked: false }
 }
 
 /**

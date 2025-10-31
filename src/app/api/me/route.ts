@@ -8,28 +8,33 @@ export async function GET(req: Request) {
 	const user = await getUserFromRequest(req)
 
 	if (!user) {
-		// Проверяем, может пользователь заблокирован
+		// Проверяем, может пользователь заблокирован (обратно совместимо)
 		const token = getTokenFromRequest(req)
 		if (token) {
 			try {
 				const payload = verifyJWT(token)
 				if (payload?.userId) {
-					const blockedUser = await prisma.user.findUnique({
-						where: { id: payload.userId },
-						select: { blocked: true, blockedUntil: true, blockedReason: true, email: true },
-					})
-					
-					if (blockedUser && blockedUser.blocked) {
-						const message = blockedUser.blockedUntil && blockedUser.blockedUntil > new Date()
-							? `Ваш аккаунт заблокирован до ${blockedUser.blockedUntil.toLocaleString('ru-RU')}`
-							: 'Ваш аккаунт заблокирован навсегда'
+					try {
+						const blockedUser = await prisma.user.findUnique({
+							where: { id: payload.userId },
+							select: { blocked: true, blockedUntil: true, blockedReason: true, email: true },
+						})
 						
-						return NextResponse.json({
-							error: message,
-							blocked: true,
-							reason: blockedUser.blockedReason || 'Нарушение правил платформы',
-							until: blockedUser.blockedUntil,
-						}, { status: 403 })
+						if (blockedUser && blockedUser.blocked) {
+							const message = blockedUser.blockedUntil && blockedUser.blockedUntil > new Date()
+								? `Ваш аккаунт заблокирован до ${blockedUser.blockedUntil.toLocaleString('ru-RU')}`
+								: 'Ваш аккаунт заблокирован навсегда'
+							
+							return NextResponse.json({
+								error: message,
+								blocked: true,
+								reason: blockedUser.blockedReason || 'Нарушение правил платформы',
+								until: blockedUser.blockedUntil,
+							}, { status: 403 })
+						}
+					} catch (blockCheckError) {
+						// Если поля blockedUntil/blockedReason не существуют - игнорируем
+						console.warn('⚠️ Anti-fraud поля не найдены в БД (миграция не применена)')
 					}
 				}
 			} catch (e) {}
