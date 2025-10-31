@@ -4,6 +4,8 @@ import { formatMoney, hasEnoughBalance, toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
+import { createNotification } from '@/lib/notify'
+import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 
 export async function POST(req: Request, context: { params: { id: string } }) {
 	try {
@@ -108,6 +110,33 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 				},
 			}),
 		])
+
+		// Отправляем уведомление исполнителю о назначении на задачу
+		try {
+			const customerName = user.fullName || user.email
+			const notificationMessage = `Вас назначили на задачу "${task.title}" (${formatMoney(price)})`
+			
+			// Создаем уведомление в БД
+			await createNotification({
+				userId: executorId,
+				message: notificationMessage,
+				link: `/tasks/${taskId}`,
+				type: 'assignment'
+			})
+			
+			// Отправляем SSE уведомление
+			sendNotificationToUser(executorId, {
+				type: 'assignment',
+				title: 'Вас назначили на задачу',
+				message: notificationMessage,
+				link: `/tasks/${taskId}`,
+				playSound: true
+			})
+			
+			console.log('✅ Уведомление о назначении отправлено исполнителю:', executorId)
+		} catch (notifError) {
+			console.error('❌ Ошибка отправки уведомления о назначении:', notifError)
+		}
 
 		return NextResponse.json({ success: true })
 	} catch (err) {

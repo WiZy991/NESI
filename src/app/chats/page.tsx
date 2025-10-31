@@ -736,12 +736,12 @@ function ChatsPageContent() {
 			style={{ touchAction: 'none' }}
 		>
 			<div className='max-w-7xl mx-auto h-full bg-gray-900/20 backdrop-blur-sm sm:rounded-2xl overflow-hidden flex flex-col'>
-				<div className='flex flex-1 overflow-hidden' style={{ touchAction: 'pan-y' }}>
+				<div className='flex flex-1 overflow-hidden min-h-0' style={{ touchAction: 'pan-y' }}>
 					{/* Левая колонка - список чатов */}
 					<div
 						className={`${
 							selectedChat ? 'hidden md:flex' : 'flex'
-						} w-full md:w-1/3 bg-gray-800/20 backdrop-blur-sm flex-col`}
+						} w-full md:w-1/3 bg-gray-800/20 backdrop-blur-sm flex-col min-h-0`}
 					>
 					{/* Заголовок и поиск */}
 					<div className='flex-shrink-0 p-3 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent'>
@@ -841,7 +841,7 @@ function ChatsPageContent() {
 					<div
 						className={`${
 							selectedChat ? 'flex' : 'hidden md:flex'
-						} flex-1 flex-col bg-gray-800/10 backdrop-blur-sm`}
+						} flex-1 flex-col bg-gray-800/10 backdrop-blur-sm min-h-0`}
 					>
 						{selectedChat ? (
 							<>
