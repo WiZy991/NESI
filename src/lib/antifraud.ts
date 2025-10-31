@@ -96,53 +96,28 @@ export async function sendAdminAlert(
 
 /**
  * Проверить, не заблокирован ли пользователь
- * (обратно совместимо - работает даже если поля blockedUntil/blockedReason не созданы)
+ * (обратно совместимо - работает БЕЗ полей blockedUntil/blockedReason)
  */
 export async function checkUserBlocked(userId: string): Promise<{
   isBlocked: boolean
   reason?: string
   until?: Date
 }> {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { blocked: true, blockedUntil: true, blockedReason: true },
-    })
-    
-    if (!user) {
-      return { isBlocked: false }
-    }
-    
-    // Постоянная блокировка
-    if (user.blocked && !user.blockedUntil) {
-      return { isBlocked: true, reason: user.blockedReason || undefined }
-    }
-    
-    // Временная блокировка
-    if (user.blockedUntil) {
-      const now = new Date()
-      if (user.blockedUntil > now) {
-        return {
-          isBlocked: true,
-          reason: user.blockedReason || undefined,
-          until: user.blockedUntil,
-        }
-      } else {
-        // Блокировка истекла, снимаем её
-        await prisma.user.update({
-          where: { id: userId },
-          data: { blockedUntil: null, blockedReason: null },
-        })
-        return { isBlocked: false }
-      }
-    }
-    
-    return { isBlocked: false }
-  } catch (error) {
-    console.warn('⚠️ Anti-fraud поля не найдены в БД (миграция не применена), пропускаем проверку блокировки')
-    // Если поля не существуют - просто возвращаем что пользователь не заблокирован
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { blocked: true },
+  })
+  
+  if (!user) {
     return { isBlocked: false }
   }
+  
+  // Простая блокировка через boolean поле
+  if (user.blocked) {
+    return { isBlocked: true, reason: 'Нарушение правил платформы' }
+  }
+  
+  return { isBlocked: false }
 }
 
 /**

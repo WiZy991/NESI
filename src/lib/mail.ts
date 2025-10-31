@@ -1,6 +1,14 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Ленивая инициализация Resend для предотвращения ошибок при сборке
+let resend: Resend | null = null
+
+function getResend() {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resend
+}
 
 export async function sendVerificationEmail(to: string, link: string) {
   const html = `
@@ -36,8 +44,15 @@ export async function sendVerificationEmail(to: string, link: string) {
     </div>
   `
 
+  const resendClient = getResend()
+  
+  if (!resendClient) {
+    console.warn('⚠️ RESEND_API_KEY не настроен, email не отправлен')
+    return
+  }
+
   try {
-    const data = await resend.emails.send({
+    const data = await resendClient.emails.send({
       from: `NESI <no-reply@nesi.su>`,
       to,
       subject: 'Подтверждение e-mail',
@@ -86,8 +101,15 @@ export async function sendResetPasswordEmail(to: string, link: string) {
     </div>
   `
 
+  const resendClient = getResend()
+  
+  if (!resendClient) {
+    console.warn('⚠️ RESEND_API_KEY не настроен, email сброса не отправлен')
+    return
+  }
+
   try {
-    const data = await resend.emails.send({
+    const data = await resendClient.emails.send({
       from: `NESI <no-reply@nesi.su>`,
       to,
       subject: 'Сброс пароля',
