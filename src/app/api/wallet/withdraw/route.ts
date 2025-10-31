@@ -9,6 +9,7 @@ import {
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
+import { logActivity, sendAdminAlert, validateWithdrawal } from '@/lib/antifraud'
 
 export async function POST(req: NextRequest) {
 	try {
@@ -22,6 +23,45 @@ export async function POST(req: NextRequest) {
 		const parsedAmount = parseUserInput(amount)
 		if (!parsedAmount || !isPositiveAmount(parsedAmount)) {
 			return NextResponse.json({ error: 'Некорректная сумма' }, { status: 400 })
+		}
+		
+		const amountNumber = toNumber(parsedAmount)
+
+		// 🛡️ Anti-fraud проверки перед выводом
+		const validationResult = await validateWithdrawal(user.id, amountNumber)
+		
+		if (!validationResult.allowed) {
+			// Логируем неудачную попытку вывода
+			await logActivity(user.id, 'withdraw_blocked', req, {
+				amount: amountNumber,
+				reason: validationResult.error,
+			})
+			
+			return NextResponse.json({ error: validationResult.error }, { status: 400 })
+		}
+		
+		// Если есть предупреждение - логируем
+		if (validationResult.warning) {
+			console.log(`⚠️ Вывод с предупреждением: ${user.email} - ${validationResult.warning}`)
+		}
+		
+		// Уведомляем админа при больших суммах для новых аккаунтов
+		const userDetails = await prisma.user.findUnique({
+			where: { id: user.id },
+			select: { createdAt: true, email: true },
+		})
+		
+		if (userDetails) {
+			const accountAge = Date.now() - userDetails.createdAt.getTime()
+			const isNewAccount = accountAge < 7 * 24 * 60 * 60 * 1000
+			
+			if (isNewAccount && amountNumber > 3000) {
+				await sendAdminAlert(
+					`Новый аккаунт "${userDetails.email}" выводит ${formatMoney(amountNumber)}`,
+					`/admin/users/${user.id}`,
+					{ amount: amountNumber, accountAgeDays: Math.floor(accountAge / (24 * 60 * 60 * 1000)) }
+				)
+			}
 		}
 
 		// Проверка, хватает ли денег (с учетом замороженного баланса)
@@ -63,6 +103,12 @@ export async function POST(req: NextRequest) {
 				},
 			},
 			select: { balance: true },
+		})
+		
+		// 📊 Логируем успешный вывод
+		await logActivity(user.id, 'withdraw_success', req, {
+			amount: amountNumber,
+			newBalance: toNumber(updated.balance),
 		})
 
 		return NextResponse.json({

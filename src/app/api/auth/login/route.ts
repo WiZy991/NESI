@@ -3,6 +3,7 @@ import { createNotification } from '@/lib/createNotification'
 import { signJWT } from '@/lib/jwt'
 import prisma from '@/lib/prisma'
 import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
+import { checkUserBlocked, logActivity } from '@/lib/antifraud'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
@@ -49,8 +50,24 @@ export async function POST(req: Request) {
       )
     }
 
+    // 🔒 Проверяем блокировку пользователя
+    const blockStatus = await checkUserBlocked(user.id)
+    if (blockStatus.isBlocked) {
+      const message = blockStatus.until
+        ? `Ваш аккаунт заблокирован до ${blockStatus.until.toLocaleString('ru-RU')}. ${blockStatus.reason || ''}`
+        : `Ваш аккаунт заблокирован. ${blockStatus.reason || 'Обратитесь к администратору.'}`
+      
+      // Логируем попытку входа заблокированного юзера
+      await logActivity(user.id, 'login_blocked', req, { reason: blockStatus.reason })
+      
+      return NextResponse.json({ error: message }, { status: 403 })
+    }
+
     // ✅ Всё ок — создаём токен
     const token = signJWT({ userId: user.id, role: user.role })
+    
+    // 📊 Логируем успешный вход
+    await logActivity(user.id, 'login_success', req)
 
     // 📨 Создаём уведомление
     await createNotification(

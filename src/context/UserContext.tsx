@@ -60,7 +60,16 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 						Authorization: `Bearer ${storedToken}`,
 					},
 				})
-				if (!res.ok) throw new Error()
+				if (!res.ok) {
+					// Если 401/403 - возможно заблокирован
+					if (res.status === 401 || res.status === 403) {
+						const errorData = await res.json().catch(() => ({}))
+						if (errorData.blocked) {
+							alert(`🚫 Ваш аккаунт заблокирован.\n\n${errorData.reason || 'Обратитесь к администратору.'}`)
+						}
+					}
+					throw new Error()
+				}
 				const data = await res.json()
 				setUser(data.user)
 				setToken(storedToken)
@@ -74,6 +83,28 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 		}
 
 		fetchUser()
+		
+		// Периодическая проверка блокировки каждые 60 секунд
+		const checkInterval = setInterval(() => {
+			if (storedToken) {
+				fetch('/api/me', {
+					headers: { Authorization: `Bearer ${storedToken}` },
+				})
+				.then(res => {
+					if (!res.ok) {
+						// Пользователь заблокирован или токен невалиден
+						localStorage.removeItem('token')
+						setUser(null)
+						setToken(null)
+						alert('🚫 Ваш аккаунт был заблокирован. Вы будете перенаправлены на страницу входа.')
+						window.location.href = '/login'
+					}
+				})
+				.catch(() => {})
+			}
+		}, 60000) // Каждую минуту
+
+		return () => clearInterval(checkInterval)
 	}, [])
 
 	useEffect(() => {

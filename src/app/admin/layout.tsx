@@ -14,6 +14,7 @@ const menuItems = [
 	{ href: '/admin/finance', label: 'Финансы', icon: '💰' },
 	{ href: '/admin/cert', label: 'Сертификация', icon: '🎓' },
 	{ href: '/admin/disputes', label: 'Споры', icon: '⚖️' },
+	{ href: '/admin/antifraud', label: 'Anti-Fraud', icon: '🛡️' },
 	{ href: '/admin/reports', label: 'Жалобы', icon: '🚨' },
 	{ href: '/admin/feedback', label: 'Обратная связь', icon: '💬' },
 ]
