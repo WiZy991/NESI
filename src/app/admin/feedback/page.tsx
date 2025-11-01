@@ -159,45 +159,45 @@ export default function FeedbackPage() {
 	const reviewedFeedbacks = feedbacks.filter((f) => f.status === 'reviewed')
 
 	return (
-		<div className='max-w-7xl mx-auto px-4 py-8'>
-			<div className='mb-8'>
-				<h1 className='text-3xl font-bold text-emerald-400 mb-2 flex items-center gap-3'>
-					<MessageSquare className='w-8 h-8' />
+		<div className='max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8'>
+			<div className='mb-6 sm:mb-8'>
+				<h1 className='text-2xl sm:text-3xl font-bold text-emerald-400 mb-2 flex items-center gap-2 sm:gap-3'>
+					<MessageSquare className='w-6 h-6 sm:w-8 sm:h-8' />
 					Обратная связь
 				</h1>
-				<p className='text-gray-400'>
+				<p className='text-sm sm:text-base text-gray-400'>
 					Управление отзывами и предложениями пользователей
 				</p>
 			</div>
 
 			{/* Статистика */}
-			<div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-8'>
-				<div className='bg-gray-900 border border-emerald-500/30 rounded-xl p-6'>
+			<div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8'>
+				<div className='bg-gray-900 border border-emerald-500/30 rounded-xl p-4 sm:p-6'>
 					<div className='flex items-center justify-between mb-2'>
-						<span className='text-gray-400'>Новых</span>
-						<Clock className='w-5 h-5 text-blue-400' />
+						<span className='text-sm sm:text-base text-gray-400'>Новых</span>
+						<Clock className='w-4 h-4 sm:w-5 sm:h-5 text-blue-400' />
 					</div>
-					<div className='text-3xl font-bold text-blue-400'>
+					<div className='text-2xl sm:text-3xl font-bold text-blue-400'>
 						{newFeedbacks.length}
 					</div>
 				</div>
 
-				<div className='bg-gray-900 border border-emerald-500/30 rounded-xl p-6'>
+				<div className='bg-gray-900 border border-emerald-500/30 rounded-xl p-4 sm:p-6'>
 					<div className='flex items-center justify-between mb-2'>
-						<span className='text-gray-400'>Просмотрено</span>
-						<CheckCircle className='w-5 h-5 text-green-400' />
+						<span className='text-sm sm:text-base text-gray-400'>Просмотрено</span>
+						<CheckCircle className='w-4 h-4 sm:w-5 sm:h-5 text-green-400' />
 					</div>
-					<div className='text-3xl font-bold text-green-400'>
+					<div className='text-2xl sm:text-3xl font-bold text-green-400'>
 						{reviewedFeedbacks.length}
 					</div>
 				</div>
 
-				<div className='bg-gray-900 border border-emerald-500/30 rounded-xl p-6'>
+				<div className='bg-gray-900 border border-emerald-500/30 rounded-xl p-4 sm:p-6'>
 					<div className='flex items-center justify-between mb-2'>
-						<span className='text-gray-400'>Всего</span>
-						<Tag className='w-5 h-5 text-emerald-400' />
+						<span className='text-sm sm:text-base text-gray-400'>Всего</span>
+						<Tag className='w-4 h-4 sm:w-5 sm:h-5 text-emerald-400' />
 					</div>
-					<div className='text-3xl font-bold text-emerald-400'>
+					<div className='text-2xl sm:text-3xl font-bold text-emerald-400'>
 						{feedbacks.length}
 					</div>
 				</div>
@@ -205,50 +205,50 @@ export default function FeedbackPage() {
 
 			{/* Новые */}
 			{newFeedbacks.length > 0 && (
-				<div className='mb-8'>
-					<h2 className='text-xl font-semibold text-white mb-4'>
+				<div className='mb-6 sm:mb-8'>
+					<h2 className='text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4'>
 						Новые отзывы ({newFeedbacks.length})
 					</h2>
-					<div className='space-y-4'>
+					<div className='space-y-3 sm:space-y-4'>
 						{newFeedbacks.map((feedback) => (
 							<div
 								key={feedback.id}
-								className='bg-gray-900 border border-emerald-500/30 rounded-xl p-6 hover:border-emerald-500/50 transition-all'
+								className='bg-gray-900 border border-emerald-500/30 rounded-xl p-4 sm:p-6 hover:border-emerald-500/50 transition-all'
 							>
-								<div className='flex items-start justify-between mb-4'>
-									<div className='flex items-center gap-3'>
-										<span className='text-2xl'>
+								<div className='flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 sm:mb-4 gap-3'>
+									<div className='flex items-center gap-2 sm:gap-3'>
+										<span className='text-xl sm:text-2xl'>
 											{getTypeIcon(feedback.type)}
 										</span>
 										<div>
-											<p className='font-semibold text-white'>
+											<p className='font-semibold text-white text-sm sm:text-base'>
 												{feedback.name}
 											</p>
 											{feedback.email && (
-												<p className='text-sm text-gray-400'>
+												<p className='text-xs sm:text-sm text-gray-400'>
 													{feedback.email}
 												</p>
 											)}
 										</div>
 									</div>
 									<span
-										className={`px-3 py-1 rounded-full text-xs border ${getTypeColor(
+										className={`px-2 sm:px-3 py-1 rounded-full text-xs border ${getTypeColor(
 											feedback.type
-										)}`}
+										)} self-start`}
 									>
 										{feedback.type}
 									</span>
 								</div>
 
-								<p className='text-gray-300 mb-4 whitespace-pre-wrap'>
+								<p className='text-sm sm:text-base text-gray-300 mb-3 sm:mb-4 whitespace-pre-wrap'>
 									{feedback.message}
 								</p>
 
-								<div className='flex items-center justify-between text-sm text-gray-400'>
+								<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm text-gray-400'>
 									<span>{formatDate(feedback.createdAt)}</span>
 									<button
 										onClick={() => markAsReviewed(feedback.id)}
-										className='px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors'
+										className='px-3 sm:px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm font-medium'
 									>
 										Отметить как просмотрено
 									</button>
@@ -262,58 +262,58 @@ export default function FeedbackPage() {
 			{/* Просмотренные */}
 			{reviewedFeedbacks.length > 0 && (
 				<div>
-					<h2 className='text-xl font-semibold text-white mb-4'>
+					<h2 className='text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4'>
 						Просмотренные отзывы ({reviewedFeedbacks.length})
 					</h2>
-					<div className='space-y-4'>
+					<div className='space-y-3 sm:space-y-4'>
 						{reviewedFeedbacks.map((feedback) => (
 							<div
 								key={feedback.id}
-								className='bg-gray-900 border border-gray-700 rounded-xl p-6 hover:border-gray-600 transition-all opacity-75'
+								className='bg-gray-900 border border-gray-700 rounded-xl p-4 sm:p-6 hover:border-gray-600 transition-all opacity-75'
 							>
-								<div className='flex items-start justify-between mb-4'>
-									<div className='flex items-center gap-3'>
-										<span className='text-2xl'>
+								<div className='flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 sm:mb-4 gap-3'>
+									<div className='flex items-center gap-2 sm:gap-3'>
+										<span className='text-xl sm:text-2xl'>
 											{getTypeIcon(feedback.type)}
 										</span>
 										<div>
-											<p className='font-semibold text-white'>
+											<p className='font-semibold text-white text-sm sm:text-base'>
 												{feedback.name}
 											</p>
 											{feedback.email && (
-												<p className='text-sm text-gray-400'>
+												<p className='text-xs sm:text-sm text-gray-400'>
 													{feedback.email}
 												</p>
 											)}
 										</div>
 									</div>
 									<span
-										className={`px-3 py-1 rounded-full text-xs border ${getTypeColor(
+										className={`px-2 sm:px-3 py-1 rounded-full text-xs border ${getTypeColor(
 											feedback.type
-										)}`}
+										)} self-start`}
 									>
 										{feedback.type}
 									</span>
 								</div>
 
-								<p className='text-gray-300 mb-4 whitespace-pre-wrap'>
+								<p className='text-sm sm:text-base text-gray-300 mb-3 sm:mb-4 whitespace-pre-wrap'>
 									{feedback.message}
 								</p>
 
 								{feedback.notes && (
-									<div className='mb-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg'>
-										<p className='text-sm text-emerald-400 font-semibold mb-1'>
+									<div className='mb-3 sm:mb-4 p-3 sm:p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg'>
+										<p className='text-xs sm:text-sm text-emerald-400 font-semibold mb-1'>
 											Заметки:
 										</p>
-										<p className='text-sm text-gray-300 whitespace-pre-wrap'>
+										<p className='text-xs sm:text-sm text-gray-300 whitespace-pre-wrap'>
 											{feedback.notes}
 										</p>
 									</div>
 								)}
 
-								<div className='flex items-center justify-between text-sm text-gray-400'>
+								<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs sm:text-sm text-gray-400'>
 									<span>{formatDate(feedback.createdAt)}</span>
-									<span>
+									<span className='text-xs'>
 										Просмотрено: {formatDate(feedback.reviewedAt || feedback.createdAt)}
 									</span>
 								</div>
@@ -324,9 +324,9 @@ export default function FeedbackPage() {
 			)}
 
 			{feedbacks.length === 0 && (
-				<div className='text-center py-16'>
-					<MessageSquare className='w-16 h-16 text-gray-600 mx-auto mb-4' />
-					<p className='text-gray-400 text-lg'>
+				<div className='text-center py-12 sm:py-16'>
+					<MessageSquare className='w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-3 sm:mb-4' />
+					<p className='text-gray-400 text-base sm:text-lg'>
 						Нет отзывов пока
 					</p>
 				</div>
