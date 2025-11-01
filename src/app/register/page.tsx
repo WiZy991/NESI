@@ -8,7 +8,7 @@ import { useUser } from '@/context/UserContext'
 import { Eye, EyeOff, X } from 'lucide-react'
 import EmailLink from '@/components/EmailLink'
 
-export default function RegisterPage() {
+export default function RegisterContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useUser()
@@ -23,7 +23,6 @@ export default function RegisterPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
 
-  // Загрузка реферального кода из URL
   useEffect(() => {
     const refParam = searchParams.get('ref')
     if (refParam) {
