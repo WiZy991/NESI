@@ -1,5 +1,6 @@
 'use client'
 
+
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -8,7 +9,11 @@ import { useUser } from '@/context/UserContext'
 import { Eye, EyeOff, X } from 'lucide-react'
 import EmailLink from '@/components/EmailLink'
 
-export default function RegisterContent() {
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
+
+export default function RegisterPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useUser()
@@ -23,6 +28,7 @@ export default function RegisterContent() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
 
+  // Загрузка реферального кода из URL
   useEffect(() => {
     const refParam = searchParams.get('ref')
     if (refParam) {
