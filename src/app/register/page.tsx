@@ -1,19 +1,14 @@
 'use client'
 
-
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
 import { Eye, EyeOff, X } from 'lucide-react'
 import EmailLink from '@/components/EmailLink'
 
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
-
-
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useUser()
@@ -404,5 +399,13 @@ export default function RegisterPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterContent />
+    </Suspense>
   )
 }
