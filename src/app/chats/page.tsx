@@ -862,28 +862,26 @@ function ChatsPageContent() {
 
 	if (loading) {
 		return (
-			<div className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 bg-gray-900 md:bg-transparent flex items-center justify-center'>
+			<div className='pt-[64px] min-h-screen flex items-center justify-center'>
 				<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
 			</div>
 		)
 	}
 
 	return (
-		<div 
-			className='fixed inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black md:bg-transparent p-0 overflow-hidden'
-			style={{ touchAction: 'none', paddingTop: '58px' }}
-		>
-			<div className='max-w-7xl mx-auto h-full bg-gradient-to-br from-gray-800/95 via-gray-900/95 to-black/95 backdrop-blur-xl overflow-hidden flex flex-col shadow-2xl'>
+		<div className="fixed inset-x-0 top-[64px] bottom-0 px-3 sm:px-6">
+  <div className="w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden">
+
 				<div className='flex flex-1 overflow-hidden min-h-0' style={{ touchAction: 'pan-y' }}>
 					{/* Левая колонка - список чатов */}
 					<div
-						className={`${
-							selectedChat ? 'hidden md:flex' : 'flex'
-						} w-full md:w-1/3 bg-gradient-to-b from-gray-700/30 to-gray-800/30 backdrop-blur-md border-r border-emerald-500/10 flex-col min-h-0`}
+					className={`${
+						selectedChat ? 'hidden md:flex' : 'flex'
+					} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30`}
 					>
 					{/* Заголовок и поиск */}
-					<div className='flex-shrink-0 p-4 sm:p-6 bg-gradient-to-br from-emerald-600/10 via-emerald-700/5 to-transparent border-b border-emerald-500/10'>
-						<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent mb-3 sm:mb-5 flex items-center gap-3'>
+					<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg'>
+						<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent mb-3 sm:mb-5 flex items-center gap-3'>
 							💬 <span>Чаты</span>
 						</h1>
 						<div className='relative'>
@@ -892,7 +890,7 @@ function ChatsPageContent() {
 							placeholder='Поиск чатов...'
 							value={searchQuery}
 							onChange={e => setSearchQuery(e.target.value)}
-								className='w-full px-5 py-3.5 sm:py-4 bg-gray-700/40 border border-emerald-500/20 rounded-full text-white text-sm sm:text-base placeholder-gray-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:bg-gray-700/60 transition-all shadow-lg hover:shadow-emerald-500/10 ios-transition'
+							className='w-full px-5 py-3.5 sm:py-4 bg-slate-800/35 border border-emerald-300/30 rounded-full text-white text-sm sm:text-base placeholder-slate-300/80 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-slate-800/45 transition-all shadow-lg hover:shadow-emerald-300/15 ios-transition'
 						/>
 							<div className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400/50'>
 								🔍
@@ -906,7 +904,7 @@ function ChatsPageContent() {
 							style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 						>
 							{filteredChats.length === 0 ? (
-								<div className='p-6 text-center text-gray-400'>
+									<div className='p-6 text-center text-slate-200'>
 									<div className='text-4xl mb-3'>💭</div>
 									<p className='text-lg font-medium mb-2'>
 										{searchQuery ? 'Чаты не найдены' : 'У вас пока нет чатов'}
@@ -922,11 +920,11 @@ function ChatsPageContent() {
 									<div
 										key={chat.id}
 										onClick={() => handleSelectChat(chat)}
-										className={`p-4 sm:p-5 mx-3 sm:mx-4 my-2 sm:my-2.5 rounded-3xl cursor-pointer ios-transition hover-lift touch-manipulation ${
-											selectedChat?.id === chat.id
-												? 'bg-gradient-to-br from-emerald-600/20 to-emerald-700/10 border-2 border-emerald-400/40 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
-												: 'bg-gradient-to-br from-gray-700/40 to-gray-800/40 border border-gray-600/30 hover:border-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]'
-										}`}
+							className={`p-4 sm:p-5 mx-3 sm:mx-4 my-2 sm:my-2.5 rounded-3xl cursor-pointer ios-transition hover-lift touch-manipulation ${
+								selectedChat?.id === chat.id
+									? 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/15 border-2 border-emerald-300/40 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
+									: 'bg-gradient-to-br from-slate-800/25 to-slate-900/35 border border-slate-700/30 hover:border-emerald-300/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.18)]'
+							}`}
 									>
 										<div className='flex items-center space-x-2 sm:space-x-3'>
 											{/* Аватар */}
@@ -953,20 +951,20 @@ function ChatsPageContent() {
 													<h3 className='text-white font-medium truncate text-sm sm:text-base'>
 														{getChatTitle(chat)}
 													</h3>
-													<span className='text-[10px] sm:text-xs text-gray-400 bg-gray-700/50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full flex-shrink-0'>
+									<span className='text-[10px] sm:text-xs text-slate-200 bg-slate-800/40 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full flex-shrink-0'>
 														{formatTime(chat.lastMessage.createdAt)}
 													</span>
 												</div>
-												<p className='text-xs sm:text-sm text-gray-400 truncate mt-0.5 sm:mt-1'>
+								<p className='text-xs sm:text-sm text-slate-300 truncate mt-0.5 sm:mt-1'>
 													{getChatSubtitle(chat)}
 												</p>
 												{chat.type === 'task' && chat.task?.id && (
-													<Link
-														href={`/tasks/${chat.task.id}`}
-														className='text-[10px] sm:text-xs text-emerald-400 mt-0.5 sm:mt-1 bg-emerald-900/20 hover:bg-emerald-900/40 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full inline-block truncate max-w-full transition-all duration-200'
-														onClick={(e) => e.stopPropagation()}
-														title='Перейти к задаче'
-													>
+									<Link
+										href={`/tasks/${chat.task.id}`}
+										className='text-[10px] sm:text-xs text-emerald-300 mt-0.5 sm:mt-1 bg-emerald-600/15 hover:bg-emerald-600/25 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full inline-block truncate max-w-full transition-all duration-200'
+										onClick={(e) => e.stopPropagation()}
+										title='Перейти к задаче'
+									>
 														📋 {chat.task.title}
 													</Link>
 												)}
@@ -989,12 +987,12 @@ function ChatsPageContent() {
 					<div
 						className={`${
 							selectedChat ? 'flex' : 'hidden md:flex'
-						} flex-1 flex-col bg-gradient-to-br from-gray-700/20 to-gray-800/20 backdrop-blur-lg min-h-0`}
+						} flex-1 flex-col bg-gradient-to-br from-slate-900/35 via-slate-900/20 to-slate-900/8 min-h-0 backdrop-blur-lg`}
 					>
 						{selectedChat ? (
 							<>
 								{/* Заголовок чата - фиксированный */}
-								<div className='flex-shrink-0 p-4 sm:p-6 bg-gradient-to-r from-emerald-600/10 via-emerald-700/5 to-transparent border-b border-emerald-500/20 shadow-lg'>
+							<div className='flex-shrink-0 px-5 sm:px-8 py-5 border-б border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgба(15,118,110,0.22)] backdrop-blur-md'>
 									<div className='flex items-center space-x-3 sm:space-x-4'>
 										{/* Кнопка "Назад" для мобильных */}
 										<button
@@ -1052,19 +1050,19 @@ function ChatsPageContent() {
 
 							{/* Сообщения - растягиваемая область */}
 							<div 
-								className='flex-1 overflow-y-auto px-4 pt-4 pb-4 sm:px-8 sm:pt-6 sm:pb-4 custom-scrollbar bg-gradient-to-b from-gray-800/20 to-gray-900/20'
+								className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar'
 								style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 							>
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
-											<div className='text-center text-gray-400'>
+										<div className='text-center text-slate-200'>
 												<div className='animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full mx-auto mb-3'></div>
 												<p>Загрузка сообщений...</p>
 											</div>
 										</div>
 									) : messages.length === 0 ? (
 										<div className='flex items-center justify-center h-full'>
-											<div className='text-center text-gray-400'>
+										<div className='text-center text-slate-200'>
 												<div className='text-6xl mb-4'>💬</div>
 												<h3 className='text-xl font-semibold mb-2'>
 													Начните общение
@@ -1072,14 +1070,15 @@ function ChatsPageContent() {
 												<p>Отправьте первое сообщение!</p>
 											</div>
 										</div>
-								) : (
-									messages
-										.map((msg, index) => {
-											// Проверяем, что sender существует
-											if (!msg.sender) {
-												console.warn('Сообщение без отправителя:', msg)
-												return null
-											}
+									) : (
+										<div className='max-w-4xl w-full mx-auto space-y-3 sm:space-y-4'>
+										{messages
+											.map((msg, index) => {
+													// Проверяем, что sender существует
+													if (!msg.sender) {
+														console.warn('Сообщение без отправителя:', msg)
+														return null
+													}
 
 											// Определяем позицию в группе
 											const prevMsg = index > 0 ? messages[index - 1] : null
@@ -1115,9 +1114,11 @@ function ChatsPageContent() {
 													}}
 												/>
 											)
-										})
-										.filter(Boolean) // Убираем null значения
-								)}
+											})
+											.filter(Boolean)
+											}
+										</div>
+									)}
 
 									{/* Индикатор набора сообщения */}
 									{isTyping && typingUser && (
@@ -1135,7 +1136,7 @@ function ChatsPageContent() {
 															style={{ animationDelay: '0.2s' }}
 														></div>
 													</div>
-													<span className='text-sm text-gray-400'>
+											<span className='text-sm text-slate-200'>
 														{typingUser} печатает...
 													</span>
 												</div>
@@ -1146,9 +1147,9 @@ function ChatsPageContent() {
 									<div ref={messagesEndRef} />
 								</div>
 
-								{/* Поле ввода сообщения - фиксированное внизу */}
-								<div className='fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto flex-shrink-0 border-t border-emerald-500/20 bg-gradient-to-br from-gray-800/95 to-gray-900/95 md:bg-gradient-to-br md:from-gray-700/60 md:to-gray-800/60 backdrop-blur-xl z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.3)]'>
-									<div className='p-4 sm:p-5'>
+							{/* Поле ввода сообщения - закреплённое внизу колонки */}
+							<div className='flex-shrink-0 border-t border-emerald-300/25 bg-slate-900/40 md:bg-slate-900/32 backdrop-blur-lg shadow-[0_-10px_22px_rgba(15,118,110,0.2)]'>
+							<div className='px-4 py-2 sm:px-5 sm:py-3'>
 										<MessageInput
 											chatType={selectedChat.type}
 											otherUserId={selectedChat.otherUser?.id}
@@ -1162,7 +1163,7 @@ function ChatsPageContent() {
 							</>
 						) : (
 							<div className='hidden md:flex flex-1 items-center justify-center'>
-								<div className='text-center text-gray-400 px-4'>
+									<div className='text-center text-slate-200 px-4'>
 									<div className='text-6xl sm:text-8xl mb-4 sm:mb-6'>💬</div>
 									<h2 className='text-xl sm:text-2xl font-semibold mb-2 sm:mb-3 text-white'>
 										Выберите чат

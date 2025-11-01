@@ -5,6 +5,87 @@ import { Prisma } from '@prisma/client'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
+type RawChartPoint = { period: string; total: unknown; count: unknown }
+type ChartPoint = { period: string; total: number; count: number }
+
+function generatePeriodLabels(period: string): string[] {
+  const now = new Date()
+
+  switch (period) {
+    case 'day': {
+      const labels: string[] = []
+      const end = new Date(now)
+      end.setMinutes(0, 0, 0)
+
+      for (let i = 23; i >= 0; i--) {
+        const point = new Date(end)
+        point.setHours(end.getHours() - i)
+        const hours = point.getHours().toString().padStart(2, '0')
+        labels.push(`${hours}:00`)
+      }
+
+      return labels
+    }
+
+    case 'week':
+    case 'month': {
+      const labels: string[] = []
+      const days = period === 'week' ? 7 : 30
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+      for (let i = days - 1; i >= 0; i--) {
+        const point = new Date(startOfDay)
+        point.setDate(startOfDay.getDate() - i)
+        const year = point.getFullYear()
+        const month = (point.getMonth() + 1).toString().padStart(2, '0')
+        const day = point.getDate().toString().padStart(2, '0')
+        labels.push(`${year}-${month}-${day}`)
+      }
+
+      return labels
+    }
+
+    case 'year': {
+      const labels: string[] = []
+      const base = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      for (let i = 11; i >= 0; i--) {
+        const point = new Date(base.getFullYear(), base.getMonth() - i, 1)
+        const year = point.getFullYear()
+        const month = (point.getMonth() + 1).toString().padStart(2, '0')
+        labels.push(`${year}-${month}`)
+      }
+
+      return labels
+    }
+
+    default:
+      return []
+  }
+}
+
+function fillMissingPeriods(rawData: RawChartPoint[], period: string): ChartPoint[] {
+  const labels = generatePeriodLabels(period)
+  const dataMap = new Map<string, ChartPoint>()
+
+  rawData.forEach((item) => {
+    const totalValue = Number(item.total ?? 0)
+    const countValue = Number(item.count ?? 0)
+
+    dataMap.set(item.period, {
+      period: item.period,
+      total: Number.isFinite(totalValue) ? totalValue : 0,
+      count: Number.isFinite(countValue) ? countValue : 0,
+    })
+  })
+
+  if (labels.length === 0) {
+    return Array.from(dataMap.values()).sort((a, b) => a.period.localeCompare(b.period))
+  }
+
+  return labels.map((label) => dataMap.get(label) ?? { period: label, total: 0, count: 0 })
+}
+
 /**
  * GET /api/users/me/analytics
  * Получить персональную аналитику пользователя
@@ -54,14 +135,14 @@ export async function GET(req: NextRequest) {
         break
     }
 
+    const intervalFragment = Prisma.raw(`INTERVAL '${interval}'`)
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
         id: true,
         role: true,
         createdAt: true,
-        completedTasksCount: true,
-        avgRating: true,
       },
     })
 
@@ -77,8 +158,6 @@ export async function GET(req: NextRequest) {
       userId: user.id,
       role: user.role,
       createdAt: user.createdAt,
-      completedTasksCount: user.completedTasksCount,
-      avgRating: user.avgRating,
     }
 
     // Аналитика для заказчиков
@@ -91,7 +170,8 @@ export async function GET(req: NextRequest) {
         totalSpent,
         avgTaskPrice,
         topExecutors,
-        monthlySpending,
+        spendingRaw,
+        ratingAggregate,
       ] = await Promise.all([
         // Всего задач создано
         prisma.task.count({
@@ -163,10 +243,16 @@ export async function GET(req: NextRequest) {
           FROM "Transaction"
           WHERE "userId" = ${user.id}
             AND type = 'payment'
-            AND "createdAt" >= NOW() - INTERVAL ${interval}
+            AND "createdAt" >= NOW() - ${intervalFragment}
           GROUP BY period
           ORDER BY period
-        ` as Array<{ period: string; total: number; count: number }>,
+        ` as Array<RawChartPoint>,
+
+        // Средний рейтинг по отзывам
+        prisma.review.aggregate({
+          where: { toUserId: user.id },
+          _avg: { rating: true },
+        }),
       ])
 
       // Получаем информацию о топ исполнителях
@@ -191,8 +277,13 @@ export async function GET(req: NextRequest) {
         }
       })
 
+      const chartData = fillMissingPeriods(spendingRaw, period)
+      const avgRatingValue = Number(ratingAggregate._avg?.rating ?? 0)
+
       return NextResponse.json({
         ...baseStats,
+        completedTasksCount: tasksCompleted,
+        avgRating: avgRatingValue,
         type: 'customer',
         period,
         stats: {
@@ -203,7 +294,7 @@ export async function GET(req: NextRequest) {
           totalSpent: Math.abs(Number(totalSpent._sum.amount || 0)),
           avgTaskPrice: Number(avgTaskPrice._avg.price || 0),
           topExecutors: topExecutorsWithInfo,
-          chartData: monthlySpending,
+          chartData,
         },
       })
     }
@@ -218,8 +309,9 @@ export async function GET(req: NextRequest) {
         avgTaskPrice,
         responseRate,
         topCustomers,
-        monthlyEarnings,
+        earningsRaw,
         avgCompletionTime,
+        ratingAggregate,
       ] = await Promise.all([
         // Всего задач взято в работу
         prisma.task.count({
@@ -297,10 +389,10 @@ export async function GET(req: NextRequest) {
           FROM "Transaction"
           WHERE "userId" = ${user.id}
             AND type = 'earn'
-            AND "createdAt" >= NOW() - INTERVAL ${interval}
+            AND "createdAt" >= NOW() - ${intervalFragment}
           GROUP BY period
           ORDER BY period
-        ` as Array<{ period: string; total: number; count: number }>,
+        ` as Array<RawChartPoint>,
 
         // Среднее время выполнения задачи
         prisma.$queryRaw<
@@ -312,6 +404,12 @@ export async function GET(req: NextRequest) {
             AND status = 'completed'
             AND "completedAt" IS NOT NULL
         `,
+
+        // Средний рейтинг по отзывам
+        prisma.review.aggregate({
+          where: { toUserId: user.id },
+          _avg: { rating: true },
+        }),
       ])
 
       // Получаем информацию о топ заказчиках
@@ -334,28 +432,49 @@ export async function GET(req: NextRequest) {
         }
       })
 
+      const chartData = fillMissingPeriods(earningsRaw, period)
+      const avgRatingValue = Number(ratingAggregate._avg?.rating ?? 0)
+      const totalEarnedValue = Number(totalEarned._sum.amount || 0)
+      const avgCompletionHours = Math.round(Number(avgCompletionTime[0]?.avg_hours || 0) * 10) / 10
+      const responseRateValue = Math.round(responseRate * 100) / 100
+
       return NextResponse.json({
         ...baseStats,
+        completedTasksCount: tasksCompleted,
+        avgRating: avgRatingValue,
         type: 'executor',
         period,
         stats: {
           tasksExecuted,
           tasksInProgress,
           tasksCompleted,
-          totalEarned: Number(totalEarned._sum.amount || 0),
+          totalEarned: totalEarnedValue,
           avgTaskPrice: Number(avgTaskPrice._avg.price || 0),
-          responseRate: Math.round(responseRate * 100) / 100,
-          avgCompletionTime: Math.round(Number(avgCompletionTime[0]?.avg_hours || 0) * 10) / 10,
+          responseRate: responseRateValue,
+          avgCompletionTime: avgCompletionHours,
           topCustomers: topCustomersWithInfo,
-          chartData: monthlyEarnings,
+          chartData,
         },
       })
     }
 
     // Для обычных пользователей
+    const [completedTasksCount, ratingAggregate] = await Promise.all([
+      prisma.task.count({
+        where: { executorId: user.id, status: 'completed' },
+      }),
+      prisma.review.aggregate({
+        where: { toUserId: user.id },
+        _avg: { rating: true },
+      }),
+    ])
+
     return NextResponse.json({
       ...baseStats,
+      completedTasksCount,
+      avgRating: Number(ratingAggregate._avg?.rating ?? 0),
       type: 'user',
+      period,
       stats: {},
     })
   } catch (err) {

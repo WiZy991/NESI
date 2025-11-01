@@ -11,10 +11,6 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer, 
-  BarChart, 
-  Bar,
-  Area,
-  AreaChart 
 } from 'recharts'
 
 type Analytics = {
@@ -201,35 +197,34 @@ export default function AnalyticsPage() {
                 </h2>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
+                    <LineChart data={chartData} margin={{ top: 16, right: 32, left: 8, bottom: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#10b981" opacity={0.1} />
                       <XAxis 
                         dataKey="period" 
                         stroke="#10b981" 
-                        tick={{ fill: '#10b981' }}
+                        tick={{ fill: '#10b981', fontSize: 12 }}
+                        interval={0}
+                        height={50}
+                        tickLine={false}
+                        angle={chartData.length > 12 ? -35 : 0}
+                        textAnchor={chartData.length > 12 ? 'end' : 'middle'}
                       />
                       <YAxis 
                         stroke="#10b981"
-                        tick={{ fill: '#10b981' }}
+                        tick={{ fill: '#10b981', fontSize: 12 }}
                         tickFormatter={(value) => `${value}₽`}
+                        width={100}
                       />
                       <Tooltip content={<CustomTooltip />} />
-                      <Area 
+                      <Line 
                         type="monotone" 
                         dataKey="total" 
                         stroke="#10b981" 
                         strokeWidth={3}
-                        fill="url(#colorTotal)"
-                        dot={{ fill: '#10b981', r: 5, strokeWidth: 2, stroke: '#000' }}
-                        activeDot={{ r: 8, strokeWidth: 2, stroke: '#10b981' }}
+                        dot={{ fill: '#10b981', r: 4, strokeWidth: 2, stroke: '#000' }}
+                        activeDot={{ r: 7, strokeWidth: 2, stroke: '#10b981' }}
                       />
-                    </AreaChart>
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -284,31 +279,34 @@ export default function AnalyticsPage() {
                 </h2>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
-                      <defs>
-                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
-                          <stop offset="100%" stopColor="#059669" stopOpacity={0.8}/>
-                        </linearGradient>
-                      </defs>
+                    <LineChart data={chartData} margin={{ top: 16, right: 32, left: 8, bottom: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#10b981" opacity={0.1} />
                       <XAxis 
                         dataKey="period" 
                         stroke="#10b981"
-                        tick={{ fill: '#10b981' }}
+                        tick={{ fill: '#10b981', fontSize: 12 }}
+                        interval={0}
+                        height={50}
+                        tickLine={false}
+                        angle={chartData.length > 12 ? -35 : 0}
+                        textAnchor={chartData.length > 12 ? 'end' : 'middle'}
                       />
                       <YAxis 
                         stroke="#10b981"
-                        tick={{ fill: '#10b981' }}
+                        tick={{ fill: '#10b981', fontSize: 12 }}
                         tickFormatter={(value) => `${value}₽`}
+                        width={100}
                       />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar 
+                      <Line 
+                        type="monotone" 
                         dataKey="total" 
-                        fill="url(#barGradient)"
-                        radius={[8, 8, 0, 0]}
+                        stroke="#10b981"
+                        strokeWidth={3}
+                        dot={{ fill: '#10b981', r: 4, strokeWidth: 2, stroke: '#000' }}
+                        activeDot={{ r: 7, strokeWidth: 2, stroke: '#10b981' }}
                       />
-                    </BarChart>
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
