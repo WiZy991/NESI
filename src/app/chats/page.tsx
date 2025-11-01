@@ -110,12 +110,40 @@ function ChatsPageContent() {
 				const res = await fetch('/api/chats', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
-				const data = await res.json()
-				console.log('📊 Ответ API чатов:', data)
-				if (res.ok) {
-					const loadedChats = data.chats || []
-					setChats(loadedChats)
-					console.log('✅ Чаты загружены:', loadedChats.length)
+			const data = await res.json()
+			console.log('📊 Ответ API чатов:', data)
+			if (res.ok) {
+				const loadedChats = data.chats || []
+				
+				// Сохраняем временные чаты, которые ещё не были заменены реальными
+				setChats(prevChats => {
+					const tempChats = prevChats.filter(chat => chat.id.startsWith('temp_'))
+					
+					// Для каждого временного чата проверяем, есть ли уже реальный чат
+					const validTempChats = tempChats.filter(tempChat => {
+						if (tempChat.type === 'task' && tempChat.task?.id) {
+							// Проверяем, есть ли реальный чат для этой задачи
+							const realChatExists = loadedChats.some(
+								(realChat: Chat) => 
+									realChat.type === 'task' && realChat.task?.id === tempChat.task?.id
+							)
+							return !realChatExists // Оставляем временный только если нет реального
+						}
+						if (tempChat.type === 'private' && tempChat.otherUser?.id) {
+							// Проверяем, есть ли реальный чат с этим пользователем
+							const realChatExists = loadedChats.some(
+								(realChat: Chat) =>
+									realChat.type === 'private' && realChat.otherUser?.id === tempChat.otherUser?.id
+							)
+							return !realChatExists
+						}
+						return false
+					})
+					
+					// Объединяем: сначала временные чаты, потом реальные
+					return [...validTempChats, ...loadedChats]
+				})
+				console.log('✅ Чаты загружены:', loadedChats.length)
 
 					// Устанавливаем флаг для автооткрытия чата
 					if (openUserId || openTaskId) {
@@ -386,9 +414,72 @@ function ChatsPageContent() {
 				setShouldAutoOpen(false)
 				window.history.replaceState({}, '', '/chats')
 			} else {
-				console.log('⚠️ Чат задачи не найден в списке')
-				setShouldAutoOpen(false)
-				window.history.replaceState({}, '', '/chats')
+				console.log('📝 Чат задачи не найден, создаем новый...')
+				
+				const createTaskChat = async () => {
+					try {
+						// Загружаем данные задачи
+						const taskRes = await fetch(`/api/tasks/${openTaskId}`, {
+							headers: token ? { Authorization: `Bearer ${token}` } : {},
+						})
+
+						if (!taskRes.ok) {
+							console.error('❌ Задача не найдена')
+							setShouldAutoOpen(false)
+							return
+						}
+
+						const taskData = await taskRes.json()
+						const task = taskData.task || taskData
+
+						// Определяем другого участника (если я заказчик - нужен исполнитель, и наоборот)
+						const isCustomer = user.id === task.customerId
+						const otherUser = isCustomer ? task.executor : task.customer
+
+						if (!otherUser) {
+							console.error('❌ Второй участник чата не найден (задача без исполнителя)')
+							setShouldAutoOpen(false)
+							return
+						}
+
+						// Создаем временный чат задачи
+						const tempTaskChat: Chat = {
+							id: `temp_task_${openTaskId}`,
+							type: 'task',
+							task: {
+								id: task.id,
+								title: task.title,
+								customerId: task.customerId,
+								executorId: task.executorId,
+								customer: task.customer,
+								executor: task.executor,
+							},
+							lastMessage: {
+								id: 'temp',
+								content: '',
+								createdAt: new Date().toISOString(),
+								sender: {
+									id: user.id,
+									fullName: user.fullName,
+									email: user.email,
+								},
+							},
+							unreadCount: 0,
+						}
+
+						console.log('✨ Создан временный чат задачи:', tempTaskChat)
+						setChats(prev => [tempTaskChat, ...prev])
+						setSelectedChat(tempTaskChat)
+						setMessages([])
+						setShouldAutoOpen(false)
+						window.history.replaceState({}, '', '/chats')
+					} catch (error) {
+						console.error('❌ Ошибка создания чата задачи:', error)
+						setShouldAutoOpen(false)
+					}
+				}
+
+				createTaskChat()
 			}
 			return
 		}
@@ -541,6 +632,9 @@ function ChatsPageContent() {
 
 		// Если это было первое сообщение во временном чате, обновляем чат
 		if (selectedChat?.id.startsWith('temp_')) {
+			// Небольшая задержка перед перезагрузкой, чтобы дать время серверу обработать сообщение
+			await new Promise(resolve => setTimeout(resolve, 300))
+			
 			// Перезагружаем список чатов, чтобы получить настоящий чат из базы
 			try {
 				const res = await fetch('/api/chats', {
@@ -549,16 +643,36 @@ function ChatsPageContent() {
 				if (res.ok) {
 					const data = await res.json()
 					const loadedChats = data.chats || []
-					setChats(loadedChats)
-
-					// Находим и выбираем реальный чат
-					const realChat = loadedChats.find(
-						(chat: Chat) =>
-							chat.type === 'private' &&
-							chat.otherUser?.id === selectedChat.otherUser?.id
-					)
+					
+					// Находим реальный чат
+					let realChat = null
+					
+					if (selectedChat.type === 'task' && selectedChat.task?.id) {
+						// Ищем чат задачи
+						realChat = loadedChats.find(
+							(chat: Chat) =>
+								chat.type === 'task' && chat.task?.id === selectedChat.task?.id
+						)
+					} else if (selectedChat.type === 'private' && selectedChat.otherUser?.id) {
+						// Ищем приватный чат
+						realChat = loadedChats.find(
+							(chat: Chat) =>
+								chat.type === 'private' &&
+								chat.otherUser?.id === selectedChat.otherUser?.id
+						)
+					}
+					
 					if (realChat) {
+						// Обновляем временный чат на реальный в списке без полной перезагрузки
+						setChats(prev => {
+							// Удаляем временный чат и добавляем реальный
+							const withoutTemp = prev.filter(c => c.id !== selectedChat.id)
+							return [realChat, ...withoutTemp]
+						})
 						setSelectedChat(realChat)
+					} else {
+						// Если реальный чат ещё не найден, просто обновляем список
+						setChats(loadedChats)
 					}
 				}
 			} catch (error) {
