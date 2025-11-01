@@ -53,7 +53,7 @@ model User {
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
 
-  balance       Decimal       @default(100.00) @db.Decimal(15, 2)
+  balance       Decimal       @default(0.00) @db.Decimal(15, 2)
   transactions  Transaction[]
   frozenBalance Decimal       @default(0.00) @db.Decimal(15, 2)
 

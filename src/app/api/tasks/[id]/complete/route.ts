@@ -86,10 +86,11 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				},
 			}),
 
-			// У заказчика: размораживаем (минус из frozenBalance)
+			// У заказчика: списываем с баланса и размораживаем
 			prisma.user.update({
 				where: { id: task.customerId },
 				data: {
+					balance: { decrement: new Prisma.Decimal(escrowNum) },
 					frozenBalance: { decrement: new Prisma.Decimal(escrowNum) },
 					transactions: {
 						create: [

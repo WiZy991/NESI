@@ -70,13 +70,14 @@ export async function POST(
 		await prisma.user.update({
 			where: { id: customer.id },
 			data: {
-				balance: { decrement: priceDecimal },
 				frozenBalance: { increment: priceDecimal },
 				transactions: {
 					create: {
-						amount: new Prisma.Decimal(-toNumber(parsedPrice)),
+						amount: new Prisma.Decimal(0),
 						type: 'freeze',
-						reason: `Заморозка для задачи "${task.title}"`,
+						reason: `Заморозка ${formatMoney(parsedPrice)} для задачи "${
+							task.title
+						}"`,
 					},
 				},
 			},

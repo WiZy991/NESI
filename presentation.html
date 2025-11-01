@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>NESI - Презентация платформы</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			:root {
+				--emerald: #10b981;
+				--emerald-light: #34d399;
+				--emerald-dark: #059669;
+				--cyan: #00ffcd;
+				--bg-dark: #0a1410;
+				--bg-darker: #05150a;
+				--text-white: #ffffff;
+				--text-gray: #d1d5db;
+				--text-gray-light: #9ca3af;
+			}
+
+			body {
+				font-family: 'Poppins', sans-serif;
+				background: radial-gradient(
+					circle at 50% 20%,
+					#01150d 0%,
+					#000000 100%
+				);
+				color: var(--text-white);
+				overflow-x: hidden;
+				min-height: 100vh;
+			}
+
+			.presentation-container {
+				position: relative;
+				width: 100%;
+				min-height: 100vh;
+			}
+
+			.slide {
+				display: none;
+				min-height: 100vh;
+				padding: 60px 40px;
+				position: relative;
+				opacity: 0;
+				transform: translateY(30px);
+				transition: opacity 0.6s ease, transform 0.6s ease;
+			}
+
+			.slide.active {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				opacity: 1;
+				transform: translateY(0);
+			}
+
+			.slide-content {
+				max-width: 1200px;
+				width: 100%;
+				z-index: 2;
+				position: relative;
+			}
+
+			/* Фон для слайдов */
+			.slide::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background: radial-gradient(
+					circle at 30% 50%,
+					rgba(0, 255, 205, 0.1) 0%,
+					transparent 70%
+				);
+				z-index: 1;
+			}
+
+			/* Заголовки */
+			h1 {
+				font-size: clamp(2.5rem, 5vw, 4.5rem);
+				font-weight: 800;
+				color: var(--cyan);
+				text-shadow: 0 0 30px rgba(0, 255, 205, 0.5);
+				margin-bottom: 1.5rem;
+				letter-spacing: 2px;
+				line-height: 1.2;
+			}
+
+			h2 {
+				font-size: clamp(2rem, 4vw, 3rem);
+				font-weight: 700;
+				color: var(--emerald-light);
+				margin-bottom: 1.5rem;
+				text-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+			}
+
+			h3 {
+				font-size: clamp(1.5rem, 3vw, 2rem);
+				font-weight: 600;
+				color: var(--emerald);
+				margin-bottom: 1rem;
+			}
+
+			/* Текст */
+			p {
+				font-size: clamp(1rem, 1.5vw, 1.25rem);
+				color: var(--text-gray);
+				line-height: 1.8;
+				margin-bottom: 1rem;
+			}
+
+			.lead {
+				font-size: clamp(1.25rem, 2vw, 1.75rem);
+				color: var(--text-white);
+				font-weight: 500;
+			}
+
+			/* Карточки функций */
+			.feature-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+				gap: 2rem;
+				margin-top: 3rem;
+			}
+
+			.feature-card {
+				background: rgba(0, 20, 15, 0.6);
+				border: 1px solid rgba(16, 185, 129, 0.3);
+				border-radius: 20px;
+				padding: 2rem;
+				backdrop-filter: blur(10px);
+				box-shadow: 0 0 25px rgba(16, 185, 129, 0.15);
+				transition: all 0.3s ease;
+				position: relative;
+				overflow: hidden;
+			}
+
+			.feature-card::before {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				height: 3px;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					var(--emerald),
+					transparent
+				);
+				opacity: 0;
+				transition: opacity 0.3s ease;
+			}
+
+			.feature-card:hover {
+				transform: translateY(-5px);
+				border-color: rgba(16, 185, 129, 0.6);
+				box-shadow: 0 0 40px rgba(16, 185, 129, 0.35);
+			}
+
+			.feature-card:hover::before {
+				opacity: 1;
+			}
+
+			.feature-icon {
+				font-size: 3rem;
+				margin-bottom: 1rem;
+				display: block;
+			}
+
+			.feature-title {
+				font-size: 1.5rem;
+				font-weight: 600;
+				color: var(--emerald-light);
+				margin-bottom: 0.75rem;
+			}
+
+			.feature-text {
+				font-size: 1rem;
+				color: var(--text-gray);
+				line-height: 1.6;
+			}
+
+			/* Сравнительная таблица */
+			.comparison-table {
+				width: 100%;
+				border-collapse: collapse;
+				margin-top: 2rem;
+				background: rgba(0, 20, 15, 0.4);
+				border-radius: 15px;
+				overflow: hidden;
+			}
+
+			.comparison-table th,
+			.comparison-table td {
+				padding: 1.25rem;
+				text-align: left;
+				border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+			}
+
+			.comparison-table th {
+				background: rgba(16, 185, 129, 0.2);
+				color: var(--emerald-light);
+				font-weight: 600;
+				font-size: 1.1rem;
+			}
+
+			.comparison-table td {
+				color: var(--text-gray);
+			}
+
+			.comparison-table tr:last-child td {
+				border-bottom: none;
+			}
+
+			.check {
+				color: var(--emerald-light);
+				font-weight: bold;
+				font-size: 1.2rem;
+			}
+
+			.cross {
+				color: #ef4444;
+				font-weight: bold;
+			}
+
+			/* Логотип NESI */
+			.logo {
+				font-size: clamp(3rem, 6vw, 5rem);
+				font-weight: 900;
+				color: var(--cyan);
+				text-shadow: 0 0 40px rgba(0, 255, 205, 0.7);
+				letter-spacing: 15px;
+				margin-bottom: 2rem;
+				text-align: center;
+			}
+
+			/* Навигация */
+			.nav-controls {
+				position: fixed;
+				bottom: 30px;
+				left: 50%;
+				transform: translateX(-50%);
+				display: flex;
+				gap: 1rem;
+				z-index: 1000;
+				background: rgba(0, 20, 15, 0.8);
+				padding: 1rem 2rem;
+				border-radius: 50px;
+				backdrop-filter: blur(10px);
+				border: 1px solid rgba(16, 185, 129, 0.3);
+				box-shadow: 0 0 30px rgba(16, 185, 129, 0.2);
+			}
+
+			.nav-btn {
+				background: rgba(16, 185, 129, 0.2);
+				border: 1px solid var(--emerald);
+				color: var(--emerald-light);
+				padding: 0.75rem 1.5rem;
+				border-radius: 10px;
+				cursor: pointer;
+				font-weight: 600;
+				transition: all 0.3s ease;
+				font-family: 'Poppins', sans-serif;
+			}
+
+			.nav-btn:hover {
+				background: rgba(16, 185, 129, 0.4);
+				box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+				transform: translateY(-2px);
+			}
+
+			.nav-btn:disabled {
+				opacity: 0.4;
+				cursor: not-allowed;
+			}
+
+			.slide-indicator {
+				position: fixed;
+				top: 30px;
+				right: 30px;
+				background: rgba(0, 20, 15, 0.8);
+				padding: 1rem 1.5rem;
+				border-radius: 50px;
+				backdrop-filter: blur(10px);
+				border: 1px solid rgba(16, 185, 129, 0.3);
+				color: var(--emerald-light);
+				font-weight: 600;
+				z-index: 1000;
+				box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+			}
+
+			/* Слайд с преимуществами */
+			.advantages-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+				gap: 2rem;
+				margin-top: 3rem;
+			}
+
+			.advantage-item {
+				background: linear-gradient(
+					135deg,
+					rgba(16, 185, 129, 0.1),
+					rgba(0, 255, 205, 0.05)
+				);
+				border: 1px solid rgba(16, 185, 129, 0.3);
+				border-radius: 15px;
+				padding: 2rem;
+				text-align: center;
+			}
+
+			.advantage-number {
+				font-size: 3rem;
+				font-weight: 800;
+				color: var(--cyan);
+				text-shadow: 0 0 20px rgba(0, 255, 205, 0.6);
+				margin-bottom: 1rem;
+			}
+
+			/* Статистика */
+			.stats-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				gap: 2rem;
+				margin-top: 3rem;
+			}
+
+			.stat-card {
+				background: rgba(0, 20, 15, 0.6);
+				border: 1px solid rgba(16, 185, 129, 0.3);
+				border-radius: 15px;
+				padding: 2rem;
+				text-align: center;
+				backdrop-filter: blur(10px);
+			}
+
+			.stat-value {
+				font-size: 3rem;
+				font-weight: 800;
+				color: var(--cyan);
+				text-shadow: 0 0 30px rgba(0, 255, 205, 0.6);
+				margin-bottom: 0.5rem;
+			}
+
+			.stat-label {
+				color: var(--text-gray);
+				font-size: 1.1rem;
+			}
+
+			/* Кнопка CTA */
+			.cta-button {
+				display: inline-block;
+				margin-top: 2rem;
+				padding: 1rem 3rem;
+				background: linear-gradient(
+					135deg,
+					var(--emerald),
+					var(--emerald-dark)
+				);
+				border: 1px solid var(--emerald);
+				border-radius: 12px;
+				color: var(--text-white);
+				font-weight: 700;
+				font-size: 1.25rem;
+				text-decoration: none;
+				cursor: pointer;
+				transition: all 0.3s ease;
+				box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
+			}
+
+			.cta-button:hover {
+				transform: translateY(-3px);
+				box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+			}
+
+			/* Анимация появления */
+			@keyframes fadeInUp {
+				from {
+					opacity: 0;
+					transform: translateY(30px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+
+			.fade-in {
+				animation: fadeInUp 0.8s ease forwards;
+			}
+
+			/* Адаптивность */
+			@media (max-width: 768px) {
+				.slide {
+					padding: 40px 20px;
+				}
+
+				.feature-grid,
+				.advantages-grid,
+				.stats-grid {
+					grid-template-columns: 1fr;
+				}
+
+				.nav-controls {
+					flex-direction: column;
+					width: 90%;
+					padding: 1rem;
+				}
+
+				.slide-indicator {
+					top: 10px;
+					right: 10px;
+					padding: 0.5rem 1rem;
+					font-size: 0.9rem;
+				}
+			}
+
+			/* Декоративные элементы */
+			.glow-effect {
+				position: absolute;
+				width: 500px;
+				height: 500px;
+				border-radius: 50%;
+				background: radial-gradient(
+					circle,
+					rgba(0, 255, 205, 0.15),
+					transparent
+				);
+				filter: blur(100px);
+				pointer-events: none;
+				z-index: 1;
+			}
+
+			.glow-effect-1 {
+				top: 10%;
+				left: -10%;
+			}
+
+			.glow-effect-2 {
+				bottom: 10%;
+				right: -10%;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="presentation-container">
+			<!-- Индикатор слайда -->
+			<div class="slide-indicator">
+				<span id="slide-number">1</span> / <span id="total-slides">9</span>
+			</div>
+
+			<!-- Слайд 1: Титульный -->
+			<div class="slide active" id="slide-1">
+				<div class="glow-effect glow-effect-1"></div>
+				<div class="glow-effect glow-effect-2"></div>
+				<div class="slide-content">
+					<div class="logo">NESI</div>
+					<h1 style="text-align: center; margin-bottom: 1rem">
+						Фриланс-платформа нового поколения
+					</h1>
+					<p
+						class="lead"
+						style="text-align: center; max-width: 800px; margin: 0 auto"
+					>
+						Где бизнес встречает настоящие таланты
+					</p>
+				</div>
+			</div>
+
+			<!-- Слайд 2: О проекте -->
+			<div class="slide" id="slide-2">
+				<div class="glow-effect glow-effect-1"></div>
+				<div class="slide-content">
+					<h2 style="text-align: center; margin-bottom: 2rem">
+						О платформе NESI
+					</h2>
+					<p class="lead" style="text-align: center; margin-bottom: 2rem">
+						NESI — это современная цифровая экосистема, которая объединяет
+						заказчиков и исполнителей в сфере IT и цифровых услуг
+					</p>
+					<div class="feature-grid">
+						<div class="feature-card">
+							<span class="feature-icon">🚀</span>
+							<div class="feature-title">Новое поколение</div>
+							<div class="feature-text">
+								Мы не копия старых бирж, а новая цифровая экосистема
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">💎</span>
+							<div class="feature-title">Качество превыше всего</div>
+							<div class="feature-text">
+								Каждый исполнитель проходит обязательную сертификацию
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">🛡️</span>
+							<div class="feature-title">Безопасность</div>
+							<div class="feature-text">
+								Система эскроу гарантирует защиту средств
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Слайд 3: Ключевые функции -->
+			<div class="slide" id="slide-3">
+				<div class="glow-effect glow-effect-2"></div>
+				<div class="slide-content">
+					<h2 style="text-align: center; margin-bottom: 3rem">
+						Ключевые функции
+					</h2>
+					<div class="feature-grid">
+						<div class="feature-card">
+							<span class="feature-icon">🎓</span>
+							<div class="feature-title">Система сертификации</div>
+							<div class="feature-text">
+								Обязательная сертификация исполнителей по категориям. Тесты с
+								ограничением времени, вопросы по специальности. Только
+								сертифицированные специалисты могут брать задачи.
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">💰</span>
+							<div class="feature-title">Умная система оплаты</div>
+							<div class="feature-text">
+								Замороженный баланс (эскроу), защита средств до выполнения
+								задачи. Поддержка копеек через Decimal. Автоматический расчёт
+								комиссии 20%.
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">💬</span>
+							<div class="feature-title">Сообщества</div>
+							<div class="feature-text">
+								Площадка для общения, обмена опытом, публикации постов и
+								комментариев. Лайки, просмотры, система модерации.
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">🏆</span>
+							<div class="feature-title">Система уровней и достижений</div>
+							<div class="feature-text">
+								XP за выполнение задач, уровни пользователей, бейджи за
+								достижения. Рейтинги и отзывы формируют репутацию.
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">📱</span>
+							<div class="feature-title">Мобильная адаптация</div>
+							<div class="feature-text">
+								Полностью адаптивный дизайн для всех устройств. Удобная работа с
+								мобильных телефонов и планшетов.
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">🔐</span>
+							<div class="feature-title">Безопасность и защита</div>
+							<div class="feature-text">
+								Система антифрода, блокировка пользователей, разрешение споров,
+								модерация контента. Проверка email, восстановление пароля.
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Слайд 4: Преимущества для заказчиков -->
+			<div class="slide" id="slide-4">
+				<div class="glow-effect glow-effect-1"></div>
+				<div class="slide-content">
+					<h2 style="text-align: center; margin-bottom: 3rem">
+						Для заказчиков
+					</h2>
+					<div class="advantages-grid">
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Проверенные исполнители</h3>
+							<p>
+								Только сертифицированные специалисты с подтверждёнными навыками
+							</p>
+						</div>
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Прозрачность</h3>
+							<p>Все предложения и ставки открыты, рейтинги и отзывы видны</p>
+						</div>
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Гарантия безопасности</h3>
+							<p>
+								Платежи через систему эскроу — деньги только после выполнения
+							</p>
+						</div>
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Поиск сотрудников</h3>
+							<p>
+								Возможность найма лучших специалистов в штат через Подиум
+								исполнителей
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Слайд 5: Преимущества для исполнителей -->
+			<div class="slide" id="slide-5">
+				<div class="glow-effect glow-effect-2"></div>
+				<div class="slide-content">
+					<h2 style="text-align: center; margin-bottom: 3rem">
+						Для исполнителей
+					</h2>
+					<div class="advantages-grid">
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Много заказов</h3>
+							<p>Сотни актуальных задач: IT, дизайн, контент, маркетинг</p>
+						</div>
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Гибкость</h3>
+							<p>Работайте в удобное время, выбирайте задачи по интересу</p>
+						</div>
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Рост и рейтинг</h3>
+							<p>Формируйте портфолио, получайте отзывы, повышайте рейтинг</p>
+						</div>
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Защита выплат</h3>
+							<p>Гарантированная оплата через защищённую систему NESI</p>
+						</div>
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Комьюнити</h3>
+							<p>Общайтесь с коллегами, развивайтесь через базу знаний</p>
+						</div>
+						<div class="advantage-item">
+							<div class="advantage-number">✓</div>
+							<h3>Уровни и достижения</h3>
+							<p>Зарабатывайте XP, получайте бейджи, повышайте свой уровень</p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Слайд 6: Технологии и безопасность -->
+			<div class="slide" id="slide-6">
+				<div class="glow-effect glow-effect-1"></div>
+				<div class="slide-content">
+					<h2 style="text-align: center; margin-bottom: 3rem">
+						Технологии и безопасность
+					</h2>
+					<div class="feature-grid">
+						<div class="feature-card">
+							<span class="feature-icon">🔒</span>
+							<div class="feature-title">Система эскроу</div>
+							<div class="feature-text">
+								Средства замораживаются на балансе заказчика до подтверждения
+								выполнения задачи. Защита от мошенничества с обеих сторон.
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">💳</span>
+							<div class="feature-title">Платежная система</div>
+							<div class="feature-text">
+								Интеграция с надёжными платёжными системами. Удобное пополнение
+								баланса, автоматические переводы, поддержка копеек.
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">🛡️</span>
+							<div class="feature-title">Антифрод система</div>
+							<div class="feature-text">
+								Автоматическая защита от мошенничества, блокировка
+								подозрительных аккаунтов, система разрешения споров.
+							</div>
+						</div>
+						<div class="feature-card">
+							<span class="feature-icon">📊</span>
+							<div class="feature-title">Админ-панель</div>
+							<div class="feature-text">
+								Полный контроль за платформой: статистика, финансы, модерация,
+								управление пользователями.
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Слайд 7: Сравнение с конкурентами -->
+			<div class="slide" id="slide-7">
+				<div class="glow-effect glow-effect-2"></div>
+				<div class="slide-content">
+					<h2 style="text-align: center; margin-bottom: 3rem">
+						Преимущества NESI
+					</h2>
+					<table class="comparison-table">
+						<thead>
+							<tr>
+								<th>Функция</th>
+								<th>NESI</th>
+								<th>Другие биржи</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><strong>Обязательная сертификация</strong></td>
+								<td><span class="check">✓</span> Да</td>
+								<td><span class="cross">✗</span> Редко</td>
+							</tr>
+							<tr>
+								<td><strong>Система эскроу</strong></td>
+								<td><span class="check">✓</span> Встроена</td>
+								<td><span class="cross">✗</span> Частично</td>
+							</tr>
+							<tr>
+								<td><strong>Сообщества</strong></td>
+								<td><span class="check">✓</span> Полноценные</td>
+								<td><span class="cross">✗</span> Нет/ограничено</td>
+							</tr>
+							<tr>
+								<td><strong>Система уровней и XP</strong></td>
+								<td><span class="check">✓</span> Игрофикация</td>
+								<td><span class="cross">✗</span> Рейтинг</td>
+							</tr>
+							<tr>
+								<td><strong>Мобильная адаптация</strong></td>
+								<td><span class="check">✓</span> Полная</td>
+								<td><span class="cross">✗</span> Частичная</td>
+							</tr>
+							<tr>
+								<td><strong>Современный дизайн</strong></td>
+								<td><span class="check">✓</span> 2024</td>
+								<td><span class="cross">✗</span> Устаревший</td>
+							</tr>
+							<tr>
+								<td><strong>Прозрачная комиссия</strong></td>
+								<td><span class="check">✓</span> 20%</td>
+								<td><span class="cross">?</span> Разная</td>
+							</tr>
+							<tr>
+								<td><strong>Защита от мошенничества</strong></td>
+								<td><span class="check">✓</span> Многоуровневая</td>
+								<td><span class="cross">✗</span> Базовая</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<!-- Слайд 8: Статистика и результаты -->
+			<div class="slide" id="slide-8">
+				<div class="glow-effect glow-effect-1"></div>
+				<div class="slide-content">
+					<h2 style="text-align: center; margin-bottom: 3rem">
+						Что делает NESI уникальной
+					</h2>
+					<div class="stats-grid">
+						<div class="stat-card">
+							<div class="stat-value">100%</div>
+							<div class="stat-label">Сертифицированные исполнители</div>
+						</div>
+						<div class="stat-card">
+							<div class="stat-value">20%</div>
+							<div class="stat-label">Прозрачная комиссия</div>
+						</div>
+						<div class="stat-card">
+							<div class="stat-value">24/7</div>
+							<div class="stat-label">Работа платформы</div>
+						</div>
+						<div class="stat-card">
+							<div class="stat-value">🛡️</div>
+							<div class="stat-label">Защита эскроу</div>
+						</div>
+					</div>
+					<div style="margin-top: 3rem; text-align: center">
+						<h3 style="margin-bottom: 1.5rem">Уникальные возможности</h3>
+						<div class="feature-grid">
+							<div class="feature-card">
+								<span class="feature-icon">🎯</span>
+								<div class="feature-title">Фокус на качестве</div>
+								<div class="feature-text">
+									Обязательная сертификация исключает непрофессионалов
+								</div>
+							</div>
+							<div class="feature-card">
+								<span class="feature-icon">💎</span>
+								<div class="feature-title">Экосистема</div>
+								<div class="feature-text">
+									Не просто биржа, а полноценное сообщество профессионалов
+								</div>
+							</div>
+							<div class="feature-card">
+								<span class="feature-icon">🚀</span>
+								<div class="feature-title">Современность</div>
+								<div class="feature-text">
+									Новейшие технологии и дизайн 2024 года
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Слайд 9: Призыв к действию -->
+			<div class="slide" id="slide-9">
+				<div class="glow-effect glow-effect-1"></div>
+				<div class="glow-effect glow-effect-2"></div>
+				<div class="slide-content" style="text-align: center">
+					<div class="logo">NESI</div>
+					<h1 style="margin-bottom: 2rem">Готовы начать?</h1>
+					<p class="lead" style="max-width: 700px; margin: 0 auto 3rem">
+						Присоединяйтесь к новой цифровой экосистеме, где технологии
+						соединяют людей и возможности
+					</p>
+					<div class="advantages-grid" style="max-width: 800px; margin: 0 auto">
+						<div class="advantage-item">
+							<h3>Для заказчиков</h3>
+							<p>Найдите проверенных исполнителей и реализуйте свой проект</p>
+						</div>
+						<div class="advantage-item">
+							<h3>Для исполнителей</h3>
+							<p>Зарабатывайте, развивайтесь и повышайте свой уровень</p>
+						</div>
+					</div>
+					<a href="/register" class="cta-button">🚀 Присоединиться к NESI</a>
+				</div>
+			</div>
+
+			<!-- Навигация -->
+			<div class="nav-controls">
+				<button class="nav-btn" id="prev-btn" onclick="previousSlide()">
+					← Назад
+				</button>
+				<button class="nav-btn" id="next-btn" onclick="nextSlide()">
+					Вперёд →
+				</button>
+			</div>
+		</div>
+
+		<script>
+			let currentSlide = 1
+			const totalSlides = 9
+
+			function updateSlide() {
+				// Скрыть все слайды
+				document.querySelectorAll('.slide').forEach(slide => {
+					slide.classList.remove('active')
+				})
+
+				// Показать текущий слайд
+				const slide = document.getElementById(`slide-${currentSlide}`)
+				if (slide) {
+					slide.classList.add('active')
+				}
+
+				// Обновить индикатор
+				document.getElementById('slide-number').textContent = currentSlide
+
+				// Обновить кнопки
+				document.getElementById('prev-btn').disabled = currentSlide === 1
+				document.getElementById('next-btn').disabled =
+					currentSlide === totalSlides
+
+				// Обновить текст кнопки "Вперёд"
+				if (currentSlide === totalSlides) {
+					document.getElementById('next-btn').textContent = 'Конец'
+				} else {
+					document.getElementById('next-btn').textContent = 'Вперёд →'
+				}
+			}
+
+			function nextSlide() {
+				if (currentSlide < totalSlides) {
+					currentSlide++
+					updateSlide()
+				}
+			}
+
+			function previousSlide() {
+				if (currentSlide > 1) {
+					currentSlide--
+					updateSlide()
+				}
+			}
+
+			// Навигация клавиатурой
+			document.addEventListener('keydown', e => {
+				if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+					nextSlide()
+				} else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+					previousSlide()
+				}
+			})
+
+			// Инициализация
+			updateSlide()
+
+			// Автоматическое переключение (опционально)
+			// setInterval(() => {
+			//     if (currentSlide < totalSlides) {
+			//         nextSlide();
+			//     }
+			// }, 10000); // 10 секунд на слайд
+		</script>
+	</body>
+</html>
