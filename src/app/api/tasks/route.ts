@@ -13,14 +13,19 @@ export async function GET(req: Request) {
 
 		const search = searchParams.get('search')?.toLowerCase()
 		const status = searchParams.get('status') || undefined
-		const sort = searchParams.get('sort') === 'old' ? 'asc' : 'desc'
+		const sortParam = searchParams.get('sort') || 'new'
 		const subcategoryId = searchParams.get('subcategory') || undefined
+		const categoryId = searchParams.get('category') || undefined
 		const mine = searchParams.get('mine') === 'true'
+		const minPrice = searchParams.get('minPrice') ? parseFloat(searchParams.get('minPrice')!) : undefined
+		const maxPrice = searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : undefined
+		const hasDeadline = searchParams.get('hasDeadline')
 		const page = parseInt(searchParams.get('page') || '1', 10)
 		const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50)
 		const skip = (page - 1) * limit
 
-		const where = {
+		// Формируем условия where
+		const where: any = {
 			...(mine ? { customerId: user.id } : {}),
 			...(search
 				? {
@@ -34,10 +39,56 @@ export async function GET(req: Request) {
 			...(subcategoryId ? { subcategoryId } : {}),
 		}
 
+		// Фильтр по цене
+		if (minPrice !== undefined || maxPrice !== undefined) {
+			where.price = {}
+			if (minPrice !== undefined) where.price.gte = minPrice
+			if (maxPrice !== undefined) where.price.lte = maxPrice
+		}
+
+		// Фильтр по наличию дедлайна
+		if (hasDeadline === 'true') {
+			where.deadline = { not: null }
+		} else if (hasDeadline === 'false') {
+			where.deadline = null
+		}
+
+		// Фильтр по категории через subcategory
+		if (categoryId && !subcategoryId) {
+			where.subcategory = {
+				categoryId,
+			}
+		}
+
+		// Определяем сортировку
+		let orderBy: any = { createdAt: 'desc' }
+		
+		switch (sortParam) {
+			case 'old':
+				orderBy = { createdAt: 'asc' }
+				break
+			case 'price_asc':
+				orderBy = { price: 'asc' }
+				break
+			case 'price_desc':
+				orderBy = { price: 'desc' }
+				break
+			case 'deadline':
+				orderBy = { deadline: 'asc' }
+				break
+			case 'responses':
+				// Сортировка по количеству откликов (через _count) не поддерживается напрямую
+				// Будем использовать сортировку на стороне клиента или raw SQL
+				orderBy = { createdAt: 'desc' }
+				break
+			default:
+				orderBy = { createdAt: 'desc' }
+		}
+
 		const [tasks, total] = await Promise.all([
 			prisma.task.findMany({
 				where,
-				orderBy: { createdAt: sort },
+				orderBy,
 				skip,
 				take: limit,
 				select: {
@@ -48,7 +99,13 @@ export async function GET(req: Request) {
 					deadline: true,
 					status: true,
 					createdAt: true,
-					customer: { select: { id: true, fullName: true } },
+					customer: { 
+						select: { 
+							id: true, 
+							fullName: true,
+							avgRating: true,
+						} 
+					},
 					subcategory: {
 						select: {
 							id: true,
@@ -65,8 +122,14 @@ export async function GET(req: Request) {
 			prisma.task.count({ where }),
 		])
 
+		// Если нужна сортировка по откликам, делаем это на стороне сервера
+		let sortedTasks = tasks
+		if (sortParam === 'responses') {
+			sortedTasks = [...tasks].sort((a, b) => b._count.responses - a._count.responses)
+		}
+
 		const response = NextResponse.json({
-			tasks,
+			tasks: sortedTasks,
 			pagination: {
 				page,
 				limit,

@@ -13,11 +13,25 @@ import Starfield from '@/components/Starfield'
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [loading, setLoading] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
+    // Начинаем переход
+    setIsVisible(false)
     setLoading(true)
-    const timeout = setTimeout(() => setLoading(false), 400)
-    return () => clearTimeout(timeout)
+    
+    const showTimer = setTimeout(() => {
+      setIsVisible(true)
+    }, 150)
+    
+    const loadingTimer = setTimeout(() => {
+      setLoading(false)
+    }, 400)
+    
+    return () => {
+      clearTimeout(showTimer)
+      clearTimeout(loadingTimer)
+    }
   }, [pathname])
 
   const isHome = pathname === '/'
@@ -50,11 +64,13 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
         {/* Контент */}
         <div
-          className={`relative z-10 ${
+          className={`relative z-10 ios-transition ${
             isHome || isAuthPage || isChatPage
               ? 'flex items-center justify-center w-full px-0 py-0'
               : 'max-w-screen-xl mx-auto px-4 py-10 md:px-8'
-          } animate-fade-in min-h-[calc(100vh-200px)]`}
+          } min-h-[calc(100vh-200px)] ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+          }`}
         >
           {children}
         </div>

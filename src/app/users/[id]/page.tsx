@@ -107,6 +107,10 @@ export default function UserPublicProfilePage() {
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 
+	// Portfolio
+	const [portfolio, setPortfolio] = useState<any[]>([])
+	const [portfolioLoading, setPortfolioLoading] = useState(false)
+
 	// hire CTA
 	const [hireState, setHireState] = useState<'none' | 'pending' | 'accepted'>(
 		'none'
@@ -143,6 +147,33 @@ export default function UserPublicProfilePage() {
 			cancelled = true
 		}
 	}, [userId])
+
+	// Загрузка портфолио исполнителя
+	useEffect(() => {
+		if (!viewUser || viewUser.role !== 'executor') return
+		
+		let cancelled = false
+		;(async () => {
+			setPortfolioLoading(true)
+			try {
+				const res = await fetch(`/api/portfolio/user/${userId}`, {
+					cache: 'no-store',
+				})
+				if (!res.ok) throw new Error('Ошибка загрузки портфолио')
+				const data = await res.json()
+				if (!cancelled) setPortfolio(data || [])
+			} catch (err) {
+				console.error('Ошибка загрузки портфолио:', err)
+				if (!cancelled) setPortfolio([])
+			} finally {
+				if (!cancelled) setPortfolioLoading(false)
+			}
+		})()
+		
+		return () => {
+			cancelled = true
+		}
+	}, [userId, viewUser?.role])
 
 	// предзагрузка статуса hire (для заказчика на странице исполнителя)
 	useEffect(() => {
@@ -447,6 +478,79 @@ export default function UserPublicProfilePage() {
 									</div>
 								))}
 							</div>
+						</div>
+					)}
+
+					{/* Портфолио исполнителя */}
+					{viewUser.role === 'executor' && (
+						<div
+							className='bg-black/40 p-6 rounded-xl border border-blue-500/30 
+                            shadow-[0_0_15px_rgba(59,130,246,0.2)]'
+						>
+							<h3 className='text-xl font-semibold text-blue-400 mb-4 flex items-center gap-2'>
+								<span>💼</span>
+								Портфолио
+							</h3>
+							
+							{portfolioLoading ? (
+								<div className='text-center py-8 text-gray-400'>
+									<div className='animate-spin w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full mx-auto' />
+									<p className='mt-2'>Загрузка портфолио...</p>
+								</div>
+							) : portfolio.length === 0 ? (
+								<div className='text-center py-8 text-gray-400'>
+									<p>🗂️ Портфолио пусто</p>
+								</div>
+							) : (
+								<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+									{portfolio.map((item: any) => (
+										<div
+											key={item.id}
+											className='bg-gray-800/50 border border-blue-500/30 rounded-lg overflow-hidden 
+											         hover:border-blue-400/50 transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+										>
+											{item.imageUrl && (
+												<div className='aspect-video bg-gray-900 relative overflow-hidden'>
+													<img
+														src={item.imageUrl}
+														alt={item.title}
+														className='w-full h-full object-cover hover:scale-105 transition-transform duration-300'
+													/>
+												</div>
+											)}
+											
+											<div className='p-4'>
+												<h4 className='text-white font-semibold text-lg mb-2 line-clamp-1'>
+													{item.title}
+												</h4>
+												<p className='text-gray-400 text-sm mb-3 line-clamp-2'>
+													{item.description}
+												</p>
+												
+												{item.task && (
+													<div className='text-blue-400 text-xs mb-2 flex items-center gap-1'>
+														<span>📋</span>
+														<span className='line-clamp-1'>{item.task.title}</span>
+													</div>
+												)}
+												
+												{item.externalUrl && (
+													<a
+														href={item.externalUrl}
+														target='_blank'
+														rel='noopener noreferrer'
+														className='text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 
+														         hover:underline transition-colors'
+													>
+														<span>🔗</span>
+														<span>Открыть проект</span>
+													</a>
+												)}
+											</div>
+										</div>
+									))}
+								</div>
+							)}
 						</div>
 					)}
 				</div>

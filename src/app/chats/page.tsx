@@ -870,29 +870,34 @@ function ChatsPageContent() {
 
 	return (
 		<div 
-			className='fixed top-14 sm:top-16 left-0 right-0 bottom-0 bg-gray-900 md:bg-transparent p-0 md:p-4 overflow-hidden'
-			style={{ touchAction: 'none' }}
+			className='fixed inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black md:bg-transparent p-0 overflow-hidden'
+			style={{ touchAction: 'none', paddingTop: '58px' }}
 		>
-			<div className='max-w-7xl mx-auto h-full bg-gray-900 md:bg-gray-900/20 backdrop-blur-sm md:rounded-2xl overflow-hidden flex flex-col'>
+			<div className='max-w-7xl mx-auto h-full bg-gradient-to-br from-gray-800/95 via-gray-900/95 to-black/95 backdrop-blur-xl overflow-hidden flex flex-col shadow-2xl'>
 				<div className='flex flex-1 overflow-hidden min-h-0' style={{ touchAction: 'pan-y' }}>
 					{/* Левая колонка - список чатов */}
 					<div
 						className={`${
 							selectedChat ? 'hidden md:flex' : 'flex'
-						} w-full md:w-1/3 bg-gray-800/20 backdrop-blur-sm flex-col min-h-0`}
+						} w-full md:w-1/3 bg-gradient-to-b from-gray-700/30 to-gray-800/30 backdrop-blur-md border-r border-emerald-500/10 flex-col min-h-0`}
 					>
 					{/* Заголовок и поиск */}
-					<div className='flex-shrink-0 p-3 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent'>
-						<h1 className='text-lg sm:text-2xl font-bold text-emerald-400 mb-2 sm:mb-4 flex items-center'>
-							💬 Чаты
+					<div className='flex-shrink-0 p-4 sm:p-6 bg-gradient-to-br from-emerald-600/10 via-emerald-700/5 to-transparent border-b border-emerald-500/10'>
+						<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent mb-3 sm:mb-5 flex items-center gap-3'>
+							💬 <span>Чаты</span>
 						</h1>
+						<div className='relative'>
 						<input
 							type='text'
 							placeholder='Поиск чатов...'
 							value={searchQuery}
 							onChange={e => setSearchQuery(e.target.value)}
-							className='w-full px-4 py-2.5 sm:py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white text-sm sm:text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all'
+								className='w-full px-5 py-3.5 sm:py-4 bg-gray-700/40 border border-emerald-500/20 rounded-full text-white text-sm sm:text-base placeholder-gray-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:bg-gray-700/60 transition-all shadow-lg hover:shadow-emerald-500/10 ios-transition'
 						/>
+							<div className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400/50'>
+								🔍
+							</div>
+						</div>
 					</div>
 
 						{/* Список чатов */}
@@ -917,10 +922,10 @@ function ChatsPageContent() {
 									<div
 										key={chat.id}
 										onClick={() => handleSelectChat(chat)}
-										className={`p-3 sm:p-4 mx-2 sm:mx-3 my-1.5 sm:my-2 rounded-xl cursor-pointer transition-all duration-200 hover:bg-gray-700/50 active:bg-gray-700 touch-manipulation ${
+										className={`p-4 sm:p-5 mx-3 sm:mx-4 my-2 sm:my-2.5 rounded-3xl cursor-pointer ios-transition hover-lift touch-manipulation ${
 											selectedChat?.id === chat.id
-												? 'bg-emerald-900/30 border border-emerald-500/40 shadow-lg shadow-emerald-500/10'
-												: 'hover:shadow-md'
+												? 'bg-gradient-to-br from-emerald-600/20 to-emerald-700/10 border-2 border-emerald-400/40 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
+												: 'bg-gradient-to-br from-gray-700/40 to-gray-800/40 border border-gray-600/30 hover:border-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]'
 										}`}
 									>
 										<div className='flex items-center space-x-2 sm:space-x-3'>
@@ -984,17 +989,17 @@ function ChatsPageContent() {
 					<div
 						className={`${
 							selectedChat ? 'flex' : 'hidden md:flex'
-						} flex-1 flex-col bg-gray-800/10 backdrop-blur-sm min-h-0`}
+						} flex-1 flex-col bg-gradient-to-br from-gray-700/20 to-gray-800/20 backdrop-blur-lg min-h-0`}
 					>
 						{selectedChat ? (
 							<>
 								{/* Заголовок чата - фиксированный */}
-								<div className='flex-shrink-0 p-3 sm:p-6 bg-gradient-to-r from-emerald-900/20 to-transparent border-b border-gray-700/50'>
+								<div className='flex-shrink-0 p-4 sm:p-6 bg-gradient-to-r from-emerald-600/10 via-emerald-700/5 to-transparent border-b border-emerald-500/20 shadow-lg'>
 									<div className='flex items-center space-x-3 sm:space-x-4'>
 										{/* Кнопка "Назад" для мобильных */}
 										<button
 											onClick={() => setSelectedChat(null)}
-											className='md:hidden flex items-center justify-center w-12 h-12 rounded-full bg-gray-700/50 hover:bg-gray-700 active:bg-gray-600 transition-colors touch-manipulation'
+											className='md:hidden flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-gray-600/60 to-gray-700/60 border border-gray-500/30 hover:border-emerald-400/50 active:bg-gray-600 ios-transition hover-scale touch-manipulation shadow-lg'
 										>
 											<svg
 												className='w-6 h-6 text-white'
@@ -1047,7 +1052,7 @@ function ChatsPageContent() {
 
 							{/* Сообщения - растягиваемая область */}
 							<div 
-								className='flex-1 overflow-y-auto px-3 pt-3 pb-4 sm:px-6 sm:pt-6 sm:pb-4 custom-scrollbar'
+								className='flex-1 overflow-y-auto px-4 pt-4 pb-4 sm:px-8 sm:pt-6 sm:pb-4 custom-scrollbar bg-gradient-to-b from-gray-800/20 to-gray-900/20'
 								style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 							>
 									{messagesLoading ? (
@@ -1142,8 +1147,8 @@ function ChatsPageContent() {
 								</div>
 
 								{/* Поле ввода сообщения - фиксированное внизу */}
-								<div className='fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto flex-shrink-0 border-t border-gray-700/50 bg-gray-900 md:bg-gray-900/50 backdrop-blur-md z-50 shadow-2xl'>
-									<div className='p-3 sm:p-4'>
+								<div className='fixed bottom-0 left-0 right-0 md:relative md:bottom-auto md:left-auto md:right-auto flex-shrink-0 border-t border-emerald-500/20 bg-gradient-to-br from-gray-800/95 to-gray-900/95 md:bg-gradient-to-br md:from-gray-700/60 md:to-gray-800/60 backdrop-blur-xl z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.3)]'>
+									<div className='p-4 sm:p-5'>
 										<MessageInput
 											chatType={selectedChat.type}
 											otherUserId={selectedChat.otherUser?.id}

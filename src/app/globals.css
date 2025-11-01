@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import '../styles/animations.css';
 
 /* 🎨 Основные переменные */
 :root {
@@ -39,6 +40,10 @@ body {
 	min-height: 100vh;
 	overflow-x: hidden;
 	z-index: 1;
+	
+	/* iOS-style smooth scrolling */
+	scroll-behavior: smooth;
+	-webkit-overflow-scrolling: touch;
 
 	/* 🌌 Новый минималистичный космический фон */
 	background: radial-gradient(circle at 50% 20%, #01150d 0%, #000000 100%);
@@ -138,17 +143,25 @@ body {
 	color: rgba(16, 185, 129, 0.95);
 }
 
-/* 💎 Дополнительные визуальные мелочи */
+/* 💎 Дополнительные визуальные мелочи - iOS-style */
 a,
 button {
 	font-family: 'Poppins', sans-serif;
 	font-weight: 500;
-	transition: all 0.2s ease;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	-webkit-tap-highlight-color: transparent;
 }
 
 a:hover,
 button:hover {
 	filter: brightness(1.15);
+	transform: translateY(-1px);
+}
+
+a:active,
+button:active {
+	transform: scale(0.96);
+	transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 input,

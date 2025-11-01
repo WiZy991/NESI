@@ -59,6 +59,25 @@ export default function Header() {
 		router.push('/login')
 	}
 
+	// Блокировка прокрутки фона при открытии мобильного меню
+	useEffect(() => {
+		if (mobileMenuOpen) {
+			document.body.style.overflow = 'hidden'
+			document.body.style.position = 'fixed'
+			document.body.style.width = '100%'
+		} else {
+			document.body.style.overflow = ''
+			document.body.style.position = ''
+			document.body.style.width = ''
+		}
+		
+		return () => {
+			document.body.style.overflow = ''
+			document.body.style.position = ''
+			document.body.style.width = ''
+		}
+	}, [mobileMenuOpen])
+
 	// Закрытие меню при клике вне
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
@@ -543,23 +562,23 @@ export default function Header() {
 				{mobileMenuOpen && (
 					<div
 						ref={mobileMenuRef}
-						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] md:hidden z-40'
+						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-xl border-b border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.3)] md:hidden z-40 animate-slideInDown max-h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar'
 					>
-						<nav className='flex flex-col p-4 space-y-2 text-gray-200'>
+						<nav className='flex flex-col p-5 space-y-1.5 text-gray-200'>
 							{user ? (
 								<>
 									{user.role === 'admin' ? (
 										<>
 											<Link
 												href='/admin'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												Админ-панель
 											</Link>
 											<Link
 												href='/profile'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												Профиль
@@ -571,28 +590,28 @@ export default function Header() {
 												<>
 													<Link
 														href='/specialists'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Подиум исполнителей
 													</Link>
 													<Link
 														href='/tasks'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Каталог задач
 													</Link>
 													<Link
 														href='/tasks/my'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Мои задачи
 													</Link>
 													<Link
 														href='/responses/my'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Мои отклики
@@ -603,38 +622,38 @@ export default function Header() {
 												<>
 													<Link
 														href='/specialists'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Подиум исполнителей
 													</Link>
 													<Link
 														href='/tasks'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Каталог задач
 													</Link>
 													<Link
 														href='/my-tasks'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Мои задачи
 													</Link>
 													<Link
 														href='/tasks/new'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 bg-emerald-600/20 hover:bg-emerald-600/30 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
-														Создать задачу
+														➕ Создать задачу
 													</Link>
 												</>
 											)}
 
 											<Link
 												href='/profile'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												Профиль
@@ -642,12 +661,12 @@ export default function Header() {
 
 											<Link
 												href='/chats'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition relative'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition relative active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												💬 Чаты
 												{unreadMessagesCount > 0 && (
-													<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full'>
+													<span className='absolute right-3 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
 														{unreadMessagesCount}
 													</span>
 												)}
@@ -655,7 +674,7 @@ export default function Header() {
 
 											<Link
 												href='/community'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												🏘️ Сообщество
@@ -663,15 +682,39 @@ export default function Header() {
 
 											<Link
 												href='/hire'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												📑 Запросы найма
 											</Link>
 
 											<Link
+												href='/analytics'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												📊 Аналитика
+											</Link>
+
+											<Link
+												href='/portfolio'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												💼 Портфолио
+											</Link>
+
+											<Link
+												href='/referral'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												🎁 Рефералы
+											</Link>
+
+											<Link
 												href='/settings'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												⚙️ Настройки
@@ -682,7 +725,7 @@ export default function Header() {
 													setMobileMenuOpen(false)
 													handleLogout()
 												}}
-												className='py-2 px-3 text-left text-red-400 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 text-left text-red-400 hover:bg-red-500/10 rounded-lg ios-transition active:scale-95'
 											>
 												🚪 Выйти
 											</button>
@@ -693,14 +736,14 @@ export default function Header() {
 								<>
 									<Link
 										href='/login'
-										className='py-2 px-3 text-center border border-emerald-400 text-emerald-400 rounded hover:bg-emerald-400 hover:text-black transition'
+										className='py-3 px-4 text-center border-2 border-emerald-400 text-emerald-400 rounded-lg ios-button hover:bg-emerald-400 hover:text-black'
 										onClick={() => setMobileMenuOpen(false)}
 									>
 										Вход
 									</Link>
 									<Link
 										href='/register'
-										className='py-2 px-3 text-center bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-semibold rounded hover:brightness-110 transition'
+										className='py-3 px-4 text-center bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-lg ios-button hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'
 										onClick={() => setMobileMenuOpen(false)}
 									>
 										Регистрация
@@ -898,48 +941,75 @@ export default function Header() {
 											Ещё ▾
 										</button>
 										{menuOpen && (
-											<div className='absolute right-0 mt-2 w-48 bg-gray-800 border border-emerald-500/30 rounded-lg shadow-lg z-50 animate-fadeIn'>
+											<div className='absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 animate-fadeInDown overflow-hidden'>
+												<div className='py-2'>
 												<Link
 													href='/chats'
-													className='block px-4 py-2 hover:bg-gray-700/60 transition relative'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400 relative'
 													onClick={() => setMenuOpen(false)}
 												>
 													💬 Чаты
 													{unreadMessagesCount > 0 && (
-														<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
+															<span className='absolute right-3 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
 															{unreadMessagesCount}
 														</span>
 													)}
 												</Link>
 												<Link
 													href='/community'
-													className='block px-4 py-2 hover:bg-gray-700/60 transition'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 													onClick={() => setMenuOpen(false)}
 												>
 													🏘️ Сообщество
 												</Link>
 												<Link
 													href='/hire'
-													className='block px-4 py-2 hover:bg-gray-700/60 transition'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 													onClick={() => setMenuOpen(false)}
 												>
 													📑 Запросы найма
 												</Link>
+												</div>
+												
+												<div className='border-t border-emerald-500/20 py-2'>
+													<Link
+														href='/analytics'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+														onClick={() => setMenuOpen(false)}
+													>
+														📊 Аналитика
+													</Link>
+													<Link
+														href='/portfolio'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+														onClick={() => setMenuOpen(false)}
+													>
+														💼 Портфолио
+													</Link>
+													<Link
+														href='/referral'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+														onClick={() => setMenuOpen(false)}
+													>
+														🎁 Рефералы
+													</Link>
+												</div>
 
+												<div className='border-t border-emerald-500/20 py-2'>
 												<Link
 													href='/settings'
-													className='block px-4 py-2 hover:bg-gray-700/60 transition'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+														onClick={() => setMenuOpen(false)}
 												>
 													⚙️ Настройки
 												</Link>
 
-												<div className='border-t border-gray-700 mt-1'>
 													<button
 														onClick={() => {
 															setMenuOpen(false)
 															handleLogout()
 														}}
-														className='block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700/60 transition'
+														className='block w-full text-left px-4 py-2.5 text-red-400 hover:bg-red-500/10 ios-transition-fast hover:text-red-300'
 													>
 														🚪 Выйти
 													</button>
@@ -954,13 +1024,13 @@ export default function Header() {
 						<>
 							<Link
 								href='/login'
-								className='px-5 py-2 rounded-full border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-medium'
+								className='px-5 py-2 rounded-full border-2 border-emerald-400 text-emerald-400 ios-button hover:bg-emerald-400 hover:text-black font-medium'
 							>
 								Вход
 							</Link>
 							<Link
 								href='/register'
-								className='px-5 py-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-semibold hover:brightness-110 transition'
+								className='px-5 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold ios-button hover:shadow-[0_0_25px_rgba(16,185,129,0.5)]'
 							>
 								Регистрация
 							</Link>

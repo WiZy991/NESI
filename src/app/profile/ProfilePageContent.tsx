@@ -414,6 +414,56 @@ export default function ProfilePageContent() {
 							</div>
 						)}
 					</div>
+
+					{/* Быстрые действия */}
+					<div
+						className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 
+                          shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+					>
+						<h3 className='text-lg font-semibold text-emerald-400 mb-3'>
+							⚡ Быстрые действия
+						</h3>
+						<div className='grid grid-cols-1 gap-2'>
+							<Link
+								href='/analytics'
+								className='flex items-center gap-3 p-3 bg-gradient-to-r from-purple-900/30 to-purple-800/30 
+								         border border-purple-500/30 rounded-lg hover:border-purple-400/50 
+								         transition-all hover:shadow-[0_0_10px_rgba(168,85,247,0.3)]'
+							>
+								<span className='text-2xl'>📊</span>
+								<div className='flex-1'>
+									<div className='text-white font-semibold'>Аналитика</div>
+									<div className='text-gray-400 text-xs'>Статистика и графики</div>
+								</div>
+							</Link>
+
+							<Link
+								href='/portfolio'
+								className='flex items-center gap-3 p-3 bg-gradient-to-r from-blue-900/30 to-blue-800/30 
+								         border border-blue-500/30 rounded-lg hover:border-blue-400/50 
+								         transition-all hover:shadow-[0_0_10px_rgba(59,130,246,0.3)]'
+							>
+								<span className='text-2xl'>💼</span>
+								<div className='flex-1'>
+									<div className='text-white font-semibold'>Портфолио</div>
+									<div className='text-gray-400 text-xs'>Мои лучшие работы</div>
+								</div>
+							</Link>
+
+							<Link
+								href='/referral'
+								className='flex items-center gap-3 p-3 bg-gradient-to-r from-pink-900/30 to-pink-800/30 
+								         border border-pink-500/30 rounded-lg hover:border-pink-400/50 
+								         transition-all hover:shadow-[0_0_10px_rgba(236,72,153,0.3)]'
+							>
+								<span className='text-2xl'>🎁</span>
+								<div className='flex-1'>
+									<div className='text-white font-semibold'>Рефералы</div>
+									<div className='text-gray-400 text-xs'>Приглашай и зарабатывай</div>
+								</div>
+							</Link>
+						</div>
+					</div>
 				</div>
 
 				{/* Правая колонка - детальная информация */}
