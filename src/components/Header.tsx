@@ -354,13 +354,27 @@ export default function Header() {
 
 	const handleNotificationClick = async (notif: any) => {
 		setNotifOpen(false)
-		await markAllRead()
+		setMobileMenuOpen(false)
+		
+		// Не блокируем навигацию ожиданием markAllRead
+		markAllRead().catch(console.error)
+		
+		// Определяем URL для перехода
+		let targetUrl = '/notifications'
+		
 		if (notif.userId || notif.senderId) {
 			const targetId = notif.userId || notif.senderId
-			router.push(`/chats?open=${targetId}`)
-			return
+			targetUrl = `/chats?open=${targetId}`
+		} else if (notif.link) {
+			targetUrl = notif.link
 		}
-		if (notif.link) router.push(notif.link)
+		
+		// На мобильных используем прямой переход через window.location
+		if (typeof window !== 'undefined' && window.innerWidth < 768) {
+			window.location.href = targetUrl
+		} else {
+			router.push(targetUrl)
+		}
 	}
 
 	const handleGoToNotifications = async () => {
@@ -427,7 +441,19 @@ export default function Header() {
 					{user && (
 						<div className='relative' ref={notifRef}>
 							<button
-								onClick={() => setNotifOpen(v => !v)}
+								onClick={(e) => {
+									e.stopPropagation()
+									setNotifOpen(v => !v)
+								}}
+								onDoubleClick={(e) => {
+									// Двойной клик переходит на страницу уведомлений
+									e.preventDefault()
+									e.stopPropagation()
+									setNotifOpen(false)
+									setTimeout(() => {
+										window.location.href = '/notifications'
+									}, 100)
+								}}
 								className='text-lg flex items-center gap-1 relative p-2'
 							>
 								<Bell className='w-5 h-5 text-emerald-400' />
@@ -444,20 +470,32 @@ export default function Header() {
 										{notifications.length === 0 ? (
 											<div className='p-4 text-center text-gray-400'>
 												<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
-												<p>Нет новых уведомлений</p>
+												<p className='text-sm'>Нет новых уведомлений</p>
 											</div>
 										) : (
 											notifications.map((notif, index) => (
 												<div
 													key={index}
-													className='p-4 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer active:bg-gray-800 touch-manipulation'
+													className='p-3 sm:p-4 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-700/80 transition cursor-pointer touch-manipulation select-none'
 													onClick={(e) => {
-														e.preventDefault()
 														e.stopPropagation()
 														handleNotificationClick(notif)
 													}}
+													onTouchStart={(e) => {
+														// Для мобильных устройств
+														e.currentTarget.classList.add('bg-gray-800/80')
+													}}
+													onTouchEnd={(e) => {
+														e.currentTarget.classList.remove('bg-gray-800/80')
+													}}
 													role="button"
 													tabIndex={0}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter' || e.key === ' ') {
+															e.preventDefault()
+															handleNotificationClick(notif)
+														}
+													}}
 												>
 													<div className='flex items-start space-x-3'>
 														<div className='w-10 h-10 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-emerald-900/40 border border-emerald-500/30 flex-shrink-0'>
@@ -508,17 +546,31 @@ export default function Header() {
 											))
 										)}
 									</div>
-									<div className='p-4 sm:p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+									<div className='p-3 sm:p-4 border-t border-emerald-500/20 bg-black/40'>
 										<button
+											type="button"
 											onClick={(e) => {
 												e.preventDefault()
 												e.stopPropagation()
-												handleGoToNotifications()
+												setNotifOpen(false)
+												setMobileMenuOpen(false)
+												// Всегда используем прямой переход на мобильных
+												setTimeout(() => {
+													window.location.href = '/notifications'
+												}, 100)
 											}}
-											className='w-full py-2 sm:py-0 text-emerald-400 hover:text-emerald-300 active:text-emerald-500 text-sm sm:text-sm font-medium transition-colors touch-manipulation'
-											role="button"
+											onTouchEnd={(e) => {
+												e.preventDefault()
+												e.stopPropagation()
+												setNotifOpen(false)
+												setMobileMenuOpen(false)
+												setTimeout(() => {
+													window.location.href = '/notifications'
+												}, 100)
+											}}
+											className='w-full py-2.5 sm:py-2 text-emerald-400 hover:text-emerald-300 active:text-emerald-200 text-sm sm:text-base font-medium transition-all touch-manipulation text-center rounded-lg hover:bg-emerald-500/10 active:bg-emerald-500/30 active:scale-95'
 										>
-											Перейти к уведомлениям →
+											Все уведомления →
 										</button>
 									</div>
 								</div>
@@ -659,6 +711,32 @@ export default function Header() {
 												Профиль
 											</Link>
 
+											<button
+												type="button"
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition relative active:scale-95 block text-emerald-300 hover:text-emerald-100 w-full text-left'
+												onClick={(e) => {
+													e.preventDefault()
+													setMobileMenuOpen(false)
+													setTimeout(() => {
+														window.location.href = '/notifications'
+													}, 100)
+												}}
+												onTouchEnd={(e) => {
+													e.preventDefault()
+													setMobileMenuOpen(false)
+													setTimeout(() => {
+														window.location.href = '/notifications'
+													}, 100)
+												}}
+											>
+												🔔 Уведомления
+												{unreadCount > 0 && (
+													<span className='absolute right-3 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
+														{unreadCount}
+													</span>
+												)}
+											</button>
+
 											<Link
 												href='/chats'
 												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition relative active:scale-95'
@@ -795,14 +873,19 @@ export default function Header() {
 												notifications.map((notif, index) => (
 													<div
 														key={index}
-														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-800 transition cursor-pointer touch-manipulation'
+														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-800 transition cursor-pointer touch-manipulation select-none'
 														onClick={(e) => {
-															e.preventDefault()
 															e.stopPropagation()
 															handleNotificationClick(notif)
 														}}
 														role="button"
 														tabIndex={0}
+														onKeyDown={(e) => {
+															if (e.key === 'Enter' || e.key === ' ') {
+																e.preventDefault()
+																handleNotificationClick(notif)
+															}
+														}}
 													>
 														<div className='flex items-start space-x-3'>
 															{/* 🎯 Иконка в зависимости от типа уведомления */}
@@ -866,17 +949,29 @@ export default function Header() {
 										</div>
 
 										{/* 📎 Ссылка внизу */}
-										<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+										<div className='p-3 border-t border-emerald-500/20 bg-black/40'>
 											<button
+												type="button"
 												onClick={(e) => {
 													e.preventDefault()
 													e.stopPropagation()
-													handleGoToNotifications()
+													setNotifOpen(false)
+													// Всегда используем прямой переход
+													setTimeout(() => {
+														window.location.href = '/notifications'
+													}, 100)
 												}}
-												className='w-full text-emerald-400 hover:text-emerald-300 active:text-emerald-500 text-sm font-medium transition-colors touch-manipulation'
-												role="button"
+												onTouchEnd={(e) => {
+													e.preventDefault()
+													e.stopPropagation()
+													setNotifOpen(false)
+													setTimeout(() => {
+														window.location.href = '/notifications'
+													}, 100)
+												}}
+												className='w-full py-2 text-emerald-400 hover:text-emerald-300 active:text-emerald-200 text-sm font-medium transition-all touch-manipulation text-center rounded-lg hover:bg-emerald-500/10 active:bg-emerald-500/30 active:scale-95'
 											>
-												Перейти к уведомлениям →
+												Все уведомления →
 											</button>
 										</div>
 									</div>

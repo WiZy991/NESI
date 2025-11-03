@@ -40,15 +40,15 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
   return (
     <UserProvider>
-      {/* Звёздный фон — везде кроме главной и авторизации */}
-      {!isHome && !isAuthPage && <Starfield />}
+      {/* Звёздный фон — везде кроме главной */}
+      {!isHome && <Starfield />}
 
-      {/* Хедер показываем только там, где нужно */}
+      {/* Хедер показываем только там, где нужно (не на главной и авторизации) */}
       {!isHome && !isAuthPage && <Header />}
 
       <main className="relative min-h-screen w-full overflow-hidden text-white">
-        {/* Градиент — только для обычных страниц (не авторизация, не главная) */}
-        {!isHome && !isAuthPage && (
+        {/* Градиент — везде кроме главной (включая авторизацию) */}
+        {!isHome && (
           <>
             <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0a] to-[#04382A] opacity-40 z-0" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.25),transparent_70%)] opacity-40 z-0" />
