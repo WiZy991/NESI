@@ -3,6 +3,7 @@ import { verify } from 'jsonwebtoken'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
@@ -22,6 +23,27 @@ export async function POST(req: NextRequest) {
     }
 
     const decoded = verify(token, JWT_SECRET) as { userId: string }
+
+    // Rate limiting для загрузки файлов портфолио
+    const uploadRateLimit = createUserRateLimit(rateLimitConfigs.upload)
+    const rateLimitResult = await uploadRateLimit(req)
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Слишком много загрузок. Подождите немного.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetTime - Date.now()) / 1000
+            ).toString(),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          },
+        }
+      )
+    }
 
     const formData = await req.formData()
     const file = formData.get('file') as File

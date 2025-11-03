@@ -6,6 +6,11 @@ import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
+import ChatSkeleton from '@/components/ChatSkeleton'
+import EmptyState from '@/components/EmptyState'
+import { MessageSquare } from 'lucide-react'
+import ChatMessageSearch from '@/components/ChatMessageSearch'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 type Chat = {
 	id: string
@@ -74,11 +79,16 @@ function ChatsPageContent() {
 	const [loading, setLoading] = useState(true)
 	const [messagesLoading, setMessagesLoading] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
+	const [messageSearchQuery, setMessageSearchQuery] = useState('')
+	const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
+	const [messageSearchMatches, setMessageSearchMatches] = useState<number[]>([])
+	const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
 	const [isTyping, setIsTyping] = useState(false)
 	const [typingUser, setTypingUser] = useState<string | null>(null)
 	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
+	const messageSearchRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
 	// Блокируем скролл страницы на мобильной версии
 	useEffect(() => {
@@ -860,10 +870,78 @@ function ChatsPageContent() {
 		}
 	}
 
+	// Поиск по сообщениям
+	useEffect(() => {
+		if (!messageSearchQuery.trim() || messages.length === 0) {
+			setMessageSearchMatches([])
+			setCurrentMatchIndex(0)
+			return
+		}
+
+		const query = messageSearchQuery.toLowerCase()
+		const matches: number[] = []
+
+		messages.forEach((msg, index) => {
+			if (msg.content?.toLowerCase().includes(query)) {
+				matches.push(index)
+			}
+		})
+
+		setMessageSearchMatches(matches)
+		setCurrentMatchIndex(matches.length > 0 ? 0 : -1)
+
+		// Прокрутка к первому совпадению
+		if (matches.length > 0) {
+			const firstMatch = messages[matches[0]]
+			if (firstMatch) {
+				const element = messageSearchRefs.current.get(firstMatch.id)
+				element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+			}
+		}
+	}, [messageSearchQuery, messages])
+
+	// Навигация по совпадениям
+	const goToNextMatch = () => {
+		if (messageSearchMatches.length === 0) return
+		const nextIndex = (currentMatchIndex + 1) % messageSearchMatches.length
+		setCurrentMatchIndex(nextIndex)
+		const matchIndex = messageSearchMatches[nextIndex]
+		const message = messages[matchIndex]
+		if (message) {
+			const element = messageSearchRefs.current.get(message.id)
+			element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+		}
+	}
+
+	const goToPreviousMatch = () => {
+		if (messageSearchMatches.length === 0) return
+		const prevIndex = currentMatchIndex === 0 ? messageSearchMatches.length - 1 : currentMatchIndex - 1
+		setCurrentMatchIndex(prevIndex)
+		const matchIndex = messageSearchMatches[prevIndex]
+		const message = messages[matchIndex]
+		if (message) {
+			const element = messageSearchRefs.current.get(message.id)
+			element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+		}
+	}
+
+	// Горячая клавиша Ctrl+F для поиска в сообщениях
+	useKeyboardShortcuts([
+		{
+			key: 'f',
+			ctrlKey: true,
+			callback: () => {
+				if (selectedChat && messages.length > 0) {
+					setIsMessageSearchOpen(true)
+				}
+			},
+		},
+	])
+
 	if (loading) {
 		return (
-			<div className='pt-[64px] min-h-screen flex items-center justify-center'>
-				<div className='text-emerald-400 text-lg'>Загрузка чатов...</div>
+			<div className='pt-[64px] min-h-screen flex items-center justify-center px-4'>
+				<ChatSkeleton />
 			</div>
 		)
 	}
@@ -904,17 +982,15 @@ function ChatsPageContent() {
 							style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 						>
 							{filteredChats.length === 0 ? (
-									<div className='p-6 text-center text-slate-200'>
-									<div className='text-4xl mb-3'>💭</div>
-									<p className='text-lg font-medium mb-2'>
-										{searchQuery ? 'Чаты не найдены' : 'У вас пока нет чатов'}
-									</p>
-									<p className='text-sm text-gray-500'>
-										{searchQuery
+								<EmptyState
+									icon={MessageSquare}
+									title={searchQuery ? 'Чаты не найдены' : 'У вас пока нет чатов'}
+									description={
+										searchQuery
 											? 'Попробуйте изменить поисковый запрос'
-											: 'Начните общение с другими пользователями'}
-									</p>
-								</div>
+											: 'Начните общение с другими пользователями'
+									}
+								/>
 							) : (
 								filteredChats.map(chat => (
 									<div
@@ -992,7 +1068,18 @@ function ChatsPageContent() {
 						{selectedChat ? (
 							<>
 								{/* Заголовок чата - фиксированный */}
-							<div className='flex-shrink-0 px-5 sm:px-8 py-5 border-б border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgба(15,118,110,0.22)] backdrop-blur-md'>
+							<div className='flex-shrink-0 px-5 sm:px-8 py-5 border-b border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgba(15,118,110,0.22)] backdrop-blur-md relative'>
+								{/* Кнопка поиска в сообщениях */}
+								{selectedChat && messages.length > 0 && (
+									<button
+										onClick={() => setIsMessageSearchOpen(!isMessageSearchOpen)}
+										className="absolute top-4 right-4 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition"
+										aria-label="Поиск в сообщениях (Ctrl+F)"
+										title="Поиск в сообщениях (Ctrl+F)"
+									>
+										🔍
+									</button>
+								)}
 									<div className='flex items-center space-x-3 sm:space-x-4'>
 										{/* Кнопка "Назад" для мобильных */}
 										<button
@@ -1050,9 +1137,25 @@ function ChatsPageContent() {
 
 							{/* Сообщения - растягиваемая область */}
 							<div 
-								className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar'
+								className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar relative'
 								style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 							>
+								{/* Поиск по сообщениям */}
+								{selectedChat && (
+									<ChatMessageSearch
+										isOpen={isMessageSearchOpen}
+										onClose={() => {
+											setIsMessageSearchOpen(false)
+											setMessageSearchQuery('')
+										}}
+										searchQuery={messageSearchQuery}
+										onSearchChange={setMessageSearchQuery}
+										matchCount={messageSearchMatches.length}
+										currentMatch={currentMatchIndex + 1}
+										onNext={goToNextMatch}
+										onPrevious={goToPreviousMatch}
+									/>
+								)}
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
 										<div className='text-center text-slate-200'>
@@ -1061,15 +1164,11 @@ function ChatsPageContent() {
 											</div>
 										</div>
 									) : messages.length === 0 ? (
-										<div className='flex items-center justify-center h-full'>
-										<div className='text-center text-slate-200'>
-												<div className='text-6xl mb-4'>💬</div>
-												<h3 className='text-xl font-semibold mb-2'>
-													Начните общение
-												</h3>
-												<p>Отправьте первое сообщение!</p>
-											</div>
-										</div>
+										<EmptyState
+											icon={MessageSquare}
+											title="Начните общение"
+											description="Отправьте первое сообщение!"
+										/>
 									) : (
 										<div className='max-w-4xl w-full mx-auto space-y-3 sm:space-y-4'>
 										{messages
@@ -1088,31 +1187,47 @@ function ChatsPageContent() {
 											const isLastInGroup = !nextMsg || nextMsg.sender.id !== msg.sender.id
 											const showSenderName = isFirstInGroup
 
+											const isHighlighted = messageSearchQuery && 
+												msg.content?.toLowerCase().includes(messageSearchQuery.toLowerCase()) &&
+												messageSearchMatches.includes(index) &&
+												messageSearchMatches[currentMatchIndex] === index
+
 											return (
-												<ChatMessage
+												<div
 													key={msg.id}
-													message={msg}
-													chatType={selectedChat?.type || 'private'}
-													showSenderName={showSenderName}
-													isFirstInGroup={isFirstInGroup}
-													isLastInGroup={isLastInGroup}
-													onMessageUpdate={updatedMsg => {
-														setMessages(prev =>
-															prev.map(m =>
-																m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m
-															)
-														)
+													ref={(el) => {
+														if (el) {
+															messageSearchRefs.current.set(msg.id, el)
+														} else {
+															messageSearchRefs.current.delete(msg.id)
+														}
 													}}
-													onMessageDelete={messageId => {
-														setMessages(prev =>
-															prev.map(m =>
-																m.id === messageId
-																	? { ...m, content: '[Сообщение удалено]' }
-																	: m
+													className={isHighlighted ? 'ring-2 ring-emerald-500 rounded-lg p-1 -m-1 transition-all animate-pulse' : ''}
+												>
+													<ChatMessage
+														message={msg}
+														chatType={selectedChat?.type || 'private'}
+														showSenderName={showSenderName}
+														isFirstInGroup={isFirstInGroup}
+														isLastInGroup={isLastInGroup}
+														onMessageUpdate={updatedMsg => {
+															setMessages(prev =>
+																prev.map(m =>
+																	m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m
+																)
 															)
-														)
-													}}
-												/>
+														}}
+														onMessageDelete={messageId => {
+															setMessages(prev =>
+																prev.map(m =>
+																	m.id === messageId
+																		? { ...m, content: '[Сообщение удалено]' }
+																		: m
+																)
+															)
+														}}
+													/>
+												</div>
 											)
 											})
 											.filter(Boolean)

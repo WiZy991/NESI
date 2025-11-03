@@ -5,7 +5,8 @@ import { cookies } from 'next/headers'
 
 async function getUserId(): Promise<string | null> {
   try {
-    const token = cookies().get('token')?.value
+    const cookieStore = await cookies()
+    const token = cookieStore.get('token')?.value
     if (!token) return null
     const payload = verifyJWT(token)
     if (!payload || typeof payload !== 'object') return null

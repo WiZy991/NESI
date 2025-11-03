@@ -20,6 +20,7 @@ export async function GET(req: Request) {
 		const minPrice = searchParams.get('minPrice') ? parseFloat(searchParams.get('minPrice')!) : undefined
 		const maxPrice = searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : undefined
 		const hasDeadline = searchParams.get('hasDeadline')
+		const dateFilter = searchParams.get('dateFilter') || ''
 		const page = parseInt(searchParams.get('page') || '1', 10)
 		const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50)
 		const skip = (page - 1) * limit
@@ -37,6 +38,38 @@ export async function GET(req: Request) {
 				: {}),
 			...(status ? { status } : {}),
 			...(subcategoryId ? { subcategoryId } : {}),
+		}
+
+		// Фильтр по дате создания
+		if (dateFilter) {
+			const now = new Date()
+			let startDate: Date
+
+			switch (dateFilter) {
+				case 'today':
+					startDate = new Date(now.setHours(0, 0, 0, 0))
+					break
+				case 'week':
+					startDate = new Date(now)
+					startDate.setDate(now.getDate() - 7)
+					break
+				case 'month':
+					startDate = new Date(now)
+					startDate.setMonth(now.getMonth() - 1)
+					break
+				case 'year':
+					startDate = new Date(now)
+					startDate.setFullYear(now.getFullYear() - 1)
+					break
+				default:
+					startDate = new Date(0) // Все время
+			}
+
+			if (dateFilter !== '') {
+				where.createdAt = {
+					gte: startDate,
+				}
+			}
 		}
 
 		// Фильтр по цене

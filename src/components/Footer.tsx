@@ -7,7 +7,7 @@ export default function Footer() {
 	const currentYear = new Date().getFullYear()
 
 	return (
-		<footer className='relative mt-20 border-t border-emerald-500/20 bg-black/60 backdrop-blur-md'>
+		<footer className='relative mt-20 border-t border-emerald-500/20 bg-black/60 backdrop-blur-md' role="contentinfo">
 			{/* Градиентный фон */}
 			<div className='absolute inset-0 bg-gradient-to-t from-emerald-900/10 to-transparent' />
 

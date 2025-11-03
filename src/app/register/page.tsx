@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
-import { Eye, EyeOff, X } from 'lucide-react'
+import { Eye, EyeOff, X, Check } from 'lucide-react'
 import EmailLink from '@/components/EmailLink'
 
 function RegisterContent() {
@@ -22,6 +22,67 @@ function RegisterContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [passwordStrength, setPasswordStrength] = useState(0)
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([])
+
+  const validateEmail = (value: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!value) {
+      setEmailError('Email обязателен')
+      return false
+    }
+    if (!emailRegex.test(value)) {
+      setEmailError('Некорректный email')
+      return false
+    }
+    setEmailError('')
+    return true
+  }
+
+  const checkPasswordStrength = (value: string) => {
+    const errors: string[] = []
+    let strength = 0
+
+    if (value.length >= 8) strength++
+    else errors.push('Минимум 8 символов')
+
+    if (/[a-z]/.test(value) && /[A-Z]/.test(value)) strength++
+    else errors.push('Заглавные и строчные буквы')
+
+    if (/\d/.test(value)) strength++
+    else errors.push('Хотя бы одна цифра')
+
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(value)) strength++
+    else errors.push('Специальный символ')
+
+    setPasswordStrength(strength)
+    setPasswordErrors(errors)
+    return strength >= 3
+  }
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setEmail(value)
+    if (value && emailError) {
+      validateEmail(value)
+    }
+  }
+
+  const handleEmailBlur = () => {
+    validateEmail(email)
+  }
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setPassword(value)
+    if (value) {
+      checkPasswordStrength(value)
+    } else {
+      setPasswordStrength(0)
+      setPasswordErrors([])
+    }
+  }
 
   // Загрузка реферального кода из URL
   useEffect(() => {
@@ -36,6 +97,16 @@ function RegisterContent() {
     
     if (!agreedToTerms) {
       toast.error('Необходимо принять пользовательское соглашение')
+      return
+    }
+    
+    if (!validateEmail(email)) {
+      toast.error('Проверьте email')
+      return
+    }
+    
+    if (!checkPasswordStrength(password)) {
+      toast.error('Пароль слишком слабый. Следуйте требованиям ниже')
       return
     }
     
@@ -97,36 +168,124 @@ function RegisterContent() {
             className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
           />
 
-          {/* Email */}
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-3 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-          />
-
-          {/* Пароль с глазком */}
-          <div className="relative">
+          {/* Email с валидацией */}
+          <div className="space-y-2">
             <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Пароль"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 pr-10 bg-transparent border border-emerald-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={handleEmailChange}
+              onBlur={handleEmailBlur}
+              className={`w-full p-3 bg-transparent border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition ${
+                emailError
+                  ? 'border-red-500 focus:ring-red-500'
+                  : email && !emailError
+                  ? 'border-emerald-500 focus:ring-emerald-400'
+                  : 'border-emerald-400/50 focus:ring-emerald-400'
+              }`}
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-3 text-gray-400 hover:text-emerald-400 transition"
-              aria-label="Показать пароль"
-            >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
-            </button>
+            
+            {/* Индикатор валидации email */}
+            {email && (
+              <div className="flex items-center gap-2 text-xs">
+                {emailError ? (
+                  <>
+                    <X className="w-4 h-4 text-red-500" />
+                    <span className="text-red-400">{emailError}</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-500" />
+                    <span className="text-emerald-400">Email корректен</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Пароль с глазком и индикатором силы */}
+          <div className="space-y-2">
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Пароль"
+                value={password}
+                onChange={handlePasswordChange}
+                className={`w-full p-3 pr-10 bg-transparent border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition ${
+                  password && passwordStrength >= 3
+                    ? 'border-emerald-500 focus:ring-emerald-400'
+                    : password && passwordStrength > 0
+                    ? 'border-yellow-500 focus:ring-yellow-400'
+                    : 'border-emerald-400/50 focus:ring-emerald-400'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-gray-400 hover:text-emerald-400 transition"
+                aria-label="Показать пароль"
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+            
+            {/* Индикатор силы пароля */}
+            {password && (
+              <div className="space-y-2">
+                {/* Прогресс-бар */}
+                <div className="flex gap-1 h-1.5">
+                  {[0, 1, 2, 3].map((level) => (
+                    <div
+                      key={level}
+                      className={`flex-1 rounded-full transition-all ${
+                        level < passwordStrength
+                          ? passwordStrength >= 3
+                            ? 'bg-emerald-500'
+                            : passwordStrength === 2
+                            ? 'bg-yellow-500'
+                            : 'bg-red-500'
+                          : 'bg-gray-700'
+                      }`}
+                    />
+                  ))}
+                </div>
+                
+                {/* Текст силы пароля */}
+                <div className="text-xs">
+                  {passwordStrength === 0 && (
+                    <span className="text-gray-400">Начните вводить пароль</span>
+                  )}
+                  {passwordStrength === 1 && (
+                    <span className="text-red-400">Слабый пароль</span>
+                  )}
+                  {passwordStrength === 2 && (
+                    <span className="text-yellow-400">Средний пароль</span>
+                  )}
+                  {passwordStrength >= 3 && (
+                    <span className="text-emerald-400 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Надёжный пароль
+                    </span>
+                  )}
+                </div>
+                
+                {/* Требования к паролю */}
+                {passwordErrors.length > 0 && (
+                  <div className="text-xs space-y-1 mt-1">
+                    {passwordErrors.map((error, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-gray-400">
+                        <X className="w-3 h-3 text-red-500" />
+                        <span>{error}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Роль */}

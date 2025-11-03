@@ -3,6 +3,7 @@
 import EditProfileModal from '@/components/EditProfileModal'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import {
 	FaAward,
@@ -238,9 +239,11 @@ export default function ProfilePageContent() {
                           shadow-[0_0_15px_rgba(16,185,129,0.2)] text-center'
 					>
 						{avatarSrc ? (
-							<img
+							<Image
 								src={avatarSrc}
-								alt='Avatar'
+								alt='Аватар пользователя'
+								width={128}
+								height={128}
 								className='w-32 h-32 rounded-full border-2 border-emerald-500 
                            shadow-[0_0_20px_rgba(16,185,129,0.5)] mx-auto mb-4 object-cover'
 							/>

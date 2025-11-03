@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 import { ClipboardList } from 'lucide-react'
+import TaskSkeleton from '@/components/TaskSkeleton'
+import EmptyState from '@/components/EmptyState'
 
 // Названия статусов
 const statusMap: Record<string, string> = {
@@ -59,7 +61,11 @@ export default function MyTasksPage() {
 
   if (loading)
     return (
-      <p className="text-center mt-10 text-gray-400">Загрузка задач...</p>
+      <div className="space-y-4">
+        {[...Array(6)].map((_, i) => (
+          <TaskSkeleton key={i} />
+        ))}
+      </div>
     )
 
   // --- статистика
@@ -146,9 +152,13 @@ export default function MyTasksPage() {
 
       {/* Список задач */}
       {tasks.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
-          У вас пока нет созданных задач.
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title="У вас пока нет созданных задач"
+          description="Создайте первую задачу и начните работать с исполнителями"
+          actionLabel="Создать задачу"
+          actionHref="/tasks/new"
+        />
       ) : (
         <motion.ul
           className="grid gap-6 md:grid-cols-2"

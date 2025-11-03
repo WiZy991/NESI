@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { X, Send, ChevronDown, AlertTriangle } from 'lucide-react'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 export default function ReportModal({
   target,
@@ -13,6 +14,13 @@ export default function ReportModal({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Закрытие по Escape
+  useEscapeKey(() => {
+    if (!loading) {
+      onClose()
+    }
+  })
 
   const reasons = [
     { value: 'spam', label: 'Спам или реклама' },

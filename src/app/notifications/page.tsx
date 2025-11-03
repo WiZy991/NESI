@@ -4,6 +4,9 @@ import { useEffect, useState, useMemo } from 'react'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { Bell, CheckCircle2, Star, MessageSquare } from 'lucide-react'
+import NotificationSkeleton from '@/components/NotificationSkeleton'
+import EmptyState from '@/components/EmptyState'
+import NotificationFilter from '@/components/NotificationFilter'
 
 interface Notification {
   id: string
@@ -58,6 +61,7 @@ export default function NotificationsPage() {
   const { token, setUnreadCount } = useUser()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterType, setFilterType] = useState<string>('all') // Фильтр по типу
 
   useEffect(() => {
     if (!token) return
@@ -85,37 +89,63 @@ export default function NotificationsPage() {
     fetchNotifications()
   }, [token, setUnreadCount])
 
+  // Подсчет уведомлений для фильтра
+  const notificationCounts = useMemo(() => {
+    return {
+      all: notifications.length,
+      unread: notifications.filter((n) => !n.isRead).length,
+      message: notifications.filter((n) => n.type === 'message').length,
+      task: notifications.filter((n) => n.type === 'task').length,
+      payment: notifications.filter((n) => n.type === 'payment').length,
+      system: notifications.filter((n) => n.type === 'system').length,
+    }
+  }, [notifications])
+
+  // Фильтрация по типу
+  const filteredNotifications = useMemo(() => {
+    if (filterType === 'all') return notifications
+    if (filterType === 'unread') return notifications.filter((n) => !n.isRead)
+    return notifications.filter((n) => n.type === filterType)
+  }, [notifications, filterType])
+
   const groupedNotifications = useMemo(() => {
     const groups: Record<string, Notification[]> = {}
-    notifications.forEach((n) => {
+    filteredNotifications.forEach((n) => {
       const label = formatDate(n.createdAt)
       if (!groups[label]) groups[label] = []
       groups[label].push(n)
     })
     return groups
-  }, [notifications])
+  }, [filteredNotifications])
 
   if (loading)
     return (
-      <p className="p-6 text-gray-400 animate-pulse text-center">
-        Загрузка уведомлений...
-      </p>
+      <div className="p-6">
+        <NotificationSkeleton />
+      </div>
     )
 
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8 flex items-center gap-2 text-emerald-400 drop-shadow-[0_0_8px_rgba(0,255,180,0.3)]">
-        <Bell className="text-emerald-400 w-7 h-7" /> Уведомления
-      </h1>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <h1 className="text-3xl font-bold flex items-center gap-2 text-emerald-400 drop-shadow-[0_0_8px_rgba(0,255,180,0.3)]">
+          <Bell className="text-emerald-400 w-7 h-7" /> Уведомления
+        </h1>
+        
+        {/* Фильтр по типу уведомлений с фирменным дизайном */}
+        <NotificationFilter
+          value={filterType}
+          onChange={setFilterType}
+          notificationCounts={notificationCounts}
+        />
+      </div>
 
-      {notifications.length === 0 ? (
-        <div className="flex flex-col items-center text-gray-500 py-16 animate-fade-in">
-          <Bell className="w-10 h-10 mb-3 text-gray-600" />
-          <p className="text-lg">Пока уведомлений нет</p>
-          <p className="text-sm text-gray-600 mt-1">
-            Всё спокойно — значит, день удался ☕
-          </p>
-        </div>
+      {filteredNotifications.length === 0 ? (
+        <EmptyState
+          icon={Bell}
+          title={filterType === 'all' ? "Пока уведомлений нет" : "Нет уведомлений по выбранному фильтру"}
+          description={filterType === 'all' ? "Всё спокойно — значит, день удался ☕" : "Попробуйте выбрать другой фильтр"}
+        />
       ) : (
         Object.entries(groupedNotifications).map(([dateLabel, items]) => (
           <div key={dateLabel} className="mb-8">
@@ -137,8 +167,8 @@ export default function NotificationsPage() {
                   <div className="mt-1 transition-transform group-hover:rotate-6">
                     {typeIcon(n.type)}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm mb-1">{n.message}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm mb-1 break-words overflow-wrap-anywhere line-clamp-3">{n.message}</p>
                     <p className="text-xs text-gray-500 mb-1">
                       {new Date(n.createdAt).toLocaleTimeString('ru-RU', {
                         hour: '2-digit',

@@ -4,9 +4,16 @@ import CategoryDropdown from '@/components/CategoryDropdown'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import ReportTaskModal from '@/components/ReportTaskModal'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ClipboardList } from 'lucide-react'
+import TaskSkeleton from '@/components/TaskSkeleton'
+import EmptyState from '@/components/EmptyState'
+import { useDebounce } from '@/hooks/useDebounce'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import DateFilter from '@/components/DateFilter'
+import ErrorDisplay from '@/components/ErrorDisplay'
+import { fetchWithRetry, getErrorMessage, logError } from '@/utils/errorHandler'
 
 type Task = {
 	id: string
@@ -35,6 +42,7 @@ export default function TaskCatalogPage() {
 	const [categories, setCategories] = useState<Category[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
+	const [retryCount, setRetryCount] = useState(0)
 	const [isFiltersOpen, setIsFiltersOpen] = useState(false)
 	const [reportTaskId, setReportTaskId] = useState<string | null>(null)
 	const [reportTaskTitle, setReportTaskTitle] = useState<string>('')
@@ -50,6 +58,28 @@ export default function TaskCatalogPage() {
 	const [page, setPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
 	const [isSortOpen, setIsSortOpen] = useState(false)
+	const [dateFilter, setDateFilter] = useState('')
+	const searchInputRef = useRef<HTMLInputElement>(null)
+
+	// Debounce для поиска
+	const debouncedSearch = useDebounce(search, 500)
+
+	// Горячие клавиши для поиска
+	useKeyboardShortcuts([
+		{
+			key: 'k',
+			ctrlKey: true,
+			callback: () => {
+				searchInputRef.current?.focus()
+			},
+		},
+		{
+			key: '/',
+			callback: () => {
+				searchInputRef.current?.focus()
+			},
+		},
+	])
 
 	const sortOptions = [
 		{ value: 'new', label: 'Сначала новые' },
@@ -58,23 +88,34 @@ export default function TaskCatalogPage() {
 
 	const fetchTasks = useCallback(async () => {
 		setLoading(true)
+		setError(null)
 		try {
 			const query = new URLSearchParams()
-			if (search) query.set('search', search)
+			if (debouncedSearch) query.set('search', debouncedSearch)
 			if (sort) query.set('sort', sort)
 			if (subcategory) query.set('subcategory', subcategory)
+			if (dateFilter) query.set('dateFilter', dateFilter)
 			query.set('page', page.toString())
 			query.set('limit', '20')
 
-			const res = await fetch(`/api/tasks?${query.toString()}`, {
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`,
+			const res = await fetchWithRetry(
+				`/api/tasks?${query.toString()}`,
+				{
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
 				},
-			})
+				{
+					maxRetries: 3,
+					retryDelay: 1000,
+				}
+			)
 
 			const data = await res.json()
-			if (!res.ok) throw new Error(data.error || 'Ошибка загрузки')
+			if (!res.ok) {
+				throw { message: data.error || 'Ошибка загрузки', status: res.status }
+			}
 
 			const visibleTasks = (data.tasks || []).filter(
 				(task: Task) => task.status === 'open' || !task.status
@@ -82,13 +123,16 @@ export default function TaskCatalogPage() {
 
 			setTasks(visibleTasks)
 			setTotalPages(data.pagination?.totalPages || 1)
+			setRetryCount(0) // Сбрасываем счетчик при успехе
 		} catch (err: any) {
-			console.error('Ошибка загрузки задач:', err)
-			setError(err.message)
+			const errorMessage = getErrorMessage(err)
+			logError(err, 'fetchTasks')
+			setError(errorMessage)
+			setRetryCount((prev) => prev + 1)
 		} finally {
 			setLoading(false)
 		}
-	}, [search, sort, subcategory, token, page])
+	}, [debouncedSearch, sort, subcategory, dateFilter, token, page])
 
 	const fetchCategories = useCallback(async () => {
 		try {
@@ -104,19 +148,26 @@ export default function TaskCatalogPage() {
 
 	useEffect(() => {
 		if (!userLoading && user && token) {
-			fetchTasks()
 			fetchCategories()
 		}
-	}, [userLoading, user, token, fetchTasks, fetchCategories])
+	}, [userLoading, user, token, fetchCategories])
+
+	// Загрузка задач при изменении параметров
+	useEffect(() => {
+		if (!userLoading && user && token) {
+			fetchTasks()
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [debouncedSearch, sort, subcategory, dateFilter, page, userLoading, user, token])
 
 	const applyFilters = useCallback(() => {
 		const query = new URLSearchParams()
-		if (search) query.set('search', search)
+		if (debouncedSearch) query.set('search', debouncedSearch)
 		if (sort) query.set('sort', sort)
 		if (subcategory) query.set('subcategory', subcategory)
 		router.push(`/tasks?${query.toString()}`)
 		setPage(1)
-	}, [search, sort, subcategory, router])
+	}, [debouncedSearch, sort, subcategory, router])
 
 	const resetFilters = useCallback(() => {
 		setSearch('')
@@ -134,21 +185,6 @@ export default function TaskCatalogPage() {
 			router.push(`/tasks?${query.toString()}`)
 		},
 		[searchParams, router]
-	)
-
-	const renderSkeleton = () => (
-		<div className='space-y-4'>
-			{Array.from({ length: 3 }).map((_, i) => (
-				<div
-					key={i}
-					className='p-4 sm:p-6 border border-emerald-500/30 rounded-xl bg-black/40 animate-pulse shadow-[0_0_25px_rgba(16,185,129,0.2)] space-y-3'
-				>
-					<div className='h-5 bg-emerald-900/40 rounded w-1/2'></div>
-					<div className='h-4 bg-emerald-900/30 rounded w-3/4'></div>
-					<div className='h-3 bg-emerald-900/20 rounded w-1/4'></div>
-				</div>
-			))}
-		</div>
 	)
 
 	return (
@@ -187,13 +223,17 @@ export default function TaskCatalogPage() {
 							Поиск задач
 						</label>
 						<input
+							ref={searchInputRef}
 							type='text'
-							placeholder='Введите запрос...'
+							placeholder='Введите запрос... (Ctrl+K или / для фокуса)'
 							className='w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder-gray-500 hover:border-emerald-400 transition-all'
 							value={search}
 							onChange={e => setSearch(e.target.value)}
 						/>
 					</div>
+
+					{/* Фильтр по дате */}
+					<DateFilter value={dateFilter} onChange={setDateFilter} />
 
 					{/* Кастомный селект сортировки */}
 					<div className='space-y-2 relative'>
@@ -256,17 +296,38 @@ export default function TaskCatalogPage() {
 				{/* Задачи */}
 				<div className='flex-1 space-y-4 sm:space-y-6'>
 					{loading || userLoading ? (
-						renderSkeleton()
-					) : error ? (
-						<div className='text-red-400'>{error}</div>
-					) : tasks.length === 0 ? (
-						<div className='text-center py-12'>
-							<div className='text-4xl mb-4'>📋</div>
-							<div className='text-gray-400 text-lg'>Задач пока нет</div>
-							<p className='text-gray-500 text-sm mt-2'>
-								Попробуйте изменить фильтры
-							</p>
+						<div className="space-y-4">
+							{[...Array(6)].map((_, i) => (
+								<TaskSkeleton key={i} />
+							))}
 						</div>
+					) : error ? (
+						<ErrorDisplay
+							error={error}
+							onRetry={() => {
+								setRetryCount(0)
+								fetchTasks()
+							}}
+							retryCount={retryCount}
+							maxRetries={3}
+							variant={
+								error.includes('сеть') || error.includes('подключение')
+									? 'network'
+									: error.includes('сервер')
+									? 'server'
+									: error.includes('время')
+									? 'timeout'
+									: 'generic'
+							}
+						/>
+					) : tasks.length === 0 ? (
+						<EmptyState
+							icon={ClipboardList}
+							title="Задач пока нет"
+							description="Попробуйте изменить фильтры или создать новую задачу"
+							actionLabel={user?.role === 'customer' ? 'Создать задачу' : undefined}
+							actionHref={user?.role === 'customer' ? '/tasks/new' : undefined}
+						/>
 					) : (
 						<>
 							{tasks.map(task => (
@@ -336,23 +397,27 @@ export default function TaskCatalogPage() {
 
 							{/* Пагинация */}
 							<div className='flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 mt-6 sm:mt-8'>
+							<nav aria-label="Пагинация задач">
 								<button
 									onClick={() => setPage(p => Math.max(p - 1, 1))}
 									disabled={page === 1}
 									className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
+									aria-label="Предыдущая страница"
 								>
 									← Назад
 								</button>
-								<span className='text-gray-400 text-sm sm:text-base'>
+								<span className='text-gray-400 text-sm sm:text-base' aria-label={`Страница ${page} из ${totalPages}`}>
 									Страница {page} из {totalPages}
 								</span>
 								<button
 									onClick={() => setPage(p => Math.min(p + 1, totalPages))}
 									disabled={page === totalPages}
 									className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
+									aria-label="Следующая страница"
 								>
 									Далее →
 								</button>
+							</nav>
 							</div>
 						</>
 					)}

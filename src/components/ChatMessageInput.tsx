@@ -248,17 +248,20 @@ export default function MessageInput({
 								fileInputRef.current.value = ''
 							}
 						}}
-						className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-600/50 text-gray-400 hover:text-red-400 transition-colors'
-						title='Удалить файл'
+						className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-600/50 text-gray-400 hover:text-red-400 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400/50'
+						aria-label='Удалить файл'
 					>
-						✕
+						<span aria-hidden="true">✕</span>
 					</button>
 				</div>
 			)}
 
 			<div className='flex items-end gap-3'>
 				{/* Кнопка прикрепления файла */}
-				<label className='cursor-pointer flex-shrink-0 w-12 h-12 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-gradient-to-br from-gray-600/50 to-gray-700/50 border border-gray-500/30 hover:border-emerald-400/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] ios-button touch-manipulation'>
+				<label 
+					className='cursor-pointer flex-shrink-0 w-12 h-12 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-gradient-to-br from-gray-600/50 to-gray-700/50 border border-gray-500/30 hover:border-emerald-400/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] ios-button touch-manipulation'
+					aria-label="Прикрепить файл"
+				>
 					<input
 						ref={fileInputRef}
 						type='file'

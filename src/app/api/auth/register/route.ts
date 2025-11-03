@@ -3,44 +3,45 @@ import bcrypt from 'bcrypt'
 import prisma from '@/lib/prisma'
 import crypto from 'crypto'
 import { sendVerificationEmail } from '@/lib/mail'
-import { validateEmail as validateEmailSecurity, sanitizeText, validateStringLength } from '@/lib/security'
+import { sanitizeText } from '@/lib/security'
+import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
+import { registerSchema, validateWithZod } from '@/lib/validations'
 
 export async function POST(req: Request) {
   try {
-    const { email, password, fullName, role, referralCode } = await req.json()
+    // Rate limiting для регистрации (защита от спама)
+    const registerRateLimit = rateLimit(rateLimitConfigs.auth)
+    const rateLimitResult = await registerRateLimit(req)
 
-    if (!email?.trim() || !password?.trim() || !fullName?.trim()) {
-      return NextResponse.json({ error: 'Заполните все поля' }, { status: 400 })
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Слишком много попыток регистрации. Попробуйте позже.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetTime - Date.now()) / 1000
+            ).toString(),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          },
+        }
+      )
     }
 
-    // Валидация email
-    if (!validateEmailSecurity(email.trim())) {
+    const body = await req.json()
+    
+    // Валидация с использованием zod
+    const validation = validateWithZod(registerSchema, body)
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Некорректный формат email' },
+        { error: validation.errors[0] || 'Ошибка валидации данных' },
         { status: 400 }
       )
     }
 
-    // Валидация пароля (минимум 6 символов)
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Пароль должен содержать минимум 6 символов' },
-        { status: 400 }
-      )
-    }
-
-    if (password.length > 128) {
-      return NextResponse.json(
-        { error: 'Пароль слишком длинный (максимум 128 символов)' },
-        { status: 400 }
-      )
-    }
-
-    // Валидация имени
-    const nameValidation = validateStringLength(fullName.trim(), 100, 'Имя')
-    if (!nameValidation.valid) {
-      return NextResponse.json({ error: nameValidation.error }, { status: 400 })
-    }
+    const { email, password, fullName, role, referralCode } = validation.data
 
     // ищем по email без учёта регистра, чтобы не плодить дубликаты
     const existing = await prisma.user.findFirst({

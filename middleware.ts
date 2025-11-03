@@ -35,8 +35,11 @@ export function middleware(req: NextRequest) {
 
 	const isExactPublicPage = PUBLIC_PAGES.has(pathname)
 
-	// 3) Авторизация по токену из cookie (главный источник правды)
-	const token = req.cookies.get('token')?.value || ''
+	// 3) Авторизация по токену из cookie или заголовка Authorization
+	const cookieToken = req.cookies.get('token')?.value || ''
+	const authHeader = req.headers.get('authorization')
+	const headerToken = authHeader?.replace('Bearer ', '') || ''
+	const token = cookieToken || headerToken
 	const hasValidToken = !!(token && verifyJWT(token))
 
 	// 4) Если уже авторизован и идёт на /login или /register → уводим на /tasks

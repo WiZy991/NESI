@@ -35,10 +35,30 @@ const formatNotificationTime = (timestamp: string) => {
 	})
 }
 
+// Глобальная переменная для доступа к setMenuOpen из онбординга
+let globalSetMenuOpen: ((value: boolean | ((prev: boolean) => boolean)) => void) | null = null
+
 export default function Header() {
 	const { user, token, logout, unreadCount, setUnreadCount } = useUser()
 	const router = useRouter()
 	const [menuOpen, setMenuOpen] = useState(false)
+	
+	// Сохраняем функцию открытия меню в глобальную переменную для доступа из онбординга
+	useEffect(() => {
+		globalSetMenuOpen = setMenuOpen
+		// Также сохраняем в window для прямого доступа
+		if (typeof window !== 'undefined') {
+			// @ts-ignore
+			window.__nesiSetMenuOpen = setMenuOpen
+		}
+		return () => {
+			globalSetMenuOpen = null
+			if (typeof window !== 'undefined') {
+				// @ts-ignore
+				delete window.__nesiSetMenuOpen
+			}
+		}
+	}, [])
 	const [notifOpen, setNotifOpen] = useState(false)
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 	const [notifications, setNotifications] = useState<any[]>([])
@@ -78,9 +98,47 @@ export default function Header() {
 		}
 	}, [mobileMenuOpen])
 
-	// Закрытие меню при клике вне
+	// Слушатель для автоматического открытия меню из онбординга
+	useEffect(() => {
+		const handleOpenMoreMenu = (e?: Event) => {
+			console.log('🔓 Получен запрос на открытие меню "Ещё" из онбординга', e)
+			// Принудительно открываем меню
+			setMenuOpen(true)
+			// Дополнительная проверка через небольшую задержку
+			setTimeout(() => {
+				setMenuOpen(true)
+			}, 50)
+		}
+		
+		// Добавляем слушатель
+		window.addEventListener('openMoreMenu', handleOpenMoreMenu)
+		
+		// Также слушаем через capture для надежности
+		window.addEventListener('openMoreMenu', handleOpenMoreMenu, true)
+		
+		return () => {
+			window.removeEventListener('openMoreMenu', handleOpenMoreMenu)
+			window.removeEventListener('openMoreMenu', handleOpenMoreMenu, true)
+		}
+	}, [])
+	
+	// Закрытие меню при клике вне (НО НЕ во время онбординга!)
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
+			// Проверяем, активен ли онбординг (driver.js)
+			const isOnboardingActive = document.querySelector('.driver-overlay') !== null || 
+			                          document.querySelector('.driverjs-popover') !== null
+			
+			// Если активен онбординг И клик по overlay, НЕ закрываем меню
+			if (isOnboardingActive) {
+				const target = e.target as HTMLElement
+				if (target.classList.contains('driver-overlay') || 
+				    target.closest('.driver-overlay') ||
+				    target.closest('.driverjs-popover')) {
+					return // Не закрываем меню во время онбординга
+				}
+			}
+			
 			if (
 				menuRef.current &&
 				!menuRef.current.contains(e.target as Node) &&
@@ -455,6 +513,10 @@ export default function Header() {
 									}, 100)
 								}}
 								className='text-lg flex items-center gap-1 relative p-2'
+								aria-label={`Уведомления${unreadCount > 0 ? ` (${unreadCount} непрочитанных)` : ''}`}
+								aria-expanded={notifOpen}
+								aria-haspopup="true"
+								data-onboarding-target="notifications-bell"
 							>
 								<Bell className='w-5 h-5 text-emerald-400' />
 								{unreadCount > 0 && (
@@ -836,12 +898,13 @@ export default function Header() {
 				<nav className='hidden md:flex gap-7 items-center text-gray-200 font-poppins'>
 					{user ? (
 						<>
-							{/* 🔔 Уведомления */}
-							<div className='relative' ref={notifRef}>
-								<button
-									onClick={() => setNotifOpen(v => !v)}
-									className={`${linkStyle} text-lg flex items-center gap-1 relative`}
-								>
+						{/* 🔔 Уведомления */}
+						<div className='relative' ref={notifRef}>
+							<button
+								onClick={() => setNotifOpen(v => !v)}
+								className={`${linkStyle} text-lg flex items-center gap-1 relative`}
+								data-onboarding-target="notifications-bell"
+							>
 									<Bell className='w-5 h-5 text-emerald-400 transition-transform duration-300 group-hover:rotate-6' />
 
 									{/* 🔴 Счётчик уведомлений с плавным появлением */}
@@ -1032,16 +1095,18 @@ export default function Header() {
 										<button
 											onClick={() => setMenuOpen(v => !v)}
 											className={linkStyle}
+											data-onboarding-target="more-menu"
 										>
 											Ещё ▾
 										</button>
 										{menuOpen && (
-											<div className='absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-50 animate-fadeInDown overflow-hidden'>
+											<div className='absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-[10001] animate-fadeInDown overflow-hidden' data-onboarding-menu="more">
 												<div className='py-2'>
 												<Link
 													href='/chats'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400 relative'
 													onClick={() => setMenuOpen(false)}
+													data-onboarding-target="more-menu-chats"
 												>
 													💬 Чаты
 													{unreadMessagesCount > 0 && (
@@ -1054,6 +1119,7 @@ export default function Header() {
 													href='/community'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 													onClick={() => setMenuOpen(false)}
+													data-onboarding-target="more-menu-community"
 												>
 													🏘️ Сообщество
 												</Link>
@@ -1061,6 +1127,7 @@ export default function Header() {
 													href='/hire'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 													onClick={() => setMenuOpen(false)}
+													data-onboarding-target="more-menu-hire"
 												>
 													📑 Запросы найма
 												</Link>
@@ -1071,6 +1138,7 @@ export default function Header() {
 														href='/analytics'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 														onClick={() => setMenuOpen(false)}
+														data-onboarding-target="more-menu-analytics"
 													>
 														📊 Аналитика
 													</Link>
@@ -1078,6 +1146,7 @@ export default function Header() {
 														href='/portfolio'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 														onClick={() => setMenuOpen(false)}
+														data-onboarding-target="more-menu-portfolio"
 													>
 														💼 Портфолио
 													</Link>
@@ -1085,6 +1154,7 @@ export default function Header() {
 														href='/referral'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 														onClick={() => setMenuOpen(false)}
+														data-onboarding-target="more-menu-referral"
 													>
 														🎁 Рефералы
 													</Link>
@@ -1095,6 +1165,7 @@ export default function Header() {
 													href='/settings'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 														onClick={() => setMenuOpen(false)}
+														data-onboarding-target="more-menu-settings"
 												>
 													⚙️ Настройки
 												</Link>

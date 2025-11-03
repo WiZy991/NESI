@@ -9,28 +9,80 @@ import FeedbackWidget from '@/components/FeedbackWidget'
 import { Toaster } from 'sonner'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import Starfield from '@/components/Starfield'
+import ScrollToTop from '@/components/ScrollToTop'
+import AriaLiveRegion from '@/components/AriaLiveRegion'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { initErrorMonitoring, trackWebVitals } from '@/lib/errorMonitoring'
+import WelcomeOnboarding from '@/components/WelcomeOnboarding'
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
 
+  // Инициализация мониторинга ошибок и Web Vitals
   useEffect(() => {
-    // Начинаем переход
+    initErrorMonitoring()
+    
+    // Отслеживание Web Vitals
+    if (typeof window !== 'undefined') {
+      import('web-vitals').then(({ onCLS, onFID, onLCP, onFCP, onTTFB }) => {
+        onCLS(trackWebVitals)
+        onFID(trackWebVitals)
+        onLCP(trackWebVitals)
+        onFCP(trackWebVitals)
+        onTTFB(trackWebVitals)
+      }).catch(() => {
+        // Игнорируем ошибки загрузки web-vitals
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    // Улучшенные переходы между страницами
     setIsVisible(false)
     setLoading(true)
     
-    const showTimer = setTimeout(() => {
-      setIsVisible(true)
-    }, 150)
-    
-    const loadingTimer = setTimeout(() => {
-      setLoading(false)
-    }, 400)
-    
-    return () => {
-      clearTimeout(showTimer)
-      clearTimeout(loadingTimer)
+    // Используем View Transitions API если доступен (Chrome 111+)
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      try {
+        const transition = (document as any).startViewTransition(() => {
+          setIsVisible(true)
+          setLoading(false)
+        })
+        
+        transition.finished.finally(() => {
+          // Cleanup после завершения перехода
+        })
+      } catch {
+        // Fallback если View Transitions не работает
+        const showTimer = setTimeout(() => {
+          setIsVisible(true)
+        }, 150)
+        
+        const loadingTimer = setTimeout(() => {
+          setLoading(false)
+        }, 400)
+        
+        return () => {
+          clearTimeout(showTimer)
+          clearTimeout(loadingTimer)
+        }
+      }
+    } else {
+      // Fallback для браузеров без поддержки View Transitions
+      const showTimer = setTimeout(() => {
+        setIsVisible(true)
+      }, 150)
+      
+      const loadingTimer = setTimeout(() => {
+        setLoading(false)
+      }, 400)
+      
+      return () => {
+        clearTimeout(showTimer)
+        clearTimeout(loadingTimer)
+      }
     }
   }, [pathname])
 
@@ -39,14 +91,15 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   const isChatPage = pathname === '/chats'
 
   return (
-    <UserProvider>
-      {/* Звёздный фон — везде кроме главной */}
-      {!isHome && <Starfield />}
+    <ErrorBoundary>
+      <UserProvider>
+        {/* Звёздный фон — везде кроме главной */}
+        {!isHome && <Starfield />}
 
-      {/* Хедер показываем только там, где нужно (не на главной и авторизации) */}
-      {!isHome && !isAuthPage && <Header />}
+        {/* Хедер показываем только там, где нужно (не на главной и авторизации) */}
+        {!isHome && !isAuthPage && <Header />}
 
-      <main className="relative min-h-screen w-full overflow-hidden text-white">
+        <main className="relative min-h-screen w-full overflow-hidden text-white" role="main">
         {/* Градиент — везде кроме главной (включая авторизацию) */}
         {!isHome && (
           <>
@@ -82,6 +135,16 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
       {/* Уведомления */}
       <Toaster position="top-center" richColors />
-    </UserProvider>
+      
+      {/* Кнопка "Наверх" */}
+      <ScrollToTop />
+      
+      {/* ARIA live region для скринридеров */}
+      <AriaLiveRegion />
+      
+      {/* Онбординг для новых пользователей */}
+      <WelcomeOnboarding />
+      </UserProvider>
+    </ErrorBoundary>
   )
 }

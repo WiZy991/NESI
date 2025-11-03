@@ -4,6 +4,9 @@ import { verifyJWT } from '@/lib/jwt'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: Request) {
 	const user = await getUserFromRequest(req)
 

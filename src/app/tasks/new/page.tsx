@@ -5,6 +5,12 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
 import ProtectedPage from '@/components/ProtectedPage'
+import { useAutoSave } from '@/hooks/useAutoSave'
+import TaskCreateProgress from '@/components/TaskCreateProgress'
+import TaskPreview from '@/components/TaskPreview'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
+import TaskTemplates, { SaveTemplateButton } from '@/components/TaskTemplates'
+import type { TaskTemplate } from '@/hooks/useTaskTemplates'
 
 type Category = {
   id: string
@@ -24,6 +30,16 @@ export default function CreateTaskPage() {
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+
+  // Автосохранение черновика
+  const formData = {
+    title,
+    description,
+    categoryId,
+    subcategoryId,
+  }
+  const { loadDraft, clearDraft } = useAutoSave(formData, 'new_task', 30000)
 
   const fetchCategories = async () => {
     try {
@@ -37,6 +53,20 @@ export default function CreateTaskPage() {
 
   useEffect(() => {
     fetchCategories()
+  }, [])
+
+  // Загрузка черновика при монтировании
+  useEffect(() => {
+    const draft = loadDraft()
+    if (draft && (draft.title || draft.description)) {
+      if (window.confirm('Найден сохраненный черновик. Загрузить?')) {
+        setTitle(draft.title || '')
+        setDescription(draft.description || '')
+        setCategoryId(draft.categoryId || '')
+        setSubcategoryId(draft.subcategoryId || '')
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleCreate = async () => {
@@ -74,13 +104,35 @@ export default function CreateTaskPage() {
         }
       )
 
+      // Удаляем черновик после успешной отправки
+      clearDraft()
       router.push('/profile')
     } finally {
       setLoading(false)
     }
   }
 
+  // Определяем текущий шаг для прогресс-индикатора
+  const getCurrentStep = () => {
+    let step = 1
+    if (title.trim()) step = 2
+    if (description.trim()) step = 3
+    if (subcategoryId) step = 4
+    return step
+  }
+
+  const currentStep = getCurrentStep()
   const selectedCategory = categories.find((c) => c.id === categoryId)
+
+  // Закрытие предпросмотра по Escape
+  useEscapeKey(() => {
+    if (showPreview) {
+      setShowPreview(false)
+    }
+  })
+
+  // Проверка, можно ли показать предпросмотр
+  const canPreview = title.trim() && description.trim() && subcategoryId
 
   return (
     <ProtectedPage>
@@ -97,7 +149,14 @@ export default function CreateTaskPage() {
             <p className="text-sm text-gray-400 mt-2">
               Опишите задачу максимально понятно — это поможет ускорить поиск исполнителя
             </p>
+            <div className="text-xs text-gray-500 mt-2 flex items-center justify-center gap-2">
+              <span>💾</span>
+              <span>Автосохранение каждые 30 секунд</span>
+            </div>
           </div>
+
+          {/* Прогресс-индикатор */}
+          <TaskCreateProgress currentStep={currentStep} totalSteps={4} />
 
           {/* Название */}
           <input
@@ -229,18 +288,60 @@ export default function CreateTaskPage() {
             )}
           </div>
 
-          {/* Кнопка */}
-          <button
-            onClick={handleCreate}
-            disabled={loading}
-            className={`w-full py-3 rounded-xl font-semibold text-lg transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.2)] ${
-              loading
-                ? 'bg-gray-600 cursor-not-allowed text-gray-300'
-                : 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] active:scale-95'
-            }`}
-          >
-            {loading ? 'Создание...' : '🚀 Создать задачу'}
-          </button>
+          {/* Шаблоны задач */}
+          <div className="flex items-center justify-between">
+            <TaskTemplates
+              onSelectTemplate={(template: TaskTemplate) => {
+                setTitle(template.title)
+                setDescription(template.description)
+                setCategoryId(template.categoryId)
+                setSubcategoryId(template.subcategoryId)
+                toast.success(`Шаблон "${template.name}" загружен`)
+              }}
+              currentData={{
+                title,
+                description,
+                categoryId,
+                subcategoryId,
+              }}
+            />
+            <SaveTemplateButton
+              currentData={{
+                title,
+                description,
+                categoryId,
+                subcategoryId,
+              }}
+              onSaved={() => toast.success('Шаблон сохранен')}
+            />
+          </div>
+
+          {/* Кнопки действий */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowPreview(true)}
+              disabled={!canPreview || loading}
+              className={`flex-1 py-3 rounded-xl font-semibold text-lg transition-all duration-300 ${
+                canPreview && !loading
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-[0_0_20px_rgba(59,130,246,0.2)] hover:shadow-[0_0_25px_rgba(59,130,246,0.4)] active:scale-95'
+                  : 'bg-gray-700 cursor-not-allowed text-gray-400'
+              }`}
+              aria-label="Предпросмотр задачи"
+            >
+              👁️ Предпросмотр
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={loading}
+              className={`flex-1 py-3 rounded-xl font-semibold text-lg transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.2)] ${
+                loading
+                  ? 'bg-gray-600 cursor-not-allowed text-gray-300'
+                  : 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] active:scale-95'
+              }`}
+            >
+              {loading ? 'Создание...' : '🚀 Создать задачу'}
+            </button>
+          </div>
 
           {/* Подсказка */}
           <p className="text-center text-xs text-gray-500 mt-3">
@@ -248,6 +349,18 @@ export default function CreateTaskPage() {
           </p>
         </div>
       </div>
+
+      {/* Предпросмотр задачи */}
+      {showPreview && (
+        <TaskPreview
+          title={title}
+          description={description}
+          categoryName={selectedCategory?.name}
+          subcategoryName={selectedCategory?.subcategories.find(s => s.id === subcategoryId)?.name}
+          files={files}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </ProtectedPage>
   )
 }

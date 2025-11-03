@@ -45,6 +45,8 @@ body {
 	scroll-behavior: smooth;
 	-webkit-overflow-scrolling: touch;
 
+	/* View Transitions API поддержка - только на html */
+
 	/* 🌌 Новый минималистичный космический фон */
 	background: radial-gradient(circle at 50% 20%, #01150d 0%, #000000 100%);
 }
@@ -168,6 +170,67 @@ input,
 select,
 textarea {
 	font-family: 'Poppins', sans-serif;
+}
+
+/* ♿ Улучшенная доступность: focus-индикаторы для навигации с клавиатуры */
+*:focus-visible {
+	outline: 2px solid rgba(16, 185, 129, 0.8);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible {
+	outline: 2px solid rgba(16, 185, 129, 0.8);
+	outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+	outline: 2px solid rgba(16, 185, 129, 0.8);
+	outline-offset: 2px;
+}
+
+/* Улучшенная контрастность для серых текстов (WCAG AA минимум 4.5:1) */
+.text-gray-400 {
+	color: #a0aec0; /* Улучшенный контраст вместо #9ca3af */
+}
+
+.text-gray-500 {
+	color: #718096; /* Улучшенный контраст вместо #6b7280 */
+}
+
+.text-gray-600 {
+	color: #4a5568; /* Улучшенный контраст */
+}
+
+/* 📱 Улучшенная мобильная версия: touch-таргеты минимум 44x44px */
+@media (max-width: 768px) {
+	button:not([class*="w-"]):not([class*="h-"]),
+	a:not([class*="w-"]):not([class*="h-"]),
+	input[type="button"]:not([class*="w-"]):not([class*="h-"]),
+	input[type="submit"]:not([class*="w-"]):not([class*="h-"]),
+	label:not([class*="w-"]):not([class*="h-"]) {
+		min-height: 44px;
+		touch-action: manipulation; /* Отключает задержку двойного тапа на iOS */
+	}
+	
+	/* Улучшенные отступы для мобильных элементов */
+	input:not([type="checkbox"]):not([type="radio"]),
+	select,
+	textarea {
+		min-height: 44px;
+		padding: 12px;
+		font-size: 16px; /* Предотвращает автоматический зум на iOS */
+	}
+	
+	/* Улучшенные отступы между интерактивными элементами */
+	button + button,
+	button + a,
+	a + button {
+		margin-left: 8px;
+	}
 }
 
 /* 🔦 Активные ссылки */
@@ -363,4 +426,252 @@ textarea {
 .neon-select-btn:hover {
 	border-color: rgba(16, 185, 129, 0.7);
 	box-shadow: 0 0 15px rgba(0, 255, 150, 0.3);
+}
+
+/* 🌊 View Transitions API стили */
+@supports (view-transition-name: none) {
+	html {
+		view-transition-name: root;
+	}
+
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation-duration: 0.3s;
+		animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	::view-transition-old(root) {
+		animation-name: fade-out;
+	}
+
+	::view-transition-new(root) {
+		animation-name: fade-in;
+	}
+
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes fade-out {
+		from {
+			opacity: 1;
+			transform: translateY(0);
+		}
+		to {
+			opacity: 0;
+			transform: translateY(-10px);
+		}
+	}
+}
+
+/* 🎯 Фирменный стиль для driver.js (онбординг) */
+.driverjs-popover,
+.driver-popover {
+	background: linear-gradient(to bottom right, #001a12, #002a1f) !important;
+	border: 2px solid rgba(16, 185, 129, 0.5) !important;
+	border-radius: 16px !important;
+	color: #ffffff !important;
+	box-shadow: 0 0 40px rgba(16, 185, 129, 0.4) !important;
+	backdrop-filter: blur(10px) !important;
+	padding: 24px !important;
+	max-width: 420px !important;
+	font-family: 'Poppins', sans-serif !important;
+}
+
+.driver-popover-content {
+	color: #ffffff !important;
+}
+
+.driver-popover-wrapper {
+	background: transparent !important;
+}
+
+.driverjs-popover-title {
+	color: #10b981 !important;
+	font-size: 20px !important;
+	font-weight: 700 !important;
+	margin-bottom: 12px !important;
+	text-shadow: 0 0 10px rgba(16, 185, 129, 0.5) !important;
+}
+
+.driverjs-popover-description {
+	color: #d1d5db !important;
+	font-size: 14px !important;
+	line-height: 1.6 !important;
+	margin-bottom: 20px !important;
+}
+
+.driverjs-popover-footer {
+	display: flex !important;
+	justify-content: space-between !important;
+	align-items: center !important;
+	gap: 12px !important;
+	margin-top: 20px !important;
+	padding-top: 16px !important;
+	border-top: 1px solid rgba(16, 185, 129, 0.2) !important;
+}
+
+.driverjs-popover-progress-text {
+	color: #10b981 !important;
+	font-size: 12px !important;
+	font-weight: 600 !important;
+}
+
+.driverjs-popover-navigation-buttons {
+	display: flex !important;
+	gap: 8px !important;
+}
+
+.driverjs-popover-btn {
+	background: rgba(16, 185, 129, 0.2) !important;
+	border: 1px solid rgba(16, 185, 129, 0.5) !important;
+	color: #10b981 !important;
+	padding: 8px 16px !important;
+	border-radius: 8px !important;
+	font-weight: 600 !important;
+	cursor: pointer !important;
+	transition: all 0.3s ease !important;
+	font-size: 14px !important;
+}
+
+.driverjs-popover-btn:hover {
+	background: rgba(16, 185, 129, 0.4) !important;
+	border-color: #10b981 !important;
+	box-shadow: 0 0 15px rgba(16, 185, 129, 0.3) !important;
+	transform: translateY(-1px) !important;
+}
+
+.driverjs-popover-btn.driverjs-popover-btn-primary {
+	background: linear-gradient(135deg, #10b981, #059669) !important;
+	border: none !important;
+	color: #ffffff !important;
+	box-shadow: 0 0 20px rgba(16, 185, 129, 0.4) !important;
+}
+
+.driverjs-popover-btn.driverjs-popover-btn-primary:hover {
+	background: linear-gradient(135deg, #059669, #047857) !important;
+	box-shadow: 0 0 25px rgba(16, 185, 129, 0.6) !important;
+	transform: translateY(-2px) !important;
+}
+
+.driverjs-popover-btn:disabled {
+	opacity: 0.4 !important;
+	cursor: not-allowed !important;
+}
+
+.driverjs-popover-close-btn {
+	color: #9ca3af !important;
+	background: rgba(156, 163, 175, 0.1) !important;
+	border: 1px solid rgba(156, 163, 175, 0.2) !important;
+	border-radius: 6px !important;
+	width: 28px !important;
+	height: 28px !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	cursor: pointer !important;
+	transition: all 0.3s ease !important;
+}
+
+.driverjs-popover-close-btn:hover {
+	color: #ef4444 !important;
+	background: rgba(239, 68, 68, 0.1) !important;
+	border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Дополнительные стили для всех элементов driver.js */
+.driverjs-popover * {
+	color: inherit !important;
+	font-family: 'Poppins', sans-serif !important;
+}
+
+.driverjs-popover button[data-step="next"]:last-child,
+.driverjs-popover .driverjs-popover-btn-primary:last-child {
+	background: linear-gradient(135deg, #10b981, #059669) !important;
+	color: #ffffff !important;
+	font-weight: 700 !important;
+	padding: 10px 20px !important;
+	box-shadow: 0 0 25px rgba(16, 185, 129, 0.5) !important;
+}
+
+.driverjs-popover button[data-step="next"]:last-child:hover,
+.driverjs-popover .driverjs-popover-btn-primary:last-child:hover {
+	background: linear-gradient(135deg, #059669, #047857) !important;
+	box-shadow: 0 0 35px rgba(16, 185, 129, 0.7) !important;
+	transform: translateY(-2px) scale(1.02) !important;
+}
+
+/* КРИТИЧНО: Меню "Ещё" НЕ должно затемняться overlay И НЕ должно увеличивать хедер! */
+[data-onboarding-menu="more"] {
+	z-index: 10001 !important;
+	position: absolute !important; /* КРИТИЧНО: absolute, а не relative! */
+	pointer-events: auto !important;
+	/* Исключаем из затемнения */
+	isolation: isolate;
+	/* КРИТИЧНО: Меню не должно влиять на размер хедера! */
+	top: 100% !important;
+	right: 0 !important;
+}
+
+/* Кнопка "Ещё" должна быть кликабельна даже под overlay */
+button[data-onboarding-target="more-menu"] {
+	position: relative;
+	z-index: 10001 !important;
+	pointer-events: auto !important;
+}
+
+/* КРИТИЧНО: Кнопка уведомлений должна четко выделяться! */
+button[data-onboarding-target="notifications-bell"] {
+	position: relative !important;
+	z-index: 10002 !important;
+}
+
+.driver-highlighted-element[data-onboarding-target="notifications-bell"],
+button[data-onboarding-target="notifications-bell"].driver-highlighted-element,
+button[data-onboarding-target="notifications-bell"][class*="driver-highlighted"] {
+	outline: 4px solid rgba(16, 185, 129, 1) !important;
+	outline-offset: 5px !important;
+	box-shadow: 0 0 40px rgba(16, 185, 129, 1), 0 0 80px rgba(16, 185, 129, 0.8), 0 0 120px rgba(16, 185, 129, 0.6) !important;
+	border-radius: 50% !important;
+	background: rgba(16, 185, 129, 0.35) !important;
+	z-index: 10002 !important;
+	position: relative !important;
+	transition: none !important;
+	transform: scale(1.1) !important;
+}
+
+/* Overlay driver.js должен быть ниже меню */
+.driver-overlay {
+	z-index: 9998 !important;
+}
+
+
+/* Элементы меню "Ещё" при выделении получают обводку - БЕЗ transition! */
+a[data-onboarding-target^="more-menu-"] {
+	transition: none !important;
+}
+
+.driver-highlighted-element[data-onboarding-target^="more-menu-"],
+a[data-onboarding-target^="more-menu-"].driver-highlighted-element {
+	outline: 3px solid rgba(16, 185, 129, 0.9) !important;
+	outline-offset: 2px !important;
+	box-shadow: 0 0 20px rgba(16, 185, 129, 0.6), 0 0 40px rgba(16, 185, 129, 0.4) !important;
+	border-radius: 8px !important;
+	background: rgba(16, 185, 129, 0.15) !important;
+	z-index: 10002 !important;
+	position: relative !important;
+	/* НЕТ transition - это вызывает моргание! */
+	transition: none !important;
+}
+
+/* Popover для элементов меню должен быть справа */
+.driverjs-popover[data-step] {
+	z-index: 10000 !important;
 }
