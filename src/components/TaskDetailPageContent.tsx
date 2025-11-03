@@ -800,24 +800,24 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 				</div>
 			)}
 
-			{/* 💥 Кнопка открытия спора */}
-			{!hasDispute && (isCustomer || isExecutor) && (
-				<div className='mt-6 bg-black/40 p-5 rounded-xl border border-red-800/40 hover:border-red-700/50 transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.1)]'>
-					<h3 className='text-lg font-semibold text-red-400 mb-3 flex items-center gap-2'>
-						<span className='text-xl'>⚠️</span>
-						Возникла проблема?
-					</h3>
-					<p className='text-gray-400 text-sm mb-4'>
-						Если возникли сложности с выполнением задачи, вы можете открыть
-						спор. Администратор рассмотрит ситуацию и примет решение.
-					</p>
-					<DisputeForm
-						taskId={task.id}
-						onSuccess={loadDispute}
-						token={token!}
-					/>
-				</div>
-			)}
+		{/* 💥 Кнопка открытия спора */}
+		{!hasDispute && (isCustomer || isExecutor) && task.status === 'in_progress' && (
+			<div className='mt-6 bg-black/40 p-5 rounded-xl border border-red-800/40 hover:border-red-700/50 transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.1)]'>
+				<h3 className='text-lg font-semibold text-red-400 mb-3 flex items-center gap-2'>
+					<span className='text-xl'>⚠️</span>
+					Возникла проблема?
+				</h3>
+				<p className='text-gray-400 text-sm mb-4'>
+					Если возникли сложности с выполнением задачи, вы можете открыть
+					спор. Администратор рассмотрит ситуацию и примет решение.
+				</p>
+				<DisputeForm
+					taskId={task.id}
+					onSuccess={loadDispute}
+					token={token!}
+				/>
+			</div>
+		)}
 
 			{/* Навигация */}
 			<div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pt-6 border-t border-gray-700/50'>
