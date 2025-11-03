@@ -272,15 +272,18 @@ export default function TaskCatalogPage() {
 							{tasks.map(task => (
 								<div
 									key={task.id}
-									className='relative p-4 sm:p-6 border border-emerald-500/30 rounded-xl bg-black/40 shadow-[0_0_25px_rgba(16,185,129,0.2)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transition space-y-3'
+									className='group relative p-5 sm:p-6 border border-emerald-500/30 rounded-2xl bg-gradient-to-br from-black/60 via-slate-900/40 to-black/60 backdrop-blur-sm shadow-[0_4px_20px_rgba(16,185,129,0.15)] hover:shadow-[0_8px_40px_rgba(16,185,129,0.4)] hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-1 space-y-4 overflow-hidden'
 								>
+									{/* Декоративный градиент при наведении */}
+									<div className='absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10'></div>
+									
 									{/* Кнопка жалобы */}
 									<button
 										onClick={() => {
 											setReportTaskId(task.id)
 											setReportTaskTitle(task.title)
 										}}
-										className='absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all group'
+										className='absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-all group-hover:scale-110'
 										title='Пожаловаться на задачу'
 									>
 										<AlertTriangle className='w-4 h-4 sm:w-5 sm:h-5' />
@@ -288,13 +291,13 @@ export default function TaskCatalogPage() {
 
 									{/* Категория */}
 									{task.subcategory && (
-										<div className='flex flex-wrap items-center gap-2 pr-10'>
-											<span className='inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs sm:text-sm font-medium text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]'>
+										<div className='flex flex-wrap items-center gap-2 pr-12'>
+											<span className='inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600/20 to-emerald-600/10 border border-emerald-500/40 rounded-lg text-xs sm:text-sm font-medium text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)] backdrop-blur-sm'>
 												<span className='text-base'>🏷️</span>
 												{task.subcategory.category.name}
 											</span>
-											<span className='text-gray-500 text-xs'>→</span>
-											<span className='inline-flex items-center px-2.5 py-1 bg-blue-500/10 border border-blue-500/30 rounded-lg text-xs font-medium text-blue-400'>
+											<span className='text-emerald-500 text-sm'>→</span>
+											<span className='inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-600/20 to-blue-600/10 border border-blue-500/40 rounded-lg text-xs font-medium text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.2)]'>
 												{task.subcategory.name}
 											</span>
 										</div>
@@ -302,27 +305,29 @@ export default function TaskCatalogPage() {
 
 									{/* Заголовок */}
 									<Link href={`/tasks/${task.id}`}>
-										<h2 className='text-lg sm:text-xl font-semibold text-emerald-300 hover:underline cursor-pointer line-clamp-2 pr-10'>
+										<h2 className='text-lg sm:text-xl font-bold text-emerald-200 group-hover:text-emerald-100 cursor-pointer line-clamp-2 pr-10 transition-colors duration-200'>
 											{task.title}
 										</h2>
 									</Link>
 
 									{/* Описание */}
-									<p className='text-sm sm:text-base text-gray-300 line-clamp-2 sm:line-clamp-3'>
+									<p className='text-sm sm:text-base text-gray-300 leading-relaxed line-clamp-3'>
 										{task.description}
 									</p>
 
 									{/* Цена и информация */}
-									<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 pt-2 border-t border-gray-700/50'>
+									<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-gradient-to-r from-transparent via-emerald-500/30 to-transparent'>
 										{task.price && (
-											<p className='text-emerald-400 font-semibold text-base sm:text-lg flex items-center gap-1.5'>
-												<span>💰</span>
-												{task.price} ₽
+											<p className='text-emerald-400 font-bold text-lg sm:text-xl flex items-center gap-2 bg-gradient-to-r from-emerald-600/20 to-transparent px-4 py-2 rounded-lg border border-emerald-500/30'>
+												<span className='text-xl'>💰</span>
+												<span className='tracking-wide'>{task.price} ₽</span>
 											</p>
 										)}
-										<p className='text-xs sm:text-sm text-gray-400'>
-											<span className='text-gray-500'>Автор:</span>{' '}
-											{task.customer?.fullName || 'Без имени'} •{' '}
+										<p className='text-xs sm:text-sm text-gray-400 flex items-center gap-2'>
+											<span className='text-gray-500'>👤</span>
+											<span>{task.customer?.fullName || 'Без имени'}</span>
+											<span className='text-gray-600'>•</span>
+											<span className='text-gray-500'>📅</span>
 											{new Date(task.createdAt).toLocaleDateString('ru-RU')}
 										</p>
 									</div>

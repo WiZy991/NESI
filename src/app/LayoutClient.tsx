@@ -56,11 +56,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         )}
 
         {/* Лоадер при смене страницы */}
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-50">
-            <LoadingSpinner />
-          </div>
-        )}
+        {loading && <LoadingSpinner />}
 
         {/* Контент */}
         <div
