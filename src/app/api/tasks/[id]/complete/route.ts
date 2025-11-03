@@ -14,17 +14,17 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		if (!user)
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-		const task = await prisma.task.findUnique({
-			where: { id },
-			select: {
-				id: true,
-				title: true,
-				customerId: true,
-				executorId: true,
-				status: true,
-				escrowAmount: true,
-			},
-		})
+	const task = await prisma.task.findUnique({
+		where: { id },
+		select: {
+			id: true,
+			title: true,
+			customerId: true,
+			executorId: true,
+			status: true,
+			escrowAmount: true,
+		},
+	})
 
 		if (!task)
 			return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
@@ -156,7 +156,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 
 	// 🎁 Начисляем реферальный бонус, если исполнитель был приглашен по реферальной ссылке
 	try {
-		await grantReferralBonus(task.executorId, task.id, task.price)
+		await grantReferralBonus(task.executorId, task.id, task.escrowAmount)
 	} catch (err) {
 		console.error('⚠️ Ошибка начисления реферального бонуса:', err)
 		// Не прерываем выполнение, если бонус не начислился
