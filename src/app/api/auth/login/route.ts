@@ -4,6 +4,7 @@ import { signJWT } from '@/lib/jwt'
 import prisma from '@/lib/prisma'
 import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 import { checkUserBlocked, logActivity } from '@/lib/antifraud'
+import { setSecureCookie } from '@/lib/security'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
@@ -86,13 +87,8 @@ export async function POST(req: Request) {
       token,
     })
 
-    // 🍪 Устанавливаем cookie
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    })
+    // 🍪 Устанавливаем безопасный cookie
+    response.cookies.set('token', token, setSecureCookie(token))
 
     return response
   } catch (error) {

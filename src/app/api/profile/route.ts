@@ -100,6 +100,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   try {
+    const { sanitizeText, validateStringLength, validateEmail } = await import('@/lib/security')
+    const { validateFile, normalizeFileName, isValidFileName } = await import('@/lib/fileValidation')
+
     const contentType = req.headers.get('content-type') || ''
     let dataToUpdate: any = {}
 
@@ -122,7 +125,41 @@ export async function PATCH(req: Request) {
         )
       }
 
-      dataToUpdate = { fullName, role, description, location }
+      // Валидация и санитизация полей
+      const fullNameValidation = validateStringLength(fullName.trim(), 100, 'Имя')
+      if (!fullNameValidation.valid) {
+        return NextResponse.json(
+          { error: fullNameValidation.error },
+          { status: 400 }
+        )
+      }
+
+      if (description) {
+        const descValidation = validateStringLength(description.trim(), 1000, 'Описание')
+        if (!descValidation.valid) {
+          return NextResponse.json(
+            { error: descValidation.error },
+            { status: 400 }
+          )
+        }
+      }
+
+      if (location) {
+        const locationValidation = validateStringLength(location.trim(), 200, 'Местоположение')
+        if (!locationValidation.valid) {
+          return NextResponse.json(
+            { error: locationValidation.error },
+            { status: 400 }
+          )
+        }
+      }
+
+      dataToUpdate = {
+        fullName: sanitizeText(fullName.trim()),
+        role,
+        description: description ? sanitizeText(description.trim()) : null,
+        location: location ? sanitizeText(location.trim()) : null,
+      }
 
       // Обработка навыков
       if (skills !== null) {
@@ -139,14 +176,34 @@ export async function PATCH(req: Request) {
         dataToUpdate.password = hashed
       }
 
-      // Сохранение аватара
+      // Сохранение аватара с валидацией
       if (avatar && avatar.size > 0) {
+        // Проверка имени файла
+        if (!isValidFileName(avatar.name)) {
+          return NextResponse.json(
+            { error: 'Недопустимое имя файла аватара' },
+            { status: 400 }
+          )
+        }
+
+        // Валидация файла
+        const fileValidation = await validateFile(avatar, true)
+        if (!fileValidation.valid) {
+          return NextResponse.json(
+            { error: fileValidation.error || 'Ошибка валидации файла' },
+            { status: 400 }
+          )
+        }
+
         const bytes = Buffer.from(await avatar.arrayBuffer())
+        const safeFileName = normalizeFileName(avatar.name)
+        const mimeType = fileValidation.detectedMimeType || avatar.type
+
         const savedFile = await prisma.file.create({
           data: {
             id: randomUUID(),
-            filename: avatar.name,
-            mimetype: avatar.type,
+            filename: safeFileName,
+            mimetype: mimeType,
             size: avatar.size,
             data: bytes,
           },
@@ -167,7 +224,41 @@ export async function PATCH(req: Request) {
         )
       }
 
-      dataToUpdate = { fullName, role, description, location }
+      // Валидация и санитизация полей
+      const fullNameValidation = validateStringLength(fullName.trim(), 100, 'Имя')
+      if (!fullNameValidation.valid) {
+        return NextResponse.json(
+          { error: fullNameValidation.error },
+          { status: 400 }
+        )
+      }
+
+      if (description) {
+        const descValidation = validateStringLength(description.trim(), 1000, 'Описание')
+        if (!descValidation.valid) {
+          return NextResponse.json(
+            { error: descValidation.error },
+            { status: 400 }
+          )
+        }
+      }
+
+      if (location) {
+        const locationValidation = validateStringLength(location.trim(), 200, 'Местоположение')
+        if (!locationValidation.valid) {
+          return NextResponse.json(
+            { error: locationValidation.error },
+            { status: 400 }
+          )
+        }
+      }
+
+      dataToUpdate = {
+        fullName: sanitizeText(fullName.trim()),
+        role,
+        description: description ? sanitizeText(description.trim()) : null,
+        location: location ? sanitizeText(location.trim()) : null,
+      }
 
       if (skills !== undefined) {
         if (Array.isArray(skills)) {

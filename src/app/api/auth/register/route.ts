@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt'
 import prisma from '@/lib/prisma'
 import crypto from 'crypto'
 import { sendVerificationEmail } from '@/lib/mail'
+import { validateEmail as validateEmailSecurity, sanitizeText, validateStringLength } from '@/lib/security'
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +11,35 @@ export async function POST(req: Request) {
 
     if (!email?.trim() || !password?.trim() || !fullName?.trim()) {
       return NextResponse.json({ error: 'Заполните все поля' }, { status: 400 })
+    }
+
+    // Валидация email
+    if (!validateEmailSecurity(email.trim())) {
+      return NextResponse.json(
+        { error: 'Некорректный формат email' },
+        { status: 400 }
+      )
+    }
+
+    // Валидация пароля (минимум 6 символов)
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Пароль должен содержать минимум 6 символов' },
+        { status: 400 }
+      )
+    }
+
+    if (password.length > 128) {
+      return NextResponse.json(
+        { error: 'Пароль слишком длинный (максимум 128 символов)' },
+        { status: 400 }
+      )
+    }
+
+    // Валидация имени
+    const nameValidation = validateStringLength(fullName.trim(), 100, 'Имя')
+    if (!nameValidation.valid) {
+      return NextResponse.json({ error: nameValidation.error }, { status: 400 })
     }
 
     // ищем по email без учёта регистра, чтобы не плодить дубликаты
@@ -40,8 +70,8 @@ export async function POST(req: Request) {
     const { userId, token } = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          email: email.toLowerCase(),
-          fullName: fullName.trim(),
+          email: email.toLowerCase().trim(),
+          fullName: sanitizeText(fullName.trim()),
           password: hashedPassword,
           role,
           verified: false,

@@ -1,12 +1,44 @@
-// Простой in-memory rate limiter для защиты от злоупотреблений
-// В продакшене лучше использовать Redis
+/**
+ * Rate limiting для защиты от злоупотреблений
+ * 
+ * Сейчас используется in-memory хранилище.
+ * Для продакшена рекомендуется использовать Redis:
+ * 
+ * 1. Установите ioredis: npm install ioredis
+ * 2. Создайте Redis клиент
+ * 3. Замените Map хранилище на Redis операции
+ * 
+ * Пример для Redis:
+ * ```typescript
+ * import Redis from 'ioredis'
+ * const redis = new Redis(process.env.REDIS_URL)
+ * 
+ * // Вместо rateLimitStore.set/get используйте:
+ * await redis.setex(key, ttl, count)
+ * const count = await redis.get(key)
+ * ```
+ */
 
 interface RateLimitEntry {
 	count: number
 	resetTime: number
 }
 
+// In-memory хранилище для rate limiting
+// TODO: Заменить на Redis в продакшене для работы в кластере
 const rateLimitStore = new Map<string, RateLimitEntry>()
+
+// Очистка устаревших записей каждые 5 минут
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, entry] of rateLimitStore.entries()) {
+      if (entry.resetTime < now) {
+        rateLimitStore.delete(key)
+      }
+    }
+  }, 5 * 60 * 1000) // 5 минут
+}
 
 export interface RateLimitConfig {
 	windowMs: number // Время окна в миллисекундах

@@ -163,6 +163,9 @@ export async function POST(req: Request) {
 	}
 
 	try {
+		const { sanitizeText, validateStringLength, normalizeFileName, isValidFileName } = await import('@/lib/security')
+		const { validateFile } = await import('@/lib/fileValidation')
+
 		const formData = await req.formData()
 
 		const title = formData.get('title')?.toString() || ''
@@ -173,37 +176,74 @@ export async function POST(req: Request) {
 			: null
 		const subcategoryId = formData.get('subcategoryId')?.toString() || null
 
-		if (!title.trim() || !description.trim()) {
+		// Валидация заголовка
+		const titleValidation = validateStringLength(title.trim(), 200, 'Заголовок')
+		if (!titleValidation.valid || !title.trim()) {
 			return NextResponse.json(
-				{ error: 'Заполни заголовок и описание' },
+				{ error: titleValidation.error || 'Заполни заголовок' },
 				{ status: 400 }
 			)
 		}
 
+		// Валидация описания
+		const descriptionValidation = validateStringLength(description.trim(), 5000, 'Описание')
+		if (!descriptionValidation.valid || !description.trim()) {
+			return NextResponse.json(
+				{ error: descriptionValidation.error || 'Заполни описание' },
+				{ status: 400 }
+			)
+		}
+
+		// Санитизация текста
+		const sanitizedTitle = sanitizeText(title.trim())
+		const sanitizedDescription = sanitizeText(description.trim())
+
+		// Валидация и обработка файлов
 		const files = formData.getAll('files') as File[]
+		const validatedFiles = []
+
+		for (const file of files) {
+			if (!(file instanceof File) || file.size === 0) continue
+
+			// Проверка имени файла
+			if (!isValidFileName(file.name)) {
+				return NextResponse.json(
+					{ error: `Недопустимое имя файла: ${file.name}` },
+					{ status: 400 }
+				)
+			}
+
+			// Валидация файла
+			const fileValidation = await (await import('@/lib/fileValidation')).validateFile(file, true)
+			if (!fileValidation.valid) {
+				return NextResponse.json(
+					{ error: fileValidation.error || 'Ошибка валидации файла' },
+					{ status: 400 }
+				)
+			}
+
+			const buffer = Buffer.from(await file.arrayBuffer())
+			const safeFileName = normalizeFileName(file.name)
+			const mimeType = fileValidation.detectedMimeType || file.type
+
+			validatedFiles.push({
+				filename: safeFileName,
+				mimetype: mimeType,
+				size: file.size,
+				data: buffer,
+			})
+		}
 
 		const task = await prisma.task.create({
 			data: {
-				title: title.trim(),
-				description: description.trim(),
+				title: sanitizedTitle,
+				description: sanitizedDescription,
 				price,
 				deadline,
 				customerId: user.id,
 				subcategoryId,
 				files: {
-					create: await Promise.all(
-						files
-							.filter(f => f instanceof File)
-							.map(async file => {
-								const buffer = Buffer.from(await file.arrayBuffer())
-								return {
-									filename: file.name,
-									mimetype: file.type,
-									size: file.size,
-									data: buffer,
-								}
-							})
-					),
+					create: validatedFiles,
 				},
 			},
 			include: { files: true },

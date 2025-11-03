@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { validatePassword } from '@/lib/errorHandler'
 
 export async function POST(req: Request) {
   try {
@@ -15,6 +16,18 @@ export async function POST(req: Request) {
 
     if (!oldPassword || !newPassword) {
       return NextResponse.json({ error: 'Укажите старый и новый пароль' }, { status: 400 })
+    }
+
+    // Валидация нового пароля
+    try {
+      validatePassword(newPassword)
+    } catch (error: any) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    // Проверка, что новый пароль отличается от старого
+    if (oldPassword === newPassword) {
+      return NextResponse.json({ error: 'Новый пароль должен отличаться от старого' }, { status: 400 })
     }
 
     // Проверяем текущий пароль
