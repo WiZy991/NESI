@@ -397,7 +397,7 @@ export default function EditProfileModal({
 			onClick={onClose}
 		>
 			<div
-				className='relative w-full h-[calc(100vh-4rem)] sm:h-auto sm:max-w-4xl sm:max-h-[90vh] bg-gradient-to-br from-black via-gray-900 to-black border-0 sm:border border-emerald-500/30 rounded-none sm:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col'
+				className='relative w-full h-[calc(100vh-4rem)] sm:h-auto sm:max-w-4xl sm:max-h-[90vh] bg-gradient-to-br from-black via-gray-900 to-black border-0 sm:border border-emerald-500/30 rounded-none sm:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden'
 				onClick={e => e.stopPropagation()}
 			>
 				{/* Заголовок */}
@@ -423,7 +423,7 @@ export default function EditProfileModal({
 				</div>
 
 				{/* Контент */}
-				<div className='flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 text-white custom-scrollbar'>
+				<div className='flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 text-white custom-scrollbar'>
 					{/* Имя */}
 					<div className='space-y-2'>
 						<label className='flex items-center gap-2 text-emerald-400 font-medium text-sm sm:text-base'>
