@@ -31,7 +31,29 @@ export async function GET(
 					orderBy: { grantedAt: 'desc' },
 					take: 4, // показываем только последние 4 сертификации
 				},
-				reviewsReceived: { select: { rating: true } },
+				reviewsReceived: { 
+					select: { 
+						id: true,
+						rating: true,
+						comment: true,
+						createdAt: true,
+						taskId: true,
+						task: {
+							select: {
+								id: true,
+								title: true
+							}
+						},
+						fromUser: {
+							select: {
+								id: true,
+								fullName: true,
+								email: true
+							}
+						}
+					},
+					orderBy: { createdAt: 'desc' }
+				},
 				_count: {
 					select: {
 						executedTasks: {

@@ -16,9 +16,25 @@ import {
 	FaUserCircle,
 	FaBriefcase,
 	FaChevronRight,
+	FaComments,
 } from 'react-icons/fa'
 
-type ReviewLite = { rating: number }
+type Review = {
+	id: string
+	rating: number
+	comment: string
+	createdAt: string
+	taskId: string
+	task?: {
+		id: string
+		title: string
+	}
+	fromUser?: {
+		id: string
+		fullName: string | null
+		email: string
+	}
+}
 
 type PublicUser = {
 	id: string
@@ -57,14 +73,14 @@ type PublicUser = {
 			name: string
 		}
 	}>
-	reviewsReceived?: ReviewLite[]
+	reviewsReceived?: Review[]
 	_count?: {
 		executedTasks: number
 		reviewsReceived: number
 	}
 }
 
-type Tab = 'overview' | 'achievements' | 'certifications' | 'portfolio'
+type Tab = 'overview' | 'achievements' | 'certifications' | 'portfolio' | 'reviews'
 
 function buildAuthHeaders(): HeadersInit {
 	let token: string | null = null
@@ -270,12 +286,12 @@ export default function UserPublicProfilePage() {
 		)
 	}
 
-	const ratings = viewUser.reviewsReceived || []
+	const reviews = viewUser.reviewsReceived || []
 	const avgRating =
-		ratings.length > 0
-			? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(1)
+		reviews.length > 0
+			? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
 			: null
-	const reviewsCount = ratings.length
+	const reviewsCount = reviews.length
 
 	const isExecutor = viewUser.role === 'executor'
 	const canHire = user?.role === 'customer' && user?.id !== viewUser.id && isExecutor
@@ -289,12 +305,15 @@ export default function UserPublicProfilePage() {
 
 	const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; count?: number }> = [
 		{ id: 'overview' as Tab, label: 'Обзор', icon: <FaUserCircle /> },
+		{ id: 'reviews' as Tab, label: 'Отзывы', icon: <FaComments />, count: reviewsCount },
 		{ id: 'achievements' as Tab, label: 'Достижения', icon: <FaTrophy />, count: viewUser.badges?.length },
 		{ id: 'certifications' as Tab, label: 'Сертификации', icon: <FaCertificate />, count: viewUser.certifications?.length },
 		{ id: 'portfolio' as Tab, label: 'Портфолио', icon: <FaBriefcase />, count: portfolio.length },
 	].filter(tab => {
 		// Портфолио только для исполнителей
 		if (tab.id === 'portfolio' && !isExecutor) return false
+		// Отзывы только для исполнителей
+		if (tab.id === 'reviews' && !isExecutor) return false
 		return true
 	})
 
@@ -570,6 +589,120 @@ export default function UserPublicProfilePage() {
 							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
 								<FaTrophy className='text-6xl text-gray-600 mx-auto mb-4' />
 								<p className='text-gray-400'>Пока нет достижений</p>
+							</div>
+						)}
+					</div>
+				)}
+
+				{/* Отзывы */}
+				{activeTab === 'reviews' && isExecutor && (
+					<div>
+						{reviews.length > 0 ? (
+							<div className='space-y-4 sm:space-y-6'>
+								{reviews.map(review => {
+									const ratingColor = review.rating >= 4 
+										? 'from-yellow-600 via-yellow-500 to-yellow-600 border-yellow-500/60 shadow-[0_0_25px_rgba(234,179,8,0.6)]'
+										: review.rating >= 3
+										? 'from-emerald-600 via-emerald-500 to-emerald-600 border-emerald-500/60 shadow-[0_0_25px_rgba(16,185,129,0.6)]'
+										: 'from-gray-600 via-gray-500 to-gray-600 border-gray-500/60 shadow-[0_0_15px_rgba(156,163,175,0.4)]'
+									
+									return (
+										<div
+											key={review.id}
+											className='group relative overflow-hidden bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90 border-2 border-gray-700/50 rounded-xl p-5 sm:p-6 transition-all duration-300 hover:border-emerald-500/60 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-[1.01]'
+										>
+											{/* Декоративный фон */}
+											<div className='absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
+											<div className='absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500'></div>
+											
+											<div className='relative z-10'>
+												<div className='flex flex-col sm:flex-row items-start gap-4 sm:gap-6'>
+													{/* Рейтинг - премиальный дизайн */}
+													<div className='flex-shrink-0 relative'>
+														<div className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gradient-to-br ${ratingColor} border-2 flex flex-col items-center justify-center p-3 shadow-lg`}>
+															{/* Внутреннее свечение */}
+															<div className='absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 via-transparent to-black/20'></div>
+															<div className='absolute inset-1 rounded-lg border border-white/20'></div>
+															
+															{/* Иконка звезды */}
+															<div className='relative z-10 flex flex-col items-center justify-center'>
+																<FaStar className={`text-2xl sm:text-3xl mb-1 drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] ${
+																	review.rating >= 4 ? 'text-yellow-300' : review.rating >= 3 ? 'text-emerald-300' : 'text-gray-300'
+																}`} />
+																<span className='text-2xl sm:text-3xl font-bold text-white drop-shadow-[0_0_10px_rgba(0,0,0,0.8)]'>
+																	{review.rating}
+																</span>
+																<span className='text-[10px] sm:text-xs text-gray-300 mt-0.5'>из 5</span>
+															</div>
+														</div>
+														{/* Внешнее свечение */}
+														<div className={`absolute -inset-2 rounded-xl bg-gradient-to-br ${ratingColor} opacity-30 blur-md animate-pulse`}></div>
+													</div>
+													
+													{/* Информация об отзыве */}
+													<div className='flex-1 min-w-0 w-full'>
+														{/* Заголовок с автором и задачей */}
+														<div className='mb-4'>
+															<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3'>
+																<div className='flex flex-wrap items-center gap-2'>
+																	{review.fromUser && (
+																		<>
+																			<span className='font-bold text-white text-base sm:text-lg group-hover:text-emerald-300 transition-colors'>
+																				{review.fromUser.fullName || review.fromUser.email}
+																			</span>
+																			{review.task && (
+																				<>
+																					<span className='text-gray-500 hidden sm:inline'>•</span>
+																					<Link
+																						href={`/tasks/${review.task.id}`}
+																						className='text-emerald-400 hover:text-emerald-300 transition-colors text-sm sm:text-base font-medium truncate max-w-md hover:underline flex items-center gap-1'
+																					>
+																						<span>📋</span>
+																						<span className='truncate'>{review.task.title}</span>
+																					</Link>
+																				</>
+																			)}
+																		</>
+																	)}
+																</div>
+																<span className='text-xs sm:text-sm text-gray-400 font-medium'>
+																	{new Date(review.createdAt).toLocaleDateString('ru-RU', {
+																		day: 'numeric',
+																		month: 'long',
+																		year: 'numeric',
+																		hour: '2-digit',
+																		minute: '2-digit'
+																	})}
+																</span>
+															</div>
+														</div>
+														
+														{/* Комментарий - премиальный стиль */}
+														{review.comment && review.comment.trim() && (
+															<div className='relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-lg p-4 sm:p-5 group-hover:border-emerald-500/30 transition-all duration-300'>
+																{/* Декоративный уголок */}
+																<div className='absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-500/30 rounded-tl-lg'></div>
+																<div className='absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-500/30 rounded-br-lg'></div>
+																
+																<p className='text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap relative z-10'>
+																	{review.comment}
+																</p>
+															</div>
+														)}
+													</div>
+												</div>
+											</div>
+											
+											{/* Блестящий эффект сверху */}
+											<div className='absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
+										</div>
+									)
+								})}
+							</div>
+						) : (
+							<div className='text-center py-12 sm:py-16 bg-black/40 rounded-xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
+								<FaComments className='text-6xl sm:text-7xl text-gray-600 mx-auto mb-4 opacity-50' />
+								<p className='text-gray-400 text-lg font-medium'>Пока нет отзывов</p>
 							</div>
 						)}
 					</div>
