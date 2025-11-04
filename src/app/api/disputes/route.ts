@@ -45,6 +45,11 @@ export async function POST(req: Request) {
 		return NextResponse.json({ error: 'Нет доступа к задаче' }, { status: 403 })
 	}
 
+	// Проверяем, что задача в статусе "В работе"
+	if (task.status !== 'in_progress') {
+		return NextResponse.json({ error: 'Спор можно создать только для задачи в статусе "В работе"' }, { status: 400 })
+	}
+
 	// Проверяем, не существует ли уже спор по этой задаче
 	const existing = await (prisma as any).dispute.findFirst({
 		where: { taskId },

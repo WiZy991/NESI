@@ -43,22 +43,24 @@ export default function TaskActionsClient({ taskId, authorId, status }: Props) {
 	if (!user || !isCustomer) return null
 
 	return (
-		<div className='flex flex-wrap gap-3'>
+		<nav className='flex flex-wrap gap-3' aria-label="Действия с задачей">
 			<button
 				onClick={() => router.push(`/tasks/${taskId}/edit`)}
 				className='group flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] hover:scale-[1.02]'
+				aria-label="Редактировать задачу"
 			>
-				<span className='text-lg'>✏️</span>
+				<span className='text-lg' aria-hidden="true">✏️</span>
 				<span>Редактировать</span>
 			</button>
 
 			<button
 				onClick={handleDelete}
 				className='group flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] hover:scale-[1.02]'
+				aria-label="Удалить задачу"
 			>
-				<span className='text-lg'>🗑️</span>
+				<span className='text-lg' aria-hidden="true">🗑️</span>
 				<span>Удалить</span>
 			</button>
-		</div>
+		</nav>
 	)
 }

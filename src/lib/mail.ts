@@ -121,3 +121,211 @@ export async function sendResetPasswordEmail(to: string, link: string) {
     console.error('❌ Ошибка при отправке письма сброса через Resend:', error.message || error)
   }
 }
+
+/**
+ * Отправка уведомления о новом отклике на задачу
+ */
+export async function sendNewResponseEmail(to: string, taskTitle: string, taskId: string, executorName: string) {
+  const html = `
+    <div style="font-family: 'Segoe UI', Roboto, sans-serif; background-color: #0a0a0a; color: #e5e5e5; padding: 30px;">
+      <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #0d0d0d 0%, #0f2010 100%);
+        border-radius: 16px; box-shadow: 0 0 25px rgba(0, 255, 100, 0.15); overflow: hidden; border: 1px solid rgba(0,255,100,0.1)">
+        
+        <div style="background: radial-gradient(circle at top left, rgba(0,255,120,0.15), transparent);
+            padding: 24px 30px; text-align: center;">
+          <h1 style="margin: 0; color: #00ff88; letter-spacing: 1px;">NESI</h1>
+        </div>
+
+        <div style="padding: 35px; text-align: center;">
+          <h2 style="color: #00ff88; font-size: 22px;">🎉 Новый отклик!</h2>
+          <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 20px 0;">
+            На вашу задачу "<strong>${taskTitle}</strong>" откликнулся <strong>${executorName}</strong>.
+          </p>
+
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/tasks/${taskId}" target="_blank"
+            style="display: inline-block; margin-top: 20px; padding: 14px 28px;
+            background: #00ff88; color: #000; font-weight: bold; text-decoration: none;
+            border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,120,0.4);">
+            Посмотреть отклик
+          </a>
+        </div>
+      </div>
+    </div>
+  `
+
+  await sendEmail(to, 'Новый отклик на вашу задачу', html)
+}
+
+/**
+ * Уведомление о выборе исполнителем
+ */
+export async function sendTaskAssignedEmail(to: string, taskTitle: string, taskId: string, customerName: string) {
+  const html = `
+    <div style="font-family: 'Segoe UI', Roboto, sans-serif; background-color: #0a0a0a; color: #e5e5e5; padding: 30px;">
+      <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #0d0d0d 0%, #0f2010 100%);
+        border-radius: 16px; box-shadow: 0 0 25px rgba(0, 255, 100, 0.15); overflow: hidden; border: 1px solid rgba(0,255,100,0.1)">
+        
+        <div style="background: radial-gradient(circle at top left, rgba(0,255,120,0.15), transparent);
+            padding: 24px 30px; text-align: center;">
+          <h1 style="margin: 0; color: #00ff88; letter-spacing: 1px;">NESI</h1>
+        </div>
+
+        <div style="padding: 35px; text-align: center;">
+          <h2 style="color: #00ff88; font-size: 22px;">✅ Вас выбрали исполнителем!</h2>
+          <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 20px 0;">
+            <strong>${customerName}</strong> выбрал вас исполнителем задачи "<strong>${taskTitle}</strong>".
+          </p>
+
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/tasks/${taskId}" target="_blank"
+            style="display: inline-block; margin-top: 20px; padding: 14px 28px;
+            background: #00ff88; color: #000; font-weight: bold; text-decoration: none;
+            border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,120,0.4);">
+            Приступить к работе
+          </a>
+        </div>
+      </div>
+    </div>
+  `
+
+  await sendEmail(to, 'Вас выбрали исполнителем', html)
+}
+
+/**
+ * Уведомление о завершении задачи
+ */
+export async function sendTaskCompletedEmail(to: string, taskTitle: string, taskId: string, amount: number) {
+  const html = `
+    <div style="font-family: 'Segoe UI', Roboto, sans-serif; background-color: #0a0a0a; color: #e5e5e5; padding: 30px;">
+      <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #0d0d0d 0%, #0f2010 100%);
+        border-radius: 16px; box-shadow: 0 0 25px rgba(0, 255, 100, 0.15); overflow: hidden; border: 1px solid rgba(0,255,100,0.1)">
+        
+        <div style="background: radial-gradient(circle at top left, rgba(0,255,120,0.15), transparent);
+            padding: 24px 30px; text-align: center;">
+          <h1 style="margin: 0; color: #00ff88; letter-spacing: 1px;">NESI</h1>
+        </div>
+
+        <div style="padding: 35px; text-align: center;">
+          <h2 style="color: #00ff88; font-size: 22px;">🎉 Задача завершена!</h2>
+          <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 20px 0;">
+            Задача "<strong>${taskTitle}</strong>" успешно завершена.<br/>
+            Вам начислено: <strong style="color: #00ff88;">${amount.toFixed(2)}₽</strong>
+          </p>
+
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/tasks/${taskId}" target="_blank"
+            style="display: inline-block; margin-top: 20px; padding: 14px 28px;
+            background: #00ff88; color: #000; font-weight: bold; text-decoration: none;
+            border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,120,0.4);">
+            Оставить отзыв
+          </a>
+        </div>
+      </div>
+    </div>
+  `
+
+  await sendEmail(to, 'Задача завершена', html)
+}
+
+/**
+ * Уведомление о новом отзыве
+ */
+export async function sendNewReviewEmail(to: string, rating: number, comment: string, fromName: string) {
+  const stars = '⭐'.repeat(rating)
+  
+  const html = `
+    <div style="font-family: 'Segoe UI', Roboto, sans-serif; background-color: #0a0a0a; color: #e5e5e5; padding: 30px;">
+      <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #0d0d0d 0%, #0f2010 100%);
+        border-radius: 16px; box-shadow: 0 0 25px rgba(0, 255, 100, 0.15); overflow: hidden; border: 1px solid rgba(0,255,100,0.1)">
+        
+        <div style="background: radial-gradient(circle at top left, rgba(0,255,120,0.15), transparent);
+            padding: 24px 30px; text-align: center;">
+          <h1 style="margin: 0; color: #00ff88; letter-spacing: 1px;">NESI</h1>
+        </div>
+
+        <div style="padding: 35px; text-align: center;">
+          <h2 style="color: #00ff88; font-size: 22px;">⭐ Новый отзыв!</h2>
+          <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 20px 0;">
+            <strong>${fromName}</strong> оставил вам отзыв
+          </p>
+          
+          <div style="margin: 20px 0; font-size: 24px;">${stars}</div>
+          
+          <p style="color: #aaa; font-size: 14px; font-style: italic; margin: 20px 0; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+            "${comment}"
+          </p>
+
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/profile" target="_blank"
+            style="display: inline-block; margin-top: 20px; padding: 14px 28px;
+            background: #00ff88; color: #000; font-weight: bold; text-decoration: none;
+            border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,120,0.4);">
+            Посмотреть профиль
+          </a>
+        </div>
+      </div>
+    </div>
+  `
+
+  await sendEmail(to, 'Вы получили новый отзыв', html)
+}
+
+/**
+ * Уведомление о новом сообщении (если пользователь не онлайн)
+ */
+export async function sendNewMessageEmail(to: string, fromName: string, preview: string, taskTitle?: string) {
+  const html = `
+    <div style="font-family: 'Segoe UI', Roboto, sans-serif; background-color: #0a0a0a; color: #e5e5e5; padding: 30px;">
+      <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #0d0d0d 0%, #0f2010 100%);
+        border-radius: 16px; box-shadow: 0 0 25px rgba(0, 255, 100, 0.15); overflow: hidden; border: 1px solid rgba(0,255,100,0.1)">
+        
+        <div style="background: radial-gradient(circle at top left, rgba(0,255,120,0.15), transparent);
+            padding: 24px 30px; text-align: center;">
+          <h1 style="margin: 0; color: #00ff88; letter-spacing: 1px;">NESI</h1>
+        </div>
+
+        <div style="padding: 35px; text-align: center;">
+          <h2 style="color: #00ff88; font-size: 22px;">💬 Новое сообщение</h2>
+          <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 20px 0;">
+            <strong>${fromName}</strong> отправил вам сообщение${taskTitle ? ` в задаче "${taskTitle}"` : ''}
+          </p>
+          
+          <p style="color: #aaa; font-size: 14px; margin: 20px 0; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+            ${preview.substring(0, 100)}${preview.length > 100 ? '...' : ''}
+          </p>
+
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/chats" target="_blank"
+            style="display: inline-block; margin-top: 20px; padding: 14px 28px;
+            background: #00ff88; color: #000; font-weight: bold; text-decoration: none;
+            border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,120,0.4);">
+            Прочитать сообщение
+          </a>
+        </div>
+      </div>
+    </div>
+  `
+
+  await sendEmail(to, 'Новое сообщение', html)
+}
+
+/**
+ * Базовая функция отправки email
+ */
+async function sendEmail(to: string, subject: string, html: string) {
+  const resendClient = getResend()
+  
+  if (!resendClient) {
+    console.warn('⚠️ RESEND_API_KEY не настроен, email не отправлен')
+    return
+  }
+
+  try {
+    const data = await resendClient.emails.send({
+      from: `NESI <no-reply@nesi.su>`,
+      to,
+      subject,
+      html,
+    })
+
+    console.log('✅ Email отправлен:', subject, 'to', to)
+  } catch (error: any) {
+    console.error('❌ Ошибка отправки email:', error.message || error)
+  }
+}

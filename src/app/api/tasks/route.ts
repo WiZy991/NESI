@@ -13,14 +13,20 @@ export async function GET(req: Request) {
 
 		const search = searchParams.get('search')?.toLowerCase()
 		const status = searchParams.get('status') || undefined
-		const sort = searchParams.get('sort') === 'old' ? 'asc' : 'desc'
+		const sortParam = searchParams.get('sort') || 'new'
 		const subcategoryId = searchParams.get('subcategory') || undefined
+		const categoryId = searchParams.get('category') || undefined
 		const mine = searchParams.get('mine') === 'true'
+		const minPrice = searchParams.get('minPrice') ? parseFloat(searchParams.get('minPrice')!) : undefined
+		const maxPrice = searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : undefined
+		const hasDeadline = searchParams.get('hasDeadline')
+		const dateFilter = searchParams.get('dateFilter') || ''
 		const page = parseInt(searchParams.get('page') || '1', 10)
 		const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50)
 		const skip = (page - 1) * limit
 
-		const where = {
+		// Формируем условия where
+		const where: any = {
 			...(mine ? { customerId: user.id } : {}),
 			...(search
 				? {
@@ -34,10 +40,88 @@ export async function GET(req: Request) {
 			...(subcategoryId ? { subcategoryId } : {}),
 		}
 
+		// Фильтр по дате создания
+		if (dateFilter) {
+			const now = new Date()
+			let startDate: Date
+
+			switch (dateFilter) {
+				case 'today':
+					startDate = new Date(now.setHours(0, 0, 0, 0))
+					break
+				case 'week':
+					startDate = new Date(now)
+					startDate.setDate(now.getDate() - 7)
+					break
+				case 'month':
+					startDate = new Date(now)
+					startDate.setMonth(now.getMonth() - 1)
+					break
+				case 'year':
+					startDate = new Date(now)
+					startDate.setFullYear(now.getFullYear() - 1)
+					break
+				default:
+					startDate = new Date(0) // Все время
+			}
+
+			if (dateFilter !== '') {
+				where.createdAt = {
+					gte: startDate,
+				}
+			}
+		}
+
+		// Фильтр по цене
+		if (minPrice !== undefined || maxPrice !== undefined) {
+			where.price = {}
+			if (minPrice !== undefined) where.price.gte = minPrice
+			if (maxPrice !== undefined) where.price.lte = maxPrice
+		}
+
+		// Фильтр по наличию дедлайна
+		if (hasDeadline === 'true') {
+			where.deadline = { not: null }
+		} else if (hasDeadline === 'false') {
+			where.deadline = null
+		}
+
+		// Фильтр по категории через subcategory
+		if (categoryId && !subcategoryId) {
+			where.subcategory = {
+				categoryId,
+			}
+		}
+
+		// Определяем сортировку
+		let orderBy: any = { createdAt: 'desc' }
+		
+		switch (sortParam) {
+			case 'old':
+				orderBy = { createdAt: 'asc' }
+				break
+			case 'price_asc':
+				orderBy = { price: 'asc' }
+				break
+			case 'price_desc':
+				orderBy = { price: 'desc' }
+				break
+			case 'deadline':
+				orderBy = { deadline: 'asc' }
+				break
+			case 'responses':
+				// Сортировка по количеству откликов (через _count) не поддерживается напрямую
+				// Будем использовать сортировку на стороне клиента или raw SQL
+				orderBy = { createdAt: 'desc' }
+				break
+			default:
+				orderBy = { createdAt: 'desc' }
+		}
+
 		const [tasks, total] = await Promise.all([
 			prisma.task.findMany({
 				where,
-				orderBy: { createdAt: sort },
+				orderBy,
 				skip,
 				take: limit,
 				select: {
@@ -48,7 +132,13 @@ export async function GET(req: Request) {
 					deadline: true,
 					status: true,
 					createdAt: true,
-					customer: { select: { id: true, fullName: true } },
+					customer: { 
+						select: { 
+							id: true, 
+							fullName: true,
+							avgRating: true,
+						} 
+					},
 					subcategory: {
 						select: {
 							id: true,
@@ -65,8 +155,14 @@ export async function GET(req: Request) {
 			prisma.task.count({ where }),
 		])
 
+		// Если нужна сортировка по откликам, делаем это на стороне сервера
+		let sortedTasks = tasks
+		if (sortParam === 'responses') {
+			sortedTasks = [...tasks].sort((a, b) => b._count.responses - a._count.responses)
+		}
+
 		const response = NextResponse.json({
-			tasks,
+			tasks: sortedTasks,
 			pagination: {
 				page,
 				limit,
@@ -100,6 +196,9 @@ export async function POST(req: Request) {
 	}
 
 	try {
+		const { sanitizeText, validateStringLength, normalizeFileName, isValidFileName } = await import('@/lib/security')
+		const { validateFile } = await import('@/lib/fileValidation')
+
 		const formData = await req.formData()
 
 		const title = formData.get('title')?.toString() || ''
@@ -110,37 +209,74 @@ export async function POST(req: Request) {
 			: null
 		const subcategoryId = formData.get('subcategoryId')?.toString() || null
 
-		if (!title.trim() || !description.trim()) {
+		// Валидация заголовка
+		const titleValidation = validateStringLength(title.trim(), 200, 'Заголовок')
+		if (!titleValidation.valid || !title.trim()) {
 			return NextResponse.json(
-				{ error: 'Заполни заголовок и описание' },
+				{ error: titleValidation.error || 'Заполни заголовок' },
 				{ status: 400 }
 			)
 		}
 
+		// Валидация описания
+		const descriptionValidation = validateStringLength(description.trim(), 5000, 'Описание')
+		if (!descriptionValidation.valid || !description.trim()) {
+			return NextResponse.json(
+				{ error: descriptionValidation.error || 'Заполни описание' },
+				{ status: 400 }
+			)
+		}
+
+		// Санитизация текста
+		const sanitizedTitle = sanitizeText(title.trim())
+		const sanitizedDescription = sanitizeText(description.trim())
+
+		// Валидация и обработка файлов
 		const files = formData.getAll('files') as File[]
+		const validatedFiles = []
+
+		for (const file of files) {
+			if (!(file instanceof File) || file.size === 0) continue
+
+			// Проверка имени файла
+			if (!isValidFileName(file.name)) {
+				return NextResponse.json(
+					{ error: `Недопустимое имя файла: ${file.name}` },
+					{ status: 400 }
+				)
+			}
+
+			// Валидация файла
+			const fileValidation = await (await import('@/lib/fileValidation')).validateFile(file, true)
+			if (!fileValidation.valid) {
+				return NextResponse.json(
+					{ error: fileValidation.error || 'Ошибка валидации файла' },
+					{ status: 400 }
+				)
+			}
+
+			const buffer = Buffer.from(await file.arrayBuffer())
+			const safeFileName = normalizeFileName(file.name)
+			const mimeType = fileValidation.detectedMimeType || file.type
+
+			validatedFiles.push({
+				filename: safeFileName,
+				mimetype: mimeType,
+				size: file.size,
+				data: buffer,
+			})
+		}
 
 		const task = await prisma.task.create({
 			data: {
-				title: title.trim(),
-				description: description.trim(),
+				title: sanitizedTitle,
+				description: sanitizedDescription,
 				price,
 				deadline,
 				customerId: user.id,
 				subcategoryId,
 				files: {
-					create: await Promise.all(
-						files
-							.filter(f => f instanceof File)
-							.map(async file => {
-								const buffer = Buffer.from(await file.arrayBuffer())
-								return {
-									filename: file.name,
-									mimetype: file.type,
-									size: file.size,
-									data: buffer,
-								}
-							})
-					),
+					create: validatedFiles,
 				},
 			},
 			include: { files: true },

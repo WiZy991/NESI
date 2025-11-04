@@ -1,5 +1,5 @@
 // app/layout.tsx (серверный)
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import LayoutClient from './LayoutClient'
 import './globals.css'
@@ -15,7 +15,10 @@ export const metadata: Metadata = {
 		apple: '/apple-touch-icon.png',
 	},
 	manifest: '/site.webmanifest',
-	themeColor: '#000000',
+}
+
+export const viewport: Viewport = {
+	themeColor: '#111827',
 }
 
 export default function RootLayout({
@@ -42,7 +45,9 @@ export default function RootLayout({
 				/>
 				<link rel='apple-touch-icon' href='/apple-touch-icon.png' />
 				<link rel='manifest' href='/site.webmanifest' />
-				<meta name='theme-color' content='#000000' />
+				<meta name='theme-color' content='#111827' />
+				<meta name='apple-mobile-web-app-status-bar-style' content='black-translucent' />
+				<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' />
 			</head>
 			<body className={`${inter.variable} antialiased`}>
 				<LayoutClient>{children}</LayoutClient>

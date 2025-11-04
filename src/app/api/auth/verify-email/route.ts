@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { signJWT } from '@/lib/jwt'
+import { setSecureCookie } from '@/lib/security'
 
 export async function GET(req: Request) {
   try {
@@ -47,12 +48,7 @@ export async function GET(req: Request) {
     const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/email-verified`
     const res = NextResponse.redirect(redirectUrl)
 
-    res.cookies.set('token', jwt, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    })
+    res.cookies.set('token', jwt, setSecureCookie(jwt))
 
     console.log('✅ Подтверждение e-mail завершено, редирект:', redirectUrl)
     return res

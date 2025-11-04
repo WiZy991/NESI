@@ -3,12 +3,11 @@ import { getUserFromRequest } from '@/lib/auth'
 import { createNotification } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
+import { validateFile } from '@/lib/fileValidation'
+import { normalizeFileName, isValidFileName, sanitizeText, validateStringLength } from '@/lib/security'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
-
-const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_PREFIXES = ['image/', 'application/pdf', 'application/zip']
 
 export async function POST(req: NextRequest) {
 	try {
@@ -54,29 +53,37 @@ export async function POST(req: NextRequest) {
 
 			const blob = form.get('file') as File | null
 			if (blob && blob.size > 0) {
-				if (blob.size > MAX_SIZE) {
+				// Защита от path traversal
+				const fileName = (blob as any).name || 'file'
+				if (!isValidFileName(fileName)) {
 					return NextResponse.json(
-						{ error: 'Файл слишком большой (до 10MB)' },
-						{ status: 413 }
+						{ error: 'Недопустимое имя файла' },
+						{ status: 400 }
 					)
 				}
-				const allowed = ALLOWED_PREFIXES.some(p =>
-					(blob.type || '').startsWith(p)
-				)
-				if (!allowed) {
+
+				// Нормализация имени файла
+				const safeFileName = normalizeFileName(fileName)
+
+				// Полная валидация файла (magic bytes, размер, тип)
+				const validation = await validateFile(blob, true)
+				if (!validation.valid) {
 					return NextResponse.json(
-						{ error: 'Недопустимый тип файла' },
-						{ status: 415 }
+						{ error: validation.error },
+						{ status: 400 }
 					)
 				}
 
 				const buf = Buffer.from(await blob.arrayBuffer())
 
+				// Используем определенный MIME тип из сигнатуры
+				const detectedMimeType = validation.detectedMimeType || blob.type
+
 				// сохраняем файл в таблицу File
 				const created = await prisma.file.create({
 					data: {
-						filename: (blob as any).name || 'file',
-						mimetype: blob.type || 'application/octet-stream',
+						filename: safeFileName,
+						mimetype: detectedMimeType,
 						size: buf.length,
 						data: buf,
 					},
@@ -111,11 +118,24 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
+		// Валидация и санитизация контента
+		const maxContentLength = 10000 // 10KB
+		const contentValidation = validateStringLength(content, maxContentLength, 'Сообщение')
+		if (!contentValidation.valid) {
+			return NextResponse.json(
+				{ error: contentValidation.error },
+				{ status: 400 }
+			)
+		}
+
+		// Санитизация контента (удаление потенциально опасного HTML)
+		const sanitizedContent = sanitizeText(content)
+
 		const msg = await prisma.privateMessage.create({
 			data: {
 				senderId: me.id,
 				recipientId,
-				content,
+				content: sanitizedContent,
 				fileUrl,
 				fileName,
 				mimeType,

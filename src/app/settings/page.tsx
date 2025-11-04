@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Save, Bell, Eye, EyeOff } from 'lucide-react'
+import { Lock, Save, Bell, Eye, EyeOff, BookOpen } from 'lucide-react'
+import { ResetOnboardingButton } from '@/components/ResetOnboardingButton'
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -213,6 +214,17 @@ export default function SettingsPage() {
         >
           <Lock className="w-4 h-4" /> Изменить пароль
         </button>
+      </section>
+
+      {/* 📖 Повторный запуск онбординга */}
+      <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm mt-8">
+        <h2 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+          <BookOpen className="w-5 h-5" /> Онбординг
+        </h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Хотите повторить интерактивный тур по платформе? Вы можете запустить его снова в любой момент.
+        </p>
+        <ResetOnboardingButton />
       </section>
 
       {/* 💬 статус */}

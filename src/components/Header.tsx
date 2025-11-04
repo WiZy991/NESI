@@ -35,10 +35,30 @@ const formatNotificationTime = (timestamp: string) => {
 	})
 }
 
+// Глобальная переменная для доступа к setMenuOpen из онбординга
+let globalSetMenuOpen: ((value: boolean | ((prev: boolean) => boolean)) => void) | null = null
+
 export default function Header() {
 	const { user, token, logout, unreadCount, setUnreadCount } = useUser()
 	const router = useRouter()
 	const [menuOpen, setMenuOpen] = useState(false)
+	
+	// Сохраняем функцию открытия меню в глобальную переменную для доступа из онбординга
+	useEffect(() => {
+		globalSetMenuOpen = setMenuOpen
+		// Также сохраняем в window для прямого доступа
+		if (typeof window !== 'undefined') {
+			// @ts-ignore
+			window.__nesiSetMenuOpen = setMenuOpen
+		}
+		return () => {
+			globalSetMenuOpen = null
+			if (typeof window !== 'undefined') {
+				// @ts-ignore
+				delete window.__nesiSetMenuOpen
+			}
+		}
+	}, [])
 	const [notifOpen, setNotifOpen] = useState(false)
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 	const [notifications, setNotifications] = useState<any[]>([])
@@ -52,15 +72,73 @@ export default function Header() {
 	const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 	const sseFailCountRef = useRef(0)
+	const shownNotificationsRef = useRef<Set<string>>(new Set())
 
 	const handleLogout = () => {
 		logout()
 		router.push('/login')
 	}
 
-	// Закрытие меню при клике вне
+	// Блокировка прокрутки фона при открытии мобильного меню
+	useEffect(() => {
+		if (mobileMenuOpen) {
+			document.body.style.overflow = 'hidden'
+			document.body.style.position = 'fixed'
+			document.body.style.width = '100%'
+		} else {
+			document.body.style.overflow = ''
+			document.body.style.position = ''
+			document.body.style.width = ''
+		}
+		
+		return () => {
+			document.body.style.overflow = ''
+			document.body.style.position = ''
+			document.body.style.width = ''
+		}
+	}, [mobileMenuOpen])
+
+	// Слушатель для автоматического открытия меню из онбординга
+	useEffect(() => {
+		const handleOpenMoreMenu = (e?: Event) => {
+			console.log('🔓 Получен запрос на открытие меню "Ещё" из онбординга', e)
+			// Принудительно открываем меню
+			setMenuOpen(true)
+			// Дополнительная проверка через небольшую задержку
+			setTimeout(() => {
+				setMenuOpen(true)
+			}, 50)
+		}
+		
+		// Добавляем слушатель
+		window.addEventListener('openMoreMenu', handleOpenMoreMenu)
+		
+		// Также слушаем через capture для надежности
+		window.addEventListener('openMoreMenu', handleOpenMoreMenu, true)
+		
+		return () => {
+			window.removeEventListener('openMoreMenu', handleOpenMoreMenu)
+			window.removeEventListener('openMoreMenu', handleOpenMoreMenu, true)
+		}
+	}, [])
+	
+	// Закрытие меню при клике вне (НО НЕ во время онбординга!)
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
+			// Проверяем, активен ли онбординг (driver.js)
+			const isOnboardingActive = document.querySelector('.driver-overlay') !== null || 
+			                          document.querySelector('.driverjs-popover') !== null
+			
+			// Если активен онбординг И клик по overlay, НЕ закрываем меню
+			if (isOnboardingActive) {
+				const target = e.target as HTMLElement
+				if (target.classList.contains('driver-overlay') || 
+				    target.closest('.driver-overlay') ||
+				    target.closest('.driverjs-popover')) {
+					return // Не закрываем меню во время онбординга
+				}
+			}
+			
 			if (
 				menuRef.current &&
 				!menuRef.current.contains(e.target as Node) &&
@@ -109,6 +187,24 @@ export default function Header() {
 	const showNotification = useCallback((data: any) => {
 		console.log('🎉 showNotification вызвана с data:', data)
 		
+		// Создаем уникальный ключ для уведомления
+		const notificationKey = data.id || `${data.type}-${data.messageId || data.link || ''}-${data.timestamp}`
+		
+		// Проверяем, не показывали ли мы уже это уведомление
+		if (shownNotificationsRef.current.has(notificationKey)) {
+			console.log('⏭️ Пропускаем дубликат уведомления:', notificationKey)
+			return
+		}
+		
+		// Добавляем в список показанных
+		shownNotificationsRef.current.add(notificationKey)
+		
+		// Ограничиваем размер Set (храним последние 100 уведомлений)
+		if (shownNotificationsRef.current.size > 100) {
+			const firstKey = shownNotificationsRef.current.values().next().value
+			shownNotificationsRef.current.delete(firstKey)
+		}
+		
 		if (data.playSound) {
 			console.log('🔊 Попытка воспроизвести звук')
 			try {
@@ -134,9 +230,9 @@ export default function Header() {
 			} catch {}
 		}
 
-		// Обновляем уведомления и счетчик непрочитанных
+		// Обновляем уведомления и счетчик непрочитанных (используем функциональное обновление)
 		setNotifications(prev => [data, ...prev.slice(0, 4)])
-		setUnreadCount(unreadCount + 1)
+		setUnreadCount(prev => prev + 1)
 
 		// Добавляем toast уведомление
 		const toastNotification = {
@@ -156,7 +252,7 @@ export default function Header() {
 			console.log('📋 Текущие toast уведомления:', newNotifications.length)
 			return newNotifications
 		})
-	}, [unreadCount])
+	}, [])
 
 	// Загрузка количества непрочитанных сообщений и SSE
 	useEffect(() => {
@@ -316,13 +412,27 @@ export default function Header() {
 
 	const handleNotificationClick = async (notif: any) => {
 		setNotifOpen(false)
-		await markAllRead()
+		setMobileMenuOpen(false)
+		
+		// Не блокируем навигацию ожиданием markAllRead
+		markAllRead().catch(console.error)
+		
+		// Определяем URL для перехода
+		let targetUrl = '/notifications'
+		
 		if (notif.userId || notif.senderId) {
 			const targetId = notif.userId || notif.senderId
-			router.push(`/chats?open=${targetId}`)
-			return
+			targetUrl = `/chats?open=${targetId}`
+		} else if (notif.link) {
+			targetUrl = notif.link
 		}
-		if (notif.link) router.push(notif.link)
+		
+		// На мобильных используем прямой переход через window.location
+		if (typeof window !== 'undefined' && window.innerWidth < 768) {
+			window.location.href = targetUrl
+		} else {
+			router.push(targetUrl)
+		}
 	}
 
 	const handleGoToNotifications = async () => {
@@ -376,7 +486,7 @@ export default function Header() {
 					interval={5000}
 				/>
 			)}
-			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans relative z-50'>
+			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans fixed md:sticky top-0 z-50'>
 				<Link
 					href='/'
 					className='text-xl md:text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
@@ -389,8 +499,24 @@ export default function Header() {
 					{user && (
 						<div className='relative' ref={notifRef}>
 							<button
-								onClick={() => setNotifOpen(v => !v)}
+								onClick={(e) => {
+									e.stopPropagation()
+									setNotifOpen(v => !v)
+								}}
+								onDoubleClick={(e) => {
+									// Двойной клик переходит на страницу уведомлений
+									e.preventDefault()
+									e.stopPropagation()
+									setNotifOpen(false)
+									setTimeout(() => {
+										window.location.href = '/notifications'
+									}, 100)
+								}}
 								className='text-lg flex items-center gap-1 relative p-2'
+								aria-label={`Уведомления${unreadCount > 0 ? ` (${unreadCount} непрочитанных)` : ''}`}
+								aria-expanded={notifOpen}
+								aria-haspopup="true"
+								data-onboarding-target="notifications-bell"
 							>
 								<Bell className='w-5 h-5 text-emerald-400' />
 								{unreadCount > 0 && (
@@ -406,20 +532,32 @@ export default function Header() {
 										{notifications.length === 0 ? (
 											<div className='p-4 text-center text-gray-400'>
 												<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
-												<p>Нет новых уведомлений</p>
+												<p className='text-sm'>Нет новых уведомлений</p>
 											</div>
 										) : (
 											notifications.map((notif, index) => (
 												<div
 													key={index}
-													className='p-4 border-b border-gray-700 hover:bg-gray-800/60 transition cursor-pointer active:bg-gray-800 touch-manipulation'
+													className='p-3 sm:p-4 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-700/80 transition cursor-pointer touch-manipulation select-none'
 													onClick={(e) => {
-														e.preventDefault()
 														e.stopPropagation()
 														handleNotificationClick(notif)
 													}}
+													onTouchStart={(e) => {
+														// Для мобильных устройств
+														e.currentTarget.classList.add('bg-gray-800/80')
+													}}
+													onTouchEnd={(e) => {
+														e.currentTarget.classList.remove('bg-gray-800/80')
+													}}
 													role="button"
 													tabIndex={0}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter' || e.key === ' ') {
+															e.preventDefault()
+															handleNotificationClick(notif)
+														}
+													}}
 												>
 													<div className='flex items-start space-x-3'>
 														<div className='w-10 h-10 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-emerald-900/40 border border-emerald-500/30 flex-shrink-0'>
@@ -470,17 +608,31 @@ export default function Header() {
 											))
 										)}
 									</div>
-									<div className='p-4 sm:p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+									<div className='p-3 sm:p-4 border-t border-emerald-500/20 bg-black/40'>
 										<button
+											type="button"
 											onClick={(e) => {
 												e.preventDefault()
 												e.stopPropagation()
-												handleGoToNotifications()
+												setNotifOpen(false)
+												setMobileMenuOpen(false)
+												// Всегда используем прямой переход на мобильных
+												setTimeout(() => {
+													window.location.href = '/notifications'
+												}, 100)
 											}}
-											className='w-full py-2 sm:py-0 text-emerald-400 hover:text-emerald-300 active:text-emerald-500 text-sm sm:text-sm font-medium transition-colors touch-manipulation'
-											role="button"
+											onTouchEnd={(e) => {
+												e.preventDefault()
+												e.stopPropagation()
+												setNotifOpen(false)
+												setMobileMenuOpen(false)
+												setTimeout(() => {
+													window.location.href = '/notifications'
+												}, 100)
+											}}
+											className='w-full py-2.5 sm:py-2 text-emerald-400 hover:text-emerald-300 active:text-emerald-200 text-sm sm:text-base font-medium transition-all touch-manipulation text-center rounded-lg hover:bg-emerald-500/10 active:bg-emerald-500/30 active:scale-95'
 										>
-											Перейти к уведомлениям →
+											Все уведомления →
 										</button>
 									</div>
 								</div>
@@ -524,23 +676,23 @@ export default function Header() {
 				{mobileMenuOpen && (
 					<div
 						ref={mobileMenuRef}
-						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] md:hidden z-40'
+						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-xl border-b border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.3)] md:hidden z-40 animate-slideInDown max-h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar'
 					>
-						<nav className='flex flex-col p-4 space-y-2 text-gray-200'>
+						<nav className='flex flex-col p-5 space-y-1.5 text-gray-200'>
 							{user ? (
 								<>
 									{user.role === 'admin' ? (
 										<>
 											<Link
 												href='/admin'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												Админ-панель
 											</Link>
 											<Link
 												href='/profile'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												Профиль
@@ -552,28 +704,28 @@ export default function Header() {
 												<>
 													<Link
 														href='/specialists'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Подиум исполнителей
 													</Link>
 													<Link
 														href='/tasks'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Каталог задач
 													</Link>
 													<Link
 														href='/tasks/my'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Мои задачи
 													</Link>
 													<Link
 														href='/responses/my'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Мои отклики
@@ -584,51 +736,77 @@ export default function Header() {
 												<>
 													<Link
 														href='/specialists'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Подиум исполнителей
 													</Link>
 													<Link
 														href='/tasks'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Каталог задач
 													</Link>
 													<Link
 														href='/my-tasks'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Мои задачи
 													</Link>
 													<Link
 														href='/tasks/new'
-														className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+														className='py-3 px-4 bg-emerald-600/20 hover:bg-emerald-600/30 rounded-lg ios-transition active:scale-95'
 														onClick={() => setMobileMenuOpen(false)}
 													>
-														Создать задачу
+														➕ Создать задачу
 													</Link>
 												</>
 											)}
 
 											<Link
 												href='/profile'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												Профиль
 											</Link>
 
+											<button
+												type="button"
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition relative active:scale-95 block text-emerald-300 hover:text-emerald-100 w-full text-left'
+												onClick={(e) => {
+													e.preventDefault()
+													setMobileMenuOpen(false)
+													setTimeout(() => {
+														window.location.href = '/notifications'
+													}, 100)
+												}}
+												onTouchEnd={(e) => {
+													e.preventDefault()
+													setMobileMenuOpen(false)
+													setTimeout(() => {
+														window.location.href = '/notifications'
+													}, 100)
+												}}
+											>
+												🔔 Уведомления
+												{unreadCount > 0 && (
+													<span className='absolute right-3 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
+														{unreadCount}
+													</span>
+												)}
+											</button>
+
 											<Link
 												href='/chats'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition relative'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition relative active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												💬 Чаты
 												{unreadMessagesCount > 0 && (
-													<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full'>
+													<span className='absolute right-3 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
 														{unreadMessagesCount}
 													</span>
 												)}
@@ -636,7 +814,7 @@ export default function Header() {
 
 											<Link
 												href='/community'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												🏘️ Сообщество
@@ -644,15 +822,39 @@ export default function Header() {
 
 											<Link
 												href='/hire'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												📑 Запросы найма
 											</Link>
 
 											<Link
+												href='/analytics'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												📊 Аналитика
+											</Link>
+
+											<Link
+												href='/portfolio'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												💼 Портфолио
+											</Link>
+
+											<Link
+												href='/referral'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												🎁 Рефералы
+											</Link>
+
+											<Link
 												href='/settings'
-												className='py-2 px-3 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
 												⚙️ Настройки
@@ -663,7 +865,7 @@ export default function Header() {
 													setMobileMenuOpen(false)
 													handleLogout()
 												}}
-												className='py-2 px-3 text-left text-red-400 hover:bg-emerald-500/10 rounded transition'
+												className='py-3 px-4 text-left text-red-400 hover:bg-red-500/10 rounded-lg ios-transition active:scale-95'
 											>
 												🚪 Выйти
 											</button>
@@ -674,14 +876,14 @@ export default function Header() {
 								<>
 									<Link
 										href='/login'
-										className='py-2 px-3 text-center border border-emerald-400 text-emerald-400 rounded hover:bg-emerald-400 hover:text-black transition'
+										className='py-3 px-4 text-center border-2 border-emerald-400 text-emerald-400 rounded-lg ios-button hover:bg-emerald-400 hover:text-black'
 										onClick={() => setMobileMenuOpen(false)}
 									>
 										Вход
 									</Link>
 									<Link
 										href='/register'
-										className='py-2 px-3 text-center bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-semibold rounded hover:brightness-110 transition'
+										className='py-3 px-4 text-center bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-lg ios-button hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'
 										onClick={() => setMobileMenuOpen(false)}
 									>
 										Регистрация
@@ -696,12 +898,13 @@ export default function Header() {
 				<nav className='hidden md:flex gap-7 items-center text-gray-200 font-poppins'>
 					{user ? (
 						<>
-							{/* 🔔 Уведомления */}
-							<div className='relative' ref={notifRef}>
-								<button
-									onClick={() => setNotifOpen(v => !v)}
-									className={`${linkStyle} text-lg flex items-center gap-1 relative`}
-								>
+						{/* 🔔 Уведомления */}
+						<div className='relative' ref={notifRef}>
+							<button
+								onClick={() => setNotifOpen(v => !v)}
+								className={`${linkStyle} text-lg flex items-center gap-1 relative`}
+								data-onboarding-target="notifications-bell"
+							>
 									<Bell className='w-5 h-5 text-emerald-400 transition-transform duration-300 group-hover:rotate-6' />
 
 									{/* 🔴 Счётчик уведомлений с плавным появлением */}
@@ -733,14 +936,19 @@ export default function Header() {
 												notifications.map((notif, index) => (
 													<div
 														key={index}
-														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-800 transition cursor-pointer touch-manipulation'
+														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-800 transition cursor-pointer touch-manipulation select-none'
 														onClick={(e) => {
-															e.preventDefault()
 															e.stopPropagation()
 															handleNotificationClick(notif)
 														}}
 														role="button"
 														tabIndex={0}
+														onKeyDown={(e) => {
+															if (e.key === 'Enter' || e.key === ' ') {
+																e.preventDefault()
+																handleNotificationClick(notif)
+															}
+														}}
 													>
 														<div className='flex items-start space-x-3'>
 															{/* 🎯 Иконка в зависимости от типа уведомления */}
@@ -804,17 +1012,29 @@ export default function Header() {
 										</div>
 
 										{/* 📎 Ссылка внизу */}
-										<div className='p-3 border-t border-emerald-500/20 bg-black/40 text-center'>
+										<div className='p-3 border-t border-emerald-500/20 bg-black/40'>
 											<button
+												type="button"
 												onClick={(e) => {
 													e.preventDefault()
 													e.stopPropagation()
-													handleGoToNotifications()
+													setNotifOpen(false)
+													// Всегда используем прямой переход
+													setTimeout(() => {
+														window.location.href = '/notifications'
+													}, 100)
 												}}
-												className='w-full text-emerald-400 hover:text-emerald-300 active:text-emerald-500 text-sm font-medium transition-colors touch-manipulation'
-												role="button"
+												onTouchEnd={(e) => {
+													e.preventDefault()
+													e.stopPropagation()
+													setNotifOpen(false)
+													setTimeout(() => {
+														window.location.href = '/notifications'
+													}, 100)
+												}}
+												className='w-full py-2 text-emerald-400 hover:text-emerald-300 active:text-emerald-200 text-sm font-medium transition-all touch-manipulation text-center rounded-lg hover:bg-emerald-500/10 active:bg-emerald-500/30 active:scale-95'
 											>
-												Перейти к уведомлениям →
+												Все уведомления →
 											</button>
 										</div>
 									</div>
@@ -875,52 +1095,87 @@ export default function Header() {
 										<button
 											onClick={() => setMenuOpen(v => !v)}
 											className={linkStyle}
+											data-onboarding-target="more-menu"
 										>
 											Ещё ▾
 										</button>
 										{menuOpen && (
-											<div className='absolute right-0 mt-2 w-48 bg-gray-800 border border-emerald-500/30 rounded-lg shadow-lg z-50 animate-fadeIn'>
+											<div className='absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-[10001] animate-fadeInDown overflow-hidden' data-onboarding-menu="more">
+												<div className='py-2'>
 												<Link
 													href='/chats'
-													className='block px-4 py-2 hover:bg-gray-700/60 transition relative'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400 relative'
 													onClick={() => setMenuOpen(false)}
+													data-onboarding-target="more-menu-chats"
 												>
 													💬 Чаты
 													{unreadMessagesCount > 0 && (
-														<span className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
+															<span className='absolute right-3 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
 															{unreadMessagesCount}
 														</span>
 													)}
 												</Link>
 												<Link
 													href='/community'
-													className='block px-4 py-2 hover:bg-gray-700/60 transition'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 													onClick={() => setMenuOpen(false)}
+													data-onboarding-target="more-menu-community"
 												>
 													🏘️ Сообщество
 												</Link>
 												<Link
 													href='/hire'
-													className='block px-4 py-2 hover:bg-gray-700/60 transition'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 													onClick={() => setMenuOpen(false)}
+													data-onboarding-target="more-menu-hire"
 												>
 													📑 Запросы найма
 												</Link>
+												</div>
+												
+												<div className='border-t border-emerald-500/20 py-2'>
+													<Link
+														href='/analytics'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+														onClick={() => setMenuOpen(false)}
+														data-onboarding-target="more-menu-analytics"
+													>
+														📊 Аналитика
+													</Link>
+													<Link
+														href='/portfolio'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+														onClick={() => setMenuOpen(false)}
+														data-onboarding-target="more-menu-portfolio"
+													>
+														💼 Портфолио
+													</Link>
+													<Link
+														href='/referral'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+														onClick={() => setMenuOpen(false)}
+														data-onboarding-target="more-menu-referral"
+													>
+														🎁 Рефералы
+													</Link>
+												</div>
 
+												<div className='border-t border-emerald-500/20 py-2'>
 												<Link
 													href='/settings'
-													className='block px-4 py-2 hover:bg-gray-700/60 transition'
+														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+														onClick={() => setMenuOpen(false)}
+														data-onboarding-target="more-menu-settings"
 												>
 													⚙️ Настройки
 												</Link>
 
-												<div className='border-t border-gray-700 mt-1'>
 													<button
 														onClick={() => {
 															setMenuOpen(false)
 															handleLogout()
 														}}
-														className='block w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700/60 transition'
+														className='block w-full text-left px-4 py-2.5 text-red-400 hover:bg-red-500/10 ios-transition-fast hover:text-red-300'
 													>
 														🚪 Выйти
 													</button>
@@ -935,13 +1190,13 @@ export default function Header() {
 						<>
 							<Link
 								href='/login'
-								className='px-5 py-2 rounded-full border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-medium'
+								className='px-5 py-2 rounded-full border-2 border-emerald-400 text-emerald-400 ios-button hover:bg-emerald-400 hover:text-black font-medium'
 							>
 								Вход
 							</Link>
 							<Link
 								href='/register'
-								className='px-5 py-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-black font-semibold hover:brightness-110 transition'
+								className='px-5 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold ios-button hover:shadow-[0_0_25px_rgba(16,185,129,0.5)]'
 							>
 								Регистрация
 							</Link>

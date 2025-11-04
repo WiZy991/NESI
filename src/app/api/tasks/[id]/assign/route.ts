@@ -1,6 +1,8 @@
 // app/api/tasks/[id]/assign/route.ts
+import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { getUserFromRequest } from '@/lib/auth'
 import { formatMoney, hasEnoughBalance, toNumber } from '@/lib/money'
+import { createNotification } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
@@ -90,15 +92,14 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 				},
 			}),
 
-			// У заказчика: списываем с баланса и морозим
+			// У заказчика: только морозим средства (без списания с баланса)
 			prisma.user.update({
 				where: { id: user.id },
 				data: {
-					balance: { decrement: priceDecimal },
 					frozenBalance: { increment: priceDecimal },
 					transactions: {
 						create: {
-							amount: new Prisma.Decimal(-toNumber(price)),
+							amount: new Prisma.Decimal(0),
 							type: 'freeze',
 							reason: `Заморозка ${formatMoney(price)} для задачи "${
 								task.title
@@ -108,6 +109,38 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 				},
 			}),
 		])
+
+		// Отправляем уведомление исполнителю о назначении на задачу
+		try {
+			const customerName = user.fullName || user.email
+			const notificationMessage = `Вас назначили на задачу "${
+				task.title
+			}" (${formatMoney(price)})`
+
+			// Создаем уведомление в БД
+			await createNotification({
+				userId: executorId,
+				message: notificationMessage,
+				link: `/tasks/${taskId}`,
+				type: 'assignment',
+			})
+
+			// Отправляем SSE уведомление
+			sendNotificationToUser(executorId, {
+				type: 'assignment',
+				title: 'Вас назначили на задачу',
+				message: notificationMessage,
+				link: `/tasks/${taskId}`,
+				playSound: true,
+			})
+
+			console.log(
+				'✅ Уведомление о назначении отправлено исполнителю:',
+				executorId
+			)
+		} catch (notifError) {
+			console.error('❌ Ошибка отправки уведомления о назначении:', notifError)
+		}
 
 		return NextResponse.json({ success: true })
 	} catch (err) {

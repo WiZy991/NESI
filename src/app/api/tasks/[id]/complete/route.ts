@@ -5,6 +5,7 @@ import { formatMoney, toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
+import { grantReferralBonus } from '@/lib/referral'
 
 export async function PATCH(req: NextRequest, { params }: any) {
 	try {
@@ -13,17 +14,17 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		if (!user)
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-		const task = await prisma.task.findUnique({
-			where: { id },
-			select: {
-				id: true,
-				title: true,
-				customerId: true,
-				executorId: true,
-				status: true,
-				escrowAmount: true,
-			},
-		})
+	const task = await prisma.task.findUnique({
+		where: { id },
+		select: {
+			id: true,
+			title: true,
+			customerId: true,
+			executorId: true,
+			status: true,
+			escrowAmount: true,
+		},
+	})
 
 		if (!task)
 			return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
@@ -86,10 +87,11 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				},
 			}),
 
-			// У заказчика: размораживаем (минус из frozenBalance)
+			// У заказчика: списываем с баланса и размораживаем
 			prisma.user.update({
 				where: { id: task.customerId },
 				data: {
+					balance: { decrement: new Prisma.Decimal(escrowNum) },
 					frozenBalance: { decrement: new Prisma.Decimal(escrowNum) },
 					transactions: {
 						create: [
@@ -151,6 +153,14 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			amount: payout,
 			playSound: true,
 		})
+
+	// 🎁 Начисляем реферальный бонус, если исполнитель был приглашен по реферальной ссылке
+	try {
+		await grantReferralBonus(task.executorId, task.id, task.escrowAmount)
+	} catch (err) {
+		console.error('⚠️ Ошибка начисления реферального бонуса:', err)
+		// Не прерываем выполнение, если бонус не начислился
+	}
 
 		return NextResponse.json({ success: true })
 	} catch (err) {

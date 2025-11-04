@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { createNotification } from '@/lib/notify'
+import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 
 export async function POST(req: Request, context: { params: { id: string } }) {
   try {
@@ -17,7 +19,20 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      select: { id: true, status: true, subcategoryId: true }
+      select: { 
+        id: true, 
+        title: true,
+        status: true, 
+        subcategoryId: true,
+        customerId: true,
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        }
+      }
     })
     if (!task) return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
     if (task.status !== 'open') {
@@ -64,6 +79,33 @@ export async function POST(req: Request, context: { params: { id: string } }) {
         price: typeof price === 'number' ? price : null
       }
     })
+
+    // Отправляем уведомление заказчику о новом отклике
+    try {
+      const executorName = user.fullName || user.email
+      const notificationMessage = `${executorName} откликнулся на вашу задачу "${task.title}"`
+      
+      // Создаем уведомление в БД
+      await createNotification({
+        userId: task.customerId,
+        message: notificationMessage,
+        link: `/tasks/${taskId}`,
+        type: 'response'
+      })
+      
+      // Отправляем SSE уведомление
+      sendNotificationToUser(task.customerId, {
+        type: 'response',
+        title: 'Новый отклик на задачу',
+        message: notificationMessage,
+        link: `/tasks/${taskId}`,
+        playSound: true
+      })
+      
+      console.log('✅ Уведомление о новом отклике отправлено заказчику:', task.customerId)
+    } catch (notifError) {
+      console.error('❌ Ошибка отправки уведомления о новом отклике:', notifError)
+    }
 
     return NextResponse.json({ ok: true, response })
   } catch (e) {

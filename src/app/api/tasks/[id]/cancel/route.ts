@@ -41,16 +41,15 @@ export async function POST(
 				prisma.user.update({
 					where: { id: task.customerId },
 					data: {
-						balance: { increment: escrowDecimal },
 						frozenBalance: { decrement: escrowDecimal },
 					},
 				}),
 				prisma.transaction.create({
 					data: {
 						userId: task.customerId,
-						amount: escrowDecimal,
+						amount: new Prisma.Decimal(0),
 						type: 'refund',
-						reason: `Возврат средств за отмену задачи "${task.title}"`,
+						reason: `Разморозка средств за отмену задачи "${task.title}"`,
 					},
 				}),
 			])

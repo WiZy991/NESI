@@ -1,12 +1,40 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
-
-const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'gif']
-const MAX_SIZE_MB = 10
+import { validateFile } from '@/lib/fileValidation'
+import { getUserFromRequest } from '@/lib/auth'
+import { normalizeFileName, isValidFileName } from '@/lib/security'
+import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 
 export async function POST(req: Request) {
   try {
+    // Проверка авторизации
+    const user = await getUserFromRequest(req)
+    if (!user) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    }
+
+    // Rate limiting для загрузки файлов
+    const uploadRateLimit = createUserRateLimit(rateLimitConfigs.upload)
+    const rateLimitResult = await uploadRateLimit(req)
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Слишком много загрузок файлов. Подождите немного.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetTime - Date.now()) / 1000
+            ).toString(),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          },
+        }
+      )
+    }
+
     const formData = await req.formData()
     const file = formData.get('file') as File
 
@@ -14,22 +42,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Файл не найден' }, { status: 400 })
     }
 
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
-      return NextResponse.json({ error: 'Недопустимый тип файла' }, { status: 400 })
+    // Защита от path traversal
+    if (!isValidFileName(file.name)) {
+      return NextResponse.json(
+        { error: 'Недопустимое имя файла' },
+        { status: 400 }
+      )
     }
 
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      return NextResponse.json({ error: `Файл слишком большой (макс ${MAX_SIZE_MB}MB)` }, { status: 400 })
+    // Нормализация имени файла
+    const safeFileName = normalizeFileName(file.name)
+
+    // Полная валидация файла (magic bytes, размер, тип)
+    const validation = await validateFile(file, true)
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
 
+    // Используем определенный MIME тип из сигнатуры
+    const mimeType = validation.detectedMimeType || file.type
+
     const savedFile = await prisma.file.create({
       data: {
         id: randomUUID(),
-        filename: file.name,
-        mimetype: file.type,
+        filename: safeFileName,
+        mimetype: mimeType,
         size: file.size,
         data: buffer,
       },
@@ -40,7 +79,7 @@ export async function POST(req: Request) {
       name: savedFile.filename,
       mimetype: savedFile.mimetype,
       size: savedFile.size,
-      url: `/api/files/${savedFile.id}`, // 👈 вернём готовую ссылку
+      url: `/api/files/${savedFile.id}`,
     })
   } catch (err) {
     console.error('❌ Ошибка загрузки файла:', err)

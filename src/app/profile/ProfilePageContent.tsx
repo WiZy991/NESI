@@ -3,6 +3,7 @@
 import EditProfileModal from '@/components/EditProfileModal'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import {
 	FaAward,
@@ -115,6 +116,8 @@ export default function ProfilePageContent() {
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [amount, setAmount] = useState(100)
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+	const [withdrawError, setWithdrawError] = useState<string | null>(null)
+	const [withdrawLoading, setWithdrawLoading] = useState(false)
 
 	const fetchProfile = async () => {
 		if (!token) return
@@ -165,15 +168,41 @@ export default function ProfilePageContent() {
 	}, [user, token])
 
 	const handleWithdraw = async () => {
-		await fetch('/api/wallet/withdraw', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${token}`,
-			},
-			body: JSON.stringify({ amount }),
-		})
-		location.reload()
+		if (!amount || amount <= 0) {
+			setWithdrawError('Укажите сумму для вывода')
+			return
+		}
+
+		setWithdrawError(null)
+		setWithdrawLoading(true)
+
+		try {
+			const res = await fetch('/api/wallet/withdraw', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ amount }),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				// Показываем ошибку пользователю
+				setWithdrawError(data.error || 'Не удалось вывести средства')
+				return
+			}
+
+			// Успешно - обновляем профиль
+			await fetchProfile()
+			setAmount(100)
+			setWithdrawError(null)
+		} catch (err: any) {
+			setWithdrawError(err.message || 'Ошибка при выводе средств')
+		} finally {
+			setWithdrawLoading(false)
+		}
 	}
 
 	const handleProfileUpdateSuccess = () => {
@@ -210,9 +239,11 @@ export default function ProfilePageContent() {
                           shadow-[0_0_15px_rgba(16,185,129,0.2)] text-center'
 					>
 						{avatarSrc ? (
-							<img
+							<Image
 								src={avatarSrc}
-								alt='Avatar'
+								alt='Аватар пользователя'
+								width={128}
+								height={128}
 								className='w-32 h-32 rounded-full border-2 border-emerald-500 
                            shadow-[0_0_20px_rgba(16,185,129,0.5)] mx-auto mb-4 object-cover'
 							/>
@@ -320,25 +351,45 @@ export default function ProfilePageContent() {
 									</span>
 								</div>
 							)}
-					</div>
-					<div className='flex gap-2 mb-4'>
-							<input
-								type='number'
-								value={amount}
-								onChange={e => setAmount(parseInt(e.target.value))}
-								className='bg-transparent border border-emerald-500/30 text-white p-2 
+						</div>
+						<div className='flex flex-col gap-2 mb-4'>
+							<div className='flex gap-2'>
+								<input
+									type='number'
+									value={amount}
+									onChange={e => {
+										setAmount(parseInt(e.target.value))
+										if (withdrawError) setWithdrawError(null)
+									}}
+									className='bg-transparent border border-emerald-500/30 text-white p-2 
                            rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-24 text-sm'
-								placeholder='Сумма'
-							/>
-							<button
-								onClick={handleWithdraw}
-								className='px-3 py-2 rounded border border-red-400 
+									placeholder='Сумма'
+									disabled={withdrawLoading}
+								/>
+								<button
+									onClick={handleWithdraw}
+									disabled={withdrawLoading}
+									className='px-3 py-2 rounded border border-red-400 
                                                           text-red-400 hover:bg-red-400 
-                                                          hover:text-black transition text-sm'
-								title='Вывод средств'
-							>
-								- Вывести
-							</button>
+                                                          hover:text-black transition text-sm disabled:opacity-50 disabled:cursor-not-allowed'
+									title='Вывод средств'
+								>
+									{withdrawLoading ? (
+										<span className='flex items-center gap-2'>
+											<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
+											Обработка...
+										</span>
+									) : (
+										'- Вывести'
+									)}
+								</button>
+							</div>
+							{withdrawError && (
+								<div className='bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
+									<span className='font-semibold'>⚠️ Ошибка:</span>{' '}
+									{withdrawError}
+								</div>
+							)}
 						</div>
 
 						<h4 className='text-sm font-semibold text-emerald-300 mb-2'>
@@ -365,6 +416,56 @@ export default function ProfilePageContent() {
 								))}
 							</div>
 						)}
+					</div>
+
+					{/* Быстрые действия */}
+					<div
+						className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 
+                          shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+					>
+						<h3 className='text-lg font-semibold text-emerald-400 mb-3'>
+							⚡ Быстрые действия
+						</h3>
+						<div className='grid grid-cols-1 gap-2'>
+							<Link
+								href='/analytics'
+								className='flex items-center gap-3 p-3 bg-gradient-to-r from-purple-900/30 to-purple-800/30 
+								         border border-purple-500/30 rounded-lg hover:border-purple-400/50 
+								         transition-all hover:shadow-[0_0_10px_rgba(168,85,247,0.3)]'
+							>
+								<span className='text-2xl'>📊</span>
+								<div className='flex-1'>
+									<div className='text-white font-semibold'>Аналитика</div>
+									<div className='text-gray-400 text-xs'>Статистика и графики</div>
+								</div>
+							</Link>
+
+							<Link
+								href='/portfolio'
+								className='flex items-center gap-3 p-3 bg-gradient-to-r from-blue-900/30 to-blue-800/30 
+								         border border-blue-500/30 rounded-lg hover:border-blue-400/50 
+								         transition-all hover:shadow-[0_0_10px_rgba(59,130,246,0.3)]'
+							>
+								<span className='text-2xl'>💼</span>
+								<div className='flex-1'>
+									<div className='text-white font-semibold'>Портфолио</div>
+									<div className='text-gray-400 text-xs'>Мои лучшие работы</div>
+								</div>
+							</Link>
+
+							<Link
+								href='/referral'
+								className='flex items-center gap-3 p-3 bg-gradient-to-r from-pink-900/30 to-pink-800/30 
+								         border border-pink-500/30 rounded-lg hover:border-pink-400/50 
+								         transition-all hover:shadow-[0_0_10px_rgba(236,72,153,0.3)]'
+							>
+								<span className='text-2xl'>🎁</span>
+								<div className='flex-1'>
+									<div className='text-white font-semibold'>Рефералы</div>
+									<div className='text-gray-400 text-xs'>Приглашай и зарабатывай</div>
+								</div>
+							</Link>
+						</div>
 					</div>
 				</div>
 
@@ -690,16 +791,16 @@ export default function ProfilePageContent() {
 				)}
 			</div>
 
-		{/* Модальное окно редактирования профиля */}
-		{token && (
-			<EditProfileModal
-				isOpen={isEditModalOpen}
-				onClose={() => setIsEditModalOpen(false)}
-				user={profile}
-				token={token}
-				onSuccess={handleProfileUpdateSuccess}
-			/>
-		)}
-	</div>
+			{/* Модальное окно редактирования профиля */}
+			{token && (
+				<EditProfileModal
+					isOpen={isEditModalOpen}
+					onClose={() => setIsEditModalOpen(false)}
+					user={profile}
+					token={token}
+					onSuccess={handleProfileUpdateSuccess}
+				/>
+			)}
+		</div>
 	)
 }

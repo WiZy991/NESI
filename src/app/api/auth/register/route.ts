@@ -3,14 +3,45 @@ import bcrypt from 'bcrypt'
 import prisma from '@/lib/prisma'
 import crypto from 'crypto'
 import { sendVerificationEmail } from '@/lib/mail'
+import { sanitizeText } from '@/lib/security'
+import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
+import { registerSchema, validateWithZod } from '@/lib/validations'
 
 export async function POST(req: Request) {
   try {
-    const { email, password, fullName, role } = await req.json()
+    // Rate limiting для регистрации (защита от спама)
+    const registerRateLimit = rateLimit(rateLimitConfigs.auth)
+    const rateLimitResult = await registerRateLimit(req)
 
-    if (!email?.trim() || !password?.trim() || !fullName?.trim()) {
-      return NextResponse.json({ error: 'Заполните все поля' }, { status: 400 })
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Слишком много попыток регистрации. Попробуйте позже.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetTime - Date.now()) / 1000
+            ).toString(),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          },
+        }
+      )
     }
+
+    const body = await req.json()
+    
+    // Валидация с использованием zod
+    const validation = validateWithZod(registerSchema, body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.errors[0] || 'Ошибка валидации данных' },
+        { status: 400 }
+      )
+    }
+
+    const { email, password, fullName, role, referralCode } = validation.data
 
     // ищем по email без учёта регистра, чтобы не плодить дубликаты
     const existing = await prisma.user.findFirst({
@@ -23,15 +54,29 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
+    // Проверяем реферальный код, если указан
+    let referrerId: string | undefined
+    if (referralCode?.trim()) {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: referralCode.trim().toUpperCase() },
+        select: { id: true },
+      })
+      
+      if (referrer) {
+        referrerId = referrer.id
+      }
+    }
+
     // создаём пользователя и токен в одной транзакции
     const { userId, token } = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          email: email.toLowerCase(),
-          fullName: fullName.trim(),
+          email: email.toLowerCase().trim(),
+          fullName: sanitizeText(fullName.trim()),
           password: hashedPassword,
           role,
           verified: false,
+          referredById: referrerId,
         },
         select: { id: true, email: true },
       })

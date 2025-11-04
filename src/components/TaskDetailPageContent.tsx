@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import AssignExecutorButton from './AssignExecutorButton'
 import CancelExecutorButton from './CancelExecutorButton'
-import ChatBox from './ChatBox'
 import CompleteTaskButton from './CompleteTaskButton'
 import ResponseForm from './ResponseForm'
 import ReviewForm from './ReviewForm'
@@ -716,19 +715,36 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 				</div>
 			)}
 
-			{/* Чат по задаче */}
+			{/* Кнопка перехода в чат по задаче */}
 			{canChat && (
-				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
-					<div className='flex items-center gap-3 mb-4'>
-						<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
-							<span className='text-sm'>💬</span>
+				<Link
+					href={`/chats?taskId=${task.id}`}
+					className='block bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] group'
+				>
+					<div className='flex items-center justify-between'>
+						<div className='flex items-center gap-3'>
+							<div className='w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform'>
+								<span className='text-lg'>💬</span>
+							</div>
+							<div>
+								<h3 className='text-lg font-semibold text-emerald-300 group-hover:text-emerald-400 transition-colors'>
+									Чат по задаче
+								</h3>
+								<p className='text-sm text-gray-400'>
+									Общайтесь с {isCustomer ? 'исполнителем' : 'заказчиком'} в реальном времени
+								</p>
+							</div>
 						</div>
-						<h3 className='text-lg font-semibold text-emerald-300'>
-							Чат по задаче
-						</h3>
+						<svg 
+							className='w-6 h-6 text-emerald-400 group-hover:translate-x-1 transition-transform' 
+							fill='none' 
+							stroke='currentColor' 
+							viewBox='0 0 24 24'
+						>
+							<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
+						</svg>
 					</div>
-					<ChatBox taskId={task.id} />
-				</div>
+				</Link>
 			)}
 
 			{/* ⚖️ Отображение статуса спора */}
@@ -784,24 +800,24 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 				</div>
 			)}
 
-			{/* 💥 Кнопка открытия спора */}
-			{!hasDispute && (isCustomer || isExecutor) && (
-				<div className='mt-6 bg-black/40 p-5 rounded-xl border border-red-800/40 hover:border-red-700/50 transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.1)]'>
-					<h3 className='text-lg font-semibold text-red-400 mb-3 flex items-center gap-2'>
-						<span className='text-xl'>⚠️</span>
-						Возникла проблема?
-					</h3>
-					<p className='text-gray-400 text-sm mb-4'>
-						Если возникли сложности с выполнением задачи, вы можете открыть
-						спор. Администратор рассмотрит ситуацию и примет решение.
-					</p>
-					<DisputeForm
-						taskId={task.id}
-						onSuccess={loadDispute}
-						token={token!}
-					/>
-				</div>
-			)}
+		{/* 💥 Кнопка открытия спора */}
+		{!hasDispute && (isCustomer || isExecutor) && task.status === 'in_progress' && (
+			<div className='mt-6 bg-black/40 p-5 rounded-xl border border-red-800/40 hover:border-red-700/50 transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.1)]'>
+				<h3 className='text-lg font-semibold text-red-400 mb-3 flex items-center gap-2'>
+					<span className='text-xl'>⚠️</span>
+					Возникла проблема?
+				</h3>
+				<p className='text-gray-400 text-sm mb-4'>
+					Если возникли сложности с выполнением задачи, вы можете открыть
+					спор. Администратор рассмотрит ситуацию и примет решение.
+				</p>
+				<DisputeForm
+					taskId={task.id}
+					onSuccess={loadDispute}
+					token={token!}
+				/>
+			</div>
+		)}
 
 			{/* Навигация */}
 			<div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pt-6 border-t border-gray-700/50'>

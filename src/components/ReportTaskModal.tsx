@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 type Props = {
 	taskId: string
@@ -23,6 +24,13 @@ export default function ReportTaskModal({ taskId, taskTitle, onClose }: Props) {
 	const [reason, setReason] = useState('')
 	const [description, setDescription] = useState('')
 	const [isSubmitting, setIsSubmitting] = useState(false)
+
+	// Закрытие по Escape
+	useEscapeKey(() => {
+		if (!isSubmitting) {
+			onClose()
+		}
+	})
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()

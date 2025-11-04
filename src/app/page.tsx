@@ -73,10 +73,13 @@ export default function Home() {
 				<div className='hidden lg:block absolute left-0 top-2/4 -translate-y-1/2 w-2/4 h-auto opacity-75 pointer-events-none'>
 					<Image
 						src='/nesi_snake.svg'
-						alt='Decorative'
+						alt=''
 						width={400}
 						height={600}
 						className='w-full h-auto'
+						priority={false}
+						loading='lazy'
+						aria-hidden="true"
 					/>
 				</div>
 
@@ -152,9 +155,11 @@ export default function Home() {
 							<div className='aspect-[5/4] rounded-xl overflow-hidden relative'>
 								<Image
 									src='/anime_images.svg'
-									alt='Project preview'
+									alt='Иллюстрация платформы NESI для бизнеса и талантов'
 									fill
 									className='object-contain'
+									priority={false}
+									loading='lazy'
 								/>
 							</div>
 						</div>

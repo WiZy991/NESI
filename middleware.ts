@@ -6,13 +6,21 @@ export function middleware(req: NextRequest) {
 	const url = req.nextUrl
 	const { pathname, search } = url
 
-	// 1) Пропускаем статику/шрифты/картинки
+	// 1) Пропускаем статику/шрифты/картинки (включая favicon.ico)
 	const isStaticAsset =
 		pathname.startsWith('/_next') ||
-		/\.(?:ico|png|jpg|jpeg|svg|gif|webp|css|js|map|txt|woff2?|ttf)$/.test(
+		pathname.startsWith('/favicon.ico') ||
+		pathname.startsWith('/favicon-') ||
+		pathname.startsWith('/apple-touch-icon') ||
+		pathname.startsWith('/site.webmanifest') ||
+		/\.(?:ico|png|jpg|jpeg|svg|gif|webp|css|js|map|txt|woff2?|ttf|json)$/.test(
 			pathname
 		)
-	if (isStaticAsset) return NextResponse.next()
+	if (isStaticAsset) {
+		const res = NextResponse.next()
+		// Для статических файлов не добавляем строгие security headers
+		return res
+	}
 
 	// 2) Явно публичные страницы (роуты верхнего уровня)
 	const PUBLIC_PAGES = new Set<string>([
@@ -27,8 +35,11 @@ export function middleware(req: NextRequest) {
 
 	const isExactPublicPage = PUBLIC_PAGES.has(pathname)
 
-	// 3) Авторизация по токену из cookie (главный источник правды)
-	const token = req.cookies.get('token')?.value || ''
+	// 3) Авторизация по токену из cookie или заголовка Authorization
+	const cookieToken = req.cookies.get('token')?.value || ''
+	const authHeader = req.headers.get('authorization')
+	const headerToken = authHeader?.replace('Bearer ', '') || ''
+	const token = cookieToken || headerToken
 	const hasValidToken = !!(token && verifyJWT(token))
 
 	// 4) Если уже авторизован и идёт на /login или /register → уводим на /tasks
@@ -91,12 +102,44 @@ export function middleware(req: NextRequest) {
 		}
 	}
 
-	// 7) Минимальные security-заголовки (опционально)
+	// 7) Улучшенные security-заголовки
 	const res = NextResponse.next()
+	
+	// Защита от clickjacking
 	res.headers.set('X-Frame-Options', 'DENY')
+	
+	// Защита от MIME type sniffing
 	res.headers.set('X-Content-Type-Options', 'nosniff')
-	res.headers.set('Referrer-Policy', 'origin-when-cross-origin')
+	
+	// Контроль referrer информации
+	res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+	
+	// Защита от XSS (для старых браузеров)
 	res.headers.set('X-XSS-Protection', '1; mode=block')
+	
+	// Content Security Policy
+	// Для SSE endpoints разрешаем соединения без ограничений
+	const isSSEEndpoint = pathname === '/api/notifications/stream'
+	const isApi = pathname.startsWith('/api/')
+	
+	if (!isSSEEndpoint) {
+		const csp = isApi
+			? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';"
+			: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: ws: wss:; frame-ancestors 'none';"
+		res.headers.set('Content-Security-Policy', csp)
+	}
+	
+	// Permissions Policy (Feature Policy)
+	res.headers.set(
+		'Permissions-Policy',
+		'geolocation=(), microphone=(), camera=(), payment=()'
+	)
+	
+	// Strict Transport Security (только в продакшене с HTTPS)
+	if (process.env.NODE_ENV === 'production' && req.nextUrl.protocol === 'https:') {
+		res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+	}
+	
 	return res
 }
 

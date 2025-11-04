@@ -2,9 +2,31 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import crypto from 'crypto'
 import { sendResetPasswordEmail } from '@/lib/mail'
+import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 
 export async function POST(req: Request) {
   try {
+    // Rate limiting для восстановления пароля (защита от спама)
+    const forgotPasswordRateLimit = rateLimit(rateLimitConfigs.auth)
+    const rateLimitResult = await forgotPasswordRateLimit(req)
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Слишком много запросов. Попробуйте позже.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetTime - Date.now()) / 1000
+            ).toString(),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          },
+        }
+      )
+    }
+
     const { email } = await req.json()
 
     const user = await prisma.user.findUnique({ where: { email } })

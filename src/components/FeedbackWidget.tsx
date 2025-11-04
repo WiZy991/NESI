@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { MessageSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 export default function FeedbackWidget() {
 	const [isOpen, setIsOpen] = useState(false)
@@ -13,6 +14,13 @@ export default function FeedbackWidget() {
 		type: 'general',
 	})
 	const [isSubmitting, setIsSubmitting] = useState(false)
+
+	// Закрытие по Escape
+	useEscapeKey(() => {
+		if (!isSubmitting && isOpen) {
+			setIsOpen(false)
+		}
+	})
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()

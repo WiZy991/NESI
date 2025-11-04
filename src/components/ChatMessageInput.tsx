@@ -60,7 +60,7 @@ export default function MessageInput({
 		if (textarea) {
 			// Если сообщение пустое, устанавливаем минимальную высоту
 			if (!message.trim()) {
-				textarea.style.height = '44px'
+				textarea.style.height = '48px'
 				return
 			}
 			
@@ -68,7 +68,7 @@ export default function MessageInput({
 			textarea.style.height = 'auto'
 			
 			// Вычисляем новую высоту на основе содержимого
-			const newHeight = Math.max(44, Math.min(textarea.scrollHeight, 150))
+			const newHeight = Math.max(48, Math.min(textarea.scrollHeight, 150))
 			textarea.style.height = `${newHeight}px`
 		}
 	}, [message])
@@ -142,7 +142,7 @@ export default function MessageInput({
 				
 				// Сбрасываем высоту textarea к начальному размеру
 				if (textareaRef.current) {
-					textareaRef.current.style.height = '44px'
+					textareaRef.current.style.height = '48px'
 				}
 				
 				if (fileInputRef.current) {
@@ -248,17 +248,20 @@ export default function MessageInput({
 								fileInputRef.current.value = ''
 							}
 						}}
-						className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-600/50 text-gray-400 hover:text-red-400 transition-colors'
-						title='Удалить файл'
+						className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-600/50 text-gray-400 hover:text-red-400 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400/50'
+						aria-label='Удалить файл'
 					>
-						✕
+						<span aria-hidden="true">✕</span>
 					</button>
 				</div>
 			)}
 
-			<div className='flex items-end gap-2 sm:gap-2'>
+			<div className='flex items-end gap-3'>
 				{/* Кнопка прикрепления файла */}
-				<label className='cursor-pointer flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 active:bg-gray-600 transition-colors touch-manipulation'>
+				<label 
+					className='cursor-pointer flex-shrink-0 w-12 h-12 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-gradient-to-br from-gray-600/50 to-gray-700/50 border border-gray-500/30 hover:border-emerald-400/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] ios-button touch-manipulation'
+					aria-label="Прикрепить файл"
+				>
 					<input
 						ref={fileInputRef}
 						type='file'
@@ -267,7 +270,7 @@ export default function MessageInput({
 						accept='image/*,.pdf,.doc,.docx,.txt'
 					/>
 					<svg
-						className='w-5 h-5 sm:w-5 sm:h-5 text-gray-400'
+						className='w-5 h-5 text-gray-300 group-hover:text-emerald-400'
 						fill='none'
 						stroke='currentColor'
 						viewBox='0 0 24 24'
@@ -286,7 +289,7 @@ export default function MessageInput({
 					<button
 						type='button'
 						onClick={() => setShowEmojiPicker(prev => !prev)}
-						className='flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 active:bg-gray-600 transition-colors text-xl sm:text-lg touch-manipulation'
+						className='flex-shrink-0 w-12 h-12 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-gradient-to-br from-gray-600/50 to-gray-700/50 border border-gray-500/30 hover:border-emerald-400/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] ios-button text-2xl sm:text-xl touch-manipulation'
 					>
 						😊
 					</button>
@@ -317,17 +320,17 @@ export default function MessageInput({
 								handleSubmit(e as any)
 							}
 						}}
-						placeholder='Сообщение...'
+						placeholder='Напишите сообщение...'
 						rows={1}
-						className='w-full px-4 sm:px-4 py-3 sm:py-2.5 bg-gray-700/50 border border-gray-600/50 rounded-3xl text-white text-base sm:text-base placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none custom-scrollbar'
+						className='w-full px-5 py-3.5 bg-gradient-to-r from-gray-600/40 to-gray-700/40 border border-gray-500/30 rounded-full text-white text-base placeholder-gray-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:bg-gray-600/50 resize-none custom-scrollbar shadow-inner hover:border-emerald-500/40 ios-transition'
 						disabled={sending}
 						style={{ 
-							height: '44px',
-							minHeight: '44px', 
+							height: '48px',
+							minHeight: '48px', 
 							maxHeight: '150px',
 							lineHeight: '1.5',
 							overflow: 'auto',
-							transition: 'height 0.1s ease'
+							transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
 						}}
 					/>
 				</div>
@@ -336,7 +339,7 @@ export default function MessageInput({
 				<button
 					type='submit'
 					disabled={sending || (!message.trim() && !file)}
-					className='flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center touch-manipulation'
+					className='flex-shrink-0 w-12 h-12 sm:w-11 sm:h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-400 hover:to-emerald-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ios-button shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] flex items-center justify-center touch-manipulation border border-emerald-400/20'
 					title={sending ? 'Отправка...' : 'Отправить'}
 				>
 					{sending ? (

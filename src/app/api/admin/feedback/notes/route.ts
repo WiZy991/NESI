@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { verifyJWT } from '@/lib/jwt'
+import { getUserFromRequest } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
 	try {
-		const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-
-		if (!token) {
+		const user = await getUserFromRequest(request)
+		
+		if (!user) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
-
-		const payload = verifyJWT(token)
-		if (!payload || (payload as any).role !== 'admin') {
+		
+		if (user.role !== 'admin') {
 			return NextResponse.json({ error: 'Доступ запрещён' }, { status: 403 })
 		}
 

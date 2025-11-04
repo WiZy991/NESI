@@ -142,32 +142,32 @@ export async function GET(req: NextRequest) {
 			})
 		})
 
-		// Группируем сообщения из задач по задачам
-		const taskChats = new Map<string, any>()
-		taskMessages.forEach(msg => {
-			const taskId = msg.taskId
-			const otherUser =
-				msg.senderId === user.id
-					? msg.task.executorId === user.id
-						? msg.task.customer
-						: msg.task.executor
-					: msg.sender
+	// Группируем сообщения из задач по задачам
+	const taskChats = new Map<string, any>()
+	taskMessages.forEach(msg => {
+		const taskId = msg.taskId
+		
+		// Определяем другого участника на основе роли текущего пользователя в задаче
+		// Если я заказчик - другой участник это исполнитель, и наоборот
+		const otherUser = user.id === msg.task.customerId 
+			? msg.task.executor 
+			: msg.task.customer
 
-			if (!taskChats.has(taskId)) {
-				taskChats.set(taskId, {
-					id: `task_${taskId}`,
-					type: 'task',
-					task: msg.task,
-					otherUser,
-					lastMessage: msg,
-					unreadCount: 0,
-					messages: [],
-				})
-			}
+		if (!taskChats.has(taskId)) {
+			taskChats.set(taskId, {
+				id: `task_${taskId}`,
+				type: 'task',
+				task: msg.task,
+				otherUser,
+				lastMessage: msg,
+				unreadCount: 0,
+				messages: [],
+			})
+		}
 
-			// Добавляем сообщение в чат
-			taskChats.get(taskId).messages.push(msg)
-		})
+		// Добавляем сообщение в чат
+		taskChats.get(taskId).messages.push(msg)
+	})
 
 		// Подсчитываем непрочитанные сообщения для чатов задач
 		taskChats.forEach((chat, taskId) => {

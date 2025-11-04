@@ -71,13 +71,58 @@ export async function GET(req: NextRequest) {
 		},
 	})
 
+	// Безопасные CORS настройки
+	const origin = req.headers.get('origin')
+	const allowedOrigins = [
+		process.env.NEXT_PUBLIC_BASE_URL,
+		process.env.NEXT_PUBLIC_APP_URL,
+		'http://localhost:3000',
+		'https://localhost:3000',
+	].filter(Boolean) as string[]
+
+	const corsOrigin =
+		origin && allowedOrigins.some(allowed => origin.startsWith(allowed))
+			? origin
+			: allowedOrigins[0] || '*'
+
 	return new Response(stream, {
 		headers: {
 			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
+			'Cache-Control': 'no-cache, no-transform',
+			'X-Accel-Buffering': 'no', // Отключаем буферизацию в nginx
 			Connection: 'keep-alive',
-			'Access-Control-Allow-Origin': '*',
-			'Access-Control-Allow-Headers': 'Cache-Control',
+			'Access-Control-Allow-Origin': corsOrigin,
+			'Access-Control-Allow-Credentials': 'true',
+			'Access-Control-Allow-Headers': 'Cache-Control, Authorization, Content-Type',
+			'Access-Control-Allow-Methods': 'GET, OPTIONS',
+			// Убираем строгие CSP заголовки для SSE
+			'X-Content-Type-Options': 'nosniff',
+		},
+	})
+}
+
+// Обработка OPTIONS запросов для CORS preflight
+export async function OPTIONS(req: NextRequest) {
+	const origin = req.headers.get('origin')
+	const allowedOrigins = [
+		process.env.NEXT_PUBLIC_BASE_URL,
+		process.env.NEXT_PUBLIC_APP_URL,
+		'http://localhost:3000',
+		'https://localhost:3000',
+	].filter(Boolean) as string[]
+
+	const corsOrigin =
+		origin && allowedOrigins.some(allowed => origin.startsWith(allowed))
+			? origin
+			: allowedOrigins[0] || '*'
+
+	return new Response(null, {
+		status: 204,
+		headers: {
+			'Access-Control-Allow-Origin': corsOrigin,
+			'Access-Control-Allow-Credentials': 'true',
+			'Access-Control-Allow-Headers': 'Cache-Control, Authorization, Content-Type',
+			'Access-Control-Allow-Methods': 'GET, OPTIONS',
 		},
 	})
 }

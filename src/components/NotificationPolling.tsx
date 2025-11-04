@@ -20,6 +20,12 @@ export function NotificationPolling({
 	interval = 5000,
 }: NotificationPollingProps) {
 	const lastCheckRef = useRef<Date>(new Date())
+	const onNotificationRef = useRef(onNotification)
+
+	// Обновляем ref при изменении onNotification, но не перезапускаем useEffect
+	useEffect(() => {
+		onNotificationRef.current = onNotification
+	}, [onNotification])
 
 	useEffect(() => {
 		if (!enabled || !userId || !token) {
@@ -58,7 +64,7 @@ export function NotificationPolling({
 					
 					data.notifications.forEach((notification: any) => {
 						console.log('📨 Обработка уведомления:', notification)
-						onNotification(notification)
+						onNotificationRef.current(notification)
 					})
 
 					lastCheckRef.current = new Date()
@@ -84,7 +90,7 @@ export function NotificationPolling({
 			console.log('🧹 Остановка polling')
 			clearInterval(intervalId)
 		}
-	}, [userId, token, enabled, interval, onNotification])
+	}, [userId, token, enabled, interval])
 
 	return null // Этот компонент не рендерит UI
 }
