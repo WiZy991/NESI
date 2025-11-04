@@ -393,7 +393,7 @@ export default function EditProfileModal({
 
 	return (
 		<div
-			className='fixed inset-0 z-[9999] flex items-start sm:items-center justify-center pt-16 sm:pt-4 p-0 sm:p-4 bg-black/80 backdrop-blur-sm'
+			className='fixed inset-0 z-[9999] flex items-start sm:items-center justify-center pt-16 sm:pt-0 p-0 sm:p-4 bg-black/80 backdrop-blur-sm'
 			onClick={onClose}
 		>
 			<div
