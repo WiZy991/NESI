@@ -43,12 +43,8 @@ model User {
   hireRequestsReceived HireRequest[] @relation("HireExecutor")
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
-<<<<<<< HEAD
-  balance       Decimal       @default(100.00) @db.Decimal(15, 2)
-=======
 
   balance       Decimal       @default(0.00) @db.Decimal(15, 2)
->>>>>>> 6e07c8bac5faa4bf9a3a8d12a8b43c954d5b75ae
   transactions  Transaction[]
   frozenBalance Decimal       @default(0.00) @db.Decimal(15, 2)
   communityPosts          CommunityPost[]
@@ -113,12 +109,9 @@ model Task {
   responses          TaskResponse[]
   Transaction        Transaction[]
   reports            CommunityReport[]  // Жалобы на задачу
-<<<<<<< HEAD
-=======
   portfolioItems     Portfolio[]
   referralBonuses    ReferralBonus[]
 
->>>>>>> 6e07c8bac5faa4bf9a3a8d12a8b43c954d5b75ae
   @@index([status])
   @@index([customerId])
   @@index([executorId])
@@ -168,12 +161,9 @@ model Message {
   file      File?     @relation("MessageFile", fields: [fileId], references: [id])
   sender    User      @relation("MessageSender", fields: [senderId], references: [id])
   task      Task      @relation(fields: [taskId], references: [id])
-<<<<<<< HEAD
-=======
   
   reactions MessageReaction[]
 
->>>>>>> 6e07c8bac5faa4bf9a3a8d12a8b43c954d5b75ae
   @@index([taskId])
   @@index([senderId])
   @@index([createdAt])
