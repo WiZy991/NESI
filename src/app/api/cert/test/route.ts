@@ -39,7 +39,10 @@ export async function GET(req: Request) {
 
     if (mustRecreate) {
       if (!pool.length) {
-        return NextResponse.json({ error: 'Для подкатегории не задан пул вопросов' }, { status: 404 })
+        console.error(`[CERT] Пустой пул вопросов для подкатегории: id=${subcategoryId}, name="${sub.name}"`)
+        return NextResponse.json({ 
+          error: `Для подкатегории "${sub.name}" не задан пул вопросов. Проверьте, что имя подкатегории совпадает с одним из поддерживаемых вариантов.` 
+        }, { status: 404 })
       }
 
       const selectedPool = pickRandom(pool, DESIRED_PER_ATTEMPT)
@@ -148,7 +151,10 @@ function getQuestionsForSubcategory(name: string) {
     options: options.map((opt, i) => ({ text: opt, isCorrect: i === correctIndex })),
   })
 
-  switch (name.trim().toLowerCase()) {
+  // Нормализуем имя: убираем пробелы, приводим к нижнему регистру
+  const normalizedName = name.trim().toLowerCase().replace(/\s+/g, ' ')
+  
+  switch (normalizedName) {
     /* =========================
        IT и программирование
        ========================= */
@@ -4614,7 +4620,45 @@ function getQuestionsForSubcategory(name: string) {
         ], 0),
       ]
       
-default:
+    default:
+      // Пробуем найти похожее имя через fuzzy matching
+      const normalized = normalizedName
+      const allCases = [
+        'frontend', 'backend', 'fullstack', 'devops', 'разработка на python',
+        'node.js / express', 'wordpress / cms', 'ai / ml / нейросети',
+        'тестирование и qa', 'телеграм-боты', 'интеграции api',
+        'игровая разработка', 'скрипты и автоматизация',
+        '1с:бухгалтерия', '1с:зарплата и кадры', '1с:розница',
+        '1с:управление торговлей', 'интеграции 1с с сайтами',
+        'обновление и поддержка баз', 'обмен с crm', 'настройка отчетов',
+        'миграция и резервное копирование', 'конфигуратор и доработки',
+        'ведение бухгалтерии', 'отчетность в налоговую',
+        'консультации по ип и ооо', 'расчет заработной платы',
+        'оптимизация налогообложения', 'финансовый анализ',
+        'ведение кассы', 'бюджетирование',
+        'внедрение crm', 'интеграции с сайтом',
+        'разработка crm бизнес-процессов', 'настройка и администрирование',
+        'автоматизация продаж', 'аналитика и отчеты',
+        'мобильная разработка', 'веб-дизайн', 'графический дизайн',
+        'видеомонтаж', 'анимация', '3d моделирование',
+        'smm', 'контекстная реклама', 'seo',
+        'копирайтинг', 'переводы', 'юриспруденция',
+        'консалтинг', 'обучение', 'фотосъемка',
+      ]
+      
+      // Ищем похожее имя
+      const match = allCases.find(c => 
+        normalized.includes(c.toLowerCase()) || 
+        c.toLowerCase().includes(normalized)
+      )
+      
+      if (match) {
+        console.warn(`[CERT] Примерное совпадение для "${name}": найдено "${match}"`)
+        // Рекурсивно вызываем с найденным именем
+        return getQuestionsForSubcategory(match)
+      }
+      
+      console.error(`[CERT] Не найдены вопросы для подкатегории: "${name}" (нормализовано: "${normalizedName}")`)
       return []
   }
 }
