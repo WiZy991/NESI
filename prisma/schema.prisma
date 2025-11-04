@@ -505,8 +505,6 @@ model ActivityLog {
   @@index([action])
   @@index([createdAt])
 }
-<<<<<<< HEAD
-=======
 
 // ========================================
 // НОВЫЕ МОДЕЛИ ДЛЯ УЛУЧШЕНИЙ 2025
@@ -612,7 +610,6 @@ model DailyQuestProgress {
   @@index([date])
 }
 
->>>>>>> 6e07c8bac5faa4bf9a3a8d12a8b43c954d5b75ae
 enum Role {
   user
   executor
