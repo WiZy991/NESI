@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
+import BlockUserButton from '@/components/BlockUserButton'
 
 interface Props {
 	params: { id: string }
@@ -114,17 +115,7 @@ export default async function UserProfilePage({ params }: Props) {
 
 			{/* 🔹 Управление пользователем */}
 			<div className='mt-6 flex gap-2'>
-				<form action={`/api/admin/users/${user.id}/block`} method='POST'>
-					<button
-						className={`px-3 py-1 rounded text-sm ${
-							user.blocked
-								? 'bg-green-700 hover:bg-green-800'
-								: 'bg-red-700 hover:bg-red-800'
-						}`}
-					>
-						{user.blocked ? 'Разблокировать' : 'Заблокировать'}
-					</button>
-				</form>
+				<BlockUserButton userId={user.id} blocked={user.blocked || false} />
 
 				{user.role !== 'admin' && (
 					<form action={`/api/admin/users/${user.id}/make-admin`} method='POST'>

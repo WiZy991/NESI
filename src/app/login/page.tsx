@@ -54,7 +54,6 @@ export default function LoginForm() {
 
     if (res.ok) {
       login(data.user, data.token)
-      toast.success('Вы успешно вошли!')
 
       if (data.user.role === 'admin') router.push('/admin')
       else router.push('/tasks')

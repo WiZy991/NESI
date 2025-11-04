@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { createNotification } from '@/lib/createNotification'
+import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const admin = await getUserFromRequest(req)
@@ -29,6 +31,31 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   })
   
   console.log(`🔒 Пользователь ${updated.email} заблокирован ${blockedUntil ? `до ${blockedUntil.toLocaleString('ru-RU')}` : 'навсегда'}. Причина: ${reason || 'не указана'}`)
+
+  // Создаем уведомление для заблокированного пользователя
+  const blockMessage = blockedUntil
+    ? `🚫 Ваш аккаунт заблокирован до ${blockedUntil.toLocaleString('ru-RU')}. ${reason ? `Причина: ${reason}` : ''}`
+    : `🚫 Ваш аккаунт заблокирован навсегда. ${reason ? `Причина: ${reason}` : 'Обратитесь к администратору.'}`
+
+  try {
+    await createNotification(
+      updated.id,
+      blockMessage,
+      '/profile',
+      'block'
+    )
+
+    // Отправляем уведомление в реальном времени через SSE
+    sendNotificationToUser(updated.id, {
+      type: 'block',
+      title: '🚫 Аккаунт заблокирован',
+      message: blockMessage,
+      link: '/profile',
+      playSound: true,
+    })
+  } catch (error) {
+    console.error('Ошибка при создании уведомления о блокировке:', error)
+  }
 
   return NextResponse.json({
     user: updated,

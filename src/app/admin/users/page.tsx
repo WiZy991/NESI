@@ -22,12 +22,20 @@ export default function AdminUsers() {
 	}, [page])
 
 	const handleBlockToggle = async (id: string, blocked: boolean) => {
-		await fetch(`/api/admin/users`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, blocked }),
-		})
-		setUsers(prev => prev.map(u => (u.id === id ? { ...u, blocked } : u)))
+		try {
+			const res = await fetch(`/api/admin/users`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, blocked }),
+			})
+			
+			if (res.ok) {
+				// Обновляем UI сразу без перезагрузки страницы
+				setUsers(prev => prev.map(u => (u.id === id ? { ...u, blocked } : u)))
+			}
+		} catch (error) {
+			console.error('Ошибка при блокировке пользователя:', error)
+		}
 	}
 
 	const handleSearch = (e: React.FormEvent) => {

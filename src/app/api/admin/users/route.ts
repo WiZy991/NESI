@@ -61,8 +61,45 @@ export async function PATCH(req: Request) {
   const updated = await prisma.user.update({
     where: { id },
     data: { blocked },
-    select: { id: true, blocked: true },
+    select: { 
+      id: true, 
+      blocked: true,
+      email: true,
+      fullName: true,
+      blockedUntil: true,
+      blockedReason: true,
+    },
   })
+
+  // Если блокируем, создаем уведомление и отправляем через SSE
+  if (blocked) {
+    const { createNotification } = await import('@/lib/createNotification')
+    const { sendNotificationToUser } = await import('@/app/api/notifications/stream/route')
+    
+    const blockMessage = updated.blockedUntil
+      ? `🚫 Ваш аккаунт заблокирован до ${new Date(updated.blockedUntil).toLocaleString('ru-RU')}. ${updated.blockedReason ? `Причина: ${updated.blockedReason}` : ''}`
+      : `🚫 Ваш аккаунт заблокирован. ${updated.blockedReason ? `Причина: ${updated.blockedReason}` : 'Обратитесь к администратору.'}`
+
+    try {
+      await createNotification(
+        updated.id,
+        blockMessage,
+        '/profile',
+        'block'
+      )
+
+      // Отправляем уведомление в реальном времени через SSE
+      sendNotificationToUser(updated.id, {
+        type: 'block',
+        title: '🚫 Аккаунт заблокирован',
+        message: blockMessage,
+        link: '/profile',
+        playSound: true,
+      })
+    } catch (error) {
+      console.error('Ошибка при создании уведомления о блокировке:', error)
+    }
+  }
 
   return NextResponse.json({ user: updated })
 }
