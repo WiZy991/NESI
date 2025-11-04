@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import crypto from 'crypto'
 
 function pickRandom<T>(arr: T[], take: number): T[] {
   const a = [...arr]
@@ -29,93 +30,62 @@ export async function GET(req: Request) {
     const pool = getQuestionsForSubcategory(sub.name)
     const DESIRED_PER_ATTEMPT = 10
 
+    if (!pool.length) {
+      console.error(`[CERT] Пустой пул вопросов для подкатегории: id=${subcategoryId}, name="${sub.name}"`)
+      return NextResponse.json({ 
+        error: `Для подкатегории "${sub.name}" не задан пул вопросов. Проверьте, что имя подкатегории совпадает с одним из поддерживаемых вариантов.` 
+      }, { status: 404 })
+    }
+
+    // Проверяем, есть ли тест в БД (для метаданных)
     let test = await prisma.certificationTest.findFirst({
       where: { subcategoryId },
       include: { questions: { include: { options: true } } },
     })
 
-    // Если тест уже есть в БД с вопросами - используем его, не удаляем!
-    if (test && test.questions && test.questions.length >= DESIRED_PER_ATTEMPT && !force) {
-      console.log(`[CERT] Используем существующий тест из БД: ${test.questions.length} вопросов`)
-    } else {
-      // Теста нет или недостаточно вопросов - создаем/обновляем
-      const mustRecreate = force || !test || (test.questions?.length ?? 0) < DESIRED_PER_ATTEMPT
+    // Если теста нет или нужно обновить - создаем/обновляем только метаданные
+    if (!test || force) {
+      await prisma.$transaction(async (tx) => {
+        let current = await tx.certificationTest.findFirst({ where: { subcategoryId } })
 
-      if (mustRecreate) {
-        if (!pool.length) {
-          // Если пул пуст, но тест уже есть - используем его (не удаляем!)
-          if (test && test.questions && test.questions.length > 0) {
-            console.log(`[CERT] Пул вопросов пуст, но тест есть в БД - используем существующий: ${test.questions.length} вопросов`)
-          } else {
-            console.error(`[CERT] Пустой пул вопросов для подкатегории: id=${subcategoryId}, name="${sub.name}"`)
-            return NextResponse.json({ 
-              error: `Для подкатегории "${sub.name}" не задан пул вопросов. Проверьте, что имя подкатегории совпадает с одним из поддерживаемых вариантов.` 
-            }, { status: 404 })
-          }
-        } else {
-          // Есть пул вопросов - создаем/обновляем тест
-          const selectedPool = pickRandom(pool, DESIRED_PER_ATTEMPT)
-
-          await prisma.$transaction(async (tx) => {
-            let current = await tx.certificationTest.findFirst({ where: { subcategoryId } })
-
-            if (!current) {
-              current = await tx.certificationTest.create({
-                data: {
-                  subcategoryId,
-                  title: `Сертификация: ${sub.name}`,
-                  timeLimitSec: 600,
-                  passScore: 80,
-                  questionCount: selectedPool.length,
-                },
-              })
-            } else {
-              // Удаляем только если принудительное обновление или действительно нужно обновить
-              await tx.certificationOption.deleteMany({ where: { question: { testId: current.id } } })
-              await tx.certificationQuestion.deleteMany({ where: { testId: current.id } })
-              await tx.certificationAttempt.deleteMany({ where: { testId: current.id } })
-              await tx.certificationTest.update({
-                where: { id: current.id },
-                data: {
-                  title: `Сертификация: ${sub.name}`,
-                  timeLimitSec: 600,
-                  passScore: 80,
-                  questionCount: selectedPool.length,
-                  updatedAt: new Date(),
-                },
-              })
-            }
-
-            for (const q of selectedPool) {
-              const createdQ = await tx.certificationQuestion.create({
-                data: { testId: current.id, text: q.text },
-              })
-
-              await tx.certificationOption.createMany({
-                data: q.options.map((opt: { text: string; isCorrect: boolean }) => ({
-                  questionId: createdQ.id,
-                  text: opt.text,
-                  isCorrect: !!opt.isCorrect,
-                })),
-              })
-            }
+        if (!current) {
+          current = await tx.certificationTest.create({
+            data: {
+              subcategoryId,
+              title: `Сертификация: ${sub.name}`,
+              timeLimitSec: 600,
+              passScore: 80,
+              questionCount: DESIRED_PER_ATTEMPT,
+            },
           })
-
-          test = await prisma.certificationTest.findFirst({
-            where: { subcategoryId },
-            include: { questions: { include: { options: true } } },
+        } else {
+          await tx.certificationTest.update({
+            where: { id: current.id },
+            data: {
+              title: `Сертификация: ${sub.name}`,
+              timeLimitSec: 600,
+              passScore: 80,
+              questionCount: DESIRED_PER_ATTEMPT,
+              updatedAt: new Date(),
+            },
           })
         }
-      }
+      })
+
+      test = await prisma.certificationTest.findFirst({
+        where: { subcategoryId },
+        include: { questions: { include: { options: true } } },
+      })
     }
 
-    if (!test || !test.questions.length) {
-      return NextResponse.json({ error: 'Тест или вопросы не найдены' }, { status: 404 })
+    if (!test) {
+      return NextResponse.json({ error: 'Тест не найден' }, { status: 404 })
     }
 
-    const take = Math.min(test.questionCount, test.questions.length)
-    const selected = pickRandom(test.questions, take)
-
+    // Для каждой попытки выбираем СЛУЧАЙНЫЕ вопросы из всего пула!
+    // Это гарантирует, что при каждой новой попытке будут РАЗНЫЕ вопросы
+    const selectedPool = pickRandom(pool, Math.min(DESIRED_PER_ATTEMPT, pool.length))
+    
     // Функция для перемешивания массива (Fisher-Yates shuffle)
     const shuffleArray = <T>(array: T[]): T[] => {
       const shuffled = [...array]
@@ -126,11 +96,28 @@ export async function GET(req: Request) {
       return shuffled
     }
 
-    const safeQuestions = selected.map((q) => ({
-      id: q.id,
-      text: q.text,
-      options: shuffleArray(q.options.map((o) => ({ id: o.id, text: o.text }))),
-    }))
+    // Создаем вопросы с уникальными ID для этой попытки
+    // Используем хеш текста вопроса как основу для стабильного ID
+    const safeQuestions = selectedPool.map((q) => {
+      // Генерируем стабильный ID на основе текста вопроса
+      const questionHash = crypto.createHash('md5').update(q.text).digest('hex').substring(0, 12)
+      const shuffledOptions = shuffleArray(q.options.map((opt, idx) => ({ 
+        id: `${questionHash}-opt-${idx}`, 
+        text: opt.text,
+        isCorrect: opt.isCorrect // Сохраняем флаг для проверки
+      })))
+      
+      return {
+        id: `q-${questionHash}`,
+        text: q.text,
+        options: shuffledOptions.map(o => ({ id: o.id, text: o.text })), // Клиенту не отправляем isCorrect
+        // Сохраняем mapping для проверки в submit
+        _correctOptionId: shuffledOptions.find(o => o.isCorrect)?.id
+      }
+    })
+
+    // Сохраняем mapping правильных ответов для этой попытки (временно, можно в Redis или сессию)
+    // Для простоты используем хеш текста вопроса как ключ
 
     return NextResponse.json({
       test: {
@@ -138,9 +125,17 @@ export async function GET(req: Request) {
         title: test.title,
         timeLimitSec: test.timeLimitSec,
         passScore: test.passScore,
-        questionCount: take,
+        questionCount: selectedPool.length,
       },
-      questions: safeQuestions,
+      questions: safeQuestions.map(q => ({
+        id: q.id,
+        text: q.text,
+        options: q.options
+      })),
+      // Отправляем mapping правильных ответов (только для проверки, можно зашифровать)
+      answers: Object.fromEntries(
+        safeQuestions.map(q => [q.id, q._correctOptionId])
+      )
     })
   } catch (e) {
     console.error('GET /api/cert/test error:', e)
@@ -222,6 +217,100 @@ function getQuestionsForSubcategory(name: string) {
           'Запускает ререндер с новым состоянием',
           'Меняет значение напрямую',
           'Сохраняет данные в cookies',
+        ], 0),
+      ]
+
+    case 'базы данных':
+      return [
+        q('При миграции большой таблицы (10M+ записей) какой подход оптимален?', [
+          'Пакетная обработка с батчами и проверкой блокировок',
+          'Одна транзакция на всю таблицу',
+          'Удаление всех данных и повторная вставка',
+        ], 0),
+        q('Запрос SELECT выполняется медленно. Что нужно проверить в первую очередь?', [
+          'План выполнения запроса (EXPLAIN) и наличие индексов на WHERE/JOIN колонках',
+          'Размер базы данных',
+          'Количество подключений к БД',
+        ], 0),
+        q('При каком сценарии стоит использовать составной индекс (composite index)?', [
+          'Когда запросы часто фильтруют или сортируют по нескольким колонкам вместе',
+          'Всегда, это ускоряет все запросы',
+          'Только для таблиц с более 1M записей',
+        ], 0),
+        q('Что такое N+1 проблема в ORM и как её решить?', [
+          'Множественные запросы вместо одного JOIN - решается eager loading или batch loading',
+          'Медленная работа с большими таблицами - решается пагинацией',
+          'Конфликты транзакций - решается изоляцией',
+        ], 0),
+        q('Какой уровень изоляции транзакций (isolation level) выбрать для финансовых операций?', [
+          'SERIALIZABLE или REPEATABLE READ для предотвращения грязного чтения и фантомов',
+          'READ UNCOMMITTED для максимальной производительности',
+          'READ COMMITTED достаточно для всех случаев',
+        ], 0),
+        q('При проектировании схемы: таблица users имеет 1M записей, таблица orders - 10M. Как лучше связать?', [
+          'FOREIGN KEY на orders.user_id с индексом, каскадное удаление не использовать',
+          'Хранить JSON массив order_ids в users',
+          'Создать промежуточную таблицу users_orders',
+        ], 0),
+        q('Запрос с JOIN 5 таблиц работает медленно. Какой первый шаг оптимизации?', [
+          'Проверить индексы на ключах JOIN и фильтрах, возможно разбить на подзапросы',
+          'Увеличить память БД',
+          'Использовать VIEW вместо JOIN',
+        ], 0),
+        q('Что такое deadlock и как его предотвратить?', [
+          'Взаимная блокировка транзакций - решается упорядочиванием блокировок и таймаутами',
+          'Медленный запрос - решается индексами',
+          'Потеря данных - решается транзакциями',
+        ], 0),
+        q('Нужно хранить историю изменений записи. Какой паттерн применить?', [
+          'Audit table или versioning с временными метками/soft deletes',
+          'JSON поле с массивом изменений',
+          'Дублировать таблицу для каждой версии',
+        ], 0),
+        q('При каком объеме данных стоит рассмотреть партиционирование таблицы?', [
+          'Когда таблица превышает несколько гигабайт и запросы фильтруют по ключу партиции',
+          'Сразу при создании любой таблицы',
+          'Только для таблиц с более 100M записей',
+        ], 0),
+        q('Как правильно обработать ситуацию при одновременной попытке создания дубликата (UNIQUE constraint)?', [
+          'Использовать UPSERT (INSERT ... ON CONFLICT) или проверку в транзакции с правильной обработкой ошибки',
+          'Всегда проверять существование перед вставкой',
+          'Игнорировать ошибку и продолжать',
+        ], 0),
+        q('База данных стала медленной после месяца работы. Что проверить?', [
+          'Фрагментацию индексов, статистику запросов, возможные утечки соединений, неоптимальные запросы',
+          'Размер базы данных',
+          'Версию СУБД',
+        ], 0),
+        q('Нужно синхронизировать данные между двумя БД. Какой подход выбрать?', [
+          'Replication с учетом задержек или message queue для eventual consistency',
+          'Прямые транзакции между БД',
+          'Ручная синхронизация по расписанию',
+        ], 0),
+        q('Что такое connection pooling и зачем он нужен?', [
+          'Переиспользование соединений для снижения overhead создания/закрытия - критично для производительности',
+          'Группировка запросов для выполнения',
+          'Кэширование результатов запросов',
+        ], 0),
+        q('При работе с большими данными (аналитика) какой подход к хранению предпочтителен?', [
+          'Data warehouse или columnar storage (например, для чтения), возможно денормализация',
+          'Та же структура, что и для OLTP',
+          'Хранить все в JSON',
+        ], 0),
+        q('Как правильно спроектировать схему для хранения древовидной структуры (например, комментарии)?', [
+          'Adjacency List с рекурсивными CTE или Closure Table для сложных запросов, Nested Set для частого чтения',
+          'Только parent_id достаточно',
+          'JSON поле с вложенной структурой',
+        ], 0),
+        q('Что такое materialized view и когда её использовать?', [
+          'Предвычисленное представление для дорогих агрегаций - обновлять по расписанию или триггерам',
+          'Обычный VIEW с индексами',
+          'Временная таблица',
+        ], 0),
+        q('При миграции схемы БД в продакшене что критично?', [
+          'Обратная совместимость, миграции в транзакциях, возможность отката, тестирование на копии',
+          'Скорость выполнения миграции',
+          'Минимальное количество SQL команд',
         ], 0),
       ]
 
@@ -4636,7 +4725,7 @@ function getQuestionsForSubcategory(name: string) {
       // Пробуем найти похожее имя через fuzzy matching
       const normalized = normalizedName
       const allCases = [
-        'frontend', 'backend', 'fullstack', 'devops', 'разработка на python',
+        'frontend', 'backend', 'fullstack', 'devops', 'базы данных', 'разработка на python',
         'node.js / express', 'wordpress / cms', 'ai / ml / нейросети',
         'тестирование и qa', 'телеграм-боты', 'интеграции api',
         'игровая разработка', 'скрипты и автоматизация',

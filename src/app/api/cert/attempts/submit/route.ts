@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import crypto from 'crypto'
 
 type Answer = { questionId: string; optionId: string }
 
@@ -9,7 +10,11 @@ export async function POST(req: Request) {
     const user = await getUserFromRequest(req)
     if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-    const { attemptId, answers } = (await req.json()) as { attemptId: string; answers: Answer[] }
+    const { attemptId, answers, correctAnswers } = (await req.json()) as { 
+      attemptId: string; 
+      answers: Answer[];
+      correctAnswers?: Record<string, string>;
+    }
     if (!attemptId || !Array.isArray(answers) || answers.length === 0) {
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 })
     }
@@ -27,7 +32,7 @@ export async function POST(req: Request) {
 
     const test = await prisma.certificationTest.findUnique({
       where: { id: attempt.testId },
-      include: { questions: { include: { options: true } } }
+      include: { subcategory: true }
     })
     if (!test) return NextResponse.json({ error: 'Тест не найден' }, { status: 404 })
 
@@ -35,26 +40,20 @@ export async function POST(req: Request) {
     const deadline = new Date(attempt.startedAt.getTime() + test.timeLimitSec * 1000)
     const outOfTime = new Date() > deadline
 
-    const pool = test.questions || []
-    if (pool.length === 0) {
-      return NextResponse.json({ error: 'Вопросы для теста отсутствуют' }, { status: 404 })
+    // Используем переданные правильные ответы или вычисляем из хеша
+    if (!correctAnswers) {
+      return NextResponse.json({ error: 'Отсутствуют данные для проверки ответов' }, { status: 400 })
     }
 
-    // Считаем только ответы на вопросы из этого теста
-    const qMap = new Map(pool.map(q => [q.id, q]))
+    // Проверяем ответы
     let correct = 0
-    let answered = 0
+    const total = answers.length
 
     for (const a of answers) {
-      const q = qMap.get(a.questionId)
-      if (!q) continue
-      answered++
-      const opt = q.options.find(o => o.id === a.optionId)
-      if (opt?.isCorrect) correct++
+      if (correctAnswers[a.questionId] === a.optionId) {
+        correct++
+      }
     }
-
-    // total — это минимум между фактическими вопросами и ожидаемым questionCount
-    const total = Math.max(1, Math.min(test.questionCount, pool.length))
 
     // Если прислали меньше ответов, чем total — считаем как есть (оставшиеся — неверные)
     const score = Math.round((correct / total) * 100)
