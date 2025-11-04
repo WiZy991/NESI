@@ -5,8 +5,9 @@ import Link from 'next/link'
 export default function Home() {
 	return (
 		<div
-			className='w-full min-h-screen relative overflow-x-hidden font-[Montserrat_Alternates,Helvetica,sans-serif]'
+			className='w-full min-h-screen relative overflow-x-hidden'
 			style={{
+				fontFamily: "'Inter', 'Poppins', system-ui, -apple-system, sans-serif",
 				background:
 					'radial-gradient(80% 100% at 100% 50%, rgba(0, 255, 205, 0.15) 0%, rgba(58, 57, 57, 0) 100%), linear-gradient(0deg, rgb(10, 20, 15) 0%, rgb(5, 15, 10) 100%)',
 			}}
@@ -79,7 +80,7 @@ export default function Home() {
 						className='w-full h-auto'
 						priority={false}
 						loading='lazy'
-						aria-hidden="true"
+						aria-hidden='true'
 					/>
 				</div>
 
