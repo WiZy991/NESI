@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
+import BadgeIcon from '@/components/BadgeIcon'
 
 type Badge = {
   id: string
@@ -30,12 +31,30 @@ export default function LevelPage() {
   const { token } = useUser()
   const [data, setData] = useState<LevelInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [checkingBadges, setCheckingBadges] = useState(false)
 
   useEffect(() => {
     if (!token) return
 
     const fetchLevel = async () => {
       try {
+        // Сначала проверяем достижения
+        setCheckingBadges(true)
+        try {
+          await fetch('/api/badges/check', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+        } catch (badgeError) {
+          console.error('Ошибка проверки достижений:', badgeError)
+        } finally {
+          setCheckingBadges(false)
+        }
+
+        // Затем загружаем данные уровня
         const res = await fetch('/api/users/me/level', {
           headers: {
             'Content-Type': 'application/json',
@@ -227,35 +246,31 @@ export default function LevelPage() {
               {data.badges.map((badge) => (
                 <div
                   key={badge.id}
-                  className="group relative overflow-hidden bg-gradient-to-br from-black/60 via-gray-900/40 to-black/60 border-2 border-emerald-500/30 rounded-2xl p-6 transition-all duration-300 hover:border-emerald-500/80 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-[1.03] cursor-pointer"
+                  className="group relative overflow-hidden bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90 border-2 border-gray-700/50 rounded-xl p-5 transition-all duration-300 hover:border-emerald-500/60 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-[1.02] cursor-pointer"
                 >
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                  {/* Декоративный фон */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   
                   <div className="relative z-10">
                     <div className="flex items-start gap-4 mb-4">
+                      {/* Игровая иконка бейджа */}
                       <div className="flex-shrink-0">
-                        {isIconUrl(badge.icon) ? (
-                          <div className="relative">
-                            <Image
-                              src={badge.icon}
-                              alt={badge.name}
-                              width={64}
-                              height={64}
-                              className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.4)] group-hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] transition-all"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-16 h-16 rounded-xl border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(16,185,129,0.4)] group-hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] transition-all">
-                            {badge.icon}
-                          </div>
-                        )}
+                        <BadgeIcon 
+                          icon={badge.icon} 
+                          name={badge.name} 
+                          size="md"
+                          className="group-hover:scale-110"
+                        />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-white text-lg mb-1 group-hover:text-emerald-300 transition">
+                      
+                      {/* Название и дата */}
+                      <div className="flex-1 min-w-0 pt-1">
+                        <h3 className="font-bold text-white text-base mb-1 group-hover:text-emerald-300 transition line-clamp-2">
                           {badge.name}
                         </h3>
                         {badge.earnedAt && (
-                          <p className="text-xs text-emerald-400/80">
+                          <p className="text-xs text-gray-400">
                             {new Date(badge.earnedAt).toLocaleDateString('ru-RU', { 
                               day: 'numeric', 
                               month: 'long', 
@@ -265,10 +280,17 @@ export default function LevelPage() {
                         )}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-300 leading-relaxed line-clamp-3">
-                      {badge.description}
-                    </p>
+                    
+                    {/* Описание */}
+                    <div className="bg-black/30 border border-gray-800/50 rounded-lg p-3 mt-2">
+                      <p className="text-xs text-gray-300 leading-relaxed line-clamp-3">
+                        {badge.description}
+                      </p>
+                    </div>
                   </div>
+                  
+                  {/* Блестящий эффект сверху */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
               ))}
             </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import BadgeIcon from '@/components/BadgeIcon'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
@@ -515,20 +516,53 @@ export default function UserPublicProfilePage() {
 				{activeTab === 'achievements' && (
 					<div>
 						{viewUser.badges && viewUser.badges.length > 0 ? (
-							<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+							<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6'>
 								{viewUser.badges.map(userBadge => (
 									<div
 										key={userBadge.id}
-										className='bg-gradient-to-br from-yellow-500/20 to-orange-500/20 p-4 rounded-xl border border-yellow-500/30 text-center'
+										className='group relative overflow-hidden bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90 border-2 border-gray-700/50 rounded-xl p-5 transition-all duration-300 hover:border-emerald-500/60 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-[1.02]'
 									>
-										<div className='text-3xl mb-2'>{userBadge.badge.icon}</div>
-										<h4 className='font-semibold text-yellow-300 text-sm mb-1'>
-											{userBadge.badge.name}
-										</h4>
-										<p className='text-xs text-gray-300 mb-2'>{userBadge.badge.description}</p>
-										<p className='text-xs text-gray-500'>
-											{new Date(userBadge.earnedAt).toLocaleDateString()}
-										</p>
+										{/* Декоративный фон */}
+										<div className='absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
+										<div className='absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500'></div>
+										
+										<div className='relative z-10'>
+											<div className='flex items-start gap-4 mb-4'>
+												{/* Игровая иконка бейджа */}
+												<div className='flex-shrink-0'>
+													<BadgeIcon 
+														icon={userBadge.badge.icon} 
+														name={userBadge.badge.name} 
+														size='md'
+														className='group-hover:scale-110'
+													/>
+												</div>
+												
+												{/* Название и дата */}
+												<div className='flex-1 min-w-0 pt-1'>
+													<h4 className='font-bold text-white text-base mb-1 group-hover:text-emerald-300 transition line-clamp-2'>
+														{userBadge.badge.name}
+													</h4>
+													<p className='text-xs text-gray-400'>
+														{new Date(userBadge.earnedAt).toLocaleDateString('ru-RU', { 
+															day: 'numeric', 
+															month: 'long', 
+															year: 'numeric' 
+														})}
+													</p>
+												</div>
+											</div>
+											
+											{/* Описание */}
+											<div className='bg-black/30 border border-gray-800/50 rounded-lg p-3'>
+												<p className='text-xs text-gray-300 leading-relaxed line-clamp-3'>
+													{userBadge.badge.description}
+												</p>
+											</div>
+										</div>
+										
+										{/* Блестящий эффект сверху */}
+										<div className='absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
 									</div>
 								))}
 							</div>

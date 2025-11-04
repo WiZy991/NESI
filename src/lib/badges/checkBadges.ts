@@ -9,8 +9,10 @@ export interface BadgeCondition {
 
 /**
  * Проверяет и присваивает бейджи пользователю
+ * @returns Массив полученных бейджей
  */
-export async function checkAndAwardBadges(userId: string): Promise<void> {
+export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: string; name: string; icon: string }>> {
+  const awardedBadges: Array<{ id: string; name: string; icon: string }> = []
   try {
     // Получаем пользователя со всей статистикой
     const user = await prisma.user.findUnique({
@@ -91,6 +93,13 @@ export async function checkAndAwardBadges(userId: string): Promise<void> {
 
         console.log(`[Badges] Пользователь ${userId} получил бейдж "${badge.name}"`)
 
+        // Добавляем в список полученных
+        awardedBadges.push({
+          id: badge.id,
+          name: badge.name,
+          icon: badge.icon
+        })
+
         // Отправляем уведомление
         try {
           await prisma.notification.create({
@@ -104,14 +113,15 @@ export async function checkAndAwardBadges(userId: string): Promise<void> {
           })
 
           sendNotificationToUser(userId, {
-            id: `badge-${Date.now()}`,
+            id: `badge-${Date.now()}-${badge.id}`,
             userId,
             type: 'badge',
             title: '🏅 Новый бейдж!',
             message: `Вы получили бейдж "${badge.name}"!`,
             link: '/level',
             isRead: false,
-            createdAt: new Date()
+            createdAt: new Date(),
+            playSound: true
           })
         } catch (error) {
           console.error('[Badges] Ошибка отправки уведомления:', error)
@@ -121,6 +131,8 @@ export async function checkAndAwardBadges(userId: string): Promise<void> {
   } catch (error) {
     console.error(`[Badges] Ошибка проверки бейджей для пользователя ${userId}:`, error)
   }
+
+  return awardedBadges
 }
 
 /**

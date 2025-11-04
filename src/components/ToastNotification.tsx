@@ -105,14 +105,23 @@ export function ToastNotification({
 				return '⭐'
 			case 'payment':
 				return '💰'
+			case 'badge':
+				return '🏅'
 			default:
 				return '🔔'
 		}
 	}
 
+	// Специальный стиль для уведомлений о достижениях
+	const isBadgeNotification = notification.type === 'badge'
+	
 	return (
 		<div
-			className={`fixed bottom-4 right-4 left-4 sm:left-auto sm:right-6 sm:w-96 sm:bottom-6 bg-gray-900 border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] p-4 cursor-pointer transition-all duration-300 z-[9999] hover:shadow-[0_0_35px_rgba(16,185,129,0.5)] sm:hover:scale-105 ${
+			className={`fixed bottom-4 right-4 left-4 sm:left-auto sm:right-6 sm:w-96 sm:bottom-6 ${
+				isBadgeNotification 
+					? 'bg-gradient-to-br from-yellow-900/40 via-emerald-900/40 to-yellow-900/40 border-2 border-yellow-500/50 shadow-[0_0_40px_rgba(234,179,8,0.4)]' 
+					: 'bg-gray-900 border border-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.3)]'
+			} rounded-xl p-4 cursor-pointer transition-all duration-300 z-[9999] hover:shadow-[0_0_35px_rgba(16,185,129,0.5)] sm:hover:scale-105 ${
 				isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
 			}`}
 			onClick={handleClick}
