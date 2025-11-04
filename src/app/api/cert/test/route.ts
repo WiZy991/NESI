@@ -34,67 +34,79 @@ export async function GET(req: Request) {
       include: { questions: { include: { options: true } } },
     })
 
-    const mustRecreate =
-      force || !test || (test.questions?.length ?? 0) < DESIRED_PER_ATTEMPT
+    // Если тест уже есть в БД с вопросами - используем его, не удаляем!
+    if (test && test.questions && test.questions.length >= DESIRED_PER_ATTEMPT && !force) {
+      console.log(`[CERT] Используем существующий тест из БД: ${test.questions.length} вопросов`)
+    } else {
+      // Теста нет или недостаточно вопросов - создаем/обновляем
+      const mustRecreate = force || !test || (test.questions?.length ?? 0) < DESIRED_PER_ATTEMPT
 
-    if (mustRecreate) {
-      if (!pool.length) {
-        console.error(`[CERT] Пустой пул вопросов для подкатегории: id=${subcategoryId}, name="${sub.name}"`)
-        return NextResponse.json({ 
-          error: `Для подкатегории "${sub.name}" не задан пул вопросов. Проверьте, что имя подкатегории совпадает с одним из поддерживаемых вариантов.` 
-        }, { status: 404 })
-      }
-
-      const selectedPool = pickRandom(pool, DESIRED_PER_ATTEMPT)
-
-      await prisma.$transaction(async (tx) => {
-        let current = await tx.certificationTest.findFirst({ where: { subcategoryId } })
-
-        if (!current) {
-          current = await tx.certificationTest.create({
-            data: {
-              subcategoryId,
-              title: `Сертификация: ${sub.name}`,
-              timeLimitSec: 600,
-              passScore: 80,
-              questionCount: selectedPool.length,
-            },
-          })
+      if (mustRecreate) {
+        if (!pool.length) {
+          // Если пул пуст, но тест уже есть - используем его (не удаляем!)
+          if (test && test.questions && test.questions.length > 0) {
+            console.log(`[CERT] Пул вопросов пуст, но тест есть в БД - используем существующий: ${test.questions.length} вопросов`)
+          } else {
+            console.error(`[CERT] Пустой пул вопросов для подкатегории: id=${subcategoryId}, name="${sub.name}"`)
+            return NextResponse.json({ 
+              error: `Для подкатегории "${sub.name}" не задан пул вопросов. Проверьте, что имя подкатегории совпадает с одним из поддерживаемых вариантов.` 
+            }, { status: 404 })
+          }
         } else {
-          await tx.certificationOption.deleteMany({ where: { question: { testId: current.id } } })
-          await tx.certificationQuestion.deleteMany({ where: { testId: current.id } })
-          await tx.certificationAttempt.deleteMany({ where: { testId: current.id } })
-          await tx.certificationTest.update({
-            where: { id: current.id },
-            data: {
-              title: `Сертификация: ${sub.name}`,
-              timeLimitSec: 600,
-              passScore: 80,
-              questionCount: selectedPool.length,
-              updatedAt: new Date(),
-            },
+          // Есть пул вопросов - создаем/обновляем тест
+          const selectedPool = pickRandom(pool, DESIRED_PER_ATTEMPT)
+
+          await prisma.$transaction(async (tx) => {
+            let current = await tx.certificationTest.findFirst({ where: { subcategoryId } })
+
+            if (!current) {
+              current = await tx.certificationTest.create({
+                data: {
+                  subcategoryId,
+                  title: `Сертификация: ${sub.name}`,
+                  timeLimitSec: 600,
+                  passScore: 80,
+                  questionCount: selectedPool.length,
+                },
+              })
+            } else {
+              // Удаляем только если принудительное обновление или действительно нужно обновить
+              await tx.certificationOption.deleteMany({ where: { question: { testId: current.id } } })
+              await tx.certificationQuestion.deleteMany({ where: { testId: current.id } })
+              await tx.certificationAttempt.deleteMany({ where: { testId: current.id } })
+              await tx.certificationTest.update({
+                where: { id: current.id },
+                data: {
+                  title: `Сертификация: ${sub.name}`,
+                  timeLimitSec: 600,
+                  passScore: 80,
+                  questionCount: selectedPool.length,
+                  updatedAt: new Date(),
+                },
+              })
+            }
+
+            for (const q of selectedPool) {
+              const createdQ = await tx.certificationQuestion.create({
+                data: { testId: current.id, text: q.text },
+              })
+
+              await tx.certificationOption.createMany({
+                data: q.options.map((opt: { text: string; isCorrect: boolean }) => ({
+                  questionId: createdQ.id,
+                  text: opt.text,
+                  isCorrect: !!opt.isCorrect,
+                })),
+              })
+            }
+          })
+
+          test = await prisma.certificationTest.findFirst({
+            where: { subcategoryId },
+            include: { questions: { include: { options: true } } },
           })
         }
-
-        for (const q of selectedPool) {
-          const createdQ = await tx.certificationQuestion.create({
-            data: { testId: current.id, text: q.text },
-          })
-
-          await tx.certificationOption.createMany({
-            data: q.options.map((opt: { text: string; isCorrect: boolean }) => ({
-              questionId: createdQ.id,
-              text: opt.text,
-              isCorrect: !!opt.isCorrect,
-            })),
-          })
-        }
-      })
-
-      test = await prisma.certificationTest.findFirst({
-        where: { subcategoryId },
-        include: { questions: { include: { options: true } } },
-      })
+      }
     }
 
     if (!test || !test.questions.length) {
