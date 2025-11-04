@@ -1,16 +1,16 @@
 'use client'
 
-import MessageInput from '@/components/ChatMessageInput'
 import ChatMessage from '@/components/ChatMessage'
+import MessageInput from '@/components/ChatMessageInput'
+import ChatMessageSearch from '@/components/ChatMessageSearch'
+import ChatSkeleton from '@/components/ChatSkeleton'
+import EmptyState from '@/components/EmptyState'
 import { useUser } from '@/context/UserContext'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
-import ChatSkeleton from '@/components/ChatSkeleton'
-import EmptyState from '@/components/EmptyState'
-import { MessageSquare } from 'lucide-react'
-import ChatMessageSearch from '@/components/ChatMessageSearch'
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 type Chat = {
 	id: string
@@ -96,12 +96,12 @@ function ChatsPageContent() {
 		const originalOverflow = document.body.style.overflow
 		const originalHeight = document.body.style.height
 		const originalHtmlOverflow = document.documentElement.style.overflow
-		
+
 		// Блокируем скролл на body и html
 		document.body.style.overflow = 'hidden'
 		document.body.style.height = '100vh'
 		document.documentElement.style.overflow = 'hidden'
-		
+
 		return () => {
 			// Восстанавливаем при размонтировании
 			document.body.style.overflow = originalOverflow
@@ -120,44 +120,51 @@ function ChatsPageContent() {
 				const res = await fetch('/api/chats', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
-			const data = await res.json()
-			console.log('📊 Ответ API чатов:', data)
-			if (res.ok) {
-				const loadedChats = data.chats || []
-				
-				// Сохраняем временные чаты, которые ещё не были заменены реальными
-				setChats(prevChats => {
-					const tempChats = prevChats.filter(chat => chat.id.startsWith('temp_'))
-					
-					// Для каждого временного чата проверяем, есть ли уже реальный чат
-					const validTempChats = tempChats.filter(tempChat => {
-						if (tempChat.type === 'task' && tempChat.task?.id) {
-							// Проверяем, есть ли реальный чат для этой задачи
-							const realChatExists = loadedChats.some(
-								(realChat: Chat) => 
-									realChat.type === 'task' && realChat.task?.id === tempChat.task?.id
-							)
-							return !realChatExists // Оставляем временный только если нет реального
-						}
-						if (tempChat.type === 'private' && tempChat.otherUser?.id) {
-							// Проверяем, есть ли реальный чат с этим пользователем
-							const realChatExists = loadedChats.some(
-								(realChat: Chat) =>
-									realChat.type === 'private' && realChat.otherUser?.id === tempChat.otherUser?.id
-							)
-							return !realChatExists
-						}
-						return false
+				const data = await res.json()
+				console.log('📊 Ответ API чатов:', data)
+				if (res.ok) {
+					const loadedChats = data.chats || []
+
+					// Сохраняем временные чаты, которые ещё не были заменены реальными
+					setChats(prevChats => {
+						const tempChats = prevChats.filter(chat =>
+							chat.id.startsWith('temp_')
+						)
+
+						// Для каждого временного чата проверяем, есть ли уже реальный чат
+						const validTempChats = tempChats.filter(tempChat => {
+							if (tempChat.type === 'task' && tempChat.task?.id) {
+								// Проверяем, есть ли реальный чат для этой задачи
+								const realChatExists = loadedChats.some(
+									(realChat: Chat) =>
+										realChat.type === 'task' &&
+										realChat.task?.id === tempChat.task?.id
+								)
+								return !realChatExists // Оставляем временный только если нет реального
+							}
+							if (tempChat.type === 'private' && tempChat.otherUser?.id) {
+								// Проверяем, есть ли реальный чат с этим пользователем
+								const realChatExists = loadedChats.some(
+									(realChat: Chat) =>
+										realChat.type === 'private' &&
+										realChat.otherUser?.id === tempChat.otherUser?.id
+								)
+								return !realChatExists
+							}
+							return false
+						})
+
+						// Объединяем: сначала временные чаты, потом реальные
+						return [...validTempChats, ...loadedChats]
 					})
-					
-					// Объединяем: сначала временные чаты, потом реальные
-					return [...validTempChats, ...loadedChats]
-				})
-				console.log('✅ Чаты загружены:', loadedChats.length)
+					console.log('✅ Чаты загружены:', loadedChats.length)
 
 					// Устанавливаем флаг для автооткрытия чата
 					if (openUserId || openTaskId) {
-						console.log('🔍 Обнаружен параметр для автооткрытия:', { openUserId, openTaskId })
+						console.log('🔍 Обнаружен параметр для автооткрытия:', {
+							openUserId,
+							openTaskId,
+						})
 						setShouldAutoOpen(true)
 					}
 
@@ -394,7 +401,10 @@ function ChatsPageContent() {
 			console.log('📜 Автоскролл к последнему сообщению')
 			// Используем setTimeout чтобы дать время на рендер
 			setTimeout(() => {
-				messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+				messagesEndRef.current?.scrollIntoView({
+					behavior: 'smooth',
+					block: 'end',
+				})
 			}, 100)
 		}
 	}, [messages.length, messagesLoading])
@@ -411,11 +421,10 @@ function ChatsPageContent() {
 		// Если открываем чат задачи
 		if (openTaskId) {
 			console.log('🔍 Пытаемся открыть чат задачи:', openTaskId)
-			
+
 			// Ищем существующий чат задачи
 			const existingTaskChat = chats.find(
-				(chat: Chat) =>
-					chat.type === 'task' && chat.task?.id === openTaskId
+				(chat: Chat) => chat.type === 'task' && chat.task?.id === openTaskId
 			)
 
 			if (existingTaskChat) {
@@ -425,7 +434,7 @@ function ChatsPageContent() {
 				window.history.replaceState({}, '', '/chats')
 			} else {
 				console.log('📝 Чат задачи не найден, создаем новый...')
-				
+
 				const createTaskChat = async () => {
 					try {
 						// Загружаем данные задачи
@@ -447,7 +456,9 @@ function ChatsPageContent() {
 						const otherUser = isCustomer ? task.executor : task.customer
 
 						if (!otherUser) {
-							console.error('❌ Второй участник чата не найден (задача без исполнителя)')
+							console.error(
+								'❌ Второй участник чата не найден (задача без исполнителя)'
+							)
 							setShouldAutoOpen(false)
 							return
 						}
@@ -608,8 +619,10 @@ function ChatsPageContent() {
 				// Обрабатываем ответ и обновляем счетчик уведомлений
 				if (response && response.ok) {
 					const data = await response.json()
-					console.log(`✅ Прочитано, удалено уведомлений: ${data.deletedNotifications}`)
-					
+					console.log(
+						`✅ Прочитано, удалено уведомлений: ${data.deletedNotifications}`
+					)
+
 					// Обновляем счетчик непрочитанных уведомлений
 					if (data.deletedNotifications > 0) {
 						// Получаем актуальное количество непрочитанных уведомлений
@@ -644,7 +657,7 @@ function ChatsPageContent() {
 		if (selectedChat?.id.startsWith('temp_')) {
 			// Небольшая задержка перед перезагрузкой, чтобы дать время серверу обработать сообщение
 			await new Promise(resolve => setTimeout(resolve, 300))
-			
+
 			// Перезагружаем список чатов, чтобы получить настоящий чат из базы
 			try {
 				const res = await fetch('/api/chats', {
@@ -653,17 +666,20 @@ function ChatsPageContent() {
 				if (res.ok) {
 					const data = await res.json()
 					const loadedChats = data.chats || []
-					
+
 					// Находим реальный чат
 					let realChat = null
-					
+
 					if (selectedChat.type === 'task' && selectedChat.task?.id) {
 						// Ищем чат задачи
 						realChat = loadedChats.find(
 							(chat: Chat) =>
 								chat.type === 'task' && chat.task?.id === selectedChat.task?.id
 						)
-					} else if (selectedChat.type === 'private' && selectedChat.otherUser?.id) {
+					} else if (
+						selectedChat.type === 'private' &&
+						selectedChat.otherUser?.id
+					) {
 						// Ищем приватный чат
 						realChat = loadedChats.find(
 							(chat: Chat) =>
@@ -671,7 +687,7 @@ function ChatsPageContent() {
 								chat.otherUser?.id === selectedChat.otherUser?.id
 						)
 					}
-					
+
 					if (realChat) {
 						// Обновляем временный чат на реальный в списке без полной перезагрузки
 						setChats(prev => {
@@ -915,7 +931,10 @@ function ChatsPageContent() {
 
 	const goToPreviousMatch = () => {
 		if (messageSearchMatches.length === 0) return
-		const prevIndex = currentMatchIndex === 0 ? messageSearchMatches.length - 1 : currentMatchIndex - 1
+		const prevIndex =
+			currentMatchIndex === 0
+				? messageSearchMatches.length - 1
+				: currentMatchIndex - 1
 		setCurrentMatchIndex(prevIndex)
 		const matchIndex = messageSearchMatches[prevIndex]
 		const message = messages[matchIndex]
@@ -947,44 +966,48 @@ function ChatsPageContent() {
 	}
 
 	return (
-		<div className="fixed inset-x-0 top-[64px] bottom-0 px-3 sm:px-6">
-  <div className="w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden">
-
-				<div className='flex flex-1 overflow-hidden min-h-0' style={{ touchAction: 'pan-y' }}>
+		<div className='fixed inset-x-0 top-[64px] bottom-0 px-3 sm:px-6'>
+			<div className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden'>
+				<div
+					className='flex flex-1 overflow-hidden min-h-0'
+					style={{ touchAction: 'pan-y' }}
+				>
 					{/* Левая колонка - список чатов */}
 					<div
-					className={`${
-						selectedChat ? 'hidden md:flex' : 'flex'
-					} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30`}
+						className={`${
+							selectedChat ? 'hidden md:flex' : 'flex'
+						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30`}
 					>
-					{/* Заголовок и поиск */}
-					<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg'>
-						<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent mb-3 sm:mb-5 flex items-center gap-3'>
-							💬 <span>Чаты</span>
-						</h1>
-						<div className='relative'>
-						<input
-							type='text'
-							placeholder='Поиск чатов...'
-							value={searchQuery}
-							onChange={e => setSearchQuery(e.target.value)}
-							className='w-full px-5 py-3.5 sm:py-4 bg-slate-800/35 border border-emerald-300/30 rounded-full text-white text-sm sm:text-base placeholder-slate-300/80 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-slate-800/45 transition-all shadow-lg hover:shadow-emerald-300/15 ios-transition'
-						/>
-							<div className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400/50'>
-								🔍
+						{/* Заголовок и поиск */}
+						<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg'>
+							<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent mb-3 sm:mb-5 flex items-center gap-3'>
+								💬 <span>Чаты</span>
+							</h1>
+							<div className='relative'>
+								<input
+									type='text'
+									placeholder='Поиск чатов...'
+									value={searchQuery}
+									onChange={e => setSearchQuery(e.target.value)}
+									className='w-full px-5 py-3.5 sm:py-4 bg-slate-800/35 border border-emerald-300/30 rounded-full text-white text-sm sm:text-base placeholder-slate-300/80 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-slate-800/45 transition-all shadow-lg hover:shadow-emerald-300/15 ios-transition'
+								/>
+								<div className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400/50'>
+									🔍
+								</div>
 							</div>
 						</div>
-					</div>
 
 						{/* Список чатов */}
-						<div 
+						<div
 							className='flex-1 overflow-y-auto custom-scrollbar'
 							style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 						>
 							{filteredChats.length === 0 ? (
 								<EmptyState
 									icon={MessageSquare}
-									title={searchQuery ? 'Чаты не найдены' : 'У вас пока нет чатов'}
+									title={
+										searchQuery ? 'Чаты не найдены' : 'У вас пока нет чатов'
+									}
 									description={
 										searchQuery
 											? 'Попробуйте изменить поисковый запрос'
@@ -996,11 +1019,11 @@ function ChatsPageContent() {
 									<div
 										key={chat.id}
 										onClick={() => handleSelectChat(chat)}
-							className={`p-4 sm:p-5 mx-3 sm:mx-4 my-2 sm:my-2.5 rounded-3xl cursor-pointer ios-transition hover-lift touch-manipulation ${
-								selectedChat?.id === chat.id
-									? 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/15 border-2 border-emerald-300/40 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
-									: 'bg-gradient-to-br from-slate-800/25 to-slate-900/35 border border-slate-700/30 hover:border-emerald-300/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.18)]'
-							}`}
+										className={`p-4 sm:p-5 mx-3 sm:mx-4 my-2 sm:my-2.5 rounded-3xl cursor-pointer ios-transition hover-lift touch-manipulation ${
+											selectedChat?.id === chat.id
+												? 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/15 border-2 border-emerald-300/40 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
+												: 'bg-gradient-to-br from-slate-800/25 to-slate-900/35 border border-slate-700/30 hover:border-emerald-300/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.18)]'
+										}`}
 									>
 										<div className='flex items-center space-x-2 sm:space-x-3'>
 											{/* Аватар */}
@@ -1027,20 +1050,20 @@ function ChatsPageContent() {
 													<h3 className='text-white font-medium truncate text-sm sm:text-base'>
 														{getChatTitle(chat)}
 													</h3>
-									<span className='text-[10px] sm:text-xs text-slate-200 bg-slate-800/40 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full flex-shrink-0'>
+													<span className='text-[10px] sm:text-xs text-slate-200 bg-slate-800/40 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full flex-shrink-0'>
 														{formatTime(chat.lastMessage.createdAt)}
 													</span>
 												</div>
-								<p className='text-xs sm:text-sm text-slate-300 truncate mt-0.5 sm:mt-1'>
+												<p className='text-xs sm:text-sm text-slate-300 truncate mt-0.5 sm:mt-1'>
 													{getChatSubtitle(chat)}
 												</p>
 												{chat.type === 'task' && chat.task?.id && (
-									<Link
-										href={`/tasks/${chat.task.id}`}
-										className='text-[10px] sm:text-xs text-emerald-300 mt-0.5 sm:mt-1 bg-emerald-600/15 hover:bg-emerald-600/25 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full inline-block truncate max-w-full transition-all duration-200'
-										onClick={(e) => e.stopPropagation()}
-										title='Перейти к задаче'
-									>
+													<Link
+														href={`/tasks/${chat.task.id}`}
+														className='text-[10px] sm:text-xs text-emerald-300 mt-0.5 sm:mt-1 bg-emerald-600/15 hover:bg-emerald-600/25 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full inline-block truncate max-w-full transition-all duration-200'
+														onClick={e => e.stopPropagation()}
+														title='Перейти к задаче'
+													>
 														📋 {chat.task.title}
 													</Link>
 												)}
@@ -1068,18 +1091,20 @@ function ChatsPageContent() {
 						{selectedChat ? (
 							<>
 								{/* Заголовок чата - фиксированный */}
-							<div className='flex-shrink-0 px-5 sm:px-8 py-5 border-b border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgba(15,118,110,0.22)] backdrop-blur-md relative'>
-								{/* Кнопка поиска в сообщениях */}
-								{selectedChat && messages.length > 0 && (
-									<button
-										onClick={() => setIsMessageSearchOpen(!isMessageSearchOpen)}
-										className="absolute top-4 right-4 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition"
-										aria-label="Поиск в сообщениях (Ctrl+F)"
-										title="Поиск в сообщениях (Ctrl+F)"
-									>
-										🔍
-									</button>
-								)}
+								<div className='flex-shrink-0 px-5 sm:px-8 py-5 border-b border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgba(15,118,110,0.22)] backdrop-blur-md relative'>
+									{/* Кнопка поиска в сообщениях */}
+									{selectedChat && messages.length > 0 && (
+										<button
+											onClick={() =>
+												setIsMessageSearchOpen(!isMessageSearchOpen)
+											}
+											className='absolute top-4 right-4 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition'
+											aria-label='Поиск в сообщениях (Ctrl+F)'
+											title='Поиск в сообщениях (Ctrl+F)'
+										>
+											🔍
+										</button>
+									)}
 									<div className='flex items-center space-x-3 sm:space-x-4'>
 										{/* Кнопка "Назад" для мобильных */}
 										<button
@@ -1122,43 +1147,47 @@ function ChatsPageContent() {
 											<h2 className='text-white font-semibold text-sm sm:text-lg truncate'>
 												{getChatTitle(selectedChat)}
 											</h2>
-											{selectedChat.type === 'task' && selectedChat.task?.id && (
-												<Link
-													href={`/tasks/${selectedChat.task.id}`}
-													className='text-[10px] sm:text-sm text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/40 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full inline-block mt-1 truncate max-w-full transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/20'
-													title='Перейти к задаче'
-												>
-													📋 {selectedChat.task.title}
-												</Link>
-											)}
+											{selectedChat.type === 'task' &&
+												selectedChat.task?.id && (
+													<Link
+														href={`/tasks/${selectedChat.task.id}`}
+														className='text-[10px] sm:text-sm text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/40 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full inline-block mt-1 truncate max-w-full transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/20'
+														title='Перейти к задаче'
+													>
+														📋 {selectedChat.task.title}
+													</Link>
+												)}
 										</div>
 									</div>
 								</div>
 
-							{/* Сообщения - растягиваемая область */}
-							<div 
-								className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar relative'
-								style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
-							>
-								{/* Поиск по сообщениям */}
-								{selectedChat && (
-									<ChatMessageSearch
-										isOpen={isMessageSearchOpen}
-										onClose={() => {
-											setIsMessageSearchOpen(false)
-											setMessageSearchQuery('')
-										}}
-										searchQuery={messageSearchQuery}
-										onSearchChange={setMessageSearchQuery}
-										matchCount={messageSearchMatches.length}
-										currentMatch={currentMatchIndex + 1}
-										onNext={goToNextMatch}
-										onPrevious={goToPreviousMatch}
-									/>
-								)}
+								{/* Сообщения - растягиваемая область */}
+								<div
+									className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar relative'
+									style={{
+										touchAction: 'pan-y',
+										WebkitOverflowScrolling: 'touch',
+									}}
+								>
+									{/* Поиск по сообщениям */}
+									{selectedChat && (
+										<ChatMessageSearch
+											isOpen={isMessageSearchOpen}
+											onClose={() => {
+												setIsMessageSearchOpen(false)
+												setMessageSearchQuery('')
+											}}
+											searchQuery={messageSearchQuery}
+											onSearchChange={setMessageSearchQuery}
+											matchCount={messageSearchMatches.length}
+											currentMatch={currentMatchIndex + 1}
+											onNext={goToNextMatch}
+											onPrevious={goToPreviousMatch}
+										/>
+									)}
 									{messagesLoading ? (
 										<div className='flex items-center justify-center h-full'>
-										<div className='text-center text-slate-200'>
+											<div className='text-center text-slate-200'>
 												<div className='animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full mx-auto mb-3'></div>
 												<p>Загрузка сообщений...</p>
 											</div>
@@ -1166,72 +1195,88 @@ function ChatsPageContent() {
 									) : messages.length === 0 ? (
 										<EmptyState
 											icon={MessageSquare}
-											title="Начните общение"
-											description="Отправьте первое сообщение!"
+											title='Начните общение'
+											description='Отправьте первое сообщение!'
 										/>
 									) : (
 										<div className='max-w-4xl w-full mx-auto space-y-3 sm:space-y-4'>
-										{messages
-											.map((msg, index) => {
+											{messages
+												.map((msg, index) => {
 													// Проверяем, что sender существует
 													if (!msg.sender) {
 														console.warn('Сообщение без отправителя:', msg)
 														return null
 													}
 
-											// Определяем позицию в группе
-											const prevMsg = index > 0 ? messages[index - 1] : null
-											const nextMsg = index < messages.length - 1 ? messages[index + 1] : null
-											
-											const isFirstInGroup = !prevMsg || prevMsg.sender.id !== msg.sender.id
-											const isLastInGroup = !nextMsg || nextMsg.sender.id !== msg.sender.id
-											const showSenderName = isFirstInGroup
+													// Определяем позицию в группе
+													const prevMsg = index > 0 ? messages[index - 1] : null
+													const nextMsg =
+														index < messages.length - 1
+															? messages[index + 1]
+															: null
 
-											const isHighlighted = messageSearchQuery && 
-												msg.content?.toLowerCase().includes(messageSearchQuery.toLowerCase()) &&
-												messageSearchMatches.includes(index) &&
-												messageSearchMatches[currentMatchIndex] === index
+													const isFirstInGroup =
+														!prevMsg || prevMsg.sender.id !== msg.sender.id
+													const isLastInGroup =
+														!nextMsg || nextMsg.sender.id !== msg.sender.id
+													const showSenderName = isFirstInGroup
 
-											return (
-												<div
-													key={msg.id}
-													ref={(el) => {
-														if (el) {
-															messageSearchRefs.current.set(msg.id, el)
-														} else {
-															messageSearchRefs.current.delete(msg.id)
-														}
-													}}
-													className={isHighlighted ? 'ring-2 ring-emerald-500 rounded-lg p-1 -m-1 transition-all animate-pulse' : ''}
-												>
-													<ChatMessage
-														message={msg}
-														chatType={selectedChat?.type || 'private'}
-														showSenderName={showSenderName}
-														isFirstInGroup={isFirstInGroup}
-														isLastInGroup={isLastInGroup}
-														onMessageUpdate={updatedMsg => {
-															setMessages(prev =>
-																prev.map(m =>
-																	m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m
-																)
-															)
-														}}
-														onMessageDelete={messageId => {
-															setMessages(prev =>
-																prev.map(m =>
-																	m.id === messageId
-																		? { ...m, content: '[Сообщение удалено]' }
-																		: m
-																)
-															)
-														}}
-													/>
-												</div>
-											)
-											})
-											.filter(Boolean)
-											}
+													const isHighlighted =
+														messageSearchQuery &&
+														msg.content
+															?.toLowerCase()
+															.includes(messageSearchQuery.toLowerCase()) &&
+														messageSearchMatches.includes(index) &&
+														messageSearchMatches[currentMatchIndex] === index
+
+													return (
+														<div
+															key={msg.id}
+															ref={el => {
+																if (el) {
+																	messageSearchRefs.current.set(msg.id, el)
+																} else {
+																	messageSearchRefs.current.delete(msg.id)
+																}
+															}}
+															className={
+																isHighlighted
+																	? 'ring-2 ring-emerald-500 rounded-lg p-1 -m-1 transition-all animate-pulse'
+																	: ''
+															}
+														>
+															<ChatMessage
+																message={msg}
+																chatType={selectedChat?.type || 'private'}
+																showSenderName={showSenderName}
+																isFirstInGroup={isFirstInGroup}
+																isLastInGroup={isLastInGroup}
+																onMessageUpdate={updatedMsg => {
+																	setMessages(prev =>
+																		prev.map(m =>
+																			m.id === updatedMsg.id
+																				? { ...m, ...updatedMsg }
+																				: m
+																		)
+																	)
+																}}
+																onMessageDelete={messageId => {
+																	setMessages(prev =>
+																		prev.map(m =>
+																			m.id === messageId
+																				? {
+																						...m,
+																						content: '[Сообщение удалено]',
+																				  }
+																				: m
+																		)
+																	)
+																}}
+															/>
+														</div>
+													)
+												})
+												.filter(Boolean)}
 										</div>
 									)}
 
@@ -1251,7 +1296,7 @@ function ChatsPageContent() {
 															style={{ animationDelay: '0.2s' }}
 														></div>
 													</div>
-											<span className='text-sm text-slate-200'>
+													<span className='text-sm text-slate-200'>
 														{typingUser} печатает...
 													</span>
 												</div>
@@ -1262,9 +1307,9 @@ function ChatsPageContent() {
 									<div ref={messagesEndRef} />
 								</div>
 
-							{/* Поле ввода сообщения - закреплённое внизу колонки */}
-							<div className='flex-shrink-0 border-t border-emerald-300/25 bg-slate-900/40 md:bg-slate-900/32 backdrop-blur-lg shadow-[0_-10px_22px_rgba(15,118,110,0.2)]'>
-							<div className='px-4 py-2 sm:px-5 sm:py-3'>
+								{/* Поле ввода сообщения - закреплённое внизу колонки */}
+								<div className='flex-shrink-0 border-t border-emerald-300/25 bg-slate-900/40 md:bg-slate-900/32 backdrop-blur-lg shadow-[0_-10px_22px_rgba(15,118,110,0.2)]'>
+									<div className='px-4 py-2 sm:px-5 sm:py-3'>
 										<MessageInput
 											chatType={selectedChat.type}
 											otherUserId={selectedChat.otherUser?.id}
@@ -1273,12 +1318,15 @@ function ChatsPageContent() {
 										/>
 									</div>
 									{/* Безопасная зона для iOS */}
-									<div className='h-safe-bottom md:hidden' style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
+									<div
+										className='h-safe-bottom md:hidden'
+										style={{ height: 'env(safe-area-inset-bottom, 0px)' }}
+									/>
 								</div>
 							</>
 						) : (
 							<div className='hidden md:flex flex-1 items-center justify-center'>
-									<div className='text-center text-slate-200 px-4'>
+								<div className='text-center text-slate-200 px-4'>
 									<div className='text-6xl sm:text-8xl mb-4 sm:mb-6'>💬</div>
 									<h2 className='text-xl sm:text-2xl font-semibold mb-2 sm:mb-3 text-white'>
 										Выберите чат
