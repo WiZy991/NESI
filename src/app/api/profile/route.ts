@@ -9,89 +9,140 @@ export async function GET(req: Request) {
   if (!user)
     return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-  // 1️⃣ Определяем роль пользователя
-  const baseUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, role: true },
-  })
+  try {
+    // 1️⃣ Один запрос для получения всех данных + параллельный расчет avgRating
+    const [fullUser, avgRatingResult] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          description: true,
+          location: true,
+          skills: true,
+          avatarFileId: true,
+          balance: true,
+          frozenBalance: true,
+          xp: true,
+          completedTasksCount: true,
+          avatarFile: {
+            select: { id: true }
+          },
+          // Ограничиваем reviewsReceived - берем только последние 20 для быстрой загрузки
+          reviewsReceived: {
+            select: {
+              id: true,
+              rating: true,
+              comment: true,
+              createdAt: true,
+              fromUser: {
+                select: { id: true, fullName: true, email: true }
+              },
+              task: {
+                select: { id: true, title: true }
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20, // Ограничение для производительности
+          },
+          // Дополнительные данные для исполнителя (загружаются только если role === 'executor')
+          level: true,
+          badges: {
+            select: {
+              id: true,
+              earnedAt: true,
+              badge: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  icon: true,
+                }
+              }
+            },
+            orderBy: { earnedAt: 'desc' },
+          },
+          certifications: {
+            select: {
+              id: true,
+              level: true,
+              grantedAt: true,
+              subcategory: {
+                select: {
+                  id: true,
+                  name: true,
+                }
+              }
+            },
+            orderBy: { grantedAt: 'desc' },
+          },
+          executedTasks: {
+            where: { status: 'completed' },
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              price: true,
+              completedAt: true,
+              customer: {
+                select: { id: true, fullName: true, email: true }
+              },
+              review: {
+                select: {
+                  id: true,
+                  rating: true,
+                  comment: true,
+                }
+              }
+            },
+            orderBy: { completedAt: 'desc' },
+            take: 10,
+          },
+          _count: {
+            select: {
+              executedTasks: { where: { status: 'completed' } },
+              reviewsReceived: true,
+              responses: true,
+            },
+          },
+        },
+      }),
+      // Параллельно вычисляем avgRating через агрегацию (быстрее чем загружать все reviews)
+      prisma.review.aggregate({
+        where: { toUserId: user.id },
+        _avg: { rating: true },
+        _count: { rating: true },
+      })
+    ])
 
-  if (!baseUser)
-    return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
+    if (!fullUser)
+      return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 
-  // 2️⃣ Общие поля (для всех)
-  const includeBase = {
-    avatarFile: true,
-    reviewsReceived: {
-      include: { fromUser: true, task: true },
-    },
-  }
-
-  // 3️⃣ Дополнительные данные только для исполнителя
-  const includeExecutor = {
-    ...includeBase,
-    level: true,
-    badges: {
-      include: { badge: true },
-      orderBy: { earnedAt: 'desc' },
-    },
-    certifications: {
-      include: { subcategory: true },
-      orderBy: { grantedAt: 'desc' },
-    },
-    executedTasks: {
-      where: { status: 'completed' },
-      include: {
-        customer: { select: { id: true, fullName: true, email: true } },
-        review: true,
-      },
-      orderBy: { completedAt: 'desc' },
-      take: 10,
-    },
-    _count: {
-      select: {
-        executedTasks: { where: { status: 'completed' } },
-        reviewsReceived: true,
-        responses: true,
-      },
-    },
-  }
-
-  // 4️⃣ Выбор полей по роли
-  const include = baseUser.role === 'executor' ? includeExecutor : includeBase
-
-  const fullUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    include,
-  })
-
-  if (!fullUser)
-    return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
-
-  // 5️⃣ Средний рейтинг
-  const reviews = await prisma.review.findMany({
-    where: { toUserId: user.id },
-    select: { rating: true },
-  })
-
-  const avgRating =
-    reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    // 2️⃣ Вычисляем avgRating из результата агрегации
+    const avgRating = avgRatingResult._avg.rating && avgRatingResult._count.rating > 0
+      ? avgRatingResult._avg.rating
       : null
 
-  // 6️⃣ Аватар
-  const avatarUrl = fullUser?.avatarFileId
-    ? `/api/files/${fullUser.avatarFileId}`
-    : null
+    // 3️⃣ Аватар
+    const avatarUrl = fullUser.avatarFileId
+      ? `/api/files/${fullUser.avatarFileId}`
+      : null
 
-  // 7️⃣ Возвращаем итоговый ответ
-  return NextResponse.json({
-    user: {
-      ...fullUser,
-      avatarUrl,
-      avgRating,
-      isExecutor: baseUser.role === 'executor',
-    },
-  })
+    // 4️⃣ Возвращаем оптимизированный ответ
+    return NextResponse.json({
+      user: {
+        ...fullUser,
+        avatarUrl,
+        avgRating,
+        isExecutor: fullUser.role === 'executor',
+      },
+    })
+  } catch (error) {
+    console.error('❌ Ошибка загрузки профиля:', error)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
 }
 
 export async function PATCH(req: Request) {

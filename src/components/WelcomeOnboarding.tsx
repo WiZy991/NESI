@@ -17,7 +17,6 @@ export default function WelcomeOnboarding() {
   const { user, loading } = useUser()
   const pathname = usePathname()
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
-  const [hasShownWelcome, setHasShownWelcome] = useState(false)
   const [isTourActive, setIsTourActive] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [highlightedElement, setHighlightedElement] = useState<HTMLElement | null>(null)
@@ -48,7 +47,9 @@ export default function WelcomeOnboarding() {
     // Обработчик события для повторного запуска онбординга
     const handleRestartOnboarding = () => {
       if (user && !['/login', '/register', '/forgot-password'].includes(pathname)) {
-        setHasShownWelcome(false)
+        // Удаляем флаг из localStorage для повторного запуска
+        const onboardingKey = `nesi_onboarding_done_${user.id}`
+        localStorage.removeItem(onboardingKey)
         // Небольшая задержка перед показом
         setTimeout(() => {
           setShowWelcomeModal(true)
@@ -58,8 +59,8 @@ export default function WelcomeOnboarding() {
 
     window.addEventListener('restart-onboarding', handleRestartOnboarding)
 
-    // Показываем онбординг только для новых пользователей и только на главных страницах
-    if (loading || !user || hasShownWelcome) {
+    // Показываем онбординг ТОЛЬКО для новых пользователей (проверяем только localStorage, без локального состояния)
+    if (loading || !user) {
       return () => {
         window.removeEventListener('restart-onboarding', handleRestartOnboarding)
       }
@@ -72,25 +73,28 @@ export default function WelcomeOnboarding() {
       }
     }
 
+    // Проверяем localStorage - это единственный источник истины
     const onboardingKey = `nesi_onboarding_done_${user.id}`
     const hasDoneOnboarding = localStorage.getItem(onboardingKey)
 
-    if (!hasDoneOnboarding) {
-      // Небольшая задержка перед показом
-      const timer = setTimeout(() => {
-        setShowWelcomeModal(true)
-      }, 1500)
-
+    // Если пользователь уже прошел онбординг, не показываем его снова
+    if (hasDoneOnboarding === 'true') {
       return () => {
-        clearTimeout(timer)
         window.removeEventListener('restart-onboarding', handleRestartOnboarding)
       }
     }
 
+    // Показываем онбординг только новым пользователям
+    // Небольшая задержка перед показом
+    const timer = setTimeout(() => {
+      setShowWelcomeModal(true)
+    }, 1500)
+
     return () => {
+      clearTimeout(timer)
       window.removeEventListener('restart-onboarding', handleRestartOnboarding)
     }
-  }, [user, loading, hasShownWelcome, pathname])
+  }, [user, loading, pathname])
 
   // Получаем шаги онбординга
   const getSteps = (): OnboardingStep[] => {
@@ -111,50 +115,62 @@ export default function WelcomeOnboarding() {
         description: 'Управляйте своим профилем, настройками, портфолио и просматривайте статистику. Здесь вы можете изменить пароль, настройки уведомлений и редактировать личные данные.',
         position: 'bottom',
       },
+      {
+        element: 'button[data-onboarding-target="more-menu"]',
+        title: '📂 Меню "Ещё"',
+        description: 'Здесь находятся дополнительные функции: чаты для общения, сообщество, запросы найма, аналитика, портфолио и настройки. Нажмите, чтобы открыть меню и увидеть все возможности платформы.',
+        position: 'bottom',
+      },
     ]
 
     if (userRole === 'customer') {
       return [
         {
           element: 'a[data-onboarding-target="nav-specialists"]',
-                title: '🏆 Подиум исполнителей',
-                description: 'Здесь вы можете найти и нанять сотрудников на постоянную работу! Просматривайте рейтинги, профили и опыт исполнителей, чтобы подобрать идеального специалиста для вашей команды.',
+          title: '🏆 Подиум исполнителей',
+          description: 'Здесь вы можете найти и нанять сотрудников на постоянную работу! Просматривайте рейтинги, профили и опыт исполнителей, чтобы подобрать идеального специалиста для вашей команды.',
           position: 'bottom',
-            },
-            {
+        },
+        {
           element: 'a[data-onboarding-target="nav-create-task"]',
-                title: '📝 Создание задачи',
-                description: 'Нажмите здесь, чтобы опубликовать новую задачу. Укажите требования, бюджет и сроки - исполнители откликнутся! Вы можете использовать шаблоны для быстрого создания.',
+          title: '📝 Создание задачи',
+          description: 'Нажмите здесь, чтобы опубликовать новую задачу. Укажите требования, бюджет и сроки - исполнители откликнутся! Вы можете использовать шаблоны для быстрого создания.',
           position: 'bottom',
-            },
-            {
+        },
+        {
           element: 'a[data-onboarding-target="nav-tasks"]',
-                title: '📋 Каталог задач',
-                description: 'Здесь вы найдете все доступные задачи. Используйте фильтры по категориям, дате и статусу для поиска подходящих заданий. Можно отсортировать по популярности, цене или дате.',
+          title: '📋 Каталог задач',
+          description: 'Здесь вы найдете все доступные задачи. Используйте фильтры по категориям, дате и статусу для поиска подходящих заданий. Можно отсортировать по популярности, цене или дате.',
           position: 'bottom',
-            },
-            {
+        },
+        {
           element: 'a[data-onboarding-target="nav-my-tasks"]',
-                title: '✅ Мои задачи',
-                description: 'Все ваши созданные задачи в одном месте. Отслеживайте статусы выполнения, общайтесь с исполнителями и управляйте проектами.',
+          title: '✅ Мои задачи',
+          description: 'Все ваши созданные задачи в одном месте. Отслеживайте статусы выполнения, общайтесь с исполнителями и управляйте проектами.',
           position: 'bottom',
-              },
+        },
         ...baseSteps,
-          ]
+      ]
     } else {
       return [
-            {
+        {
           element: 'a[data-onboarding-target="nav-tasks"]',
-                title: '🌟 Найдите задание',
-                description: 'Просматривайте доступные задачи, фильтруйте по категориям и откликайтесь на интересные проекты! Каждая задача содержит подробное описание и требования.',
+          title: '🌟 Найдите задание',
+          description: 'Просматривайте доступные задачи, фильтруйте по категориям и откликайтесь на интересные проекты! Каждая задача содержит подробное описание и требования.',
           position: 'bottom',
-            },
-            {
+        },
+        {
           element: 'a[data-onboarding-target="nav-specialists"]',
-                title: '🏆 Подиум исполнителей',
-                description: 'Здесь вы можете посмотреть рейтинги и достижения других исполнителей, получить вдохновение и увидеть свой прогресс!',
+          title: '🏆 Подиум исполнителей',
+          description: 'Здесь вы можете посмотреть рейтинги и достижения других исполнителей, получить вдохновение и увидеть свой прогресс!',
           position: 'bottom',
-            },
+        },
+        {
+          element: 'a[data-onboarding-target="nav-level"]',
+          title: '⭐ Ваш уровень',
+          description: 'Здесь отображается ваш текущий уровень и прогресс! Выполняйте задачи, проходите тесты и получайте отзывы, чтобы повышать уровень и открывать новые возможности.',
+          position: 'bottom',
+        },
         ...baseSteps,
       ]
     }
@@ -189,16 +205,16 @@ export default function WelcomeOnboarding() {
       }
     }
 
-    // Закрываем меню "Ещё" если оно открыто
-        try {
-          // @ts-ignore
-          if (typeof window !== 'undefined' && window.__nesiSetMenuOpen) {
-            // @ts-ignore
-            window.__nesiSetMenuOpen(false)
-          }
-        } catch (err) {
-          console.warn('Failed to close more menu:', err)
-        }
+    // Закрываем меню "Ещё" если оно открыто (не открываем автоматически)
+    try {
+      // @ts-ignore
+      if (typeof window !== 'undefined' && window.__nesiSetMenuOpen) {
+        // @ts-ignore
+        window.__nesiSetMenuOpen(false)
+      }
+    } catch (err) {
+      console.warn('Failed to close more menu:', err)
+    }
         
     // Находим новый элемент с несколькими попытками
     let element: HTMLElement | null = null
@@ -377,7 +393,6 @@ export default function WelcomeOnboarding() {
     if (user) {
       const onboardingKey = `nesi_onboarding_done_${user.id}`
       localStorage.setItem(onboardingKey, 'true')
-      setHasShownWelcome(true)
     }
     
     setIsTourActive(true)
@@ -487,7 +502,6 @@ export default function WelcomeOnboarding() {
     if (user) {
       const onboardingKey = `nesi_onboarding_done_${user.id}`
       localStorage.setItem(onboardingKey, 'true')
-      setHasShownWelcome(true)
     }
   }
 
@@ -498,11 +512,10 @@ export default function WelcomeOnboarding() {
       e.stopPropagation()
     }
     setShowWelcomeModal(false)
-        if (user) {
+    if (user) {
       const onboardingKey = `nesi_onboarding_done_${user.id}`
       localStorage.setItem(onboardingKey, 'true')
-          setHasShownWelcome(true)
-        }
+    }
   }
 
   const userRole = user?.role || 'customer'

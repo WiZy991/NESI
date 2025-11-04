@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import {
 	FaCity,
@@ -8,6 +8,8 @@ import {
 	FaFileSignature,
 	FaImage,
 	FaTimes,
+	FaCheckCircle,
+	FaExclamationCircle,
 } from 'react-icons/fa'
 import { toast } from 'sonner'
 
@@ -122,32 +124,46 @@ function SkillsSelector({
 	setSkills: (s: string[]) => void
 }) {
 	const [searchQuery, setSearchQuery] = useState('')
+	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
 	const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
-	const addSkill = (skill: string) => {
+	// Дебаунс для поиска (оптимизация)
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedSearchQuery(searchQuery)
+		}, 300)
+		return () => clearTimeout(timer)
+	}, [searchQuery])
+
+	// Мемоизация функций для оптимизации
+	const addSkill = useCallback((skill: string) => {
 		if (!skills.includes(skill)) {
 			setSkills([...skills, skill])
 		}
-	}
+	}, [skills, setSkills])
 
-	const removeSkill = (skill: string) => {
+	const removeSkill = useCallback((skill: string) => {
 		setSkills(skills.filter(s => s !== skill))
-	}
+	}, [skills, setSkills])
 
-	const filteredCategories = Object.entries(skillCategories).filter(([category, items]) => {
-		if (selectedCategory && category !== selectedCategory) return false
-		if (!searchQuery) return true
-		const query = searchQuery.toLowerCase()
-		return category.toLowerCase().includes(query) || 
-		       items.some(item => item.toLowerCase().includes(query))
-	})
+	// Мемоизация фильтрованных категорий
+	const filteredCategories = useMemo(() => {
+		return Object.entries(skillCategories).filter(([category, items]) => {
+			if (selectedCategory && category !== selectedCategory) return false
+			if (!debouncedSearchQuery) return true
+			const query = debouncedSearchQuery.toLowerCase()
+			return category.toLowerCase().includes(query) || 
+			       items.some(item => item.toLowerCase().includes(query))
+		})
+	}, [selectedCategory, debouncedSearchQuery])
 
-	const filteredSkills = (category: string) => {
+	// Мемоизация фильтрованных навыков для категории
+	const getFilteredSkills = useCallback((category: string) => {
 		const items = skillCategories[category] || []
-		if (!searchQuery) return items
-		const query = searchQuery.toLowerCase()
+		if (!debouncedSearchQuery) return items
+		const query = debouncedSearchQuery.toLowerCase()
 		return items.filter(item => item.toLowerCase().includes(query))
-	}
+	}, [debouncedSearchQuery])
 
 	return (
 		<div className='space-y-4'>
@@ -212,14 +228,14 @@ function SkillsSelector({
 
 			{/* Навыки по категориям */}
 			<div className='space-y-3 sm:space-y-4 max-h-80 sm:max-h-96 overflow-y-auto custom-scrollbar'>
-				{filteredCategories.map(([category, items]) => {
-					const skillsToShow = filteredSkills(category)
+				{filteredCategories.map(([category]) => {
+					const skillsToShow = getFilteredSkills(category)
 					if (skillsToShow.length === 0) return null
 					
 					return (
 						<div key={category}>
 							<h3 className='text-emerald-400 text-xs sm:text-sm mb-1.5 sm:mb-2 font-medium'>
-								{category}
+								{category} <span className='text-gray-500 text-xs'>({skillsToShow.length})</span>
 							</h3>
 							<div className='flex flex-wrap gap-1.5 sm:gap-2'>
 								{skillsToShow.map(skill => (
@@ -241,6 +257,11 @@ function SkillsSelector({
 						</div>
 					)
 				})}
+				{filteredCategories.length === 0 && debouncedSearchQuery && (
+					<div className='text-center py-8 text-gray-400 text-sm'>
+						Навыки не найдены. Попробуйте другой запрос или добавьте свой навык ниже.
+					</div>
+				)}
 			</div>
 
 			{/* Добавить свой навык */}
@@ -285,8 +306,10 @@ export default function EditProfileModal({
 	const [saving, setSaving] = useState(false)
 	const [mounted, setMounted] = useState(false)
 	const [showCityDropdown, setShowCityDropdown] = useState(false)
+	const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 	const locationInputRef = useRef<HTMLInputElement>(null)
 	const cityDropdownRef = useRef<HTMLDivElement>(null)
+	const citySearchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
 	useEffect(() => {
 		setMounted(true)
@@ -308,17 +331,59 @@ export default function EditProfileModal({
 		return () => document.removeEventListener('mousedown', handleClickOutside)
 	}, [])
 
-	// Фильтрация городов
-	const filteredCities = location.trim()
-		? cityOptions.filter(city =>
-				city.toLowerCase().includes(location.toLowerCase())
-		  ).slice(0, 10)
-		: cityOptions.slice(0, 10) // Если поле пустое, показываем первые 10 городов
+	// Мемоизация фильтрации городов для оптимизации
+	const filteredCities = useMemo(() => {
+		const query = location.trim().toLowerCase()
+		if (!query) return cityOptions.slice(0, 10)
+		return cityOptions
+			.filter(city => city.toLowerCase().includes(query))
+			.slice(0, 10)
+	}, [location])
 
-	const handleCitySelect = (city: string) => {
+	const handleCitySelect = useCallback((city: string) => {
 		setLocation(city)
 		setShowCityDropdown(false)
-	}
+		setValidationErrors(prev => ({ ...prev, location: '' }))
+	}, [])
+
+	// Валидация в реальном времени
+	const validateField = useCallback((field: string, value: string | string[]) => {
+		const errors: Record<string, string> = {}
+		
+		if (field === 'fullName' && typeof value === 'string') {
+			if (!value.trim()) {
+				errors.fullName = 'Имя обязательно для заполнения'
+			} else if (value.trim().length < 2) {
+				errors.fullName = 'Имя должно содержать минимум 2 символа'
+			} else if (value.trim().length > 100) {
+				errors.fullName = 'Имя не должно превышать 100 символов'
+			}
+		}
+		
+		if (field === 'description' && typeof value === 'string' && value.length > 1000) {
+			errors.description = 'Описание не должно превышать 1000 символов'
+		}
+		
+		if (field === 'skills' && Array.isArray(value) && value.length > 20) {
+			errors.skills = 'Можно выбрать не более 20 навыков'
+		}
+		
+		setValidationErrors(prev => ({ ...prev, ...errors }))
+		return Object.keys(errors).length === 0
+	}, [])
+
+	// Мемоизация прогресса заполнения
+	const completionProgress = useMemo(() => {
+		let filled = 0
+		const total = 4
+		
+		if (fullName.trim()) filled++
+		if (description.trim()) filled++
+		if (location.trim()) filled++
+		if (skills.length > 0) filled++
+		
+		return Math.round((filled / total) * 100)
+	}, [fullName, description, location, skills])
 
 	// Блокировка прокрутки body когда модальное окно открыто
 	useEffect(() => {
@@ -349,19 +414,27 @@ export default function EditProfileModal({
 		}
 	}, [user, isOpen])
 
-	const handleSave = async () => {
+	const handleSave = useCallback(async () => {
 		if (!token) return toast.error('Нет токена авторизации')
-		if (!fullName.trim()) return toast.error('Имя не может быть пустым')
+		
+		// Валидация всех полей
+		const isFullNameValid = validateField('fullName', fullName)
+		const isDescriptionValid = validateField('description', description)
+		const isSkillsValid = validateField('skills', skills as any)
+		
+		if (!isFullNameValid || !isDescriptionValid || !isSkillsValid) {
+			return toast.error('Исправьте ошибки в форме')
+		}
 
 		setSaving(true)
 		const toastId = toast.loading('Сохраняем профиль...')
 
 		try {
 			const formData = new FormData()
-			formData.append('fullName', fullName)
+			formData.append('fullName', fullName.trim())
 			formData.append('role', user.role)
-			formData.append('description', description)
-			formData.append('location', location)
+			formData.append('description', description.trim())
+			formData.append('location', location.trim())
 			formData.append('skills', skills.join(','))
 			if (avatarFile) formData.append('avatar', avatarFile)
 
@@ -375,6 +448,7 @@ export default function EditProfileModal({
 			if (!res.ok) throw new Error(data.error || 'Ошибка при сохранении')
 
 			toast.success('Профиль обновлён', { id: toastId })
+			setValidationErrors({})
 			onSuccess()
 			onClose()
 		} catch (err: any) {
@@ -382,12 +456,24 @@ export default function EditProfileModal({
 		} finally {
 			setSaving(false)
 		}
-	}
+	}, [token, fullName, description, location, skills, avatarFile, user.role, validateField, onSuccess, onClose])
 
-	const handleAvatarChange = (file: File) => {
+	const handleAvatarChange = useCallback((file: File) => {
+		// Валидация размера файла (макс 5MB)
+		if (file.size > 5 * 1024 * 1024) {
+			toast.error('Размер файла не должен превышать 5MB')
+			return
+		}
+		
+		// Валидация типа файла
+		if (!file.type.startsWith('image/')) {
+			toast.error('Выберите изображение')
+			return
+		}
+		
 		setAvatarFile(file)
 		setAvatarPreview(URL.createObjectURL(file))
-	}
+	}, [])
 
 	if (!mounted || !isOpen) return null
 
@@ -397,7 +483,7 @@ export default function EditProfileModal({
 			onClick={onClose}
 		>
 			<div
-				className='relative w-full h-[calc(100vh-4rem)] sm:h-auto sm:max-w-4xl sm:max-h-[90vh] bg-gradient-to-br from-black via-gray-900 to-black border-0 sm:border border-emerald-500/30 rounded-none sm:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden'
+				className='relative w-full h-[calc(100vh-4rem)] sm:h-auto sm:max-w-5xl sm:max-h-[95vh] bg-gradient-to-br from-black via-gray-900 to-black border-0 sm:border border-emerald-500/30 rounded-none sm:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden'
 				onClick={e => e.stopPropagation()}
 			>
 				{/* Заголовок */}
@@ -423,112 +509,224 @@ export default function EditProfileModal({
 				</div>
 
 				{/* Контент */}
-				<div className='flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 text-white custom-scrollbar'>
-					{/* Имя */}
-					<div className='space-y-2'>
-						<label className='flex items-center gap-2 text-emerald-400 font-medium text-sm sm:text-base'>
-							<FaFileSignature className='text-sm sm:text-base' /> Имя
-						</label>
-						<input
-							type='text'
-							value={fullName}
-							onChange={e => setFullName(e.target.value)}
-							className='w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
-							placeholder='Ваше имя'
-						/>
-					</div>
-
-					{/* Описание */}
-					<div className='space-y-2'>
-						<label className='text-emerald-400 font-medium text-sm sm:text-base'>Описание</label>
-						<textarea
-							value={description}
-							onChange={e => setDescription(e.target.value)}
-							rows={3}
-							placeholder='Расскажите немного о себе...'
-							className='w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition resize-none'
-						/>
-					</div>
-
-					{/* Город - автодополнение с выпадающим списком */}
-					<div className='space-y-2'>
-						<label className='flex items-center gap-2 text-emerald-400 font-medium text-sm sm:text-base'>
-							<FaCity className='text-sm sm:text-base' /> Город
-						</label>
-						<div className='relative' ref={cityDropdownRef}>
-							<input
-								ref={locationInputRef}
-								type='text'
-								value={location}
-								onChange={e => {
-									setLocation(e.target.value)
-									setShowCityDropdown(true)
-								}}
-								onFocus={() => setShowCityDropdown(true)}
-								onBlur={() => {
-									// Закрываем с небольшой задержкой, чтобы onClick успел сработать
-									setTimeout(() => setShowCityDropdown(false), 200)
-								}}
-								className='w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
-								placeholder='Начните вводить город...'
+				<div className='flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 text-white custom-scrollbar'>
+					{/* Индикатор заполнения */}
+					<div className='mb-8 bg-black/40 border border-emerald-500/30 rounded-xl p-4 sm:p-5'>
+						<div className='flex items-center justify-between mb-3'>
+							<span className='text-base sm:text-lg text-gray-300 font-medium'>Прогресс заполнения</span>
+							<span className='text-base sm:text-lg font-bold text-emerald-400'>{completionProgress}%</span>
+						</div>
+						<div className='w-full bg-gray-700/50 rounded-full h-3 overflow-hidden'>
+							<div
+								className='h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500'
+								style={{ width: `${completionProgress}%` }}
 							/>
-							{showCityDropdown && filteredCities.length > 0 && (
-								<div className='absolute z-50 w-full mt-1 bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.3)] max-h-48 sm:max-h-60 overflow-y-auto custom-scrollbar'>
-									{filteredCities.map(city => (
-										<button
-											key={city}
-											type='button'
-											onClick={() => handleCitySelect(city)}
-											className='w-full px-3 sm:px-4 py-2 text-left text-sm sm:text-base text-white hover:bg-emerald-500/20 hover:text-emerald-300 transition border-b border-emerald-500/10 last:border-b-0'
-										>
-											{city}
-										</button>
-									))}
-								</div>
+						</div>
+					</div>
+
+					{/* Основная информация */}
+					<div className='mb-8 space-y-6'>
+						<h3 className='text-lg sm:text-xl font-bold text-emerald-400 mb-4 pb-2 border-b border-emerald-500/30'>
+							Основная информация
+						</h3>
+						
+						{/* Имя */}
+						<div className='space-y-3'>
+							<label className='flex items-center gap-2 text-emerald-400 font-semibold text-base sm:text-lg'>
+								<FaFileSignature className='text-base sm:text-lg' /> Имя
+								<span className='text-red-400 text-sm'>*</span>
+							</label>
+							<div className='relative'>
+								<input
+									type='text'
+									value={fullName}
+									onChange={e => {
+										setFullName(e.target.value)
+										if (e.target.value.trim()) {
+											validateField('fullName', e.target.value)
+										}
+									}}
+									onBlur={() => validateField('fullName', fullName)}
+									className={`w-full px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg bg-black/40 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition ${
+										validationErrors.fullName
+											? 'border-red-500/50 focus:border-red-400 focus:ring-red-400/30'
+											: 'border-emerald-500/30 focus:border-emerald-400 focus:ring-emerald-400/30'
+									}`}
+									placeholder='Введите ваше имя'
+								/>
+								{fullName.trim() && !validationErrors.fullName && (
+									<FaCheckCircle className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 text-lg' />
+								)}
+								{validationErrors.fullName && (
+									<FaExclamationCircle className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400 text-lg' />
+								)}
+							</div>
+							{validationErrors.fullName && (
+								<p className='text-sm text-red-400 flex items-center gap-2'>
+									<FaExclamationCircle className='text-sm' />
+									{validationErrors.fullName}
+								</p>
+							)}
+							{fullName.trim() && !validationErrors.fullName && (
+								<p className='text-sm text-gray-500'>{fullName.trim().length}/100 символов</p>
 							)}
 						</div>
-						<p className='text-xs text-gray-500'>Выберите из списка или введите свой город</p>
+
+						{/* Описание */}
+						<div className='space-y-3'>
+							<label className='text-emerald-400 font-semibold text-base sm:text-lg'>
+								Описание
+								<span className='text-gray-500 text-sm ml-2 font-normal'>(необязательно)</span>
+							</label>
+							<div className='relative'>
+								<textarea
+									value={description}
+									onChange={e => {
+										setDescription(e.target.value)
+										if (e.target.value) {
+											validateField('description', e.target.value)
+										}
+									}}
+									onBlur={() => validateField('description', description)}
+									rows={4}
+									placeholder='Расскажите немного о себе, своем опыте и специализации...'
+									className={`w-full px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg bg-black/40 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition resize-none ${
+										validationErrors.description
+											? 'border-red-500/50 focus:border-red-400 focus:ring-red-400/30'
+											: 'border-emerald-500/30 focus:border-emerald-400 focus:ring-emerald-400/30'
+									}`}
+								/>
+								{validationErrors.description && (
+									<FaExclamationCircle className='absolute right-4 top-4 text-red-400 text-lg' />
+								)}
+							</div>
+							{validationErrors.description && (
+								<p className='text-sm text-red-400 flex items-center gap-2'>
+									<FaExclamationCircle className='text-sm' />
+									{validationErrors.description}
+								</p>
+							)}
+							<p className='text-sm text-gray-500'>{description.length}/1000 символов</p>
+						</div>
+
+						{/* Город - автодополнение с выпадающим списком */}
+						<div className='space-y-3'>
+							<label className='flex items-center gap-2 text-emerald-400 font-semibold text-base sm:text-lg'>
+								<FaCity className='text-base sm:text-lg' /> Город
+								<span className='text-gray-500 text-sm font-normal'>(необязательно)</span>
+							</label>
+							<div className='relative' ref={cityDropdownRef}>
+								<input
+									ref={locationInputRef}
+									type='text'
+									value={location}
+									onChange={e => {
+										setLocation(e.target.value)
+										setShowCityDropdown(true)
+									}}
+									onFocus={() => setShowCityDropdown(true)}
+									onBlur={() => {
+										setTimeout(() => setShowCityDropdown(false), 200)
+									}}
+									className='w-full px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg bg-black/40 border border-emerald-500/30 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
+									placeholder='Начните вводить название города...'
+								/>
+								{showCityDropdown && filteredCities.length > 0 && (
+									<div className='absolute z-50 w-full mt-2 bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] max-h-60 sm:max-h-80 overflow-y-auto custom-scrollbar'>
+										{filteredCities.map(city => (
+											<button
+												key={city}
+												type='button'
+												onClick={() => handleCitySelect(city)}
+												className='w-full px-4 py-3 text-left text-base text-white hover:bg-emerald-500/20 hover:text-emerald-300 transition border-b border-emerald-500/10 last:border-b-0'
+											>
+												{city}
+											</button>
+										))}
+									</div>
+								)}
+							</div>
+							<p className='text-sm text-gray-500'>Выберите из списка или введите свой город</p>
+						</div>
 					</div>
 
 					{/* Аватар */}
-					<div className='space-y-2'>
-						<label className='flex items-center gap-2 text-emerald-400 font-medium text-sm sm:text-base'>
-							<FaImage className='text-sm sm:text-base' /> Аватар
-						</label>
-						<div className='flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4'>
-							<label
-								htmlFor='avatar-upload'
-								className='px-3 sm:px-4 py-2 text-sm sm:text-base bg-emerald-500/20 border border-emerald-500/40 rounded-lg text-emerald-300 hover:bg-emerald-500/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer transition'
-							>
-								Загрузить фото
+					<div className='mb-8 space-y-6'>
+						<h3 className='text-lg sm:text-xl font-bold text-emerald-400 mb-4 pb-2 border-b border-emerald-500/30'>
+							Фото профиля
+						</h3>
+						<div className='space-y-4'>
+							<label className='flex items-center gap-2 text-emerald-400 font-semibold text-base sm:text-lg'>
+								<FaImage className='text-base sm:text-lg' /> Аватар
+								<span className='text-gray-500 text-sm font-normal'>(необязательно)</span>
 							</label>
-							<input
-								id='avatar-upload'
-								type='file'
-								accept='image/*'
-								onChange={e =>
-									e.target.files?.[0] && handleAvatarChange(e.target.files[0])
-								}
-								className='hidden'
-							/>
-							{avatarPreview && (
-								<div className='w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]'>
-									<img
-										src={avatarPreview}
-										alt='Аватар'
-										className='w-full h-full object-cover'
-									/>
-								</div>
-							)}
+							<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6'>
+								<label
+									htmlFor='avatar-upload'
+									className='px-5 sm:px-6 py-3 sm:py-4 text-base sm:text-lg bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] cursor-pointer transition font-medium'
+								>
+									📷 Загрузить фото
+								</label>
+								<input
+									id='avatar-upload'
+									type='file'
+									accept='image/*'
+									onChange={e =>
+										e.target.files?.[0] && handleAvatarChange(e.target.files[0])
+									}
+									className='hidden'
+								/>
+								{avatarPreview && (
+									<div className='w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_25px_rgba(16,185,129,0.4)]'>
+										<img
+											src={avatarPreview}
+											alt='Аватар'
+											className='w-full h-full object-cover'
+										/>
+									</div>
+								)}
+							</div>
+							<p className='text-sm text-gray-500'>Рекомендуемый размер: квадрат, не более 5MB</p>
 						</div>
 					</div>
 
 					{/* Навыки */}
-					<div className='space-y-2'>
-						<label className='flex items-center gap-2 text-emerald-400 font-medium text-sm sm:text-base'>
-							<FaCode className='text-sm sm:text-base' /> Навыки
-						</label>
-						<SkillsSelector skills={skills} setSkills={setSkills} />
+					<div className='mb-6 space-y-6'>
+						<h3 className='text-lg sm:text-xl font-bold text-emerald-400 mb-4 pb-2 border-b border-emerald-500/30'>
+							Навыки и специализация
+						</h3>
+						<div className='space-y-4'>
+							<label className='flex items-center gap-2 text-emerald-400 font-semibold text-base sm:text-lg'>
+								<FaCode className='text-base sm:text-lg' /> Ваши навыки
+								<span className='text-gray-500 text-sm font-normal'>(необязательно)</span>
+							</label>
+							<SkillsSelector 
+								skills={skills} 
+								setSkills={(newSkills) => {
+									setSkills(newSkills)
+									if (newSkills.length > 20) {
+										validateField('skills', newSkills as any)
+									} else {
+										setValidationErrors(prev => {
+											const next = { ...prev }
+											delete next.skills
+											return next
+										})
+									}
+								}} 
+							/>
+							{skills.length > 0 && (
+								<p className={`text-sm font-medium ${skills.length > 20 ? 'text-red-400' : 'text-gray-400'}`}>
+									Выбрано: <span className={skills.length > 20 ? 'text-red-400 font-bold' : 'text-emerald-400'}>{skills.length}</span>/20 навыков
+								</p>
+							)}
+							{validationErrors.skills && (
+								<p className='text-sm text-red-400 flex items-center gap-2'>
+									<FaExclamationCircle className='text-sm' />
+									{validationErrors.skills}
+								</p>
+							)}
+						</div>
 					</div>
 				</div>
 

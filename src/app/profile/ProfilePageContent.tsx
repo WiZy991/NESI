@@ -121,6 +121,7 @@ export default function ProfilePageContent() {
 	const [activeTab, setActiveTab] = useState<Tab>('overview')
 
 	const [transactions, setTransactions] = useState<any[]>([])
+	const [transactionsLoaded, setTransactionsLoaded] = useState(false)
 	const [amount, setAmount] = useState(100)
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
@@ -136,13 +137,6 @@ export default function ProfilePageContent() {
 			const data = await res.json()
 			setProfile(data.user)
 			login(data.user, token)
-
-			// Баланс
-			const txRes = await fetch('/api/wallet/transactions', {
-				headers: { Authorization: `Bearer ${token}` },
-			})
-			const txData = await txRes.json()
-			setTransactions(txData.transactions || [])
 		} catch (err) {
 			console.error('Ошибка загрузки профиля:', err)
 		} finally {
@@ -150,13 +144,34 @@ export default function ProfilePageContent() {
 		}
 	}
 
+	// Ленивая загрузка транзакций только при открытии вкладки wallet
+	useEffect(() => {
+		const fetchTransactions = async () => {
+			if (!token || activeTab !== 'wallet' || transactionsLoaded) return
+			try {
+				const txRes = await fetch('/api/wallet/transactions', {
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				if (txRes.ok) {
+					const txData = await txRes.json()
+					setTransactions(txData.transactions || [])
+					setTransactionsLoaded(true)
+				}
+			} catch (txErr) {
+				console.error('Ошибка загрузки транзакций:', txErr)
+			}
+		}
+		fetchTransactions()
+	}, [token, activeTab, transactionsLoaded])
+
 	useEffect(() => {
 		fetchProfile()
 	}, [token])
 
+	// Загружаем отзывы только когда открыта вкладка reviews (ленивая загрузка)
 	useEffect(() => {
 		const fetchReviews = async () => {
-			if (!user) return
+			if (!user || activeTab !== 'reviews' || reviews.length > 0) return
 			try {
 				const res = await fetch('/api/reviews/me', {
 					headers: {
@@ -172,7 +187,7 @@ export default function ProfilePageContent() {
 		}
 
 		fetchReviews()
-	}, [user, token])
+	}, [user, token, activeTab])
 
 	const handleWithdraw = async () => {
 		if (!amount || amount <= 0) {
