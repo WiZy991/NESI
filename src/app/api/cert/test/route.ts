@@ -101,10 +101,20 @@ export async function GET(req: Request) {
     const take = Math.min(test.questionCount, test.questions.length)
     const selected = pickRandom(test.questions, take)
 
+    // Функция для перемешивания массива (Fisher-Yates shuffle)
+    const shuffleArray = <T>(array: T[]): T[] => {
+      const shuffled = [...array]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+      return shuffled
+    }
+
     const safeQuestions = selected.map((q) => ({
       id: q.id,
       text: q.text,
-      options: q.options.map((o) => ({ id: o.id, text: o.text })),
+      options: shuffleArray(q.options.map((o) => ({ id: o.id, text: o.text }))),
     }))
 
     return NextResponse.json({

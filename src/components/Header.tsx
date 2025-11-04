@@ -1057,9 +1057,6 @@ export default function Header() {
 											<Link href='/responses/my' className={linkStyle}>
 												Мои отклики
 											</Link>
-											<Link href='/cert' className={linkStyle} data-onboarding-target="nav-cert">
-												Сертификация
-											</Link>
 										</>
 									)}
 									{user.role === 'customer' && (

@@ -23,6 +23,7 @@ export default function WelcomeOnboarding() {
   const [highlightedElement, setHighlightedElement] = useState<HTMLElement | null>(null)
   const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 })
   const [headerHeight, setHeaderHeight] = useState(80)
+  const [quickTourStep, setQuickTourStep] = useState<OnboardingStep | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
@@ -94,9 +95,9 @@ export default function WelcomeOnboarding() {
   // Получаем шаги онбординга
   const getSteps = (): OnboardingStep[] => {
     if (!user) return []
-    
+
     const userRole = user.role
-    
+
     const baseSteps: OnboardingStep[] = [
       {
         element: 'button[data-onboarding-target="notifications-bell"]',
@@ -116,56 +117,48 @@ export default function WelcomeOnboarding() {
       return [
         {
           element: 'a[data-onboarding-target="nav-specialists"]',
-          title: '🏆 Подиум исполнителей',
-          description: 'Здесь вы можете найти и нанять сотрудников на постоянную работу! Просматривайте рейтинги, профили и опыт исполнителей, чтобы подобрать идеального специалиста для вашей команды.',
+                title: '🏆 Подиум исполнителей',
+                description: 'Здесь вы можете найти и нанять сотрудников на постоянную работу! Просматривайте рейтинги, профили и опыт исполнителей, чтобы подобрать идеального специалиста для вашей команды.',
           position: 'bottom',
-        },
-        {
+            },
+            {
           element: 'a[data-onboarding-target="nav-create-task"]',
-          title: '📝 Создание задачи',
-          description: 'Нажмите здесь, чтобы опубликовать новую задачу. Укажите требования, бюджет и сроки - исполнители откликнутся! Вы можете использовать шаблоны для быстрого создания.',
+                title: '📝 Создание задачи',
+                description: 'Нажмите здесь, чтобы опубликовать новую задачу. Укажите требования, бюджет и сроки - исполнители откликнутся! Вы можете использовать шаблоны для быстрого создания.',
           position: 'bottom',
-        },
-        {
+            },
+            {
           element: 'a[data-onboarding-target="nav-tasks"]',
-          title: '📋 Каталог задач',
-          description: 'Здесь вы найдете все доступные задачи. Используйте фильтры по категориям, дате и статусу для поиска подходящих заданий. Можно отсортировать по популярности, цене или дате.',
+                title: '📋 Каталог задач',
+                description: 'Здесь вы найдете все доступные задачи. Используйте фильтры по категориям, дате и статусу для поиска подходящих заданий. Можно отсортировать по популярности, цене или дате.',
           position: 'bottom',
-        },
-        {
+            },
+            {
           element: 'a[data-onboarding-target="nav-my-tasks"]',
-          title: '✅ Мои задачи',
-          description: 'Все ваши созданные задачи в одном месте. Отслеживайте статусы выполнения, общайтесь с исполнителями и управляйте проектами.',
+                title: '✅ Мои задачи',
+                description: 'Все ваши созданные задачи в одном месте. Отслеживайте статусы выполнения, общайтесь с исполнителями и управляйте проектами.',
           position: 'bottom',
-        },
+              },
         ...baseSteps,
-      ]
+          ]
     } else {
       return [
-        {
+            {
           element: 'a[data-onboarding-target="nav-tasks"]',
-          title: '🌟 Найдите задание',
-          description: 'Просматривайте доступные задачи, фильтруйте по категориям и откликайтесь на интересные проекты! Каждая задача содержит подробное описание и требования.',
+                title: '🌟 Найдите задание',
+                description: 'Просматривайте доступные задачи, фильтруйте по категориям и откликайтесь на интересные проекты! Каждая задача содержит подробное описание и требования.',
           position: 'bottom',
-        },
-        {
+            },
+            {
           element: 'a[data-onboarding-target="nav-specialists"]',
-          title: '🏆 Подиум исполнителей',
-          description: 'Здесь вы можете посмотреть рейтинги и достижения других исполнителей, получить вдохновение и увидеть свой прогресс!',
+                title: '🏆 Подиум исполнителей',
+                description: 'Здесь вы можете посмотреть рейтинги и достижения других исполнителей, получить вдохновение и увидеть свой прогресс!',
           position: 'bottom',
-        },
-        {
-          element: 'a[data-onboarding-target="nav-cert"]',
-          title: '🎓 Сертификация',
-          description: 'Пройдите сертификацию в разных категориях и повысьте свой рейтинг! Сертифицированные специалисты получают больше заказов и доверия.',
-          position: 'bottom',
-        },
+            },
         ...baseSteps,
       ]
     }
   }
-
-  const steps = getSteps()
 
   // Функция для подсветки элемента
   const highlightElement = (selector: string) => {
@@ -197,16 +190,16 @@ export default function WelcomeOnboarding() {
     }
 
     // Закрываем меню "Ещё" если оно открыто
-    try {
-      // @ts-ignore
-      if (typeof window !== 'undefined' && window.__nesiSetMenuOpen) {
-        // @ts-ignore
-        window.__nesiSetMenuOpen(false)
-      }
-    } catch (err) {
-      console.warn('Failed to close more menu:', err)
-    }
-
+        try {
+          // @ts-ignore
+          if (typeof window !== 'undefined' && window.__nesiSetMenuOpen) {
+            // @ts-ignore
+            window.__nesiSetMenuOpen(false)
+          }
+        } catch (err) {
+          console.warn('Failed to close more menu:', err)
+        }
+        
     // Находим новый элемент с несколькими попытками
     let element: HTMLElement | null = null
     let attempts = 0
@@ -298,7 +291,7 @@ export default function WelcomeOnboarding() {
     document.body.appendChild(wrapper)
     
     // Сохраняем ссылку на обертку для последующего удаления
-    // @ts-ignore
+          // @ts-ignore
     element._onboardingWrapper = wrapper
 
     setHighlightedElement(element)
@@ -352,7 +345,11 @@ export default function WelcomeOnboarding() {
   }
 
   // Начало тура
-  const startTour = () => {
+  const startTour = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
     setShowWelcomeModal(false)
     setIsTourActive(true)
     setCurrentStep(0)
@@ -366,8 +363,55 @@ export default function WelcomeOnboarding() {
     }, 500)
   }
 
+  // Быстрый старт - показывает только один элемент
+  const startQuickTour = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
+    // Закрываем модальное окно и сохраняем состояние
+    setShowWelcomeModal(false)
+    
+    // Сохраняем, что пользователь видел приветствие
+    if (user) {
+      const onboardingKey = `nesi_onboarding_done_${user.id}`
+      localStorage.setItem(onboardingKey, 'true')
+      setHasShownWelcome(true)
+    }
+    
+    setIsTourActive(true)
+    setQuickTourStep({
+      element: isCustomer 
+        ? 'a[data-onboarding-target="nav-create-task"]'
+        : 'a[data-onboarding-target="nav-tasks"]',
+      title: isCustomer ? '📝 Создание задачи' : '🌟 Каталог задач',
+      description: isCustomer
+        ? 'Нажмите здесь, чтобы опубликовать новую задачу. Укажите требования, бюджет и сроки - исполнители откликнутся!'
+        : 'Просматривайте доступные задачи, фильтруйте по категориям и откликайтесь на интересные проекты!',
+      position: 'bottom',
+    })
+    
+    setCurrentStep(0)
+    
+    // Задержка для рендера
+    setTimeout(() => {
+      const quickStartElement = isCustomer 
+        ? 'a[data-onboarding-target="nav-create-task"]'
+        : 'a[data-onboarding-target="nav-tasks"]'
+      highlightElement(quickStartElement)
+    }, 500)
+  }
+
   // Переход к следующему шагу
   const nextStep = () => {
+    // Если это быстрый старт, завершаем тур при нажатии "Далее"
+    if (quickTourStep) {
+      completeTour()
+      return
+    }
+    
+    const steps = getSteps()
     if (currentStep < steps.length - 1) {
       const newStep = currentStep + 1
       setCurrentStep(newStep)
@@ -387,6 +431,12 @@ export default function WelcomeOnboarding() {
 
   // Переход к предыдущему шагу
   const prevStep = () => {
+    // Если это быстрый старт, не показываем предыдущий шаг
+    if (quickTourStep) {
+      return
+    }
+    
+    const steps = getSteps()
     if (currentStep > 0) {
       const newStep = currentStep - 1
       setCurrentStep(newStep)
@@ -431,6 +481,7 @@ export default function WelcomeOnboarding() {
 
     setIsTourActive(false)
     setCurrentStep(0)
+    setQuickTourStep(null) // Сбрасываем быстрый старт
 
     // Сохраняем, что тур пройден
     if (user) {
@@ -441,26 +492,41 @@ export default function WelcomeOnboarding() {
   }
 
   // Пропуск тура
-  const skipTour = () => {
-    completeTour()
+  const skipTour = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    setShowWelcomeModal(false)
+        if (user) {
+      const onboardingKey = `nesi_onboarding_done_${user.id}`
+      localStorage.setItem(onboardingKey, 'true')
+          setHasShownWelcome(true)
+        }
   }
 
   const userRole = user?.role || 'customer'
   const isCustomer = userRole === 'customer'
-  const currentStepData = steps[currentStep]
+  const steps = getSteps()
+  // Используем quickTourStep если он есть, иначе берем из steps
+  const currentStepData = quickTourStep || steps[currentStep]
 
   return (
     <>
       {/* Приветственное модальное окно */}
-      <AnimatePresence>
-        {showWelcomeModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+    <AnimatePresence>
+      {showWelcomeModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[9999] bg-black/75"
-            onClick={skipTour}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                skipTour(e)
+              }
+            }}
           >
             {/* Контент - начинается ниже хедера */}
             <div className="absolute inset-x-0 top-20 bottom-0 flex items-start justify-center pt-6 overflow-y-auto">
@@ -476,9 +542,14 @@ export default function WelcomeOnboarding() {
                 <div className="bg-black/90 border border-emerald-500/30 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.8)] backdrop-blur-xl">
                   {/* Кнопка закрытия */}
                   <button
-                    onClick={skipTour}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      skipTour(e)
+                    }}
                     className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800/50 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors z-10"
                     aria-label="Закрыть"
+                    type="button"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -491,20 +562,24 @@ export default function WelcomeOnboarding() {
                       </div>
                       
                       <h2 className="text-2xl font-bold mb-2 text-emerald-400">
-                        Добро пожаловать в NESI!
-                      </h2>
+                Добро пожаловать в NESI!
+              </h2>
                       <p className="text-gray-400 text-sm">
-                        {isCustomer
-                          ? 'Платформа для поиска талантов и выполнения проектов'
-                          : 'Платформа для поиска интересных проектов и развития карьеры'}
-                      </p>
-                    </div>
+                {isCustomer
+                  ? 'Платформа для поиска талантов и выполнения проектов'
+                  : 'Платформа для поиска интересных проектов и развития карьеры'}
+              </p>
+            </div>
 
                     {/* Карточки функций */}
                     <div className="space-y-3 mb-6">
                       <div 
                         className="flex items-start gap-3 p-4 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/30 rounded-xl transition-all cursor-pointer"
-                        onClick={startTour}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          startTour(e)
+                        }}
                       >
                         <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center">
                           <Rocket className="w-5 h-5 text-emerald-400" />
@@ -513,35 +588,52 @@ export default function WelcomeOnboarding() {
                           <h3 className="font-semibold text-emerald-300 mb-1 text-sm">Интерактивный тур</h3>
                           <p className="text-xs text-gray-400">
                             Познакомьтесь с платформой! Мы покажем все основные функции.
-                          </p>
-                        </div>
-                      </div>
+                  </p>
+                </div>
+              </div>
 
-                      <div className="flex items-start gap-3 p-4 bg-cyan-500/5 hover:bg-cyan-500/10 border border-cyan-500/20 hover:border-cyan-500/30 rounded-xl transition-all">
+                      <div 
+                        className="flex items-start gap-3 p-4 bg-cyan-500/5 hover:bg-cyan-500/10 border border-cyan-500/20 hover:border-cyan-500/30 rounded-xl transition-all cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          startQuickTour(e)
+                        }}
+                      >
                         <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-cyan-500/20 flex items-center justify-center">
                           <BookOpen className="w-5 h-5 text-cyan-400" />
                         </div>
                         <div className="flex-1">
                           <h3 className="font-semibold text-cyan-300 mb-1 text-sm">Быстрый старт</h3>
                           <p className="text-xs text-gray-400">
-                            {isCustomer
+                    {isCustomer
                               ? 'Узнайте, как создавать задачи и находить исполнителей.'
                               : 'Узнайте, как находить проекты и повышать рейтинг.'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                  </p>
+                </div>
+              </div>
+            </div>
 
                     {/* Кнопки */}
-                    <div className="flex gap-3">
+            <div className="flex gap-3">
                       <button
-                        onClick={skipTour}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          skipTour(e)
+                        }}
+                        type="button"
                         className="flex-1 px-4 py-2.5 bg-gray-800/50 hover:bg-gray-700 border border-gray-700/50 rounded-lg text-gray-300 hover:text-white text-sm font-medium transition-colors"
                       >
                         Пропустить
                       </button>
                       <button
-                        onClick={startTour}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          startTour(e)
+                        }}
+                        type="button"
                         className="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 rounded-lg text-white text-sm font-semibold shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2 transition-all"
                       >
                         Начать тур
@@ -558,7 +650,7 @@ export default function WelcomeOnboarding() {
 
       {/* Overlay и Popover для тура */}
       <AnimatePresence>
-        {isTourActive && currentStepData && (
+        {isTourActive && currentStepData && highlightedElement && (
           <>
             {/* Overlay с затемнением, но с вырезом для хедера */}
             <motion.div
@@ -595,11 +687,14 @@ export default function WelcomeOnboarding() {
             >
               {/* Прогресс */}
               <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-emerald-400 font-mono bg-emerald-500/10 px-3 py-1 rounded-lg">
-                  {currentStep + 1} / {steps.length}
-                </div>
+                {!quickTourStep && (
+                  <div className="text-sm text-emerald-400 font-mono bg-emerald-500/10 px-3 py-1 rounded-lg">
+                    {currentStep + 1} / {steps.length}
+                  </div>
+                )}
+                {quickTourStep && <div></div>}
                 <button
-                  onClick={skipTour}
+                  onClick={completeTour}
                   className="text-gray-400 hover:text-white transition-colors"
                   aria-label="Закрыть"
                 >
@@ -619,7 +714,7 @@ export default function WelcomeOnboarding() {
 
               {/* Кнопки навигации */}
               <div className="flex gap-3">
-                {currentStep > 0 && (
+                {!quickTourStep && currentStep > 0 && (
                   <button
                     onClick={prevStep}
                     className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 rounded-lg text-gray-300 hover:text-white transition-all font-medium"
@@ -630,9 +725,14 @@ export default function WelcomeOnboarding() {
                 )}
                 <button
                   onClick={nextStep}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 rounded-lg text-white font-semibold shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] transition-all"
+                  className={`${quickTourStep || currentStep > 0 ? 'flex-1' : 'w-full'} flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 rounded-lg text-white font-semibold shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] transition-all`}
                 >
-                  {currentStep === steps.length - 1 ? (
+                  {quickTourStep ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Понятно
+                    </>
+                  ) : currentStep === steps.length - 1 ? (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
                       Завершить
@@ -645,10 +745,10 @@ export default function WelcomeOnboarding() {
                   )}
                 </button>
               </div>
-            </motion.div>
+        </motion.div>
           </>
-        )}
-      </AnimatePresence>
+      )}
+    </AnimatePresence>
     </>
   )
 }
