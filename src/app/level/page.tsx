@@ -14,8 +14,11 @@ type Badge = {
 
 type LevelInfo = {
   level: number
+  levelName?: string
+  levelDescription?: string
   xp: number
   nextLevelXP: number | null
+  nextLevelName?: string | null
   xpToNextLevel: number
   progressPercent: number
   suggestions: string[]
@@ -106,7 +109,13 @@ export default function LevelPage() {
       <div className="space-y-2 mb-6 text-gray-300">
         <p>
           Уровень: <span className="font-semibold text-white">{data.level}</span>
+          {data.levelName && (
+            <span className="ml-2 text-emerald-400">({data.levelName})</span>
+          )}
         </p>
+        {data.levelDescription && (
+          <p className="text-sm text-gray-400 italic">{data.levelDescription}</p>
+        )}
         <p>
           Опыт (XP):{' '}
           <span className="font-semibold text-white">{data.xp}</span>
@@ -114,7 +123,7 @@ export default function LevelPage() {
 
         {data.nextLevelXP && (
           <p>
-            До следующего уровня:{' '}
+            До следующего уровня ({data.nextLevelName || `Уровень ${data.level + 1}`}):{' '}
             <span className="font-semibold text-white">
               {data.xpToNextLevel} XP
             </span>

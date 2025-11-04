@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { ToastContainer } from './ToastNotification'
 import { NotificationPolling } from './NotificationPolling'
+import LevelIndicator from './LevelIndicator'
+import Image from 'next/image'
 
 // Функция для форматирования времени уведомления
 const formatNotificationTime = (timestamp: string) => {
@@ -688,12 +690,28 @@ export default function Header() {
 											>
 												Админ-панель
 											</Link>
+											{/* Иконка профиля для админа в мобильном меню */}
 											<Link
 												href='/profile'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												className='flex items-center gap-3 py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
-												Профиль
+												{user.avatarUrl ? (
+													<Image
+														src={user.avatarUrl}
+														alt={user.fullName || user.email || 'Профиль'}
+														width={32}
+														height={32}
+														className="w-8 h-8 rounded-full border border-emerald-500/30 object-cover"
+													/>
+												) : (
+													<div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-emerald-500/30">
+														<span className="text-emerald-400 font-semibold text-sm">
+															{user.fullName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+														</span>
+													</div>
+												)}
+												<span>Профиль</span>
 											</Link>
 										</>
 									) : (
@@ -763,12 +781,35 @@ export default function Header() {
 												</>
 											)}
 
+											{/* Индикатор уровня для исполнителей в мобильном меню */}
+											{user.role === 'executor' && (
+												<div className='px-4 py-2'>
+													<LevelIndicator />
+												</div>
+											)}
+
+											{/* Иконка профиля в мобильном меню */}
 											<Link
 												href='/profile'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												className='flex items-center gap-3 py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
 											>
-												Профиль
+												{user.avatarUrl ? (
+													<Image
+														src={user.avatarUrl}
+														alt={user.fullName || user.email || 'Профиль'}
+														width={32}
+														height={32}
+														className="w-8 h-8 rounded-full border border-emerald-500/30 object-cover"
+													/>
+												) : (
+													<div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-emerald-500/30">
+														<span className="text-emerald-400 font-semibold text-sm">
+															{user.fullName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+														</span>
+													</div>
+												)}
+												<span>Профиль</span>
 											</Link>
 
 											<button
@@ -1076,8 +1117,29 @@ export default function Header() {
 										</>
 									)}
 
-									<Link href='/profile' className={linkStyle} data-onboarding-target="nav-profile">
-										Профиль
+									{/* Индикатор уровня для исполнителей */}
+									{user.role === 'executor' && <LevelIndicator />}
+
+									{/* Иконка профиля с фотографией */}
+									<Link 
+										href='/profile' 
+										className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-emerald-500/30 hover:border-emerald-500/60 transition-all overflow-hidden bg-gray-800 hover:bg-gray-700" 
+										data-onboarding-target="nav-profile"
+										title="Профиль"
+									>
+										{user.avatarUrl ? (
+											<Image
+												src={user.avatarUrl}
+												alt={user.fullName || user.email || 'Профиль'}
+												width={40}
+												height={40}
+												className="w-full h-full object-cover"
+											/>
+										) : (
+											<span className="text-emerald-400 font-semibold text-lg">
+												{user.fullName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+											</span>
+										)}
 									</Link>
 
 									{/* 📂 Выпадающее меню */}

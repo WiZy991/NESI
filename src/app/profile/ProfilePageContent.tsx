@@ -19,6 +19,9 @@ import {
 	FaToolbox,
 	FaTrophy,
 	FaUserCircle,
+	FaWallet,
+	FaEdit,
+	FaChevronRight,
 } from 'react-icons/fa'
 
 type Review = {
@@ -94,6 +97,8 @@ type FullUser = {
 	}
 }
 
+type Tab = 'overview' | 'achievements' | 'reviews' | 'tasks' | 'wallet'
+
 const getSkillIcon = (skill: string) => {
 	const lower = skill.toLowerCase()
 	if (lower.includes('python'))
@@ -112,6 +117,7 @@ export default function ProfilePageContent() {
 	const [reviews, setReviews] = useState<Review[]>([])
 	const [profile, setProfile] = useState<FullUser | null>(null)
 	const [loadingProfile, setLoadingProfile] = useState(true)
+	const [activeTab, setActiveTab] = useState<Tab>('overview')
 
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [amount, setAmount] = useState(100)
@@ -189,12 +195,10 @@ export default function ProfilePageContent() {
 			const data = await res.json()
 
 			if (!res.ok) {
-				// Показываем ошибку пользователю
 				setWithdrawError(data.error || 'Не удалось вывести средства')
 				return
 			}
 
-			// Успешно - обновляем профиль
 			await fetchProfile()
 			setAmount(100)
 			setWithdrawError(null)
@@ -210,448 +214,368 @@ export default function ProfilePageContent() {
 	}
 
 	if (loading || !user || loadingProfile || !profile) {
-		return <div className='p-6 text-gray-400'>Загрузка профиля...</div>
+		return (
+			<div className='flex items-center justify-center min-h-[60vh]'>
+				<div className='text-center'>
+					<div className='w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4' />
+					<p className='text-gray-400'>Загрузка профиля...</p>
+				</div>
+			</div>
+		)
 	}
 
-	// Корректируем URL для аватара
 	const avatarSrc = profile.avatarUrl
 		? profile.avatarUrl.startsWith('http')
 			? profile.avatarUrl
-			: `${typeof window !== 'undefined' ? window.location.origin : ''}${
-					profile.avatarUrl
-			  }`
+			: `${typeof window !== 'undefined' ? window.location.origin : ''}${profile.avatarUrl}`
 		: null
 
-	return (
-		<div className='p-6 max-w-6xl mx-auto space-y-8'>
-			<h1 className='text-4xl font-bold text-emerald-400 mb-6 flex items-center gap-3'>
-				<FaUserCircle className='text-3xl' />
-				{profile.isExecutor ? 'Профиль исполнителя' : 'Профиль заказчика'}
-			</h1>
+	const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; count?: number }> = [
+		{ id: 'overview', label: 'Обзор', icon: <FaUserCircle /> },
+		{ id: 'achievements', label: 'Достижения', icon: <FaTrophy />, count: profile.badges?.length },
+		{ id: 'reviews', label: 'Отзывы', icon: <FaStar />, count: reviews.length },
+		{ id: 'tasks', label: 'Задачи', icon: <FaTasks />, count: profile.executedTasks?.length },
+		{ id: 'wallet', label: 'Кошелёк', icon: <FaWallet /> },
+	]
 
-			{/* Основная информация */}
-			<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-				{/* Левая колонка - основная информация */}
-				<div className='lg:col-span-1 space-y-6'>
-					{/* Аватар и основная инфа */}
-					<div
-						className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                          shadow-[0_0_15px_rgba(16,185,129,0.2)] text-center'
-					>
+	return (
+		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
+			{/* Компактный Header профиля */}
+			<div className='bg-gradient-to-r from-emerald-900/20 via-black/40 to-emerald-900/20 rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6'>
+				<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
+					{/* Аватар */}
+					<div className='relative'>
 						{avatarSrc ? (
 							<Image
 								src={avatarSrc}
-								alt='Аватар пользователя'
-								width={128}
-								height={128}
-								className='w-32 h-32 rounded-full border-2 border-emerald-500 
-                           shadow-[0_0_20px_rgba(16,185,129,0.5)] mx-auto mb-4 object-cover'
+								alt='Аватар'
+								width={80}
+								height={80}
+								className='w-20 h-20 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover'
 							/>
 						) : (
-							<FaUserCircle className='text-gray-600 w-32 h-32 mx-auto mb-4' />
+							<div className='w-20 h-20 rounded-full border-2 border-emerald-500 bg-gray-800 flex items-center justify-center'>
+								<FaUserCircle className='text-4xl text-gray-600' />
+							</div>
 						)}
-
-						<h2 className='text-2xl font-bold text-white mb-2'>
-							{profile.fullName || 'Без имени'}
-						</h2>
-						<p className='text-gray-400 mb-1'>{profile.email}</p>
-						{profile.location && (
-							<p className='text-emerald-300 mb-4'>📍 {profile.location}</p>
-						)}
-
-						{/* Уровень и опыт */}
 						{profile.level && (
-							<div className='bg-emerald-500/20 p-3 rounded-lg mb-4'>
-								<div className='flex items-center justify-center gap-2 mb-1'>
-									<FaTrophy className='text-yellow-400' />
-									<span className='font-semibold text-emerald-300'>
-										{profile.level.name}
-									</span>
-								</div>
-								<p className='text-sm text-gray-300'>
-									{profile.level.description}
-								</p>
-								<div className='mt-2 flex items-center justify-center gap-2'>
-									<FaChartLine className='text-blue-400' />
-									<span className='text-blue-300 font-medium'>
-										{profile.xp || 0} XP
-									</span>
-								</div>
+							<div className='absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-1.5 border-2 border-black'>
+								<span className='text-xs font-bold text-black'>⭐{profile.level.slug}</span>
 							</div>
 						)}
 					</div>
 
-					{/* Статистика */}
-					{user.role === 'executor' && (
-						<div
-							className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-						>
-							<h3 className='text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-								<FaChartLine />
-								Статистика
-							</h3>
-							<div className='space-y-3'>
-								<div className='flex justify-between items-center'>
-									<span className='text-gray-300'>Выполнено задач:</span>
-									<span className='text-emerald-300 font-semibold'>
-										{profile._count?.executedTasks || 0}
-									</span>
-								</div>
-								<div className='flex justify-between items-center'>
-									<span className='text-gray-300'>Отзывов получено:</span>
-									<span className='text-emerald-300 font-semibold'>
-										{profile._count?.reviewsReceived || 0}
-									</span>
-								</div>
-								<div className='flex justify-between items-center'>
-									<span className='text-gray-300'>Средний рейтинг:</span>
-									<div className='flex items-center gap-1'>
-										<FaStar className='text-yellow-400' />
-										<span className='text-yellow-300 font-semibold'>
-											{profile.avgRating ? profile.avgRating.toFixed(1) : '—'}
-										</span>
-									</div>
-								</div>
-								<div className='flex justify-between items-center'>
-									<span className='text-gray-300'>Откликов отправлено:</span>
-									<span className='text-emerald-300 font-semibold'>
-										{profile._count?.responses || 0}
-									</span>
-								</div>
+					{/* Основная информация */}
+					<div className='flex-1 min-w-0'>
+						<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+							<div>
+								<h1 className='text-2xl sm:text-3xl font-bold text-white mb-1 truncate'>
+									{profile.fullName || 'Без имени'}
+								</h1>
+								<p className='text-gray-400 text-sm truncate'>{profile.email}</p>
+								{profile.location && (
+									<p className='text-emerald-300 text-sm mt-1'>📍 {profile.location}</p>
+								)}
 							</div>
-						</div>
-					)}
-
-					{/* Баланс */}
-					<div
-						className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 
-                          shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-					>
-						<h3 className='text-lg font-semibold text-emerald-400 mb-3'>
-							💰 Баланс
-						</h3>
-						<div className='mb-4'>
-							<p className='text-2xl font-bold text-emerald-300'>
-								{Number(profile.balance ?? 0).toFixed(2)} ₽
-							</p>
-							{profile.frozenBalance && Number(profile.frozenBalance) > 0 && (
-								<div className='text-xs text-gray-400 mt-1'>
-									<span className='text-yellow-400'>
-										🔒 Заморожено: {Number(profile.frozenBalance).toFixed(2)} ₽
-									</span>
-									<br />
-									<span className='text-emerald-400'>
-										✓ Доступно:{' '}
-										{(
-											Number(profile.balance ?? 0) -
-											Number(profile.frozenBalance)
-										).toFixed(2)}{' '}
-										₽
-									</span>
-								</div>
-							)}
-						</div>
-						<div className='flex flex-col gap-2 mb-4'>
-							<div className='flex gap-2'>
-								<input
-									type='number'
-									value={amount}
-									onChange={e => {
-										setAmount(parseInt(e.target.value))
-										if (withdrawError) setWithdrawError(null)
-									}}
-									className='bg-transparent border border-emerald-500/30 text-white p-2 
-                           rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 w-24 text-sm'
-									placeholder='Сумма'
-									disabled={withdrawLoading}
-								/>
-								<button
-									onClick={handleWithdraw}
-									disabled={withdrawLoading}
-									className='px-3 py-2 rounded border border-red-400 
-                                                          text-red-400 hover:bg-red-400 
-                                                          hover:text-black transition text-sm disabled:opacity-50 disabled:cursor-not-allowed'
-									title='Вывод средств'
-								>
-									{withdrawLoading ? (
-										<span className='flex items-center gap-2'>
-											<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
-											Обработка...
-										</span>
-									) : (
-										'- Вывести'
-									)}
-								</button>
-							</div>
-							{withdrawError && (
-								<div className='bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
-									<span className='font-semibold'>⚠️ Ошибка:</span>{' '}
-									{withdrawError}
-								</div>
-							)}
+							<button
+								onClick={() => setIsEditModalOpen(true)}
+								className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+							>
+								<FaEdit />
+								Редактировать
+							</button>
 						</div>
 
-						<h4 className='text-sm font-semibold text-emerald-300 mb-2'>
-							История транзакций
-						</h4>
-						{transactions.length === 0 ? (
-							<p className='text-gray-500 text-sm'>Пока нет транзакций</p>
-						) : (
-							<div className='max-h-32 overflow-y-auto space-y-1 text-xs'>
-								{transactions.slice(0, 5).map(t => (
-									<div key={t.id} className='flex justify-between'>
-										<span
-											className={
-												t.amount > 0 ? 'text-green-400' : 'text-red-400'
-											}
-										>
-											{t.amount > 0 ? '+' : ''}
-											{t.amount}
-										</span>
-										<span className='text-gray-500 truncate ml-2'>
-											{t.reason}
-										</span>
-									</div>
-								))}
+						{/* Быстрая статистика */}
+						{user.role === 'executor' && (
+							<div className='flex flex-wrap gap-4 mt-4'>
+								<div className='flex items-center gap-2 text-sm'>
+									<FaChartLine className='text-emerald-400' />
+									<span className='text-gray-300'>{profile.xp || 0} XP</span>
+								</div>
+								<div className='flex items-center gap-2 text-sm'>
+									<FaTasks className='text-blue-400' />
+									<span className='text-gray-300'>{profile._count?.executedTasks || 0} задач</span>
+								</div>
+								<div className='flex items-center gap-2 text-sm'>
+									<FaStar className='text-yellow-400' />
+									<span className='text-gray-300'>
+										{profile.avgRating ? profile.avgRating.toFixed(1) : '—'} / 5
+									</span>
+								</div>
+								<div className='flex items-center gap-2 text-sm'>
+									<FaWallet className='text-green-400' />
+									<span className='text-gray-300'>{Number(profile.balance ?? 0).toFixed(2)} ₽</span>
+								</div>
 							</div>
 						)}
-					</div>
-
-					{/* Быстрые действия */}
-					<div
-						className='bg-black/40 p-4 rounded-xl border border-emerald-500/30 
-                          shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-					>
-						<h3 className='text-lg font-semibold text-emerald-400 mb-3'>
-							⚡ Быстрые действия
-						</h3>
-						<div className='grid grid-cols-1 gap-2'>
-							<Link
-								href='/analytics'
-								className='flex items-center gap-3 p-3 bg-gradient-to-r from-purple-900/30 to-purple-800/30 
-								         border border-purple-500/30 rounded-lg hover:border-purple-400/50 
-								         transition-all hover:shadow-[0_0_10px_rgba(168,85,247,0.3)]'
-							>
-								<span className='text-2xl'>📊</span>
-								<div className='flex-1'>
-									<div className='text-white font-semibold'>Аналитика</div>
-									<div className='text-gray-400 text-xs'>Статистика и графики</div>
-								</div>
-							</Link>
-
-							<Link
-								href='/portfolio'
-								className='flex items-center gap-3 p-3 bg-gradient-to-r from-blue-900/30 to-blue-800/30 
-								         border border-blue-500/30 rounded-lg hover:border-blue-400/50 
-								         transition-all hover:shadow-[0_0_10px_rgba(59,130,246,0.3)]'
-							>
-								<span className='text-2xl'>💼</span>
-								<div className='flex-1'>
-									<div className='text-white font-semibold'>Портфолио</div>
-									<div className='text-gray-400 text-xs'>Мои лучшие работы</div>
-								</div>
-							</Link>
-						</div>
 					</div>
 				</div>
+			</div>
 
-				{/* Правая колонка - детальная информация */}
-				<div className='lg:col-span-2 space-y-6'>
-					{/* Навыки */}
-					{profile.skills && profile.skills.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-								<FaToolbox />
-								Навыки и технологии
-							</h3>
-							<div className='flex flex-wrap gap-3'>
-								{profile.skills.map((skill, index) => (
-									<div
-										key={index}
-										className='flex items-center px-4 py-2 rounded-full text-sm 
-                               border border-emerald-500/40 bg-black/60 
-                               shadow-[0_0_8px_rgba(16,185,129,0.2)] hover:shadow-[0_0_12px_rgba(16,185,129,0.3)] transition'
-									>
-										{getSkillIcon(skill)}
-										{skill.trim()}
+			{/* Табы */}
+			<div className='flex gap-2 mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+				{tabs.map(tab => (
+					<button
+						key={tab.id}
+						onClick={() => setActiveTab(tab.id)}
+						className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${
+							activeTab === tab.id
+								? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+								: 'bg-black/40 border border-gray-700/50 text-gray-400 hover:border-emerald-500/30 hover:text-emerald-400'
+						}`}
+					>
+						{tab.icon}
+						{tab.label}
+						{tab.count !== undefined && tab.count > 0 && (
+							<span className='bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-xs font-semibold'>
+								{tab.count}
+							</span>
+						)}
+					</button>
+				))}
+			</div>
+
+			{/* Контент табов */}
+			<div className='space-y-6'>
+				{/* Обзор */}
+				{activeTab === 'overview' && (
+					<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+						{/* Левая колонка */}
+						<div className='lg:col-span-1 space-y-4'>
+							{/* Описание */}
+							{profile.description && (
+								<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
+									<h3 className='text-lg font-semibold text-emerald-400 mb-2'>О себе</h3>
+									<p className='text-gray-300 text-sm leading-relaxed'>{profile.description}</p>
+								</div>
+							)}
+
+							{/* Навыки */}
+							{profile.skills && profile.skills.length > 0 && (
+								<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
+									<h3 className='text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2'>
+										<FaToolbox />
+										Навыки
+									</h3>
+									<div className='flex flex-wrap gap-2'>
+										{profile.skills.map((skill, index) => (
+											<div
+												key={index}
+												className='flex items-center px-3 py-1.5 rounded-full text-xs border border-emerald-500/40 bg-black/60'
+											>
+												{getSkillIcon(skill)}
+												{skill.trim()}
+											</div>
+										))}
 									</div>
-								))}
-							</div>
-						</div>
-					)}
+								</div>
+							)}
 
-					{/* Сертификации */}
-					{profile.certifications && profile.certifications.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-								<FaCertificate />
-								Сертификации
-							</h3>
-							<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-								{profile.certifications.map(cert => (
-									<div
-										key={cert.id}
-										className='bg-emerald-500/10 p-4 rounded-lg border border-emerald-500/20'
+							{/* Быстрые действия */}
+							<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
+								<h3 className='text-lg font-semibold text-emerald-400 mb-3'>⚡ Быстрые действия</h3>
+								<div className='space-y-2'>
+									<Link
+										href='/analytics'
+										className='flex items-center justify-between p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg hover:border-purple-400/50 transition group'
 									>
-										<div className='flex items-center gap-2 mb-2'>
-											<FaAward className='text-yellow-400' />
-											<span className='font-semibold text-emerald-300'>
-												{cert.subcategory.name}
-											</span>
+										<div className='flex items-center gap-3'>
+											<span className='text-xl'>📊</span>
+											<span className='text-white font-medium'>Аналитика</span>
 										</div>
-										<p className='text-sm text-gray-300 mb-1'>
-											Уровень: {cert.level}
-										</p>
-										<p className='text-xs text-gray-400'>
-											Получено: {new Date(cert.grantedAt).toLocaleDateString()}
-										</p>
-									</div>
-								))}
+										<FaChevronRight className='text-gray-400 group-hover:text-purple-400 transition' />
+									</Link>
+									<Link
+										href='/portfolio'
+										className='flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:border-blue-400/50 transition group'
+									>
+										<div className='flex items-center gap-3'>
+											<span className='text-xl'>💼</span>
+											<span className='text-white font-medium'>Портфолио</span>
+										</div>
+										<FaChevronRight className='text-gray-400 group-hover:text-blue-400 transition' />
+									</Link>
+									{profile.isExecutor && (
+										<Link
+											href='/level'
+											className='flex items-center justify-between p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg hover:border-indigo-400/50 transition group'
+										>
+											<div className='flex items-center gap-3'>
+												<span className='text-xl'>⭐</span>
+												<span className='text-white font-medium'>Мой уровень</span>
+											</div>
+											<FaChevronRight className='text-gray-400 group-hover:text-indigo-400 transition' />
+										</Link>
+									)}
+								</div>
 							</div>
 						</div>
-					)}
 
-					{/* Значки */}
-					{profile.badges && profile.badges.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-								<FaTrophy />
-								Достижения
-							</h3>
-							<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+						{/* Правая колонка */}
+						<div className='lg:col-span-2 space-y-4'>
+							{/* Статистика для исполнителей */}
+							{user.role === 'executor' && (
+								<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
+									<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+										<FaChartLine />
+										Статистика
+									</h3>
+									<div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+										<div className='text-center p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20'>
+											<div className='text-2xl font-bold text-emerald-300'>
+												{profile._count?.executedTasks || 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Задач выполнено</div>
+										</div>
+										<div className='text-center p-3 bg-blue-500/10 rounded-lg border border-blue-500/20'>
+											<div className='text-2xl font-bold text-blue-300'>
+												{profile._count?.reviewsReceived || 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Отзывов</div>
+										</div>
+										<div className='text-center p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20'>
+											<div className='text-2xl font-bold text-yellow-300'>
+												{profile.avgRating ? profile.avgRating.toFixed(1) : '—'}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Рейтинг</div>
+										</div>
+										<div className='text-center p-3 bg-purple-500/10 rounded-lg border border-purple-500/20'>
+											<div className='text-2xl font-bold text-purple-300'>
+												{profile._count?.responses || 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Откликов</div>
+										</div>
+									</div>
+								</div>
+							)}
+
+							{/* Сертификации */}
+							{profile.certifications && profile.certifications.length > 0 && (
+								<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
+									<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+										<FaCertificate />
+										Сертификации
+									</h3>
+									<div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
+										{profile.certifications.map(cert => (
+											<div
+												key={cert.id}
+												className='bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20'
+											>
+												<div className='flex items-center gap-2 mb-1'>
+													<FaAward className='text-yellow-400' />
+													<span className='font-semibold text-emerald-300 text-sm'>
+														{cert.subcategory.name}
+													</span>
+												</div>
+												<p className='text-xs text-gray-400'>
+													{new Date(cert.grantedAt).toLocaleDateString()}
+												</p>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
+
+				{/* Достижения */}
+				{activeTab === 'achievements' && (
+					<div>
+						{profile.badges && profile.badges.length > 0 ? (
+							<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
 								{profile.badges.map(userBadge => (
 									<div
 										key={userBadge.id}
-										className='bg-gradient-to-br from-yellow-500/20 to-orange-500/20 
-                                                    p-4 rounded-lg border border-yellow-500/30 text-center'
+										className='bg-gradient-to-br from-yellow-500/20 to-orange-500/20 p-4 rounded-xl border border-yellow-500/30 text-center'
 									>
-										<div className='text-2xl mb-2'>{userBadge.badge.icon}</div>
-										<h4 className='font-semibold text-yellow-300 mb-1'>
+										<div className='text-3xl mb-2'>{userBadge.badge.icon}</div>
+										<h4 className='font-semibold text-yellow-300 text-sm mb-1'>
 											{userBadge.badge.name}
 										</h4>
-										<p className='text-xs text-gray-300 mb-2'>
-											{userBadge.badge.description}
-										</p>
-										<p className='text-xs text-gray-400'>
+										<p className='text-xs text-gray-300 mb-2'>{userBadge.badge.description}</p>
+										<p className='text-xs text-gray-500'>
 											{new Date(userBadge.earnedAt).toLocaleDateString()}
 										</p>
 									</div>
 								))}
 							</div>
-						</div>
-					)}
-					{/* Отзывы исполнителей (для заказчика) */}
-					{user.role === 'customer' && reviews.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-								<FaStar />
-								Отзывы исполнителей
-							</h3>
+						) : (
+							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<FaTrophy className='text-6xl text-gray-600 mx-auto mb-4' />
+								<p className='text-gray-400'>Пока нет достижений</p>
+							</div>
+						)}
+					</div>
+				)}
 
-							<div className='space-y-4'>
+				{/* Отзывы */}
+				{activeTab === 'reviews' && (
+					<div>
+						{reviews.length > 0 ? (
+							<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
 								{reviews.map(review => (
 									<div
 										key={review.id}
-										className='bg-black/60 border border-emerald-500/20 
-                     p-4 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.15)]'
+										className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'
 									>
-										<div className='flex justify-between items-center mb-2'>
-											<h4 className='font-semibold text-white'>
+										<div className='flex justify-between items-center mb-3'>
+											<h4 className='font-semibold text-white text-sm'>
 												{review.task?.title || 'Без названия'}
 											</h4>
 											<div className='flex items-center gap-1'>
 												{[...Array(5)].map((_, i) => (
 													<FaStar
 														key={i}
-														className={`text-sm ${
-															i < review.rating
-																? 'text-yellow-400'
-																: 'text-gray-600'
+														className={`text-xs ${
+															i < review.rating ? 'text-yellow-400' : 'text-gray-600'
 														}`}
 													/>
 												))}
 											</div>
 										</div>
-
-										<p className='text-gray-300 italic mb-2'>
-											“{review.comment?.trim() || 'Без комментария'}”
+										<p className='text-gray-300 text-sm italic mb-3'>
+											"{review.comment?.trim() || 'Без комментария'}"
 										</p>
-
 										<div className='flex justify-between text-xs text-gray-400'>
-											<span>
-												От:{' '}
-												{review.fromUser?.fullName || review.fromUser?.email}
-											</span>
-											<span>
-												{new Date(review.createdAt).toLocaleDateString('ru-RU')}
-											</span>
+											<span>{review.fromUser?.fullName || review.fromUser?.email}</span>
+											<span>{new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
 										</div>
 									</div>
 								))}
 							</div>
-						</div>
-					)}
+						) : (
+							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<FaStar className='text-6xl text-gray-600 mx-auto mb-4' />
+								<p className='text-gray-400'>Пока нет отзывов</p>
+							</div>
+						)}
+					</div>
+				)}
 
-					{/* О себе */}
-					{profile.description && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-emerald-400 mb-4'>
-								📄 О себе
-							</h3>
-							<p className='text-gray-300 leading-relaxed'>
-								{profile.description}
-							</p>
-						</div>
-					)}
-
-					{/* Портфолио выполненных задач */}
-					{profile.executedTasks && profile.executedTasks.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                            shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-								<FaTasks />
-								Последние выполненные задачи
-							</h3>
-							<div className='space-y-4'>
+				{/* Задачи */}
+				{activeTab === 'tasks' && (
+					<div>
+						{profile.executedTasks && profile.executedTasks.length > 0 ? (
+							<div className='space-y-3'>
 								{profile.executedTasks.map(task => (
 									<div
 										key={task.id}
-										className='bg-black/60 p-4 rounded-lg border border-emerald-500/20'
+										className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'
 									>
 										<div className='flex justify-between items-start mb-2'>
 											<h4 className='font-semibold text-white'>{task.title}</h4>
 											{task.price && (
-												<span className='text-emerald-300 font-semibold'>
-													{task.price} NESI
+												<span className='text-emerald-300 font-semibold text-sm'>
+													{task.price} ₽
 												</span>
 											)}
 										</div>
-										<p className='text-gray-300 text-sm mb-2 line-clamp-2'>
-											{task.description}
-										</p>
+										<p className='text-gray-300 text-sm mb-3 line-clamp-2'>{task.description}</p>
 										<div className='flex justify-between items-center text-xs text-gray-400'>
-											<span>
-												Заказчик:{' '}
-												{task.customer.fullName || task.customer.email}
-											</span>
+											<span>Заказчик: {task.customer.fullName || task.customer.email}</span>
 											{task.completedAt && (
 												<span className='flex items-center gap-1'>
 													<FaCalendarAlt />
@@ -659,122 +583,111 @@ export default function ProfilePageContent() {
 												</span>
 											)}
 										</div>
-										{(() => {
-											const review = reviews.find(
-												r => r.task.title === task.title
-											)
-											if (!review) return null
-
-											const ratingValue = Number(review.rating ?? 0)
-											const rounded = Math.round(ratingValue)
-
-											return (
-												<div className='mt-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.15)]'>
-													<div className='flex items-center justify-between mb-2'>
-														<div className='flex items-center gap-1'>
-															{[...Array(5)].map((_, i) => (
-																<FaStar
-																	key={i}
-																	className={`text-base ${
-																		i < rounded
-																			? 'text-yellow-400 drop-shadow-[0_0_6px_rgba(255,220,100,0.6)]'
-																			: 'text-gray-600'
-																	}`}
-																/>
-															))}
-															<span className='text-yellow-300 font-semibold text-sm ml-1'>
-																{ratingValue.toFixed(1)} / 5
-															</span>
-														</div>
-													</div>
-
-													<p className='text-sm text-gray-300 italic leading-snug'>
-														“{review.comment?.trim() || 'Без комментария'}”
-													</p>
-												</div>
-											)
-										})()}
 									</div>
 								))}
 							</div>
-						</div>
-					)}
-				</div>
-			</div>
+						) : (
+							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<FaTasks className='text-6xl text-gray-600 mx-auto mb-4' />
+								<p className='text-gray-400'>Пока нет выполненных задач</p>
+							</div>
+						)}
+					</div>
+				)}
 
-			{user.role === 'executor' && reviews.length > 0 && (
-				<div
-					className='bg-black/40 p-6 rounded-xl border border-emerald-500/30 
-                shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-				>
-					<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-						<FaStar />
-						{user.role === 'executor'
-							? 'Отзывы заказчиков'
-							: 'Отзывы исполнителей'}
-					</h3>
+				{/* Кошелёк */}
+				{activeTab === 'wallet' && (
+					<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+						<div className='lg:col-span-2 space-y-4'>
+							{/* Баланс */}
+							<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
+								<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+									<FaWallet />
+									Баланс
+								</h3>
+								<div className='mb-4'>
+									<p className='text-3xl font-bold text-emerald-300 mb-2'>
+										{Number(profile.balance ?? 0).toFixed(2)} ₽
+									</p>
+									{profile.frozenBalance && Number(profile.frozenBalance) > 0 && (
+										<div className='text-sm text-gray-400 space-y-1'>
+											<div className='text-yellow-400'>
+												🔒 Заморожено: {Number(profile.frozenBalance).toFixed(2)} ₽
+											</div>
+											<div className='text-emerald-400'>
+												✓ Доступно:{' '}
+												{(Number(profile.balance ?? 0) - Number(profile.frozenBalance)).toFixed(2)} ₽
+											</div>
+										</div>
+									)}
+								</div>
+								<div className='flex gap-2'>
+									<input
+										type='number'
+										value={amount}
+										onChange={e => {
+											setAmount(parseInt(e.target.value))
+											if (withdrawError) setWithdrawError(null)
+										}}
+										className='flex-1 bg-black/60 border border-emerald-500/30 text-white p-2 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm'
+										placeholder='Сумма'
+										disabled={withdrawLoading}
+									/>
+									<button
+										onClick={handleWithdraw}
+										disabled={withdrawLoading}
+										className='px-4 py-2 rounded border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap'
+									>
+										{withdrawLoading ? (
+											<span className='flex items-center gap-2'>
+												<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
+												Обработка...
+											</span>
+										) : (
+											'Вывести'
+										)}
+									</button>
+								</div>
+								{withdrawError && (
+									<div className='mt-3 bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
+										<span className='font-semibold'>⚠️ Ошибка:</span> {withdrawError}
+									</div>
+								)}
+							</div>
 
-					<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-						{reviews.map(review => (
-							<div
-								key={review.id}
-								className='bg-black/60 border border-emerald-500/30 
-                     p-4 rounded-lg shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-							>
-								<div className='flex justify-between items-center mb-3'>
-									<h4 className='font-semibold text-white'>
-										{review.task?.title || 'Без названия'}
-									</h4>
-									<div className='flex items-center gap-1'>
-										{[...Array(5)].map((_, i) => (
-											<FaStar
-												key={i}
-												className={`text-sm ${
-													i < review.rating
-														? 'text-yellow-400'
-														: 'text-gray-600'
-												}`}
-											/>
+							{/* История транзакций */}
+							<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
+								<h3 className='text-lg font-semibold text-emerald-400 mb-4'>История транзакций</h3>
+								{transactions.length === 0 ? (
+									<p className='text-gray-500 text-sm text-center py-4'>Пока нет транзакций</p>
+								) : (
+									<div className='space-y-2 max-h-96 overflow-y-auto'>
+										{transactions.map(t => (
+											<div
+												key={t.id}
+												className='flex justify-between items-center p-3 bg-black/60 rounded-lg border border-emerald-500/10'
+											>
+												<div className='flex-1 min-w-0'>
+													<p className='text-sm text-gray-300 truncate'>{t.reason}</p>
+													<p className='text-xs text-gray-500'>
+														{new Date(t.createdAt).toLocaleDateString('ru-RU')}
+													</p>
+												</div>
+												<span
+													className={`font-semibold text-sm ml-3 ${
+														t.amount > 0 ? 'text-green-400' : 'text-red-400'
+													}`}
+												>
+													{t.amount > 0 ? '+' : ''}
+													{t.amount} ₽
+												</span>
+											</div>
 										))}
 									</div>
-								</div>
-
-								<p className='text-gray-300 mb-3 italic'>
-									“{review.comment?.trim() || 'Без комментария'}”
-								</p>
-
-								<div className='flex justify-between items-center text-sm text-gray-400'>
-									<span>
-										От: {review.fromUser?.fullName || review.fromUser?.email}
-									</span>
-									<span>
-										{new Date(review.createdAt).toLocaleDateString('ru-RU')}
-									</span>
-								</div>
+								)}
 							</div>
-						))}
+						</div>
 					</div>
-				</div>
-			)}
-
-			{/* Кнопки действий */}
-			<div className='flex gap-4 flex-wrap justify-center'>
-				<button
-					onClick={() => setIsEditModalOpen(true)}
-					className='px-6 py-3 rounded-lg border border-emerald-400 text-emerald-400 
-                     hover:bg-emerald-400 hover:text-black transition font-semibold'
-				>
-					✏️ Редактировать профиль
-				</button>
-				{/* Эта кнопка видна только исполнителям */}
-				{profile.isExecutor && (
-					<Link
-						href='/level'
-						className='px-6 py-3 rounded-lg border border-indigo-400 text-indigo-400 
-                 hover:bg-indigo-400 hover:text-black transition font-semibold'
-					>
-						📊 Мой уровень
-					</Link>
 				)}
 			</div>
 

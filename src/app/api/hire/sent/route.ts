@@ -14,7 +14,13 @@ export async function GET(req: Request) {
   try {
     const sent = await prisma.hireRequest.findMany({
       where: { customerId: user.id },
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
+        paid: true,
+        status: true,
+        message: true,
+        amount: true,
         executor: {
           select: { id: true, fullName: true, email: true, avatarUrl: true, location: true },
         },

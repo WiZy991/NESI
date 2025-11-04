@@ -7,6 +7,63 @@ import { Decimal } from '@prisma/client/runtime/library'
 
 const HIRE_COST = 1990
 
+export async function GET(req: NextRequest) {
+	try {
+		const user = await getUserFromRequest(req)
+		if (!user) {
+			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+		}
+
+		try {
+			if (user.role === 'executor') {
+				// Входящие запросы для исполнителя
+				const incoming = await prisma.hireRequest.findMany({
+					where: { executorId: user.id },
+					select: {
+						id: true,
+						createdAt: true,
+						paid: true,
+						status: true,
+						message: true,
+						amount: true,
+						customer: {
+							select: { id: true, fullName: true, email: true, avatarUrl: true, location: true },
+						},
+					},
+					orderBy: { createdAt: 'desc' },
+				})
+				return NextResponse.json(incoming, { status: 200 })
+			} else if (user.role === 'customer') {
+				// Отправленные запросы для заказчика
+				const sent = await prisma.hireRequest.findMany({
+					where: { customerId: user.id },
+					select: {
+						id: true,
+						createdAt: true,
+						paid: true,
+						status: true,
+						message: true,
+						amount: true,
+						executor: {
+							select: { id: true, fullName: true, email: true, avatarUrl: true, location: true },
+						},
+					},
+					orderBy: { createdAt: 'desc' },
+				})
+				return NextResponse.json(sent, { status: 200 })
+			} else {
+				return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 })
+			}
+		} catch (e) {
+			console.error('❌ /api/hire GET error:', e)
+			return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+		}
+	} catch (err) {
+		console.error('Ошибка /api/hire GET:', err)
+		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+	}
+}
+
 export async function POST(req: NextRequest) {
 	try {
 		const me = await getUserFromRequest(req)

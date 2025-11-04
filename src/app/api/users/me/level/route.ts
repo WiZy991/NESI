@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromToken } from '@/lib/auth'
+import { getLevelFromXP, getNextLevel } from '@/lib/level/calculate'
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,57 +17,79 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Неверный токен или пользователь не найден' }, { status: 401 })
     }
 
-    // ==== 1. Получаем очки ====
-    const passedTests = await prisma.certificationAttempt.count({
-      where: { userId: user.id, passed: true }
-    })
+    // ==== 1. Используем сохраненный XP из БД ====
+    const xp = user.xp || 0
 
-    // ✅ заменили performerId → executorId
-    const completedTasks = await prisma.task.count({
-      where: { executorId: user.id, status: 'done' }
-    })
+    // ==== 2. Получаем уровень из единой системы ====
+    const currentLevel = await getLevelFromXP(xp)
+    const nextLevelInfo = await getNextLevel(xp)
 
-    const positiveReviews = await prisma.review.count({
-      where: { toUserId: user.id, rating: { gte: 4 } }
-    })
-
-    const xp = passedTests * 10 + completedTasks * 20 + positiveReviews * 5
-
-    // ==== 2. Определяем уровень ====
-    const levels = [
-      { level: 1, requiredXP: 0 },
-      { level: 2, requiredXP: 100 },
-      { level: 3, requiredXP: 300 },
-      { level: 4, requiredXP: 700 },
-      { level: 5, requiredXP: 1500 }
-    ]
-
-    let currentLevel = levels[0]
-    for (const lvl of levels) {
-      if (xp >= lvl.requiredXP) currentLevel = lvl
-    }
-
-    const nextLevel = levels.find(lvl => lvl.level === currentLevel.level + 1)
-    const xpToNextLevel = nextLevel ? nextLevel.requiredXP - xp : 0
-    const progressPercent = nextLevel
-      ? Math.floor((xp - currentLevel.requiredXP) / (nextLevel.requiredXP - currentLevel.requiredXP) * 100)
+    // ==== 3. Рассчитываем прогресс ====
+    const xpToNextLevel = nextLevelInfo ? nextLevelInfo.minScore - xp : 0
+    const progressPercent = nextLevelInfo
+      ? Math.max(0, Math.min(100, Math.floor(((xp - currentLevel.minScore) / (nextLevelInfo.minScore - currentLevel.minScore)) * 100)))
       : 100
 
-    // ==== 3. Подсказки ====
+    // ==== 4. Получаем статистику для подсказок ====
+    const [passedTests, completedTasks, positiveReviews] = await Promise.all([
+      prisma.certificationAttempt.count({
+        where: { userId: user.id, passed: true }
+      }),
+      prisma.task.count({
+        where: { executorId: user.id, status: 'completed' }
+      }),
+      prisma.review.count({
+        where: { toUserId: user.id, rating: { gte: 4 } }
+      })
+    ])
+
+    // ==== 5. Генерируем подсказки ====
     const suggestions: string[] = []
 
     if (passedTests < 5) suggestions.push('Пройди дополнительные тесты, чтобы набрать опыт')
     if (completedTasks < 10) suggestions.push('Выполни больше задач — это даст XP и поднимет рейтинг')
     if (positiveReviews < 5) suggestions.push('Собери больше отзывов с рейтингом 4+')
 
-    // ==== 4. Ответ ====
+    // ==== 6. Загружаем бейджи ====
+    const badges = await prisma.userBadge.findMany({
+      where: { userId: user.id },
+      include: {
+        badge: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            icon: true
+          }
+        }
+      },
+      orderBy: { earnedAt: 'desc' }
+    })
+
+    // ==== 7. Формируем ответ ====
     return NextResponse.json({
       level: currentLevel.level,
+      levelName: currentLevel.name,
+      levelDescription: currentLevel.description,
       xp,
-      nextLevelXP: nextLevel?.requiredXP ?? null,
+      nextLevelXP: nextLevelInfo?.minScore ?? null,
+      nextLevelName: nextLevelInfo?.name ?? null,
       xpToNextLevel,
       progressPercent,
-      suggestions
+      suggestions,
+      badges: badges.map(b => ({
+        id: b.badge.id,
+        name: b.badge.name,
+        description: b.badge.description,
+        icon: b.badge.icon,
+        earnedAt: b.earnedAt
+      })),
+      // Дополнительная статистика для отладки
+      stats: {
+        passedTests,
+        completedTasks,
+        positiveReviews
+      }
     })
   } catch (e) {
     console.error('GET /api/users/me/level error:', e)

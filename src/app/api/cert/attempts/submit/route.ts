@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import crypto from 'crypto'
+import { awardXP } from '@/lib/level/awardXP'
 
 type Answer = { questionId: string; optionId: string }
 
@@ -76,6 +77,27 @@ export async function POST(req: Request) {
         },
         update: {} // при повторной сдаче просто сохраним дату выше, если нужно
       })
+
+      // ✅ Начисляем XP за прохождение сертификации
+      try {
+        const subcategory = await prisma.subcategory.findUnique({
+          where: { id: test.subcategoryId },
+          select: { name: true }
+        })
+        
+        await awardXP(
+          user.id,
+          10, // +10 XP за сертификацию
+          `Пройдена сертификация "${subcategory?.name || 'неизвестная категория'}"`
+        )
+
+        // ✅ Проверяем бейджи после начисления XP
+        const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
+        await checkAndAwardBadges(user.id)
+      } catch (xpError) {
+        // Логируем ошибку, но не прерываем выполнение
+        console.error('[XP] Ошибка начисления XP при сертификации:', xpError)
+      }
     }
 
     return NextResponse.json({

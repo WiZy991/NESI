@@ -41,5 +41,13 @@ export async function GET(req: Request) {
 		return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 	}
 
-	return NextResponse.json({ user })
+	// Добавляем avatarUrl для удобства фронтенда
+	const avatarUrl = user.avatarFileId ? `/api/files/${user.avatarFileId}` : null
+
+	return NextResponse.json({ 
+		user: {
+			...user,
+			avatarUrl
+		}
+	})
 }

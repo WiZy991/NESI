@@ -8,6 +8,7 @@ type User = {
 	email: string
 	role: 'admin' | 'executor' | 'customer'
 	fullName?: string
+	avatarUrl?: string | null
 }
 
 type UserContextType = {

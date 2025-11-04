@@ -5,6 +5,7 @@ import { formatMoney, toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
+import { awardXP } from '@/lib/level/awardXP'
 
 export async function PATCH(req: NextRequest, { params }: any) {
 	try {
@@ -152,6 +153,24 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			amount: payout,
 			playSound: true,
 		})
+
+		// ✅ Начисляем XP исполнителю за выполненную задачу
+		try {
+			if (task.executorId) {
+				await awardXP(
+					task.executorId,
+					20, // +20 XP за выполненную задачу
+					`Выполнена задача "${task.title}"`
+				)
+
+				// ✅ Проверяем бейджи после начисления XP
+				const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
+				await checkAndAwardBadges(task.executorId)
+			}
+		} catch (xpError) {
+			// Логируем ошибку, но не прерываем выполнение
+			console.error('[XP] Ошибка начисления XP при завершении задачи:', xpError)
+		}
 
 		return NextResponse.json({ success: true })
 	} catch (err) {

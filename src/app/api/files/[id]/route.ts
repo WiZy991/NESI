@@ -7,18 +7,41 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Проверка авторизации
-    const user = await getUserFromRequest(req);
-    if (!user) {
-      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-    }
-
     const file = await prisma.file.findUnique({
       where: { id: params.id },
     });
 
     if (!file) {
       return NextResponse.json({ error: "Файл не найден" }, { status: 404 });
+    }
+
+    // Проверяем, является ли файл аватаром - если да, то доступен публично
+    const asAvatar = await prisma.user.findFirst({
+      where: {
+        avatarFileId: params.id,
+      },
+    });
+
+    if (asAvatar) {
+      // Аватары доступны публично - возвращаем сразу
+      if (file.data) {
+        return new NextResponse(file.data as Buffer, {
+          headers: {
+            "Content-Type": file.mimetype || "image/png",
+            "Cache-Control": "public, max-age=31536000", // Кешируем на год
+          },
+        });
+      }
+      if (file.url) {
+        return NextResponse.redirect(file.url);
+      }
+      return NextResponse.json({ error: "Файл пуст" }, { status: 404 });
+    }
+
+    // Для остальных файлов требуется авторизация
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     }
 
     // Проверка прав доступа: файл должен быть связан с сообщением, задачей или пользователем
@@ -82,18 +105,6 @@ export async function GET(
           inTask.executorId === user.id ||
           user.role === "admin"
         );
-      }
-
-      // Файл как аватар пользователя
-      const asAvatar = await tx.user.findFirst({
-        where: {
-          avatarFileId: params.id,
-        },
-      });
-
-      if (asAvatar) {
-        // Свой аватар или админ
-        return asAvatar.id === user.id || user.role === "admin";
       }
 
       // Портфолио (если есть связь)

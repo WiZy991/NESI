@@ -93,6 +93,24 @@ export async function POST(
       playSound: true,
     })
 
+    // ✅ Начисляем XP за хороший отзыв (4+ звезды)
+    if (rating >= 4 && toUserId) {
+      try {
+        await awardXP(
+          toUserId,
+          5, // +5 XP за хороший отзыв
+          `Получен отзыв ${rating} звезд за задачу "${task.title}"`
+        )
+
+        // ✅ Проверяем бейджи после начисления XP
+        const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
+        await checkAndAwardBadges(toUserId)
+      } catch (xpError) {
+        // Логируем ошибку, но не прерываем выполнение
+        console.error('[XP] Ошибка начисления XP при отзыве:', xpError)
+      }
+    }
+
     return NextResponse.json({ review })
   } catch (e) {
     console.error('❌ Ошибка при создании отзыва:', e)

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { useUser } from '@/context/UserContext'
 
@@ -10,6 +11,8 @@ type IncomingItem = {
   createdAt: string
   paid: boolean
   status: 'pending' | 'accepted' | 'rejected'
+  message?: string | null
+  amount?: number | string
   customer: {
     id: string
     fullName: string | null
@@ -24,6 +27,8 @@ type SentItem = {
   createdAt: string
   paid: boolean
   status: 'pending' | 'accepted' | 'rejected'
+  message?: string | null
+  amount?: number | string
   executor: {
     id: string
     fullName: string | null
@@ -32,6 +37,8 @@ type SentItem = {
     location?: string | null
   }
 }
+
+type FilterStatus = 'all' | 'pending' | 'accepted' | 'rejected'
 
 function getAuthHeaders(): HeadersInit {
   let token: string | null = null
@@ -50,6 +57,8 @@ export default function HirePage() {
   const [tab, setTab] = useState<'incoming' | 'sent'>('incoming')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   const [incoming, setIncoming] = useState<IncomingItem[]>([])
   const [sent, setSent] = useState<SentItem[]>([])
@@ -63,6 +72,36 @@ export default function HirePage() {
   useEffect(() => {
     if (allowedTab) setTab(allowedTab)
   }, [allowedTab])
+
+  // Статистика
+  const stats = useMemo(() => {
+    const items = tab === 'incoming' ? incoming : sent
+    return {
+      all: items.length,
+      pending: items.filter(i => i.status === 'pending').length,
+      accepted: items.filter(i => i.status === 'accepted').length,
+      rejected: items.filter(i => i.status === 'rejected').length,
+    }
+  }, [incoming, sent, tab])
+
+  // Фильтрация
+  const filteredItems = useMemo(() => {
+    const items = tab === 'incoming' ? incoming : sent
+    if (statusFilter === 'all') return items
+    return items.filter(i => i.status === statusFilter)
+  }, [incoming, sent, tab, statusFilter])
+
+  const toggleExpand = (id: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
 
   const url = useMemo(
     () => (tab === 'incoming' ? '/api/hire/incoming' : '/api/hire/sent'),
@@ -120,58 +159,50 @@ export default function HirePage() {
     }
   }
 
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'text-yellow-400'
-      case 'accepted':
-        return 'text-green-400'
-      case 'rejected':
-        return 'text-red-400'
-      default:
-        return 'text-gray-400'
-    }
-  }
-
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 text-white space-y-8">
-      {/* Заголовок с градиентом */}
-      <div className="text-center sm:text-left">
-        <h1 className="text-4xl sm:text-5xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-300 to-cyan-400 drop-shadow-[0_0_30px_rgba(16,185,129,0.8)]">
-          📑 Запросы найма
-        </h1>
-        <p className="text-gray-400 text-lg">
-          Управляйте запросами на сотрудничество
-        </p>
-      </div>
-
-      {/* Панель управления */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-5 bg-black/40 backdrop-blur-sm border border-emerald-500/20 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.15)]">
-        <div className="flex items-center gap-3">
-          {user?.role === 'executor' && (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-900/40 to-emerald-800/40 border border-emerald-500/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-emerald-300 font-semibold">Входящие запросы</span>
-            </div>
-          )}
-          {user?.role === 'customer' && (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-900/40 to-emerald-800/40 border border-emerald-500/30">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-              <span className="text-emerald-300 font-semibold">Отправленные запросы</span>
-            </div>
-          )}
-        </div>
-        
+    <div className="max-w-4xl mx-auto py-6 px-4 text-white">
+      {/* Компактный заголовок */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-emerald-400">Запросы найма</h1>
         <button
           onClick={refreshData}
-          className="flex items-center justify-center gap-2 px-5 py-2 rounded-lg border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-400 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-300 font-medium group"
-          title="Обновить список"
+          className="p-2 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+          title="Обновить"
         >
-          <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          <span>Обновить</span>
         </button>
+      </div>
+
+      {/* Компактная статистика и фильтры */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex items-center gap-4 text-sm">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`px-3 py-1 rounded ${statusFilter === 'all' ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-400 hover:text-emerald-400'}`}
+          >
+            Все ({stats.all})
+          </button>
+          <button
+            onClick={() => setStatusFilter('pending')}
+            className={`px-3 py-1 rounded ${statusFilter === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}
+          >
+            В ожидании ({stats.pending})
+          </button>
+          <button
+            onClick={() => setStatusFilter('accepted')}
+            className={`px-3 py-1 rounded ${statusFilter === 'accepted' ? 'bg-green-500/20 text-green-400' : 'text-gray-400 hover:text-green-400'}`}
+          >
+            Принято ({stats.accepted})
+          </button>
+          <button
+            onClick={() => setStatusFilter('rejected')}
+            className={`px-3 py-1 rounded ${statusFilter === 'rejected' ? 'bg-red-500/20 text-red-400' : 'text-gray-400 hover:text-red-400'}`}
+          >
+            Отклонено ({stats.rejected})
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -181,326 +212,234 @@ export default function HirePage() {
       )}
       
       {error && (
-        <div className="p-5 rounded-xl bg-red-900/20 border border-red-500/40 text-red-300">
-          <div className="flex items-center gap-2 mb-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="font-semibold">Ошибка</span>
-          </div>
-          <p>{error}</p>
+        <div className="p-4 rounded-lg bg-red-900/20 border border-red-500/40 text-red-300 text-sm mb-4">
+          {error}
         </div>
       )}
 
       {/* Исполнитель: входящие */}
       {allowedTab === 'incoming' && !loading && !error && (
-        <div className="space-y-4">
-          {incoming.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
-                <svg className="w-12 h-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-300 mb-2">Запросов пока нет</h3>
-              <p className="text-gray-500">Входящие запросы на найм появятся здесь</p>
+        <div className="space-y-3">
+          {filteredItems.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p>Нет запросов</p>
             </div>
           ) : (
-            incoming.map((i) => (
-              <div
-                key={i.id}
-                className="relative group bg-black/40 backdrop-blur-sm border border-emerald-500/20 rounded-xl overflow-hidden shadow-[0_0_25px_rgba(16,185,129,0.15)] hover:shadow-[0_0_35px_rgba(16,185,129,0.25)] transition-all duration-300"
-              >
-                {/* Градиентный фон */}
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                
-                <div className="relative p-6 space-y-4">
-                  {/* Заголовок карточки */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-4">
-                      {/* Аватар */}
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                        {(i.customer.fullName || i.customer.email).charAt(0).toUpperCase()}
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-gray-400 mb-1">Заказчик</p>
+            (filteredItems as IncomingItem[]).map((i) => {
+              const isExpanded = expandedItems.has(i.id)
+              return (
+                <div
+                  key={i.id}
+                  className="bg-black/30 border border-emerald-500/20 rounded-lg p-4 hover:border-emerald-500/40 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {i.customer.avatarUrl ? (
+                        <div className="w-10 h-10 rounded-full border border-emerald-500/30 overflow-hidden flex-shrink-0">
+                          <Image
+                            src={i.customer.avatarUrl}
+                            alt={i.customer.fullName || i.customer.email}
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                          {(i.customer.fullName || i.customer.email).charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
                         <Link
                           href={`/users/${i.customer.id}`}
-                          className="text-lg font-semibold text-emerald-300 hover:text-emerald-400 transition-colors flex items-center gap-2 group/link"
+                          className="text-emerald-400 hover:text-emerald-300 font-medium truncate block"
                         >
                           {i.customer.fullName || i.customer.email}
-                          <svg className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
                         </Link>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                          <span>{new Date(i.createdAt).toLocaleDateString('ru-RU')}</span>
+                          {i.amount && <span>{Number(i.amount).toFixed(0)} ₽</span>}
+                          {i.paid && <span className="text-green-400">✓ Оплачен</span>}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Статус */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0">
                       {i.status === 'pending' && (
-                        <span className="px-4 py-2 rounded-lg bg-yellow-900/30 border border-yellow-500/40 text-yellow-400 font-semibold flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                        <span className="px-2 py-1 rounded text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                           В ожидании
                         </span>
                       )}
                       {i.status === 'accepted' && (
-                        <span className="px-4 py-2 rounded-lg bg-green-900/30 border border-green-500/40 text-green-400 font-semibold flex items-center gap-2">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
+                        <span className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400 border border-green-500/30">
                           Принято
                         </span>
                       )}
                       {i.status === 'rejected' && (
-                        <span className="px-4 py-2 rounded-lg bg-red-900/30 border border-red-500/40 text-red-400 font-semibold flex items-center gap-2">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+                        <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400 border border-red-500/30">
                           Отклонено
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Детали */}
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span>{new Date(i.createdAt).toLocaleString('ru-RU')}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {i.paid ? (
-                        <>
-                          <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-green-400 font-medium">Оплачен</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>Не оплачен</span>
-                        </>
+                  {i.message && (
+                    <div className="mb-3">
+                      <button
+                        onClick={() => toggleExpand(i.id)}
+                        className="flex items-center gap-2 text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                      >
+                        <span>Письмо</span>
+                        <svg
+                          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {isExpanded && (
+                        <div className="mt-2 p-3 bg-emerald-900/10 border border-emerald-500/20 rounded text-sm text-gray-300">
+                          {i.message}
+                        </div>
                       )}
                     </div>
-                  </div>
+                  )}
 
-                  {/* Действия */}
                   {i.status === 'pending' && (
-                    <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-700/50">
+                    <div className="flex gap-2 pt-3 border-t border-gray-700/30">
                       <button
-                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 rounded-xl font-bold text-white shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] transition-all duration-300 transform hover:scale-105"
+                        className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-medium text-sm transition-colors"
                         onClick={() => handleAction(i.id, 'accept')}
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
                         Принять
                       </button>
                       <button
-                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 rounded-xl font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] transition-all duration-300 transform hover:scale-105"
+                        className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-medium text-sm transition-colors"
                         onClick={() => handleAction(i.id, 'reject')}
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
                         Отклонить
                       </button>
                     </div>
                   )}
 
                   {i.status === 'accepted' && (
-                    <div className="p-4 bg-green-900/20 border border-green-500/30 rounded-xl">
-                      <p className="text-green-300 flex items-start gap-2">
-                        <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>
-                          Вы приняли приглашение. Свяжитесь с заказчиком через{' '}
-                          <Link
-                            href={`/chats?open=${i.customer.id}`}
-                            className="underline text-emerald-300 hover:text-emerald-200 font-semibold"
-                          >
-                            чат
-                          </Link>.
-                        </span>
-                      </p>
-                    </div>
-                  )}
-
-                  {i.status === 'rejected' && (
-                    <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
-                      <p className="text-red-300 flex items-center gap-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        Вы отклонили это приглашение.
-                      </p>
+                    <div className="pt-3 border-t border-gray-700/30">
+                      <Link
+                        href={`/chats?open=${i.customer.id}`}
+                        className="block text-center px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm font-medium transition-colors"
+                      >
+                        Перейти в чат
+                      </Link>
                     </div>
                   )}
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       )}
 
       {/* Заказчик: отправленные */}
       {allowedTab === 'sent' && !loading && !error && (
-        <div className="space-y-4">
-          {sent.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 flex items-center justify-center">
-                <svg className="w-12 h-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-300 mb-2">Нет отправленных запросов</h3>
-              <p className="text-gray-500">Ваши отправленные запросы на найм появятся здесь</p>
+        <div className="space-y-3">
+          {filteredItems.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p>Нет запросов</p>
             </div>
           ) : (
-            sent.map((s) => (
-              <div
-                key={s.id}
-                className="relative group bg-black/40 backdrop-blur-sm border border-cyan-500/20 rounded-xl overflow-hidden shadow-[0_0_25px_rgba(6,182,212,0.15)] hover:shadow-[0_0_35px_rgba(6,182,212,0.25)] transition-all duration-300"
-              >
-                {/* Градиентный фон */}
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                
-                <div className="relative p-6 space-y-4">
-                  {/* Заголовок карточки */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-4">
-                      {/* Аватар */}
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                        {(s.executor.fullName || s.executor.email).charAt(0).toUpperCase()}
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-gray-400 mb-1">Исполнитель</p>
+            (filteredItems as SentItem[]).map((s) => {
+              const isExpanded = expandedItems.has(s.id)
+              return (
+                <div
+                  key={s.id}
+                  className="bg-black/30 border border-cyan-500/20 rounded-lg p-4 hover:border-cyan-500/40 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {s.executor.avatarUrl ? (
+                        <div className="w-10 h-10 rounded-full border border-cyan-500/30 overflow-hidden flex-shrink-0">
+                          <Image
+                            src={s.executor.avatarUrl}
+                            alt={s.executor.fullName || s.executor.email}
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                          {(s.executor.fullName || s.executor.email).charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
                         <Link
                           href={`/users/${s.executor.id}`}
-                          className="text-lg font-semibold text-cyan-300 hover:text-cyan-400 transition-colors flex items-center gap-2 group/link"
+                          className="text-cyan-400 hover:text-cyan-300 font-medium truncate block"
                         >
                           {s.executor.fullName || s.executor.email}
-                          <svg className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
                         </Link>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                          <span>{new Date(s.createdAt).toLocaleDateString('ru-RU')}</span>
+                          {s.amount && <span>{Number(s.amount).toFixed(0)} ₽</span>}
+                          {s.paid && <span className="text-green-400">✓ Оплачен</span>}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Статус */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0">
                       {s.status === 'pending' && (
-                        <span className="px-4 py-2 rounded-lg bg-yellow-900/30 border border-yellow-500/40 text-yellow-400 font-semibold flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                        <span className="px-2 py-1 rounded text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                           В ожидании
                         </span>
                       )}
                       {s.status === 'accepted' && (
-                        <span className="px-4 py-2 rounded-lg bg-green-900/30 border border-green-500/40 text-green-400 font-semibold flex items-center gap-2">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
+                        <span className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400 border border-green-500/30">
                           Принято
                         </span>
                       )}
                       {s.status === 'rejected' && (
-                        <span className="px-4 py-2 rounded-lg bg-red-900/30 border border-red-500/40 text-red-400 font-semibold flex items-center gap-2">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+                        <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400 border border-red-500/30">
                           Отклонено
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Детали */}
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span>{new Date(s.createdAt).toLocaleString('ru-RU')}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {s.paid ? (
-                        <>
-                          <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-green-400 font-medium">Оплачен</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>Не оплачен</span>
-                        </>
+                  {s.message && (
+                    <div className="mb-3">
+                      <button
+                        onClick={() => toggleExpand(s.id)}
+                        className="flex items-center gap-2 text-sm text-gray-400 hover:text-cyan-400 transition-colors"
+                      >
+                        <span>Письмо</span>
+                        <svg
+                          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {isExpanded && (
+                        <div className="mt-2 p-3 bg-cyan-900/10 border border-cyan-500/20 rounded text-sm text-gray-300">
+                          {s.message}
+                        </div>
                       )}
                     </div>
-                  </div>
+                  )}
 
-                  {/* Действия и статусы */}
-                  <div className="pt-4 border-t border-gray-700/50 space-y-3">
-                    {/* Кнопка чата */}
+                  <div className="pt-3 border-t border-gray-700/30">
                     <Link
                       href={`/chats?open=${s.executor.id}`}
-                      className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-900/30 to-cyan-800/30 border border-cyan-500/30 text-cyan-300 hover:border-cyan-400/50 hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 font-semibold group/chat"
+                      className="block text-center px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 rounded-lg text-cyan-400 text-sm font-medium transition-colors"
                     >
-                      <svg className="w-5 h-5 group-hover/chat:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
                       Перейти в чат
                     </Link>
-
-                    {s.status === 'accepted' && (
-                      <div className="p-4 bg-green-900/20 border border-green-500/30 rounded-xl">
-                        <p className="text-green-300 flex items-center gap-2">
-                          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Исполнитель принял ваш запрос
-                        </p>
-                      </div>
-                    )}
-                    
-                    {s.status === 'rejected' && (
-                      <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
-                        <p className="text-red-300 flex items-center gap-2">
-                          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          Исполнитель отклонил запрос
-                        </p>
-                      </div>
-                    )}
-                    
-                    {s.status === 'pending' && (
-                      <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-xl">
-                        <p className="text-yellow-300 flex items-center gap-2">
-                          <svg className="w-5 h-5 flex-shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Ожидает ответа исполнителя
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       )}

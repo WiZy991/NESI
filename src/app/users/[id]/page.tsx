@@ -13,6 +13,8 @@ import {
 	FaToolbox,
 	FaTrophy,
 	FaUserCircle,
+	FaBriefcase,
+	FaChevronRight,
 } from 'react-icons/fa'
 
 type ReviewLite = { rating: number }
@@ -61,6 +63,8 @@ type PublicUser = {
 	}
 }
 
+type Tab = 'overview' | 'achievements' | 'certifications' | 'portfolio'
+
 function buildAuthHeaders(): HeadersInit {
 	let token: string | null = null
 	if (typeof document !== 'undefined') {
@@ -73,7 +77,6 @@ function buildAuthHeaders(): HeadersInit {
 	return h
 }
 
-// перевод ролей на русский
 function getRoleName(role: string | undefined | null): string {
 	switch (role) {
 		case 'executor':
@@ -106,27 +109,25 @@ export default function UserPublicProfilePage() {
 	const [viewUser, setViewUser] = useState<PublicUser | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
+	const [activeTab, setActiveTab] = useState<Tab>('overview')
 
-	// Portfolio
 	const [portfolio, setPortfolio] = useState<any[]>([])
 	const [portfolioLoading, setPortfolioLoading] = useState(false)
+	const [avatarError, setAvatarError] = useState(false)
 
-	// hire CTA
-	const [hireState, setHireState] = useState<'none' | 'pending' | 'accepted'>(
-		'none'
-	)
+	const [hireState, setHireState] = useState<'none' | 'pending' | 'accepted'>('none')
 	const [hireId, setHireId] = useState<string | null>(null)
 	const [sendingHire, setSendingHire] = useState(false)
 	const [showHireModal, setShowHireModal] = useState(false)
 	const [hireMessage, setHireMessage] = useState('')
 	const [hireError, setHireError] = useState('')
 
-	// подгрузка публичного профиля
 	useEffect(() => {
 		let cancelled = false
 		;(async () => {
 			setLoading(true)
 			setError(null)
+			setAvatarError(false) // Сбрасываем ошибку аватара при загрузке нового пользователя
 			try {
 				const res = await fetch(`/api/users/${userId}`, {
 					headers: buildAuthHeaders(),
@@ -148,10 +149,9 @@ export default function UserPublicProfilePage() {
 		}
 	}, [userId])
 
-	// Загрузка портфолио исполнителя
 	useEffect(() => {
 		if (!viewUser || viewUser.role !== 'executor') return
-		
+
 		let cancelled = false
 		;(async () => {
 			setPortfolioLoading(true)
@@ -169,13 +169,12 @@ export default function UserPublicProfilePage() {
 				if (!cancelled) setPortfolioLoading(false)
 			}
 		})()
-		
+
 		return () => {
 			cancelled = true
 		}
 	}, [userId, viewUser?.role])
 
-	// предзагрузка статуса hire (для заказчика на странице исполнителя)
 	useEffect(() => {
 		if (!viewUser || user?.role !== 'customer' || viewUser.id === user?.id)
 			return
@@ -252,10 +251,9 @@ export default function UserPublicProfilePage() {
 		}
 	}
 
-	// ====== UI ======
 	if (loading) {
 		return (
-			<div className='max-w-4xl mx-auto py-8 px-4 text-white'>
+			<div className='flex items-center justify-center min-h-[60vh]'>
 				<LoadingSpinner />
 			</div>
 		)
@@ -264,339 +262,374 @@ export default function UserPublicProfilePage() {
 	if (error || !viewUser) {
 		return (
 			<div className='max-w-4xl mx-auto py-8 px-4 text-white'>
-				<p className='text-red-400'>{error || 'Пользователь не найден'}</p>
+				<div className='bg-red-900/20 border border-red-500/30 rounded-xl p-6 text-center'>
+					<p className='text-red-400 text-lg'>{error || 'Пользователь не найден'}</p>
+				</div>
 			</div>
 		)
 	}
 
-	// рейтинг
 	const ratings = viewUser.reviewsReceived || []
 	const avgRating =
 		ratings.length > 0
-			? (
-					ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
-			  ).toFixed(1)
+			? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(1)
 			: null
 	const reviewsCount = ratings.length
 
+	const isExecutor = viewUser.role === 'executor'
+	const canHire = user?.role === 'customer' && user?.id !== viewUser.id && isExecutor
+
+	// Обработка URL аватара
+	const avatarSrc = viewUser.avatarUrl
+		? viewUser.avatarUrl.startsWith('http')
+			? viewUser.avatarUrl
+			: `${typeof window !== 'undefined' ? window.location.origin : ''}${viewUser.avatarUrl}`
+		: null
+
+	const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; count?: number }> = [
+		{ id: 'overview' as Tab, label: 'Обзор', icon: <FaUserCircle /> },
+		{ id: 'achievements' as Tab, label: 'Достижения', icon: <FaTrophy />, count: viewUser.badges?.length },
+		{ id: 'certifications' as Tab, label: 'Сертификации', icon: <FaCertificate />, count: viewUser.certifications?.length },
+		{ id: 'portfolio' as Tab, label: 'Портфолио', icon: <FaBriefcase />, count: portfolio.length },
+	].filter(tab => {
+		// Портфолио только для исполнителей
+		if (tab.id === 'portfolio' && !isExecutor) return false
+		return true
+	})
+
 	return (
-		<div className='max-w-6xl mx-auto py-8 px-4 space-y-8'>
-			{/* Основная информация */}
-			<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-				{/* Левая колонка - основная информация */}
-				<div className='lg:col-span-1 space-y-6'>
-					{/* Аватар и основная инфа */}
-					<div className='bg-black/40 border border-green-500/30 rounded-xl p-6 shadow-[0_0_15px_rgba(0,255,150,0.3)] text-center hover:shadow-[0_0_25px_rgba(0,255,150,0.5)] transition'>
-						{viewUser.avatarUrl ? (
+		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
+			{/* Компактный Header профиля */}
+			<div className='bg-gradient-to-r from-emerald-900/20 via-black/40 to-emerald-900/20 rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6'>
+				<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
+					{/* Аватар */}
+					<div className='relative'>
+						{avatarSrc && !avatarError ? (
 							<img
-								src={viewUser.avatarUrl}
-								alt='Avatar'
-								className='w-32 h-32 rounded-full border-2 border-green-500 
-                           shadow-[0_0_20px_rgba(0,255,150,0.5)] mx-auto mb-4 object-cover'
+								src={avatarSrc}
+								alt='Аватар'
+								className='w-20 h-20 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover'
+								onError={() => setAvatarError(true)}
 							/>
 						) : (
-							<FaUserCircle className='text-gray-600 w-32 h-32 mx-auto mb-4' />
-						)}
-
-						<h1 className='text-2xl font-bold text-green-400 mb-2'>
-							{viewUser.fullName || viewUser.email || 'Профиль пользователя'}
-						</h1>
-						<div className='text-gray-400 mb-2'>
-							{getRoleName(viewUser.role)}{' '}
-							{viewUser.location ? `• ${viewUser.location}` : ''}
-						</div>
-
-						{/* Уровень и опыт для исполнителей */}
-						{viewUser.role === 'executor' && viewUser.level && (
-							<div className='bg-green-500/20 p-3 rounded-lg mb-4'>
-								<div className='flex items-center justify-center gap-2 mb-1'>
-									<FaTrophy className='text-yellow-400' />
-									<span className='font-semibold text-green-300'>
-										{viewUser.level.name}
-									</span>
-								</div>
-								<p className='text-sm text-gray-300'>
-									{viewUser.level.description}
-								</p>
-								<div className='mt-2 flex items-center justify-center gap-2'>
-									<FaChartLine className='text-blue-400' />
-									<span className='text-blue-300 font-medium'>
-										{viewUser.xp || 0} XP
-									</span>
-								</div>
+							<div className='w-20 h-20 rounded-full border-2 border-emerald-500 bg-gray-800 flex items-center justify-center'>
+								<FaUserCircle className='text-4xl text-gray-600' />
 							</div>
 						)}
-
-						{/* Рейтинг для исполнителей */}
-						{avgRating && viewUser.role === 'executor' && (
-							<div className='bg-yellow-500/20 p-3 rounded-lg mb-4'>
-								<div className='flex items-center justify-center gap-2 mb-1'>
-									<FaStar className='text-yellow-400' />
-									<span className='text-yellow-300 font-bold text-xl'>
-										{avgRating}
-									</span>
-								</div>
-								<p className='text-sm text-gray-300'>
-									({reviewsCount} отзывов)
-								</p>
+						{viewUser.level && (
+							<div className='absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-1.5 border-2 border-black'>
+								<span className='text-xs font-bold text-black'>⭐{viewUser.level.slug}</span>
 							</div>
 						)}
 					</div>
 
-					{/* Статистика для исполнителей */}
-					{viewUser.role === 'executor' && viewUser._count && (
-						<div
-							className='bg-black/40 p-4 rounded-xl border border-green-500/30 
-                            shadow-[0_0_15px_rgba(0,255,150,0.2)]'
-						>
-							<h3 className='text-lg font-semibold text-green-400 mb-4 flex items-center gap-2'>
-								<FaChartLine />
-								Статистика
-							</h3>
-							<div className='space-y-3'>
-								<div className='flex justify-between items-center'>
-									<span className='text-gray-300'>Выполнено задач:</span>
-									<span className='text-green-300 font-semibold'>
-										{viewUser._count.executedTasks || 0}
-									</span>
-								</div>
-								<div className='flex justify-between items-center'>
-									<span className='text-gray-300'>Отзывов получено:</span>
-									<span className='text-green-300 font-semibold'>
-										{viewUser._count.reviewsReceived || 0}
-									</span>
+					{/* Основная информация */}
+					<div className='flex-1 min-w-0'>
+						<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+							<div>
+								<h1 className='text-2xl sm:text-3xl font-bold text-white mb-1 truncate'>
+									{viewUser.fullName || viewUser.email || 'Профиль пользователя'}
+								</h1>
+								<div className='flex flex-wrap items-center gap-2 text-sm text-gray-400'>
+									<span>{getRoleName(viewUser.role)}</span>
+									{viewUser.location && (
+										<>
+											<span>•</span>
+											<span>📍 {viewUser.location}</span>
+										</>
+									)}
 								</div>
 							</div>
+
+							{/* Кнопка найма */}
+							{canHire && (
+								<div className='flex gap-2'>
+									{hireState === 'accepted' ? (
+										<Link
+											href={`/chats?open=${viewUser.id}`}
+											className='flex items-center gap-2 px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition whitespace-nowrap'
+										>
+											💬 Перейти в чат
+										</Link>
+									) : hireState === 'pending' ? (
+										<button
+											className='px-6 py-2.5 rounded-lg bg-gray-700 text-white cursor-not-allowed font-semibold whitespace-nowrap'
+											disabled
+										>
+											⏳ Запрос отправлен
+										</button>
+									) : (
+										<div className='relative group'>
+											<button
+												onClick={() => setShowHireModal(true)}
+												disabled={sendingHire}
+												className='px-6 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white disabled:opacity-50 font-semibold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] whitespace-nowrap'
+											>
+												💼 Нанять за 1990₽
+											</button>
+											{/* Подсказка под кнопкой */}
+											<div className='absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-80 p-4 bg-gray-900 border border-emerald-500/30 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 pointer-events-none'>
+												<div className='absolute bottom-full left-1/2 transform -translate-x-1/2 mb-0.5'>
+													<div className='w-3 h-3 bg-gray-900 border-l border-t border-emerald-500/30 transform rotate-45'></div>
+												</div>
+												<p className='text-sm text-gray-300 leading-relaxed mb-2'>
+													<span className='text-emerald-400 font-semibold'>1990₽</span> — это плата за{' '}
+													<span className='text-emerald-300 font-medium'>доступ к чату</span> с исполнителем.
+												</p>
+												<p className='text-sm text-gray-300 leading-relaxed'>
+													После оплаты вы сможете предложить ему{' '}
+													<span className='text-emerald-300 font-medium'>офер на постоянную работу</span> (например, 5/2 с 9 до 18, удалёнка, частичная занятость и т.д.).
+												</p>
+											</div>
+										</div>
+									)}
+								</div>
+							)}
 						</div>
-					)}
+
+						{/* Быстрая статистика для исполнителей */}
+						{isExecutor && (
+							<div className='flex flex-wrap gap-4 mt-4'>
+								{viewUser.xp !== undefined && (
+									<div className='flex items-center gap-2 text-sm'>
+										<FaChartLine className='text-emerald-400' />
+										<span className='text-gray-300'>{viewUser.xp || 0} XP</span>
+									</div>
+								)}
+								{viewUser._count?.executedTasks !== undefined && (
+									<div className='flex items-center gap-2 text-sm'>
+										<FaBriefcase className='text-blue-400' />
+										<span className='text-gray-300'>{viewUser._count.executedTasks} задач</span>
+									</div>
+								)}
+								{avgRating && (
+									<div className='flex items-center gap-2 text-sm'>
+										<FaStar className='text-yellow-400' />
+										<span className='text-gray-300'>
+											{avgRating} / 5 ({reviewsCount} отзывов)
+										</span>
+									</div>
+								)}
+							</div>
+						)}
+					</div>
 				</div>
+			</div>
 
-				{/* Правая колонка - детальная информация */}
-				<div className='lg:col-span-2 space-y-6'>
-					{/* О себе */}
-					{viewUser.description && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-green-500/30 
-                            shadow-[0_0_15px_rgba(0,255,150,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-green-400 mb-4'>
-								📄 О себе
-							</h3>
-							<p className='text-gray-300 leading-relaxed'>
-								{viewUser.description}
-							</p>
+			{/* Табы */}
+			<div className='flex gap-2 mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+				{tabs.map(tab => (
+					<button
+						key={tab.id}
+						onClick={() => setActiveTab(tab.id)}
+						className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${
+							activeTab === tab.id
+								? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+								: 'bg-black/40 border border-gray-700/50 text-gray-400 hover:border-emerald-500/30 hover:text-emerald-400'
+						}`}
+					>
+						{tab.icon}
+						{tab.label}
+						{tab.count !== undefined && tab.count > 0 && (
+							<span className='bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-xs font-semibold'>
+								{tab.count}
+							</span>
+						)}
+					</button>
+				))}
+			</div>
+
+			{/* Контент табов */}
+			<div className='space-y-6'>
+				{/* Обзор */}
+				{activeTab === 'overview' && (
+					<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+						{/* Левая колонка */}
+						<div className='lg:col-span-1 space-y-4'>
+							{/* Описание */}
+							{viewUser.description && (
+								<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
+									<h3 className='text-lg font-semibold text-emerald-400 mb-2'>О себе</h3>
+									<p className='text-gray-300 text-sm leading-relaxed'>{viewUser.description}</p>
+								</div>
+							)}
+
+							{/* Навыки */}
+							{viewUser.skills && viewUser.skills.length > 0 && (
+								<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
+									<h3 className='text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2'>
+										<FaToolbox />
+										Навыки
+									</h3>
+									<div className='flex flex-wrap gap-2'>
+										{viewUser.skills.map((skill, index) => (
+											<div
+												key={index}
+												className='flex items-center px-3 py-1.5 rounded-full text-xs border border-emerald-500/40 bg-black/60'
+											>
+												{getSkillIcon(skill)}
+												<span className='ml-2'>{skill.trim()}</span>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
 						</div>
-					)}
 
-					{/* Навыки */}
-					{viewUser.skills && viewUser.skills.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-green-500/30 
-                            shadow-[0_0_15px_rgba(0,255,150,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-green-400 mb-4 flex items-center gap-2'>
-								<FaToolbox />
-								Навыки и технологии
-							</h3>
-							<div className='flex flex-wrap gap-3'>
-								{viewUser.skills.map((skill, index) => (
+						{/* Правая колонка */}
+						<div className='lg:col-span-2 space-y-4'>
+							{/* Статистика для исполнителей */}
+							{isExecutor && viewUser._count && (
+								<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
+									<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+										<FaChartLine />
+										Статистика
+									</h3>
+									<div className='grid grid-cols-2 md:grid-cols-3 gap-4'>
+										<div className='text-center p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20'>
+											<div className='text-2xl font-bold text-emerald-300'>
+												{viewUser._count.executedTasks || 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Задач выполнено</div>
+										</div>
+										<div className='text-center p-3 bg-blue-500/10 rounded-lg border border-blue-500/20'>
+											<div className='text-2xl font-bold text-blue-300'>
+												{viewUser._count.reviewsReceived || 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Отзывов</div>
+										</div>
+										{avgRating && (
+											<div className='text-center p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20'>
+												<div className='text-2xl font-bold text-yellow-300'>{avgRating}</div>
+												<div className='text-xs text-gray-400 mt-1'>Рейтинг</div>
+											</div>
+										)}
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
+
+				{/* Достижения */}
+				{activeTab === 'achievements' && (
+					<div>
+						{viewUser.badges && viewUser.badges.length > 0 ? (
+							<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+								{viewUser.badges.map(userBadge => (
 									<div
-										key={index}
-										className='flex items-center px-4 py-2 rounded-full text-sm 
-                               border border-green-500/40 bg-black/60 
-                               shadow-[0_0_8px_rgba(0,255,150,0.2)] hover:shadow-[0_0_12px_rgba(0,255,150,0.3)] transition'
+										key={userBadge.id}
+										className='bg-gradient-to-br from-yellow-500/20 to-orange-500/20 p-4 rounded-xl border border-yellow-500/30 text-center'
 									>
-										{getSkillIcon(skill)}
-										<span className='ml-2'>{skill.trim()}</span>
+										<div className='text-3xl mb-2'>{userBadge.badge.icon}</div>
+										<h4 className='font-semibold text-yellow-300 text-sm mb-1'>
+											{userBadge.badge.name}
+										</h4>
+										<p className='text-xs text-gray-300 mb-2'>{userBadge.badge.description}</p>
+										<p className='text-xs text-gray-500'>
+											{new Date(userBadge.earnedAt).toLocaleDateString()}
+										</p>
 									</div>
 								))}
 							</div>
-						</div>
-					)}
+						) : (
+							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<FaTrophy className='text-6xl text-gray-600 mx-auto mb-4' />
+								<p className='text-gray-400'>Пока нет достижений</p>
+							</div>
+						)}
+					</div>
+				)}
 
-					{/* Сертификации */}
-					{viewUser.certifications && viewUser.certifications.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-green-500/30 
-                            shadow-[0_0_15px_rgba(0,255,150,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-green-400 mb-4 flex items-center gap-2'>
-								<FaCertificate />
-								Сертификации
-							</h3>
-							<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+				{/* Сертификации */}
+				{activeTab === 'certifications' && (
+					<div>
+						{viewUser.certifications && viewUser.certifications.length > 0 ? (
+							<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
 								{viewUser.certifications.map(cert => (
 									<div
 										key={cert.id}
-										className='bg-green-500/10 p-4 rounded-lg border border-green-500/20'
+										className='bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20'
 									>
 										<div className='flex items-center gap-2 mb-2'>
 											<FaAward className='text-yellow-400' />
-											<span className='font-semibold text-green-300'>
-												{cert.subcategory.name}
-											</span>
+											<span className='font-semibold text-emerald-300'>{cert.subcategory.name}</span>
 										</div>
-										<p className='text-sm text-gray-300 mb-1'>
-											Уровень: {cert.level}
-										</p>
+										<p className='text-sm text-gray-300 mb-1'>Уровень: {cert.level}</p>
 										<p className='text-xs text-gray-400'>
 											Получено: {new Date(cert.grantedAt).toLocaleDateString()}
 										</p>
 									</div>
 								))}
 							</div>
-						</div>
-					)}
-
-					{/* Значки */}
-					{viewUser.badges && viewUser.badges.length > 0 && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-green-500/30 
-                            shadow-[0_0_15px_rgba(0,255,150,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-green-400 mb-4 flex items-center gap-2'>
-								<FaTrophy />
-								Достижения
-							</h3>
-							<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-								{viewUser.badges.map(userBadge => (
-									<div
-										key={userBadge.id}
-										className='bg-gradient-to-br from-yellow-500/20 to-orange-500/20 
-                                                    p-4 rounded-lg border border-yellow-500/30 text-center'
-									>
-										<div className='text-2xl mb-2'>{userBadge.badge.icon}</div>
-										<h4 className='font-semibold text-yellow-300 mb-1'>
-											{userBadge.badge.name}
-										</h4>
-										<p className='text-xs text-gray-300 mb-2'>
-											{userBadge.badge.description}
-										</p>
-										<p className='text-xs text-gray-400'>
-											{new Date(userBadge.earnedAt).toLocaleDateString()}
-										</p>
-									</div>
-								))}
-							</div>
-						</div>
-					)}
-
-					{/* Портфолио исполнителя */}
-					{viewUser.role === 'executor' && (
-						<div
-							className='bg-black/40 p-6 rounded-xl border border-blue-500/30 
-                            shadow-[0_0_15px_rgba(59,130,246,0.2)]'
-						>
-							<h3 className='text-xl font-semibold text-blue-400 mb-4 flex items-center gap-2'>
-								<span>💼</span>
-								Портфолио
-							</h3>
-							
-							{portfolioLoading ? (
-								<div className='text-center py-8 text-gray-400'>
-									<div className='animate-spin w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full mx-auto' />
-									<p className='mt-2'>Загрузка портфолио...</p>
-								</div>
-							) : portfolio.length === 0 ? (
-								<div className='text-center py-8 text-gray-400'>
-									<p>🗂️ Портфолио пусто</p>
-								</div>
-							) : (
-								<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-									{portfolio.map((item: any) => (
-										<div
-											key={item.id}
-											className='bg-gray-800/50 border border-blue-500/30 rounded-lg overflow-hidden 
-											         hover:border-blue-400/50 transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
-										>
-											{item.imageUrl && (
-												<div className='aspect-video bg-gray-900 relative overflow-hidden'>
-													<img
-														src={item.imageUrl}
-														alt={item.title}
-														className='w-full h-full object-cover hover:scale-105 transition-transform duration-300'
-													/>
-												</div>
-											)}
-											
-											<div className='p-4'>
-												<h4 className='text-white font-semibold text-lg mb-2 line-clamp-1'>
-													{item.title}
-												</h4>
-												<p className='text-gray-400 text-sm mb-3 line-clamp-2'>
-													{item.description}
-												</p>
-												
-												{item.task && (
-													<div className='text-blue-400 text-xs mb-2 flex items-center gap-1'>
-														<span>📋</span>
-														<span className='line-clamp-1'>{item.task.title}</span>
-													</div>
-												)}
-												
-												{item.externalUrl && (
-													<a
-														href={item.externalUrl}
-														target='_blank'
-														rel='noopener noreferrer'
-														className='text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 
-														         hover:underline transition-colors'
-													>
-														<span>🔗</span>
-														<span>Открыть проект</span>
-													</a>
-												)}
-											</div>
-										</div>
-									))}
-								</div>
-							)}
-						</div>
-					)}
-				</div>
-			</div>
-
-			{/* CTA «Нанять исполнителя» — показываем на странице исполнителя */}
-			{user?.role === 'customer' &&
-				user?.id !== viewUser.id &&
-				viewUser.role === 'executor' && (
-					<div
-						className='bg-black/40 p-6 rounded-xl border border-green-500/30 
-							shadow-[0_0_15px_rgba(0,255,150,0.2)] text-center'
-					>
-						<h3 className='text-xl font-semibold text-green-400 mb-4'>
-							💼 Сотрудничество
-						</h3>
-						{hireState === 'accepted' ? (
-							<div className='flex gap-3 justify-center'>
-								<Link
-									href={`/chats?open=${viewUser.id}`}
-									className='px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition'
-								>
-									Перейти в чат
-								</Link>
-								<span className='text-green-400 self-center text-sm'>
-									Запрос принят
-								</span>
-							</div>
-						) : hireState === 'pending' ? (
-							<button
-								className='px-6 py-3 rounded-lg bg-gray-700 text-white cursor-not-allowed font-semibold'
-								disabled
-							>
-								Запрос отправлен
-							</button>
 						) : (
-							<button
-								onClick={() => setShowHireModal(true)}
-								disabled={sendingHire}
-								className='px-6 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white disabled:opacity-50 font-semibold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]'
-							>
-								💼 Нанять за 1990₽
-							</button>
+							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<FaCertificate className='text-6xl text-gray-600 mx-auto mb-4' />
+								<p className='text-gray-400'>Пока нет сертификаций</p>
+							</div>
 						)}
 					</div>
 				)}
+
+				{/* Портфолио */}
+				{activeTab === 'portfolio' && isExecutor && (
+					<div>
+						{portfolioLoading ? (
+							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<div className='animate-spin w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full mx-auto mb-4' />
+								<p className='text-gray-400'>Загрузка портфолио...</p>
+							</div>
+						) : portfolio.length === 0 ? (
+							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<FaBriefcase className='text-6xl text-gray-600 mx-auto mb-4' />
+								<p className='text-gray-400'>Портфолио пусто</p>
+							</div>
+						) : (
+							<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+								{portfolio.map((item: any) => (
+									<div
+										key={item.id}
+										className='bg-black/40 border border-blue-500/30 rounded-xl overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+									>
+										{item.imageUrl && (
+											<div className='aspect-video bg-gray-900 relative overflow-hidden'>
+												<img
+													src={item.imageUrl}
+													alt={item.title}
+													className='w-full h-full object-cover hover:scale-105 transition-transform duration-300'
+												/>
+											</div>
+										)}
+										<div className='p-4'>
+											<h4 className='text-white font-semibold text-lg mb-2 line-clamp-1'>
+												{item.title}
+											</h4>
+											<p className='text-gray-400 text-sm mb-3 line-clamp-2'>{item.description}</p>
+											{item.task && (
+												<div className='text-blue-400 text-xs mb-2 flex items-center gap-1'>
+													<span>📋</span>
+													<span className='line-clamp-1'>{item.task.title}</span>
+												</div>
+											)}
+											{item.externalUrl && (
+												<a
+													href={item.externalUrl}
+													target='_blank'
+													rel='noopener noreferrer'
+													className='text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 hover:underline transition-colors'
+												>
+													<span>🔗</span>
+													<span>Открыть проект</span>
+												</a>
+											)}
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+				)}
+			</div>
 
 			{/* Модальное окно найма */}
 			{showHireModal && (
@@ -608,13 +641,27 @@ export default function UserPublicProfilePage() {
 						className='bg-gray-900 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-md mx-4 p-6 md:p-8'
 						onClick={e => e.stopPropagation()}
 					>
-						<h2 className='text-2xl font-bold text-emerald-400 mb-2'>
-							Нанять исполнителя
-						</h2>
-						<p className='text-gray-400 text-sm mb-6'>
-							Стоимость:{' '}
-							<span className='text-emerald-400 font-semibold'>1990₽</span>
-						</p>
+						<h2 className='text-2xl font-bold text-emerald-400 mb-2'>Нанять исполнителя</h2>
+						
+						{/* Информационный блок о стоимости */}
+						<div className='bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 mb-6'>
+							<div className='flex items-start gap-3'>
+								<span className='text-2xl'>💡</span>
+								<div className='flex-1'>
+									<p className='text-emerald-300 font-semibold text-sm mb-2'>
+										Что включает в себя оплата?
+									</p>
+									<p className='text-gray-300 text-sm leading-relaxed mb-2'>
+										<span className='text-emerald-400 font-semibold'>1990₽</span> — это плата за{' '}
+										<span className='text-emerald-300 font-medium'>доступ к чату</span> с исполнителем.
+									</p>
+									<p className='text-gray-300 text-sm leading-relaxed'>
+										После оплаты вы получите возможность общаться с ним и предложить{' '}
+										<span className='text-emerald-300 font-medium'>офер на постоянную работу</span> (например, 5/2 с 9 до 18, удалёнка, частичная занятость и т.д.).
+									</p>
+								</div>
+							</div>
+						</div>
 
 						<form
 							onSubmit={e => {
@@ -635,9 +682,7 @@ export default function UserPublicProfilePage() {
 									className='w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition resize-none'
 									required
 								/>
-								{hireError && (
-									<p className='text-red-400 text-sm mt-1'>{hireError}</p>
-								)}
+								{hireError && <p className='text-red-400 text-sm mt-1'>{hireError}</p>}
 							</div>
 
 							<div className='flex gap-3'>

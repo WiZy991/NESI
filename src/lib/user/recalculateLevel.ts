@@ -1,43 +1,57 @@
 import prisma from '@/lib/prisma'
+import { getLevelFromXP } from '@/lib/level/calculate'
 
-export async function recalculateUserLevel(userId: string) {
+/**
+ * Пересчитывает уровень пользователя на основе его XP
+ * Использует XP как основной критерий для определения уровня
+ */
+export async function recalculateUserLevel(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { level: true }
+    select: {
+      id: true,
+      xp: true,
+      levelId: true
+    }
   })
 
-  if (!user) return
+  if (!user) {
+    console.warn(`[Level] Пользователь ${userId} не найден для пересчета уровня`)
+    return
+  }
 
-  // Условия: сколько весов на каждый параметр
-  const wCert = 1.5
-  const wCompleted = 1
-  const wRating = 10
-  const wXP = 0.1
+  const xp = user.xp || 0
 
-  const compositeScore =
-    wCert * (await getCertScore(userId)) +
-    wCompleted * user.completedTasksCount +
-    wRating * user.avgRating +
-    wXP * user.xp
+  // Получаем уровень на основе XP
+  const levelInfo = await getLevelFromXP(xp)
 
-  // Найти подходящий уровень
-  const levels = await prisma.userLevel.findMany({ orderBy: { minScore: 'asc' } })
-  const matched = levels.reverse().find((lvl) => compositeScore >= lvl.minScore)
+  // Получаем уровень из БД по slug или minScore
+  let newLevelId: string | null = null
 
-  if (matched && matched.id !== user.levelId) {
+  // Пытаемся найти уровень в БД
+  const dbLevel = await prisma.userLevel.findFirst({
+    where: {
+      OR: [
+        { slug: levelInfo.slug },
+        { minScore: { lte: xp } }
+      ]
+    },
+    orderBy: { minScore: 'desc' } // Берем максимальный подходящий уровень
+  })
+
+  if (dbLevel) {
+    newLevelId = dbLevel.id
+  }
+
+  // Если уровень изменился, обновляем
+  if (newLevelId !== user.levelId) {
     await prisma.user.update({
       where: { id: userId },
-      data: { levelId: matched.id }
+      data: { levelId: newLevelId }
     })
-  }
-}
 
-// Считаем количество пройденных сертификаций
-async function getCertScore(userId: string): Promise<number> {
-  const passedCerts = await prisma.certificationAttempt.findMany({
-    where: { userId, passed: true },
-    select: { testId: true },
-    distinct: ['testId']
-  })
-  return passedCerts.length
+    console.log(
+      `[Level] Уровень пользователя ${userId} обновлен: ${user.levelId || 'null'} → ${newLevelId || 'null'} (XP: ${xp})`
+    )
+  }
 }
