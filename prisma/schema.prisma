@@ -1,12 +1,10 @@
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 model User {
   id          String               @id @default(cuid())
   email       String               @unique
@@ -19,16 +17,13 @@ model User {
   blockedReason String?
   fullName    String?
   createdAt   DateTime             @default(now())
-
   description  String?
   avatarUrl    String?
   avatarFileId String? @unique
   avatarFile   File?   @relation("UserAvatar", fields: [avatarFileId], references: [id])
   lastPrivateMessageReadAt DateTime?          @map("lastPrivateMessageReadAt")
-
   location String?
   skills   String[]
-
   tasks           Task[]         @relation("Customer")
   executedTasks   Task[]         @relation("Executor")
   responses       TaskResponse[]
@@ -36,49 +31,39 @@ model User {
   reviewsReceived Review[]       @relation("ToUser")
   messages        Message[]      @relation("MessageSender")
   notifications   Notification[]
-
   certificationAttempts CertificationAttempt[]
   certifications        UserCertification[]
-
   levelId             String?    @map("level_id")
   level               UserLevel? @relation(fields: [levelId], references: [id])
   xp                  Int        @default(0)
   completedTasksCount Int        @default(0)
   avgRating           Float      @default(0)
-
   badges               UserBadge[]
   hireRequestsSent     HireRequest[] @relation("HireCustomer")
   hireRequestsReceived HireRequest[] @relation("HireExecutor")
-
   privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
   privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
-
   balance       Decimal       @default(100.00) @db.Decimal(15, 2)
   transactions  Transaction[]
   frozenBalance Decimal       @default(0.00) @db.Decimal(15, 2)
-
   communityPosts          CommunityPost[]
   communityComments       CommunityComment[]
   communityLikes          CommunityLike[]
   emailVerificationTokens EmailVerificationToken[]
   adminLogs               AdminActionLog[]
   disputes                Dispute[]
-
   settings UserSettings?
   reports   CommunityReport[]  @relation("UserReports")
   activityLogs ActivityLog[]
 }
-
 model UserSettings {
   userId             String  @id
   emailNotifications Boolean @default(true)
   pushNotifications  Boolean @default(false)
   showOnlineStatus   Boolean @default(true)
   hideEmail          Boolean @default(false)
-
   user User @relation(fields: [userId], references: [id])
 }
-
 model Task {
   id                 String         @id @default(uuid())
   title              String
@@ -105,7 +90,6 @@ model Task {
   responses          TaskResponse[]
   Transaction        Transaction[]
   reports            CommunityReport[]  // Жалобы на задачу
-
   @@index([status])
   @@index([customerId])
   @@index([executorId])
@@ -115,7 +99,6 @@ model Task {
   @@index([customerId, status])
   @@index([executorId, status])
 }
-
 model TaskResponse {
   id        String   @id @default(uuid())
   taskId    String
@@ -125,31 +108,24 @@ model TaskResponse {
   price     Decimal? @db.Decimal(15, 2)
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id])
-
   @@unique([taskId, userId], name: "taskId_userId")
   @@index([taskId])
   @@index([userId])
   @@index([createdAt])
 }
-
 model Review {
   id         String   @id @default(cuid())
   rating     Int
   comment    String
   createdAt  DateTime @default(now())
-
   taskId     String
   fromUserId String?
   toUserId   String?
-
   fromUser   User?    @relation("FromUser", fields: [fromUserId], references: [id])
   toUser     User?    @relation("ToUser", fields: [toUserId], references: [id])
   task       Task     @relation(fields: [taskId], references: [id])
-
   @@unique([taskId, fromUserId], name: "task_from_reviewer")
 }
-
-
 model Message {
   id        String    @id @default(uuid())
   createdAt DateTime  @default(now())
@@ -163,13 +139,11 @@ model Message {
   file      File?     @relation("MessageFile", fields: [fileId], references: [id])
   sender    User      @relation("MessageSender", fields: [senderId], references: [id])
   task      Task      @relation(fields: [taskId], references: [id])
-
   @@index([taskId])
   @@index([senderId])
   @@index([createdAt])
   @@index([taskId, createdAt])
 }
-
 model Notification {
   id        String   @id @default(cuid())
   userId    String
@@ -179,14 +153,12 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
-
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
   @@index([userId, isRead])
   @@index([userId, createdAt])
 }
-
 model PasswordResetToken {
   id        String   @id @default(uuid())
   userId    String
@@ -194,7 +166,6 @@ model PasswordResetToken {
   expiresAt DateTime
   User      User     @relation(fields: [userId], references: [id])
 }
-
 model Category {
   id            String        @id @default(uuid())
   name          String        @unique
@@ -202,7 +173,6 @@ model Category {
   updatedAt     DateTime      @updatedAt
   subcategories Subcategory[]
 }
-
 model Subcategory {
   id                 String              @id @default(uuid())
   name               String              @unique
@@ -215,7 +185,6 @@ model Subcategory {
   tasks              Task[]
   userCertifications UserCertification[]
 }
-
 model CertificationTest {
   id            String                  @id @default(uuid())
   subcategoryId String                  @unique
@@ -229,7 +198,6 @@ model CertificationTest {
   questions     CertificationQuestion[]
   subcategory   Subcategory             @relation(fields: [subcategoryId], references: [id])
 }
-
 model CertificationQuestion {
   id        String                @id @default(uuid())
   testId    String
@@ -237,20 +205,16 @@ model CertificationQuestion {
   createdAt DateTime              @default(now())
   options   CertificationOption[]
   test      CertificationTest     @relation(fields: [testId], references: [id])
-
   @@index([testId])
 }
-
 model CertificationOption {
   id         String                @id @default(uuid())
   questionId String
   text       String
   isCorrect  Boolean               @default(false)
   question   CertificationQuestion @relation(fields: [questionId], references: [id])
-
   @@index([questionId])
 }
-
 model CertificationAttempt {
   id         String            @id @default(uuid())
   userId     String
@@ -261,12 +225,10 @@ model CertificationAttempt {
   passed     Boolean?
   test       CertificationTest @relation(fields: [testId], references: [id])
   user       User              @relation(fields: [userId], references: [id])
-
   @@index([userId])
   @@index([testId])
   @@index([userId, testId, startedAt])
 }
-
 model UserCertification {
   id            String      @id @default(uuid())
   userId        String
@@ -275,11 +237,9 @@ model UserCertification {
   grantedAt     DateTime    @default(now())
   subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
   user          User        @relation(fields: [userId], references: [id])
-
   @@unique([userId, subcategoryId], name: "userId_subcategoryId")
   @@index([subcategoryId])
 }
-
 model UserLevel {
   id          String @id @default(uuid())
   slug        String @unique
@@ -288,7 +248,6 @@ model UserLevel {
   minScore    Int
   users       User[]
 }
-
 model Badge {
   id          String      @id @default(cuid())
   name        String
@@ -297,7 +256,6 @@ model Badge {
   condition   String
   users       UserBadge[]
 }
-
 model UserBadge {
   id       String   @id @default(cuid())
   userId   String
@@ -306,7 +264,6 @@ model UserBadge {
   badge    Badge    @relation(fields: [badgeId], references: [id])
   user     User     @relation(fields: [userId], references: [id])
 }
-
 model HireRequest {
   id         String   @id @default(uuid())
   customerId String
@@ -319,7 +276,6 @@ model HireRequest {
   customer   User     @relation("HireCustomer", fields: [customerId], references: [id])
   executor   User     @relation("HireExecutor", fields: [executorId], references: [id])
 }
-
 model PrivateMessage {
   id          String    @id @default(cuid())
   senderId    String
@@ -337,7 +293,6 @@ model PrivateMessage {
   recipient   User      @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
   sender      User      @relation("PrivateMessageSender", fields: [senderId], references: [id])
 }
-
 model AdminInvite {
   id        String   @id @default(cuid())
   token     String   @unique
@@ -346,7 +301,6 @@ model AdminInvite {
   used      Boolean  @default(false)
   usedBy    String?  @db.Uuid
 }
-
 model Transaction {
   id         String   @id @default(cuid())
   userId     String
@@ -359,12 +313,10 @@ model Transaction {
   taskId     String?
   Task       Task?    @relation(fields: [taskId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
-
   @@index([userId])
   @@index([createdAt])
   @@index([status])
 }
-
 model File {
   id          String           @id @default(cuid())
   filename    String
@@ -379,7 +331,6 @@ model File {
   privateMsgs PrivateMessage[] @relation("PrivateMessageFile")
   userAvatar  User?            @relation("UserAvatar")
 }
-
 model CommunityPost {
   id        String             @id @default(cuid())
   authorId  String
@@ -390,17 +341,15 @@ model CommunityPost {
   updatedAt DateTime           @updatedAt
   likes     CommunityLike[]
   views     CommunityView[]
-  isDeleted       Boolean  @default(false)
-  deletedReason   String?  // "Нарушение правил", "Спам" и т.д.
-  author       User?       @relation(fields: [authorId], references: [id])
-  comments     CommunityComment[]
-  reports      CommunityReport[]
-
+  isDeleted       Boolean  @default(false)
+  deletedReason   String?  // "Нарушение правил", "Спам" и т.д.
+  author       User?       @relation(fields: [authorId], references: [id])
+  comments     CommunityComment[]
+  reports      CommunityReport[]
   @@index([authorId])
   @@index([createdAt])
   @@index([authorId, createdAt])
 }
-
 model CommunityComment {
   id        String        @id @default(cuid())
   postId    String
@@ -412,23 +361,19 @@ model CommunityComment {
   author    User          @relation(fields: [authorId], references: [id])
   post      CommunityPost @relation(fields: [postId], references: [id])
   reports     CommunityReport[]
-
   @@index([postId])
   @@index([authorId])
   @@index([createdAt])
   @@index([postId, createdAt])
 }
-
 model CommunityLike {
   id     String        @id @default(cuid())
   postId String
   userId String
   post   CommunityPost @relation(fields: [postId], references: [id])
   user   User          @relation(fields: [userId], references: [id])
-
   @@unique([postId, userId], name: "postId_userId")
 }
-
 model CommunityView {
   id        String        @id @default(cuid())
   postId    String
@@ -436,7 +381,6 @@ model CommunityView {
   createdAt DateTime      @default(now())
   post      CommunityPost @relation(fields: [postId], references: [id])
 }
-
 model EmailVerificationToken {
   id        String   @id @default(uuid())
   userId    String
@@ -444,7 +388,6 @@ model EmailVerificationToken {
   expiresAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
 model AdminActionLog {
   id         String   @id @default(uuid())
   adminId    String
@@ -455,7 +398,6 @@ model AdminActionLog {
   createdAt  DateTime @default(now())
   admin      User     @relation(fields: [adminId], references: [id])
 }
-
 model SystemMetric {
   id        String   @id @default(uuid())
   key       String   @unique
@@ -463,7 +405,6 @@ model SystemMetric {
   stringVal String?
   createdAt DateTime @default(now())
 }
-
 model Dispute {
   id            String    @id
   taskId        String
@@ -477,12 +418,10 @@ model Dispute {
   adminDecision String?
   Task          Task      @relation(fields: [taskId], references: [id])
   User          User      @relation(fields: [userId], references: [id])
-
   @@index([status])
   @@index([taskId])
   @@index([userId])
 }
-
 model CommunityReport {
   id          String   @id @default(cuid())
   type        String   // "post", "comment", "task"
@@ -497,12 +436,11 @@ model CommunityReport {
   post        CommunityPost?     @relation(fields: [postId], references: [id])
   comment     CommunityComment? @relation(fields: [commentId], references: [id])
   task        Task?              @relation(fields: [taskId], references: [id])
-  
+ 
   @@index([taskId])
   @@index([reporterId])
   @@index([type])
 }
-
 model Feedback {
   id        String   @id @default(cuid())
   name      String
@@ -515,7 +453,6 @@ model Feedback {
   reviewedBy String?
   notes     String?  @db.Text
 }
-
 model ActivityLog {
   id         String   @id @default(cuid())
   userId     String
@@ -524,14 +461,13 @@ model ActivityLog {
   userAgent  String?
   metadata   Json?
   createdAt  DateTime @default(now())
-  
+ 
   user User @relation(fields: [userId], references: [id])
-  
+ 
   @@index([userId])
   @@index([action])
   @@index([createdAt])
 }
-
 enum Role {
   user
   executor
