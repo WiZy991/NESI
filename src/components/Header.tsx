@@ -125,16 +125,14 @@ export default function Header() {
 	// Закрытие меню при клике вне (НО НЕ во время онбординга!)
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
-			// Проверяем, активен ли онбординг (driver.js)
-			const isOnboardingActive = document.querySelector('.driver-overlay') !== null || 
-			                          document.querySelector('.driverjs-popover') !== null
+			// Проверяем, активен ли онбординг
+			const isOnboardingActive = document.querySelector('.onboarding-highlighted') !== null
 			
 			// Если активен онбординг И клик по overlay, НЕ закрываем меню
 			if (isOnboardingActive) {
 				const target = e.target as HTMLElement
-				if (target.classList.contains('driver-overlay') || 
-				    target.closest('.driver-overlay') ||
-				    target.closest('.driverjs-popover')) {
+				if (target.closest('[class*="onboarding"]') || 
+				    target.closest('[style*="z-index: 10000"]')) {
 					return // Не закрываем меню во время онбординга
 				}
 			}
@@ -486,7 +484,7 @@ export default function Header() {
 					interval={5000}
 				/>
 			)}
-			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans fixed md:sticky top-0 z-50'>
+			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans fixed md:sticky top-0 z-[10002]'>
 				<Link
 					href='/'
 					className='text-xl md:text-2xl font-semibold text-emerald-400 tracking-[0.08em] hover:scale-105 hover:text-emerald-300 transition-all duration-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]'
@@ -845,14 +843,6 @@ export default function Header() {
 											</Link>
 
 											<Link
-												href='/referral'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												🎁 Рефералы
-											</Link>
-
-											<Link
 												href='/settings'
 												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
 												onClick={() => setMobileMenuOpen(false)}
@@ -1055,10 +1045,10 @@ export default function Header() {
 								<>
 									{user.role === 'executor' && (
 										<>
-											<Link href='/specialists' className={linkStyle}>
+											<Link href='/specialists' className={linkStyle} data-onboarding-target="nav-specialists">
 												Подиум исполнителей
 											</Link>
-											<Link href='/tasks' className={linkStyle}>
+											<Link href='/tasks' className={linkStyle} data-onboarding-target="nav-tasks">
 												Каталог задач
 											</Link>
 											<Link href='/tasks/my' className={linkStyle}>
@@ -1067,26 +1057,29 @@ export default function Header() {
 											<Link href='/responses/my' className={linkStyle}>
 												Мои отклики
 											</Link>
+											<Link href='/cert' className={linkStyle} data-onboarding-target="nav-cert">
+												Сертификация
+											</Link>
 										</>
 									)}
 									{user.role === 'customer' && (
 										<>
-											<Link href='/specialists' className={linkStyle}>
+											<Link href='/specialists' className={linkStyle} data-onboarding-target="nav-specialists">
 												Подиум исполнителей
 											</Link>
-											<Link href='/tasks' className={linkStyle}>
+											<Link href='/tasks' className={linkStyle} data-onboarding-target="nav-tasks">
 												Каталог задач
 											</Link>
-											<Link href='/my-tasks' className={linkStyle}>
+											<Link href='/my-tasks' className={linkStyle} data-onboarding-target="nav-my-tasks">
 												Мои задачи
 											</Link>
-											<Link href='/tasks/new' className={linkStyle}>
+											<Link href='/tasks/new' className={linkStyle} data-onboarding-target="nav-create-task">
 												Создать задачу
 											</Link>
 										</>
 									)}
 
-									<Link href='/profile' className={linkStyle}>
+									<Link href='/profile' className={linkStyle} data-onboarding-target="nav-profile">
 										Профиль
 									</Link>
 
@@ -1149,14 +1142,6 @@ export default function Header() {
 														data-onboarding-target="more-menu-portfolio"
 													>
 														💼 Портфолио
-													</Link>
-													<Link
-														href='/referral'
-														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
-														onClick={() => setMenuOpen(false)}
-														data-onboarding-target="more-menu-referral"
-													>
-														🎁 Рефералы
 													</Link>
 												</div>
 

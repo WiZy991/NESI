@@ -37,7 +37,6 @@ export const registerSchema = z.object({
   password: passwordSchema,
   fullName: fullNameSchema,
   role: z.enum(['customer', 'executor']),
-  referralCode: z.string().optional(),
 })
 
 // Схема входа

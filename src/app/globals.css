@@ -675,3 +675,90 @@ a[data-onboarding-target^="more-menu-"].driver-highlighted-element {
 .driverjs-popover[data-step] {
 	z-index: 10000 !important;
 }
+
+/* Улучшенный дизайн для кастомного popover */
+.driverjs-popover-custom {
+	background: linear-gradient(135deg, #001a12 0%, #002a1f 100%) !important;
+	border: 2px solid rgba(16, 185, 129, 0.5) !important;
+	border-radius: 16px !important;
+	box-shadow: 0 0 40px rgba(16, 185, 129, 0.4), 0 8px 32px rgba(0, 0, 0, 0.8) !important;
+	padding: 24px !important;
+	backdrop-filter: blur(10px) !important;
+}
+
+.driverjs-popover-custom .driverjs-popover-title {
+	color: #10b981 !important;
+	font-size: 20px !important;
+	font-weight: 700 !important;
+	margin-bottom: 12px !important;
+	text-shadow: 0 0 10px rgba(16, 185, 129, 0.5) !important;
+}
+
+.driverjs-popover-custom .driverjs-popover-description {
+	color: #d1d5db !important;
+	font-size: 15px !important;
+	line-height: 1.6 !important;
+	margin-bottom: 20px !important;
+}
+
+/* Улучшенная кнопка завершения */
+.driver-complete-btn {
+	background: linear-gradient(135deg, #10b981, #059669) !important;
+	color: #ffffff !important;
+	font-weight: 700 !important;
+	padding: 12px 24px !important;
+	border-radius: 10px !important;
+	box-shadow: 0 0 30px rgba(16, 185, 129, 0.6) !important;
+	transition: all 0.3s ease !important;
+}
+
+.driver-complete-btn:hover {
+	background: linear-gradient(135deg, #059669, #047857) !important;
+	box-shadow: 0 0 40px rgba(16, 185, 129, 0.8) !important;
+	transform: translateY(-2px) scale(1.05) !important;
+}
+
+/* Прогресс-бар тура */
+.driverjs-popover-progress {
+	background: rgba(16, 185, 129, 0.2) !important;
+	border-radius: 8px !important;
+	padding: 8px 12px !important;
+	margin-bottom: 16px !important;
+	font-size: 13px !important;
+	color: #10b981 !important;
+	font-weight: 600 !important;
+	text-align: center !important;
+}
+
+/* Стили для кастомного онбординга */
+.onboarding-highlighted {
+	transition: all 0.3s ease !important;
+	position: relative !important;
+	isolation: isolate;
+}
+
+.onboarding-highlighted::before {
+	content: '';
+	position: absolute;
+	inset: -12px;
+	border-radius: inherit;
+	background: rgba(16, 185, 129, 0.15);
+	z-index: -1;
+	animation: pulse-glow 2s ease-in-out infinite;
+	pointer-events: none;
+}
+
+.onboarding-highlight-wrapper {
+	pointer-events: none;
+}
+
+@keyframes pulse-glow {
+	0%, 100% {
+		opacity: 0.4;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.8;
+		transform: scale(1.08);
+	}
+}

@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
 import { Eye, EyeOff, X, Check } from 'lucide-react'
@@ -10,14 +10,12 @@ import EmailLink from '@/components/EmailLink'
 
 function RegisterContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { login } = useUser()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<'customer' | 'executor'>('customer')
-  const [referralCode, setReferralCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -84,14 +82,6 @@ function RegisterContent() {
     }
   }
 
-  // Загрузка реферального кода из URL
-  useEffect(() => {
-    const refParam = searchParams.get('ref')
-    if (refParam) {
-      setReferralCode(refParam.toUpperCase())
-    }
-  }, [searchParams])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -121,8 +111,7 @@ function RegisterContent() {
           email, 
           password, 
           fullName, 
-          role,
-          referralCode: referralCode.trim() || undefined 
+          role
         }),
       })
 
@@ -323,28 +312,6 @@ function RegisterContent() {
               </svg>
             </div>
           </div>
-
-          {/* Реферальный код (опционально) */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Реферальный код (опционально)"
-              value={referralCode}
-              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-              maxLength={8}
-              className="w-full p-3 bg-transparent border border-pink-400/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-400 transition uppercase font-mono"
-            />
-            {referralCode && (
-              <div className="absolute right-3 top-3 text-pink-400">
-                🎁
-              </div>
-            )}
-          </div>
-          {referralCode && (
-            <p className="text-pink-400 text-sm -mt-3">
-              🎉 У вас есть реферальный код! Ваш друг получит бонус с ваших первых задач.
-            </p>
-          )}
 
           {/* Плашка согласия с пользовательским соглашением */}
           <div className="bg-emerald-500/5 border border-emerald-500/30 rounded-lg p-4">

@@ -68,14 +68,6 @@ model User {
   reports   CommunityReport[]  @relation("UserReports")
   activityLogs ActivityLog[]
   
-  // Реферальная система
-  referralCode String? @unique
-  referredById String?
-  referredBy   User?   @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
-  referrals    User[]  @relation("Referrals")
-  referralBonusesEarned ReferralBonus[] @relation("ReferrerBonuses")
-  referralBonusesGiven  ReferralBonus[] @relation("ReferralBonuses")
-  
   // Портфолио
   portfolioItems Portfolio[]
   
@@ -124,7 +116,6 @@ model Task {
   Transaction        Transaction[]
   reports            CommunityReport[]  // Жалобы на задачу
   portfolioItems     Portfolio[]
-  referralBonuses    ReferralBonus[]
 
   @@index([status])
   @@index([customerId])
@@ -577,24 +568,6 @@ model Portfolio {
   
   @@index([userId])
   @@index([createdAt])
-}
-
-// Реферальная система
-model ReferralBonus {
-  id         String   @id @default(cuid())
-  referrerId String   // Кто привел
-  referralId String   // Кого привели
-  taskId     String
-  amount     Decimal  @db.Decimal(15, 2)
-  createdAt  DateTime @default(now())
-  
-  referrer User @relation("ReferrerBonuses", fields: [referrerId], references: [id], onDelete: Cascade)
-  referral User @relation("ReferralBonuses", fields: [referralId], references: [id], onDelete: Cascade)
-  task     Task @relation(fields: [taskId], references: [id])
-  
-  @@index([referrerId])
-  @@index([referralId])
-  @@index([taskId])
 }
 
 // Реакции на сообщения в чатах задач

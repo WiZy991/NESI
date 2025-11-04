@@ -452,19 +452,6 @@ export default function ProfilePageContent() {
 									<div className='text-gray-400 text-xs'>Мои лучшие работы</div>
 								</div>
 							</Link>
-
-							<Link
-								href='/referral'
-								className='flex items-center gap-3 p-3 bg-gradient-to-r from-pink-900/30 to-pink-800/30 
-								         border border-pink-500/30 rounded-lg hover:border-pink-400/50 
-								         transition-all hover:shadow-[0_0_10px_rgba(236,72,153,0.3)]'
-							>
-								<span className='text-2xl'>🎁</span>
-								<div className='flex-1'>
-									<div className='text-white font-semibold'>Рефералы</div>
-									<div className='text-gray-400 text-xs'>Приглашай и зарабатывай</div>
-								</div>
-							</Link>
 						</div>
 					</div>
 				</div>

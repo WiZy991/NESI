@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const { email, password, fullName, role, referralCode } = validation.data
+    const { email, password, fullName, role } = validation.data
 
     // ищем по email без учёта регистра, чтобы не плодить дубликаты
     const existing = await prisma.user.findFirst({
@@ -54,19 +54,6 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Проверяем реферальный код, если указан
-    let referrerId: string | undefined
-    if (referralCode?.trim()) {
-      const referrer = await prisma.user.findUnique({
-        where: { referralCode: referralCode.trim().toUpperCase() },
-        select: { id: true },
-      })
-      
-      if (referrer) {
-        referrerId = referrer.id
-      }
-    }
-
     // создаём пользователя и токен в одной транзакции
     const { userId, token } = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -76,7 +63,6 @@ export async function POST(req: Request) {
           password: hashedPassword,
           role,
           verified: false,
-          referredById: referrerId,
         },
         select: { id: true, email: true },
       })

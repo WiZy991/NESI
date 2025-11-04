@@ -1,19 +1,16 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { BookOpen, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 
 export const ResetOnboardingButton = () => {
-  const router = useRouter()
-  
   const reset = () => {
+    // Удаляем записи из localStorage
     Object.keys(localStorage)
       .filter((key) => key.startsWith('nesi_onboarding_done'))
       .forEach((key) => localStorage.removeItem(key))
     
-    // Перезагружаем страницу, чтобы онбординг запустился снова
-    router.refresh()
-    window.location.reload()
+    // Отправляем событие для запуска онбординга без перезагрузки
+    window.dispatchEvent(new CustomEvent('restart-onboarding'))
   }
 
   return (
