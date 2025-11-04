@@ -98,7 +98,7 @@ type FullUser = {
 	}
 }
 
-type Tab = 'overview' | 'achievements' | 'reviews' | 'tasks' | 'wallet'
+type Tab = 'overview' | 'achievements' | 'reviews' | 'tasks' | 'wallet' | 'certifications'
 
 const getSkillIcon = (skill: string) => {
 	const lower = skill.toLowerCase()
@@ -249,8 +249,9 @@ export default function ProfilePageContent() {
 	const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; count?: number }> = [
 		{ id: 'overview', label: 'Обзор', icon: <FaUserCircle /> },
 		{ id: 'achievements', label: 'Достижения', icon: <FaTrophy />, count: profile.badges?.length },
-		{ id: 'reviews', label: 'Отзывы', icon: <FaStar />, count: reviews.length },
+		{ id: 'reviews', label: 'Отзывы', icon: <FaStar />, count: profile._count?.reviewsReceived },
 		{ id: 'tasks', label: 'Задачи', icon: <FaTasks />, count: profile.executedTasks?.length },
+		{ id: 'certifications', label: 'Сертификации', icon: <FaCertificate />, count: profile.certifications?.length },
 		{ id: 'wallet', label: 'Кошелёк', icon: <FaWallet /> },
 	]
 
@@ -466,33 +467,6 @@ export default function ProfilePageContent() {
 								</div>
 							)}
 
-							{/* Сертификации */}
-							{profile.certifications && profile.certifications.length > 0 && (
-								<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
-									<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-										<FaCertificate />
-										Сертификации
-									</h3>
-									<div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-										{profile.certifications.map(cert => (
-											<div
-												key={cert.id}
-												className='bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20'
-											>
-												<div className='flex items-center gap-2 mb-1'>
-													<FaAward className='text-yellow-400' />
-													<span className='font-semibold text-emerald-300 text-sm'>
-														{cert.subcategory.name}
-													</span>
-												</div>
-												<p className='text-xs text-gray-400'>
-													{new Date(cert.grantedAt).toLocaleDateString()}
-												</p>
-											</div>
-										))}
-									</div>
-								</div>
-							)}
 						</div>
 					</div>
 				)}
@@ -599,6 +573,54 @@ export default function ProfilePageContent() {
 							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
 								<FaStar className='text-6xl text-gray-600 mx-auto mb-4' />
 								<p className='text-gray-400'>Пока нет отзывов</p>
+							</div>
+						)}
+					</div>
+				)}
+
+				{/* Сертификации */}
+				{activeTab === 'certifications' && (
+					<div>
+						{profile.certifications && profile.certifications.length > 0 ? (
+							<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+								{profile.certifications.map(cert => (
+									<div
+										key={cert.id}
+										className='bg-gradient-to-br from-black/40 via-emerald-900/20 to-black/40 p-5 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]'
+									>
+										<div className='flex items-center gap-3 mb-3'>
+											<div className='w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400/20 to-yellow-500/20 border border-yellow-400/30 flex items-center justify-center'>
+												<FaAward className='text-2xl text-yellow-400' />
+											</div>
+											<div className='flex-1 min-w-0'>
+												<h4 className='font-bold text-emerald-300 text-base truncate'>
+													{cert.subcategory.name}
+												</h4>
+												<p className='text-xs text-gray-400'>
+													Уровень: {cert.level}
+												</p>
+											</div>
+										</div>
+										<div className='pt-3 border-t border-emerald-500/20'>
+											<div className='flex items-center gap-2 text-xs text-gray-400'>
+												<FaCalendarAlt className='text-emerald-400' />
+												<span>
+													Получено: {new Date(cert.grantedAt).toLocaleDateString('ru-RU', {
+														day: 'numeric',
+														month: 'long',
+														year: 'numeric'
+													})}
+												</span>
+											</div>
+										</div>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className='text-center py-16 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<FaCertificate className='text-6xl text-gray-600 mx-auto mb-4 opacity-50' />
+								<p className='text-gray-400 text-lg font-medium'>Пока нет сертификаций</p>
+								<p className='text-gray-500 text-sm mt-2'>Пройдите тесты по категориям, чтобы получить сертификацию</p>
 							</div>
 						)}
 					</div>

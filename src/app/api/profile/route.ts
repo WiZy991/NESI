@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     // 1️⃣ Один запрос для получения всех данных + параллельный расчет avgRating
     const [fullUser, avgRatingResult] = await Promise.all([
       prisma.user.findUnique({
-        where: { id: user.id },
+    where: { id: user.id },
         select: {
           id: true,
           email: true,
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
             select: { id: true }
           },
           // Ограничиваем reviewsReceived - берем только последние 20 для быстрой загрузки
-          reviewsReceived: {
+    reviewsReceived: {
             select: {
               id: true,
               rating: true,
@@ -48,8 +48,8 @@ export async function GET(req: Request) {
             take: 20, // Ограничение для производительности
           },
           // Дополнительные данные для исполнителя (загружаются только если role === 'executor')
-          level: true,
-          badges: {
+    level: true,
+    badges: {
             select: {
               id: true,
               earnedAt: true,
@@ -62,9 +62,9 @@ export async function GET(req: Request) {
                 }
               }
             },
-            orderBy: { earnedAt: 'desc' },
-          },
-          certifications: {
+      orderBy: { earnedAt: 'desc' },
+    },
+    certifications: {
             select: {
               id: true,
               level: true,
@@ -76,10 +76,10 @@ export async function GET(req: Request) {
                 }
               }
             },
-            orderBy: { grantedAt: 'desc' },
-          },
-          executedTasks: {
-            where: { status: 'completed' },
+      orderBy: { grantedAt: 'desc' },
+    },
+    executedTasks: {
+      where: { status: 'completed' },
             select: {
               id: true,
               title: true,
@@ -96,17 +96,17 @@ export async function GET(req: Request) {
                   comment: true,
                 }
               }
-            },
-            orderBy: { completedAt: 'desc' },
-            take: 10,
-          },
-          _count: {
-            select: {
-              executedTasks: { where: { status: 'completed' } },
-              reviewsReceived: true,
-              responses: true,
-            },
-          },
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 10,
+    },
+    _count: {
+      select: {
+        executedTasks: { where: { status: 'completed' } },
+        reviewsReceived: true,
+        responses: true,
+      },
+    },
         },
       }),
       // Параллельно вычисляем avgRating через агрегацию (быстрее чем загружать все reviews)
@@ -114,11 +114,11 @@ export async function GET(req: Request) {
         where: { toUserId: user.id },
         _avg: { rating: true },
         _count: { rating: true },
-      })
+  })
     ])
 
-    if (!fullUser)
-      return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
+  if (!fullUser)
+    return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 
     // 2️⃣ Вычисляем avgRating из результата агрегации
     const avgRating = avgRatingResult._avg.rating && avgRatingResult._count.rating > 0
@@ -127,18 +127,18 @@ export async function GET(req: Request) {
 
     // 3️⃣ Аватар
     const avatarUrl = fullUser.avatarFileId
-      ? `/api/files/${fullUser.avatarFileId}`
-      : null
+    ? `/api/files/${fullUser.avatarFileId}`
+    : null
 
     // 4️⃣ Возвращаем оптимизированный ответ
-    return NextResponse.json({
-      user: {
-        ...fullUser,
-        avatarUrl,
-        avgRating,
+  return NextResponse.json({
+    user: {
+      ...fullUser,
+      avatarUrl,
+      avgRating,
         isExecutor: fullUser.role === 'executor',
-      },
-    })
+    },
+  })
   } catch (error) {
     console.error('❌ Ошибка загрузки профиля:', error)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })

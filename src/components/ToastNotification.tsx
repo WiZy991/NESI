@@ -114,7 +114,7 @@ export function ToastNotification({
 
 	// Специальный стиль для уведомлений о достижениях
 	const isBadgeNotification = notification.type === 'badge'
-	
+
 	return (
 		<div
 			className={`fixed bottom-4 right-4 left-4 sm:left-auto sm:right-6 sm:w-96 sm:bottom-6 ${
