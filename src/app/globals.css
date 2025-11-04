@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 @import 'tailwindcss';
 @import '../styles/animations.css';
 
@@ -13,7 +13,7 @@
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 
-	--font-sans: 'Poppins', sans-serif;
+	--font-sans: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
 	--font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -33,7 +33,7 @@ html {
 body {
 	color: var(--foreground);
 	background-color: #111827;
-	font-family: 'Poppins', sans-serif;
+	font-family: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
 	font-weight: 400;
 	letter-spacing: 0.02em;
 	position: relative;
@@ -148,7 +148,7 @@ body {
 /* 💎 Дополнительные визуальные мелочи - iOS-style */
 a,
 button {
-	font-family: 'Poppins', sans-serif;
+	font-family: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
 	font-weight: 500;
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	-webkit-tap-highlight-color: transparent;
@@ -169,7 +169,7 @@ button:active {
 input,
 select,
 textarea {
-	font-family: 'Poppins', sans-serif;
+	font-family: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
 }
 
 /* ♿ Улучшенная доступность: focus-индикаторы для навигации с клавиатуры */
@@ -373,7 +373,7 @@ textarea:focus-visible {
 	width: 100%;
 	transition: all 0.3s ease;
 	box-shadow: 0 0 10px rgba(0, 255, 150, 0.1);
-	font-family: 'Poppins', sans-serif;
+	font-family: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
 	font-size: 15px;
 	cursor: pointer;
 	background-image: linear-gradient(
@@ -417,7 +417,7 @@ textarea:focus-visible {
 	width: 100%;
 	transition: all 0.3s ease;
 	box-shadow: 0 0 10px rgba(0, 255, 150, 0.1);
-	font-family: 'Poppins', sans-serif;
+	font-family: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
 	font-size: 15px;
 	cursor: pointer;
 	text-align: left;
@@ -753,7 +753,8 @@ a[data-onboarding-target^='more-menu-'].driver-highlighted-element {
 }
 
 @keyframes pulse-glow {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 0.4;
 		transform: scale(1);
 	}
