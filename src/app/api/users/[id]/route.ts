@@ -32,12 +32,11 @@ export async function GET(
 								name: true,
 								description: true,
 								icon: true,
-								targetRole: true, // Добавляем targetRole для фильтрации
-							}
+								targetRole: true,
+							} as any // Обход проблемы с типами Prisma
 						}
 					},
 					orderBy: { earnedAt: 'desc' },
-					take: 6, // показываем только последние 6 значков
 				},
 				certifications: {
 					select: {
@@ -75,29 +74,20 @@ export async function GET(
 							}
 						}
 					},
-					orderBy: { createdAt: 'desc' }
-				},
-				_count: {
-					select: {
-						executedTasks: {
-							where: { status: 'completed' },
-						},
-						reviewsReceived: true,
-					},
-				},
-			},
-		})
+					orderBy: { createdAt: 'desc' },
+					take: 4
+				}
+			}
+		}) as any // Временный обход для типов
 
 		if (!user) {
-			return NextResponse.json(
-				{ error: 'Пользователь не найден' },
-				{ status: 404 }
-			)
+			return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 		}
 
 		// Фильтруем достижения по роли пользователя
-		const filteredBadges = (user.badges || []).filter(userBadge => {
-			// Защита от отсутствующих данных
+		// Оставляем только те достижения, которые подходят для роли пользователя
+		const filteredBadges = ((user as any).badges || []).filter((userBadge: any) => {
+			// Проверка на существование
 			if (!userBadge || !userBadge.badge) {
 				return false
 			}
@@ -107,27 +97,30 @@ export async function GET(
 			if (badge.targetRole === null || badge.targetRole === user.role) {
 				return true
 			}
+			// Исключаем неподходящее достижение
+			console.log(`[Users API] Исключаем неподходящее достижение "${badge.name}" (targetRole: ${badge.targetRole}, роль пользователя: ${user.role})`)
 			return false
 		})
-
-		// Фильтруем сертификации - только для исполнителей
-		const filteredCertifications = user.role === 'executor' ? (user.certifications || []) : []
-
-		// Добавляем avatarUrl и применяем фильтры
-		const userWithAvatar = {
-			...user,
-			badges: filteredBadges, // Отфильтрованные достижения
-			certifications: filteredCertifications, // Сертификации только для исполнителей
-			avatarUrl: user.avatarFileId ? `/api/files/${user.avatarFileId}` : null,
+		
+		const userBadges = (user as any).badges || []
+		if (userBadges.length !== filteredBadges.length) {
+			console.log(`[Users API] Отфильтровано ${userBadges.length - filteredBadges.length} неподходящих достижений для пользователя ${(user as any).id} (роль: ${(user as any).role})`)
 		}
 
-		return NextResponse.json({ user: userWithAvatar })
+		// Ограничиваем количество badges до 6 для отображения
+		const limitedBadges = filteredBadges.slice(0, 6)
+
+		const avatarUrl = user.avatarFileId ? `/api/files/${user.avatarFileId}` : null
+
+		return NextResponse.json({
+			user: {
+				...user,
+				badges: limitedBadges, // Отфильтрованные и ограниченные badges
+				avatarUrl,
+			}
+		})
 	} catch (error) {
-		console.error('[USER_API_ERROR]', error)
-		console.error('[USER_API_ERROR] Stack:', error instanceof Error ? error.stack : 'No stack')
-		return NextResponse.json({ 
-			error: 'Ошибка сервера',
-			message: error instanceof Error ? error.message : 'Unknown error'
-		}, { status: 500 })
+		console.error('Ошибка получения пользователя:', error)
+		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

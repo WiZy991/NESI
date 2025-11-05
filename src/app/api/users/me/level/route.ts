@@ -59,11 +59,25 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             description: true,
-            icon: true
+            icon: true,
+            targetRole: true, // Добавляем targetRole для фильтрации
           }
         }
       },
-      orderBy: { earnedAt: 'desc' }
+      orderBy: { earnedAt: 'desc' },
+    })
+
+    // Фильтруем badges по targetRole - убираем достижения, которые не соответствуют роли пользователя
+    const filteredBadges = badges.filter(entry => {
+      const badge = entry.badge
+      // Если у достижения указана роль, она должна совпадать с ролью пользователя
+      // Если targetRole = null, достижение для всех ролей
+      if (badge.targetRole === null || badge.targetRole === user.role) {
+        return true
+      }
+      // Исключаем неправильно присвоенные достижения
+      console.log(`[Level API] Исключаем достижение "${badge.name}" (targetRole: ${badge.targetRole}, роль пользователя: ${user.role})`)
+      return false
     })
 
     // ==== 7. Формируем ответ ====
@@ -77,12 +91,12 @@ export async function GET(req: NextRequest) {
       xpToNextLevel,
       progressPercent,
       suggestions,
-      badges: badges.map(b => ({
-        id: b.badge.id,
-        name: b.badge.name,
-        description: b.badge.description,
-        icon: b.badge.icon,
-        earnedAt: b.earnedAt
+      badges: filteredBadges.map(entry => ({
+        id: entry.badge.id,
+        name: entry.badge.name,
+        description: entry.badge.description,
+        icon: entry.badge.icon,
+        earnedAt: entry.earnedAt,
       })),
       // Дополнительная статистика для отладки
       stats: {

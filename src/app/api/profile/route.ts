@@ -61,7 +61,8 @@ export async function GET(req: Request) {
                   description: true,
                   icon: true,
                   targetRole: true, // Добавляем targetRole для фильтрации
-                }
+                  condition: true, // Добавляем condition для проверки универсальных badges
+                } as any
               }
             },
       orderBy: { earnedAt: 'desc' },
@@ -134,25 +135,47 @@ export async function GET(req: Request) {
 
     // 4️⃣ Фильтруем достижения по роли пользователя
     // Оставляем только те достижения, которые подходят для роли пользователя
-    const filteredBadges = (fullUser.badges || []).filter(userBadge => {
+    // Поля, специфичные для исполнителей
+    const executorOnlyFields = ['passedTests', 'completedTasks']
+    // Поля, специфичные для заказчиков
+    const customerOnlyFields = ['createdTasks', 'paidTasks', 'totalSpent', 'monthlyActive', 'uniqueExecutors']
+    
+    const filteredBadges = (fullUser.badges || []).filter((userBadge: any) => {
       // Защита от отсутствующих данных
       if (!userBadge || !userBadge.badge) {
         return false
       }
-      const badge = userBadge.badge
-      // Если у достижения указана роль, она должна совпадать с ролью пользователя
-      // Если targetRole = null, достижение для всех ролей
-      if (badge.targetRole === null || badge.targetRole === fullUser.role) {
-        return true
+      const badge = userBadge.badge as any
+      
+      // Если badge специально для другой роли - фильтруем
+      if (badge.targetRole === 'executor' && fullUser.role !== 'executor') {
+        return false
       }
-      // Логируем отфильтрованные достижения
-      console.log(`[Profile API] ⚠️ Фильтруем достижение "${badge.name}" (targetRole: ${badge.targetRole}, роль пользователя: ${fullUser.role})`)
-      return false
+      if (badge.targetRole === 'customer' && fullUser.role !== 'customer') {
+        return false
+      }
+      
+      // Если badge универсальный (targetRole = null), проверяем условие
+      if (badge.targetRole === null && badge.condition) {
+        try {
+          const condition = JSON.parse(badge.condition)
+          const conditionType = condition.type as string
+
+          // Если условие специфично для другой роли - фильтруем
+          if (fullUser.role === 'customer' && executorOnlyFields.includes(conditionType)) {
+            return false
+          }
+          if (fullUser.role === 'executor' && customerOnlyFields.includes(conditionType)) {
+            return false
+          }
+        } catch (error) {
+          // Если не удалось распарсить условие, оставляем badge
+          console.error(`[Profile API] Ошибка парсинга условия для badge ${badge.id}:`, error)
+        }
+      }
+      
+      return true
     })
-    
-    if (fullUser.badges && fullUser.badges.length !== filteredBadges.length) {
-      console.log(`[Profile API] 🧹 Отфильтровано ${fullUser.badges.length - filteredBadges.length} неправильных достижений для пользователя ${fullUser.id} (роль: ${fullUser.role})`)
-    }
 
     // 5️⃣ Возвращаем оптимизированный ответ
   return NextResponse.json({
