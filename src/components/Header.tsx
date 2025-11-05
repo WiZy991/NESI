@@ -15,6 +15,7 @@ import { ToastContainer } from './ToastNotification'
 import { NotificationPolling } from './NotificationPolling'
 import LevelIndicator from './LevelIndicator'
 import Image from 'next/image'
+import AchievementModal from './AchievementModal'
 
 // Функция для форматирования времени уведомления
 const formatNotificationTime = (timestamp: string) => {
@@ -44,6 +45,12 @@ export default function Header() {
 	const { user, token, logout, unreadCount, setUnreadCount } = useUser()
 	const router = useRouter()
 	const [menuOpen, setMenuOpen] = useState(false)
+	const [achievementBadge, setAchievementBadge] = useState<{
+		id: string
+		name: string
+		icon: string
+		description?: string
+	} | null>(null)
 	
 	// Сохраняем функцию открытия меню в глобальную переменную для доступа из онбординга
 	useEffect(() => {
@@ -253,6 +260,18 @@ export default function Header() {
 			return [data, ...prev.slice(0, 4)]
 		})
 		setUnreadCount(prev => prev + 1)
+
+		// Для достижений показываем модальный попап вместо toast
+		if (data.type === 'badge' && data.badgeId && data.badgeName && data.badgeIcon) {
+			console.log('🏅 Показываем модальный попап для достижения:', data.badgeName)
+			setAchievementBadge({
+				id: data.badgeId,
+				name: data.badgeName,
+				icon: data.badgeIcon,
+				description: data.badgeDescription,
+			})
+			return // Не показываем toast для достижений
+		}
 
 		// Добавляем toast уведомление (но не для типа 'login')
 		if (data.type !== 'login') {
@@ -518,6 +537,12 @@ export default function Header() {
 
 	return (
 		<>
+			{achievementBadge && (
+				<AchievementModal
+					badge={achievementBadge}
+					onClose={() => setAchievementBadge(null)}
+				/>
+			)}
 			<ToastContainer
 				notifications={toastNotifications}
 				onClose={handleToastClose}

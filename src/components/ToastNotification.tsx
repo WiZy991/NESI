@@ -86,6 +86,12 @@ export function ToastNotification({
 		}
 
 		if (notification.link) {
+			// Для заказчиков не переходим на /level
+			if (notification.link === '/level') {
+				// Можно перейти на профиль с вкладкой достижений
+				router.push('/profile?tab=achievements')
+				return
+			}
 			router.push(notification.link)
 		}
 	}

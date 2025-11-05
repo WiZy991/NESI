@@ -506,13 +506,15 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
         }
 
         // Отправляем уведомление
+        // Для заказчиков используем /profile, для исполнителей - /level
+        const link = user.role === 'customer' ? '/profile?tab=achievements' : '/level'
         try {
           await prisma.notification.create({
             data: {
               userId: user.id,
               type: 'badge',
               message: `🏅 Новый бейдж! Вы получили бейдж "${badge.name}"!`,
-              link: '/level'
+              link: link
             } as any // Обход проблемы с типами Prisma
           })
 
@@ -522,7 +524,11 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
             type: 'badge',
             title: '🏅 Новый бейдж!',
             message: `Вы получили бейдж "${badge.name}"!`,
-            link: '/level',
+            link: link,
+            badgeId: badge.id,
+            badgeName: badge.name,
+            badgeIcon: badge.icon,
+            badgeDescription: badge.description,
             isRead: false,
             createdAt: new Date(),
             playSound: true
