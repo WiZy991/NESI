@@ -60,6 +60,7 @@ export async function GET(req: Request) {
                   name: true,
                   description: true,
                   icon: true,
+                  targetRole: true, // Добавляем targetRole для фильтрации
                 }
               }
             },
@@ -131,10 +132,29 @@ export async function GET(req: Request) {
     ? `/api/files/${fullUser.avatarFileId}`
     : null
 
-    // 4️⃣ Возвращаем оптимизированный ответ
+    // 4️⃣ Фильтруем достижения по роли пользователя
+    // Оставляем только те достижения, которые подходят для роли пользователя
+    const filteredBadges = fullUser.badges.filter(userBadge => {
+      const badge = userBadge.badge
+      // Если у достижения указана роль, она должна совпадать с ролью пользователя
+      // Если targetRole = null, достижение для всех ролей
+      if (badge.targetRole === null || badge.targetRole === fullUser.role) {
+        return true
+      }
+      // Логируем отфильтрованные достижения
+      console.log(`[Profile API] ⚠️ Фильтруем достижение "${badge.name}" (targetRole: ${badge.targetRole}, роль пользователя: ${fullUser.role})`)
+      return false
+    })
+    
+    if (fullUser.badges.length !== filteredBadges.length) {
+      console.log(`[Profile API] 🧹 Отфильтровано ${fullUser.badges.length - filteredBadges.length} неправильных достижений для пользователя ${fullUser.id} (роль: ${fullUser.role})`)
+    }
+
+    // 5️⃣ Возвращаем оптимизированный ответ
   return NextResponse.json({
     user: {
       ...fullUser,
+      badges: filteredBadges, // Возвращаем отфильтрованные достижения
       avatarUrl,
       avgRating,
         isExecutor: fullUser.role === 'executor',

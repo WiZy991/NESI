@@ -16,8 +16,20 @@ export async function GET(req: NextRequest) {
       include: { badge: true }
     })
 
+    // Фильтруем достижения по роли пользователя
+    // Оставляем только те достижения, которые подходят для роли пользователя
+    const filteredBadges = earned.filter(entry => {
+      const badge = entry.badge
+      // Если у достижения указана роль, она должна совпадать с ролью пользователя
+      // Если targetRole = null, достижение для всех ролей
+      if (badge.targetRole === null || badge.targetRole === user.role) {
+        return true
+      }
+      return false
+    })
+
     return NextResponse.json({
-      badges: earned.map(entry => ({
+      badges: filteredBadges.map(entry => ({
         id: entry.badge.id,
         name: entry.badge.name,
         icon: entry.badge.icon,
