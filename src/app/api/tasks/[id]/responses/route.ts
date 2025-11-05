@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 	})
 
 	// 🔔 Создаём уведомление для заказчика задачи
-	await createNotification({
+	const dbNotification = await createNotification({
 		userId: task.customerId,
 		message: `${user.fullName || user.email} откликнулся на задачу "${
 			task.title
@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
 
 	// Отправляем уведомление в реальном времени
 	sendNotificationToUser(task.customerId, {
+		id: dbNotification.id, // Включаем ID из БД для дедупликации
 		type: 'response',
 		title: 'Новый отклик на задачу',
 		message: `${user.fullName || user.email} откликнулся на задачу "${

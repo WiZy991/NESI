@@ -101,7 +101,11 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
     // Очищаем неправильно присвоенные достижения (если роль пользователя не соответствует targetRole)
     const incorrectlyAwardedBadges = user.badges.filter(ub => {
       const badge = ub.badge
-      return badge.targetRole && badge.targetRole !== user.role
+      // Если у достижения указана роль, она должна совпадать с ролью пользователя
+      if (badge.targetRole && badge.targetRole !== user.role) {
+        return true
+      }
+      return false
     })
     
     if (incorrectlyAwardedBadges.length > 0) {
@@ -111,7 +115,12 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
           await prisma.userBadge.delete({
             where: { id: incorrectBadge.id }
           })
-          console.log(`[Badges] ✅ Удалено неправильно присвоенное достижение "${incorrectBadge.badge.name}" (targetRole: ${incorrectBadge.badge.targetRole}, роль пользователя: ${user.role})`)
+          console.log(`[Badges] ✅ Удалено неправильно присвоенное достижение "${incorrectBadge.badge.name}" (id: ${incorrectBadge.badge.id}, targetRole: ${incorrectBadge.badge.targetRole}, роль пользователя: ${user.role})`)
+          // Удаляем из списка полученных достижений
+          const index = earnedBadgeIds.indexOf(incorrectBadge.badgeId)
+          if (index > -1) {
+            earnedBadgeIds.splice(index, 1)
+          }
         } catch (error) {
           console.error(`[Badges] ❌ Ошибка удаления неправильного достижения ${incorrectBadge.id}:`, error)
         }
@@ -266,10 +275,16 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
       
       console.log(`[Badges] Проверка бейджа ${badge.id} (${badge.name}) для роли ${user.role}, targetRole: ${badge.targetRole}`)
 
-      // Дополнительная проверка: убеждаемся, что достижение подходит для роли пользователя
-      if (badge.targetRole && badge.targetRole !== user.role) {
-        console.log(`[Badges] ⚠️ Пропускаем бейдж ${badge.id} - он предназначен для роли ${badge.targetRole}, а пользователь - ${user.role}`)
-        continue
+      // СТРОГАЯ проверка: убеждаемся, что достижение подходит для роли пользователя
+      // Если у достижения указана роль, она должна точно совпадать с ролью пользователя
+      if (badge.targetRole) {
+        if (badge.targetRole !== user.role) {
+          console.log(`[Badges] ⚠️ Пропускаем бейдж ${badge.id} (${badge.name}) - он предназначен для роли ${badge.targetRole}, а пользователь - ${user.role}`)
+          continue
+        }
+      } else {
+        // Если targetRole = null, это достижение для всех ролей - можно присваивать
+        console.log(`[Badges] ℹ️ Бейдж ${badge.id} (${badge.name}) предназначен для всех ролей (targetRole = null)`)
       }
 
       // Подготавливаем статистику для проверки
@@ -304,6 +319,12 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
 
       console.log(`[Badges] Условие для бейджа ${badge.id} (${badge.name}):`, condition, 'Результат:', meetsCondition)
       
+      // ФИНАЛЬНАЯ проверка перед присвоением: убеждаемся, что роль совпадает
+      if (badge.targetRole && badge.targetRole !== user.role) {
+        console.error(`[Badges] ❌ ОШИБКА: Попытка присвоить бейдж ${badge.id} (${badge.name}) с targetRole=${badge.targetRole} пользователю с ролью ${user.role}! Пропускаем.`)
+        continue
+      }
+      
       if (meetsCondition) {
         try {
           // Присваиваем бейдж
@@ -314,7 +335,7 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
             }
           })
 
-          console.log(`[Badges] ✅ Пользователь ${userId} (${user.role}) получил бейдж "${badge.name}"`)
+          console.log(`[Badges] ✅ Пользователь ${userId} (${user.role}) получил бейдж "${badge.name}" (targetRole: ${badge.targetRole || 'для всех'})`)
 
           // Добавляем в список полученных
           awardedBadges.push({

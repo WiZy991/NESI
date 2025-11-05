@@ -187,16 +187,17 @@ export async function POST(req: NextRequest) {
 	}`
 	
 	console.log('💾 Сохраняю уведомление в БД...')
-	await createNotification({
+	const dbNotification = await createNotification({
 		userId: recipientId,
 		message: notificationMessage,
 		link: `/chats?open=${me.id}`,
 		type: 'message',
 	})
-	console.log('✅ Уведомление сохранено в БД')
+	console.log('✅ Уведомление сохранено в БД, ID:', dbNotification.id)
 
 	// Отправляем уведомление получателю в реальном времени
 	const sseNotification = {
+		id: dbNotification.id, // Включаем ID из БД для дедупликации
 		type: 'message',
 		title: 'Новое сообщение',
 		message: content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение'),

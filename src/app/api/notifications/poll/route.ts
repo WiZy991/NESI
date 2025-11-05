@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
 
 		// Преобразуем в формат совместимый с SSE
 		const formattedNotifications = notifications.map(n => ({
+			id: n.id, // Включаем ID для дедупликации
 			type: n.type || 'notification',
 			title: getNotificationTitle(n.type || 'notification'),
 			message: n.message,

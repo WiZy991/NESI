@@ -188,7 +188,12 @@ export default function Header() {
 		console.log('🎉 showNotification вызвана с data:', data)
 		
 		// Создаем уникальный ключ для уведомления
-		const notificationKey = data.id || `${data.type}-${data.messageId || data.link || ''}-${data.timestamp}`
+		// Приоритет: id из БД > messageId > комбинация type+link+timestamp
+		const notificationKey = data.id 
+			? `db_${data.id}` 
+			: data.messageId 
+				? `msg_${data.messageId}` 
+				: `${data.type}-${data.link || ''}-${data.timestamp || Date.now()}`
 		
 		// Проверяем, не показывали ли мы уже это уведомление
 		if (shownNotificationsRef.current.has(notificationKey)) {
@@ -231,13 +236,35 @@ export default function Header() {
 		}
 
 		// Обновляем уведомления и счетчик непрочитанных (используем функциональное обновление)
-		setNotifications(prev => [data, ...prev.slice(0, 4)])
+		setNotifications(prev => {
+			// Проверяем, нет ли уже такого уведомления в списке (по ключу)
+			const existingKey = prev.find(n => {
+				const nKey = n.id 
+					? `db_${n.id}` 
+					: n.messageId 
+						? `msg_${n.messageId}` 
+						: `${n.type}-${n.link || ''}-${n.timestamp || ''}`
+				return nKey === notificationKey
+			})
+			if (existingKey) {
+				console.log('⏭️ Уведомление уже в списке, не добавляем')
+				return prev
+			}
+			return [data, ...prev.slice(0, 4)]
+		})
 		setUnreadCount(prev => prev + 1)
 
 		// Добавляем toast уведомление (но не для типа 'login')
 		if (data.type !== 'login') {
+			// Используем тот же ключ для toast, чтобы избежать дублирования
+			const toastId = data.id 
+				? `toast_db_${data.id}` 
+				: data.messageId 
+					? `toast_msg_${data.messageId}` 
+					: `toast_${Date.now()}-${Math.random()}`
+			
 			const toastNotification = {
-				id: `${Date.now()}-${Math.random()}`,
+				id: toastId,
 				type: data.type || 'notification',
 				title: data.title || 'Новое уведомление',
 				message: data.message || '',
@@ -249,6 +276,24 @@ export default function Header() {
 			
 			console.log('🎉 Добавление toast уведомления:', toastNotification)
 			setToastNotifications(prev => {
+				// Проверяем, нет ли уже такого toast уведомления
+				const existingToast = prev.find(t => {
+					// Для toast с ID из БД
+					if (data.id && t.id.startsWith(`toast_db_${data.id}`)) return true
+					// Для toast с messageId
+					if (data.messageId && t.id.startsWith(`toast_msg_${data.messageId}`)) return true
+					// Для других - проверяем по содержимому
+					return t.type === toastNotification.type && 
+						t.link === toastNotification.link && 
+						t.message === toastNotification.message &&
+						Math.abs(new Date(t.timestamp).getTime() - new Date(toastNotification.timestamp).getTime()) < 5000
+				})
+				
+				if (existingToast) {
+					console.log('⏭️ Toast уведомление уже существует, не добавляем:', existingToast.id)
+					return prev
+				}
+				
 				const newNotifications = [...prev, toastNotification]
 				console.log('📋 Текущие toast уведомления:', newNotifications.length)
 				return newNotifications

@@ -74,7 +74,7 @@ export async function POST(
     const actorName = user.fullName || user.email
     const notifyMsg = `${actorName} оставил отзыв (${rating}⭐) по задаче «${task.title}»`
 
-    await createNotification({
+    const dbNotification = await createNotification({
       userId: toUserId,
       message: notifyMsg,
       link: `/tasks/${taskId}`,
@@ -82,6 +82,7 @@ export async function POST(
     })
 
     sendNotificationToUser(toUserId, {
+      id: dbNotification.id, // Включаем ID из БД для дедупликации
       type: 'review',
       title: 'Новый отзыв',
       message: notifyMsg,

@@ -107,15 +107,16 @@ export async function POST(
 		}`
 		
 		console.log('💾 Сохраняю уведомление в БД...')
-		await createNotification({
+		const dbNotification = await createNotification({
 			userId: recipientId,
 			message: notificationMessage,
 			link: `/tasks/${taskId}`,
 			type: 'message',
 		})
-		console.log('✅ Уведомление сохранено в БД')
+		console.log('✅ Уведомление сохранено в БД, ID:', dbNotification.id)
 
 		const sseNotification = {
+			id: dbNotification.id, // Включаем ID из БД для дедупликации
 			type: 'message',
 			title: 'Новое сообщение в задаче',
 			message:

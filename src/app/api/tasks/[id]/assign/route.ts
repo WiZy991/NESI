@@ -118,7 +118,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 			}" (${formatMoney(price)})`
 
 			// Создаем уведомление в БД
-			await createNotification({
+			const dbNotification = await createNotification({
 				userId: executorId,
 				message: notificationMessage,
 				link: `/tasks/${taskId}`,
@@ -127,6 +127,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 
 			// Отправляем SSE уведомление
 			sendNotificationToUser(executorId, {
+				id: dbNotification.id, // Включаем ID из БД для дедупликации
 				type: 'assignment',
 				title: 'Вас назначили на задачу',
 				message: notificationMessage,
