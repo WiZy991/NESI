@@ -362,9 +362,19 @@ export default function PortfolioPage() {
                 {item.imageUrl && (
                   <div className="aspect-video bg-gray-900 relative overflow-hidden">
                     <img
-                      src={item.imageUrl}
+                      src={item.imageUrl.startsWith('/') || item.imageUrl.startsWith('http') ? item.imageUrl : `/api/files/${item.imageUrl}`}
                       alt={item.title}
                       className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        console.error('Ошибка загрузки изображения портфолио:', item.imageUrl)
+                        // Пробуем альтернативный путь
+                        const img = e.target as HTMLImageElement
+                        if (!img.src.includes('/api/files/')) {
+                          img.src = `/api/files/${item.imageUrl}`
+                        } else {
+                          img.style.display = 'none'
+                        }
+                      }}
                     />
                   </div>
                 )}

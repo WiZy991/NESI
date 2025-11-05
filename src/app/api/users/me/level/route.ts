@@ -47,9 +47,12 @@ export async function GET(req: NextRequest) {
     // ==== 5. Генерируем подсказки ====
     const suggestions: string[] = []
 
+    // Основные подсказки на основе статистики
     if (passedTests < 5) suggestions.push('Пройди дополнительные тесты, чтобы набрать опыт')
-    if (completedTasks < 10) suggestions.push('Выполни больше задач — это даст XP и поднимет рейтинг')
     if (positiveReviews < 5) suggestions.push('Собери больше отзывов с рейтингом 4+')
+    
+    // Всегда показываем информацию о том, что опыт растет от завершенных задач
+    suggestions.push('Завершенные задачи дают опыт — выполняй больше задач для роста уровня')
 
     // ==== 6. Загружаем бейджи ====
     const badges = await prisma.userBadge.findMany({

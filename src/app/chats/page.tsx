@@ -829,6 +829,46 @@ function ChatsPageContent() {
 	}) => {
 		const [imageError, setImageError] = useState(false)
 		const [imageLoaded, setImageLoaded] = useState(false)
+		const [isOnline, setIsOnline] = useState<boolean | null>(null)
+
+		// Проверяем онлайн статус пользователя
+		useEffect(() => {
+			if (!userId) {
+				setIsOnline(null)
+				return
+			}
+
+			const checkOnlineStatus = async () => {
+				try {
+					const res = await fetch(`/api/users/${userId}/online`, {
+						method: 'GET',
+						headers: { 'Content-Type': 'application/json' },
+					})
+					
+					if (!res.ok) {
+						console.error('Ошибка проверки онлайн статуса:', res.status)
+						return
+					}
+					
+					const data = await res.json()
+					// Если privacy = true, значит пользователь скрыл статус
+					if (data.privacy) {
+						setIsOnline(null)
+					} else {
+						setIsOnline(data.online === true)
+					}
+				} catch (err) {
+					console.error('Ошибка проверки онлайн статуса:', err)
+					setIsOnline(null)
+				}
+			}
+
+			checkOnlineStatus()
+			// Обновляем статус каждые 30 секунд
+			const interval = setInterval(checkOnlineStatus, 30 * 1000)
+
+			return () => clearInterval(interval)
+		}, [userId])
 
 		// Если есть userId, используем API для получения аватарки
 		const apiAvatarUrl = userId ? `/api/avatars/${userId}` : null
@@ -836,31 +876,63 @@ function ChatsPageContent() {
 		// Если нет URL или произошла ошибка загрузки, показываем fallback
 		if (!apiAvatarUrl || imageError) {
 			return (
-				<div
-					className='rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'
-					style={{ width: size, height: size }}
-				>
-					{fallbackText.charAt(0).toUpperCase()}
+				<div className='relative flex-shrink-0'>
+					<div
+						className='rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'
+						style={{ width: size, height: size }}
+					>
+						{fallbackText.charAt(0).toUpperCase()}
+					</div>
+					{/* Индикатор онлайн статуса */}
+					<div
+						className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
+							isOnline === true 
+								? 'bg-emerald-400 animate-pulse' 
+								: isOnline === false 
+									? 'bg-gray-500' 
+									: 'bg-gray-600'
+						}`}
+						style={{ width: size * 0.25, height: size * 0.25 }}
+						title={
+							isOnline === true 
+								? 'В сети' 
+								: isOnline === false 
+									? 'Не в сети' 
+									: 'Статус неизвестен'
+						}
+					/>
 				</div>
 			)
 		}
 
 		return (
-			<img
-				src={apiAvatarUrl}
-				alt='avatar'
-				width={size}
-				height={size}
-				className='rounded-full object-cover'
-				onError={() => {
-					console.error('❌ Ошибка загрузки аватарки из API:', apiAvatarUrl)
-					setImageError(true)
-				}}
-				onLoad={() => {
-					console.log('✅ Аватарка загружена из API:', apiAvatarUrl)
-					setImageLoaded(true)
-				}}
-			/>
+			<div className='relative flex-shrink-0'>
+				<img
+					src={apiAvatarUrl}
+					alt='avatar'
+					width={size}
+					height={size}
+					className='rounded-full object-cover'
+					onError={() => {
+						console.error('❌ Ошибка загрузки аватарки из API:', apiAvatarUrl)
+						setImageError(true)
+					}}
+					onLoad={() => {
+						console.log('✅ Аватарка загружена из API:', apiAvatarUrl)
+						setImageLoaded(true)
+					}}
+				/>
+				{/* Индикатор онлайн статуса */}
+				{isOnline !== null && (
+					<div
+						className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
+							isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'
+						}`}
+						style={{ width: size * 0.25, height: size * 0.25 }}
+						title={isOnline ? 'В сети' : 'Не в сети'}
+					/>
+				)}
+			</div>
 		)
 	}
 

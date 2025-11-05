@@ -75,6 +75,7 @@ export default function Header() {
 	const [sseConnected, setSseConnected] = useState(false)
 	const [usePolling, setUsePolling] = useState(false)
 	const [toastNotifications, setToastNotifications] = useState<any[]>([])
+	const [onlineCount, setOnlineCount] = useState<number | null>(null)
 	const menuRef = useRef<HTMLDivElement | null>(null)
 	const notifRef = useRef<HTMLDivElement | null>(null)
 	const mobileMenuRef = useRef<HTMLDivElement | null>(null)
@@ -188,6 +189,91 @@ export default function Header() {
 			}
 		}
 		fetchNotifications()
+	}, [user, token])
+
+	// Отслеживание активности и загрузка онлайн пользователей
+	useEffect(() => {
+		if (!user || !token) return
+
+		// Обновляем активность при загрузке
+		const updateActivity = async () => {
+			try {
+				const res = await fetch('/api/users/activity', {
+					method: 'POST',
+					headers: { 
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}` 
+					},
+				})
+				if (!res.ok) {
+					const errorText = await res.text()
+					console.error('❌ Ошибка обновления активности:', res.status, errorText)
+				} else {
+					console.log('✅ Активность обновлена')
+				}
+			} catch (err) {
+				console.error('❌ Ошибка обновления активности:', err)
+			}
+		}
+
+		// Загружаем количество онлайн пользователей
+		const fetchOnlineCount = async () => {
+			try {
+				const res = await fetch('/api/users/activity/online', {
+					method: 'GET',
+					headers: { 'Content-Type': 'application/json' },
+				})
+				
+				if (!res.ok) {
+					const errorText = await res.text()
+					console.error('❌ Ошибка получения онлайн пользователей (статус):', res.status, errorText)
+					setOnlineCount(0)
+					return
+				}
+				
+				let data
+				try {
+					data = await res.json()
+				} catch (parseError) {
+					console.error('❌ Ошибка парсинга JSON:', parseError)
+					setOnlineCount(0)
+					return
+				}
+				
+				console.log('📊 Онлайн пользователей:', data.onlineCount)
+				setOnlineCount(data.onlineCount || 0)
+			} catch (err: any) {
+				console.error('❌ Ошибка получения онлайн пользователей:', err)
+				console.error('❌ Детали ошибки:', err?.message, err?.stack)
+				setOnlineCount(0)
+			}
+		}
+
+		updateActivity()
+		fetchOnlineCount()
+
+		// Обновляем активность каждые 2 минуты
+		const activityInterval = setInterval(updateActivity, 2 * 60 * 1000)
+		
+		// Обновляем количество онлайн пользователей каждые 30 секунд
+		const onlineInterval = setInterval(fetchOnlineCount, 30 * 1000)
+
+		// Обновляем активность при взаимодействии с пользователем
+		const handleActivity = () => {
+			updateActivity()
+		}
+
+		window.addEventListener('mousedown', handleActivity)
+		window.addEventListener('keydown', handleActivity)
+		window.addEventListener('scroll', handleActivity, { passive: true })
+
+		return () => {
+			clearInterval(activityInterval)
+			clearInterval(onlineInterval)
+			window.removeEventListener('mousedown', handleActivity)
+			window.removeEventListener('keydown', handleActivity)
+			window.removeEventListener('scroll', handleActivity)
+		}
 	}, [user, token])
 
 	// Функция показа уведомлений (вынесена до useEffect чтобы использовать в NotificationPolling)
@@ -751,17 +837,25 @@ export default function Header() {
 						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-xl border-b border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.3)] md:hidden z-40 animate-slideInDown max-h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar'
 					>
 						<nav className='flex flex-col p-5 space-y-1.5 text-gray-200'>
-							{user ? (
+					{user ? (
+						<>
+							{/* Плашка с онлайн пользователями в мобильном меню */}
+							<div className='flex items-center justify-center gap-2 px-4 py-2 mx-4 mb-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm'>
+								<div className='w-2 h-2 bg-emerald-400 rounded-full animate-pulse'></div>
+								<span className='text-emerald-300 font-medium'>
+									Пользователей онлайн: <span className='text-emerald-400 font-bold'>{onlineCount ?? 0}</span>
+								</span>
+							</div>
+							
+							{user.role === 'admin' ? (
 								<>
-									{user.role === 'admin' ? (
-										<>
-											<Link
-												href='/admin'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												Админ-панель
-											</Link>
+									<Link
+										href='/admin'
+										className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+										onClick={() => setMobileMenuOpen(false)}
+									>
+										Админ-панель
+									</Link>
 											{/* Иконка профиля для админа в мобильном меню */}
 											<Link
 												href='/profile'
@@ -1004,6 +1098,14 @@ export default function Header() {
 				<nav className='hidden md:flex gap-7 items-center text-gray-200 font-poppins'>
 					{user ? (
 						<>
+						{/* Плашка с онлайн пользователями */}
+						<div className='flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs'>
+							<div className='w-2 h-2 bg-emerald-400 rounded-full animate-pulse'></div>
+							<span className='text-emerald-300 font-medium'>
+								Онлайн: <span className='text-emerald-400 font-bold'>{onlineCount ?? 0}</span>
+							</span>
+						</div>
+						
 						{/* 🔔 Уведомления */}
 						<div className='relative' ref={notifRef}>
 							<button

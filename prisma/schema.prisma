@@ -66,6 +66,9 @@ model User {
   // Ежедневные задания
   dailyQuestProgress DailyQuestProgress[]
   lastQuestResetDate DateTime?
+  
+  // Отслеживание онлайн статуса
+  lastActivityAt DateTime? @default(now())
 }
 model UserSettings {
   userId             String  @id

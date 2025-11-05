@@ -70,6 +70,12 @@ export async function POST(req: Request) {
     // 📊 Логируем успешный вход
     await logActivity(user.id, 'login_success', req)
 
+    // 🔄 Обновляем время последней активности при входе
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastActivityAt: new Date() },
+    })
+
     // 📨 Создаём уведомление
     await createNotification(
       user.id,
