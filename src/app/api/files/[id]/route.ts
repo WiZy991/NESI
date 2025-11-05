@@ -86,7 +86,7 @@ export async function GET(
         );
       }
 
-      // Файл в задачах (прикрепленные файлы)
+      // Файл в задачах (прикрепленные файлы) - доступен всем авторизованным пользователям
       const inTask = await tx.task.findFirst({
         where: {
           files: {
@@ -100,11 +100,36 @@ export async function GET(
       });
 
       if (inTask) {
-        return (
-          inTask.customerId === user.id ||
-          inTask.executorId === user.id ||
-          user.role === "admin"
-        );
+        // Файлы задач доступны всем авторизованным пользователям (даже если не назначены исполнителем)
+        return true;
+      }
+
+      // Файл в постах сообщества - доступен всем авторизованным пользователям
+      const inCommunityPost = await tx.communityPost.findFirst({
+        where: {
+          imageUrl: {
+            contains: params.id,
+          },
+        },
+      });
+
+      if (inCommunityPost) {
+        // Изображения в постах сообщества доступны всем авторизованным пользователям
+        return true;
+      }
+
+      // Файл в комментариях к постам сообщества - доступен всем авторизованным пользователям
+      const inCommunityComment = await tx.communityComment.findFirst({
+        where: {
+          imageUrl: {
+            contains: params.id,
+          },
+        },
+      });
+
+      if (inCommunityComment) {
+        // Изображения в комментариях доступны всем авторизованным пользователям
+        return true;
       }
 
       // Портфолио (если есть связь)

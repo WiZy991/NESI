@@ -282,6 +282,14 @@ export async function POST(req: Request) {
 			include: { files: true },
 		})
 
+		// ✅ Проверяем достижения для заказчика при создании задачи
+		try {
+			const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
+			await checkAndAwardBadges(user.id)
+		} catch (badgeError) {
+			console.error('[Badges] Ошибка проверки достижений при создании задачи:', badgeError)
+		}
+
 		return NextResponse.json({ task })
 	} catch (err) {
 		console.error('Ошибка при создании задачи:', err)

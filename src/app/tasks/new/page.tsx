@@ -137,9 +137,9 @@ export default function CreateTaskPage() {
   return (
     <ProtectedPage>
       <div className="relative flex justify-center items-center min-h-[80vh] overflow-hidden">
-        {/* фоновая подсветка */}
-        <div className="absolute w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full animate-pulse-slow" />
-        <div className="absolute w-[900px] h-[900px] bg-emerald-700/10 blur-[180px] rounded-full animate-pulse-slower" />
+        {/* фоновая подсветка - убрана анимация pulse для устранения мерцания */}
+        <div className="absolute w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full" />
+        <div className="absolute w-[900px] h-[900px] bg-emerald-700/10 blur-[180px] rounded-full" />
 
         <div className="relative w-full max-w-xl mx-auto p-8 space-y-7 bg-gradient-to-br from-black/60 via-black/40 to-emerald-900/20 border border-emerald-500/20 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.25)] backdrop-blur-md transition-all duration-700 hover:shadow-[0_0_60px_rgba(16,185,129,0.35)] animate-fade-in">
           <div className="text-center mb-4">

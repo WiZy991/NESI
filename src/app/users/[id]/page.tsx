@@ -17,6 +17,11 @@ import {
 	FaBriefcase,
 	FaChevronRight,
 	FaComments,
+	FaPython,
+	FaJs,
+	FaCode,
+	FaDatabase,
+	FaGlobe,
 } from 'react-icons/fa'
 
 type Review = {
@@ -107,15 +112,91 @@ function getRoleName(role: string | undefined | null): string {
 
 const getSkillIcon = (skill: string) => {
 	const lower = skill.toLowerCase()
-	if (lower.includes('python'))
-		return <span className='text-emerald-400'>🐍</span>
-	if (lower.includes('js') || lower.includes('javascript'))
-		return <span className='text-yellow-400'>⚡</span>
-	if (lower.includes('sql') || lower.includes('db'))
-		return <span className='text-blue-400'>🗄️</span>
-	if (lower.includes('dns') || lower.includes('network'))
-		return <span className='text-indigo-400'>🌐</span>
-	return <span className='text-gray-400'>🔧</span>
+
+	// Языки программирования
+	if (lower.includes('python')) return <FaPython className='mr-1 text-emerald-400' />
+	if (lower.includes('js') || lower.includes('javascript') || lower.includes('typescript') || lower.includes('node')) 
+		return <FaJs className='mr-1 text-yellow-400' />
+	if (lower.includes('java')) return <FaCode className='mr-1 text-orange-400' />
+	if (lower.includes('c++') || lower.includes('cpp') || lower.includes('c#')) return <FaCode className='mr-1 text-blue-400' />
+	if (lower.includes('go') || lower.includes('golang')) return <FaCode className='mr-1 text-cyan-400' />
+	if (lower.includes('rust')) return <FaCode className='mr-1 text-orange-500' />
+	if (lower.includes('php')) return <FaCode className='mr-1 text-purple-400' />
+	if (lower.includes('ruby')) return <FaCode className='mr-1 text-red-400' />
+	if (lower.includes('swift')) return <FaCode className='mr-1 text-orange-400' />
+	if (lower.includes('kotlin')) return <FaCode className='mr-1 text-purple-500' />
+	if (lower.includes('scala')) return <FaCode className='mr-1 text-red-500' />
+	if (lower.includes('dart')) return <FaCode className='mr-1 text-blue-400' />
+
+	// Фреймворки и библиотеки
+	if (lower.includes('symfony') || lower.includes('laravel') || lower.includes('zend')) 
+		return <FaCode className='mr-1 text-red-500' />
+	if (lower.includes('react') || lower.includes('vue') || lower.includes('angular') || lower.includes('svelte')) 
+		return <FaJs className='mr-1 text-blue-400' />
+	if (lower.includes('next') || lower.includes('nuxt') || lower.includes('gatsby')) 
+		return <FaJs className='mr-1 text-gray-400' />
+	if (lower.includes('django') || lower.includes('flask') || lower.includes('fastapi')) 
+		return <FaPython className='mr-1 text-emerald-400' />
+	if (lower.includes('express') || lower.includes('koa') || lower.includes('nest')) 
+		return <FaJs className='mr-1 text-gray-400' />
+	if (lower.includes('spring') || lower.includes('hibernate')) 
+		return <FaCode className='mr-1 text-green-500' />
+	if (lower.includes('rails')) return <FaCode className='mr-1 text-red-500' />
+	if (lower.includes('asp') || lower.includes('.net')) 
+		return <FaCode className='mr-1 text-blue-500' />
+
+	// Базы данных (проверяем специфичные БД перед общими)
+	if (lower.includes('postgresql') || lower.includes('postgres')) 
+		return <FaDatabase className='mr-1 text-blue-500' />
+	if (lower.includes('mysql') || lower.includes('mariadb')) 
+		return <FaDatabase className='mr-1 text-blue-400' />
+	if (lower.includes('mongodb') || lower.includes('mongo')) 
+		return <FaDatabase className='mr-1 text-green-500' />
+	if (lower.includes('redis')) return <FaDatabase className='mr-1 text-red-500' />
+	if (lower.includes('sqlite')) return <FaDatabase className='mr-1 text-blue-300' />
+	if (lower.includes('oracle')) return <FaDatabase className='mr-1 text-red-600' />
+	if (lower.includes('sql server') || lower.includes('mssql')) 
+		return <FaDatabase className='mr-1 text-blue-600' />
+	if (lower.includes('cassandra')) return <FaDatabase className='mr-1 text-purple-500' />
+	if (lower.includes('elasticsearch') || lower.includes('elastic')) 
+		return <FaDatabase className='mr-1 text-yellow-500' />
+	// Общие SQL/DB проверки в конце (чтобы не перехватывать специфичные)
+	if ((lower.includes('sql') || lower.includes('db') || lower.includes('database')) && 
+		!lower.includes('postgresql') && !lower.includes('postgres') && 
+		!lower.includes('mysql') && !lower.includes('mariadb') &&
+		!lower.includes('mongodb') && !lower.includes('mongo') &&
+		!lower.includes('sqlite') && !lower.includes('oracle') &&
+		!lower.includes('sql server') && !lower.includes('mssql') &&
+		!lower.includes('cassandra') && !lower.includes('elastic')) 
+		return <FaDatabase className='mr-1 text-blue-400' />
+
+	// Инфраструктура и DevOps
+	if (lower.includes('docker') || lower.includes('kubernetes') || lower.includes('k8s')) 
+		return <FaGlobe className='mr-1 text-blue-400' />
+	if (lower.includes('aws') || lower.includes('azure') || lower.includes('gcp') || lower.includes('cloud')) 
+		return <FaGlobe className='mr-1 text-orange-400' />
+	if (lower.includes('nginx') || lower.includes('apache') || lower.includes('server')) 
+		return <FaGlobe className='mr-1 text-green-400' />
+	if (lower.includes('linux') || lower.includes('ubuntu') || lower.includes('debian')) 
+		return <FaGlobe className='mr-1 text-orange-500' />
+	if (lower.includes('git') || lower.includes('github') || lower.includes('gitlab')) 
+		return <FaCode className='mr-1 text-gray-400' />
+	if (lower.includes('ci/cd') || lower.includes('jenkins') || lower.includes('travis')) 
+		return <FaGlobe className='mr-1 text-blue-400' />
+
+	// Другие технологии
+	if (lower.includes('html') || lower.includes('css') || lower.includes('sass') || lower.includes('less')) 
+		return <FaCode className='mr-1 text-orange-400' />
+	if (lower.includes('graphql')) return <FaCode className='mr-1 text-pink-500' />
+	if (lower.includes('rest') || lower.includes('api')) 
+		return <FaCode className='mr-1 text-green-400' />
+	if (lower.includes('webpack') || lower.includes('vite') || lower.includes('parcel')) 
+		return <FaCode className='mr-1 text-blue-400' />
+	if (lower.includes('typescript') || lower.includes('ts')) 
+		return <FaJs className='mr-1 text-blue-500' />
+
+	// По умолчанию
+	return <FaToolbox className='mr-1 text-gray-400' />
 }
 
 export default function UserPublicProfilePage() {
@@ -474,21 +555,21 @@ export default function UserPublicProfilePage() {
 								</div>
 							)}
 
-							{/* Навыки */}
-							{viewUser.skills && viewUser.skills.length > 0 && (
+							{/* Навыки - только для исполнителей */}
+							{viewUser.role === 'executor' && viewUser.skills && Array.isArray(viewUser.skills) && viewUser.skills.length > 0 && (
 								<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
 									<h3 className='text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2'>
 										<FaToolbox />
 										Навыки
 									</h3>
 									<div className='flex flex-wrap gap-2'>
-										{viewUser.skills.map((skill, index) => (
+										{viewUser.skills.filter(skill => skill && skill.trim()).map((skill, index) => (
 											<div
 												key={index}
 												className='flex items-center px-3 py-1.5 rounded-full text-xs border border-emerald-500/40 bg-black/60'
 											>
 												{getSkillIcon(skill)}
-												<span className='ml-2'>{skill.trim()}</span>
+												<span>{skill.trim()}</span>
 											</div>
 										))}
 									</div>
@@ -534,7 +615,7 @@ export default function UserPublicProfilePage() {
 				{/* Достижения */}
 				{activeTab === 'achievements' && (
 					<div>
-						{viewUser.badges && viewUser.badges.length > 0 ? (
+						{viewUser.badges && Array.isArray(viewUser.badges) && viewUser.badges.length > 0 ? (
 							<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6'>
 								{viewUser.badges.map(userBadge => (
 									<div

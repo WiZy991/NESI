@@ -39,23 +39,42 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }, [])
 
   useEffect(() => {
-    // Улучшенные переходы между страницами
-    setIsVisible(false)
-    setLoading(true)
+    // Улучшенные переходы между страницами без мерцания
+    // Убираем принудительное скрытие для мобильных устройств
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
     
-    // Используем View Transitions API если доступен (Chrome 111+)
-    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-      try {
-        const transition = (document as any).startViewTransition(() => {
-          setIsVisible(true)
-          setLoading(false)
-        })
-        
-        transition.finished.finally(() => {
-          // Cleanup после завершения перехода
-        })
-      } catch {
-        // Fallback если View Transitions не работает
+    if (!isMobile) {
+      setIsVisible(false)
+      setLoading(true)
+      
+      // Используем View Transitions API если доступен (Chrome 111+)
+      if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+        try {
+          const transition = (document as any).startViewTransition(() => {
+            setIsVisible(true)
+            setLoading(false)
+          })
+          
+          transition.finished.finally(() => {
+            // Cleanup после завершения перехода
+          })
+        } catch {
+          // Fallback если View Transitions не работает
+          const showTimer = setTimeout(() => {
+            setIsVisible(true)
+          }, 150)
+          
+          const loadingTimer = setTimeout(() => {
+            setLoading(false)
+          }, 400)
+          
+          return () => {
+            clearTimeout(showTimer)
+            clearTimeout(loadingTimer)
+          }
+        }
+      } else {
+        // Fallback для браузеров без поддержки View Transitions
         const showTimer = setTimeout(() => {
           setIsVisible(true)
         }, 150)
@@ -70,19 +89,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         }
       }
     } else {
-      // Fallback для браузеров без поддержки View Transitions
-      const showTimer = setTimeout(() => {
-        setIsVisible(true)
-      }, 150)
-      
-      const loadingTimer = setTimeout(() => {
-        setLoading(false)
-      }, 400)
-      
-      return () => {
-        clearTimeout(showTimer)
-        clearTimeout(loadingTimer)
-      }
+      // На мобильных устройствах не показываем анимацию для избежания мерцания
+      setIsVisible(true)
+      setLoading(false)
     }
   }, [pathname])
 

@@ -163,9 +163,17 @@ export async function PATCH(req: NextRequest, { params }: any) {
 					`Выполнена задача "${task.title}"`
 				)
 
-				// ✅ Проверяем бейджи после начисления XP
+				// ✅ Проверяем бейджи после начисления XP (для исполнителя)
 				const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
 				await checkAndAwardBadges(task.executorId)
+			}
+			
+			// ✅ Проверяем бейджи для заказчика (при завершении задачи)
+			try {
+				const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
+				await checkAndAwardBadges(task.customerId)
+			} catch (badgeError) {
+				console.error('[Badges] Ошибка проверки достижений для заказчика:', badgeError)
 			}
 		} catch (xpError) {
 			// Логируем ошибку, но не прерываем выполнение

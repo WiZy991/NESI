@@ -51,7 +51,7 @@ export default function ChatMessageSearch({
                 onPrevious()
               }
             }}
-            className="w-full pl-10 pr-12 py-2.5 bg-black/40 border border-emerald-500/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+            className="w-full pl-10 pr-12 py-2.5 bg-black/40 border border-emerald-500/50 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
             autoFocus
             aria-label="Поиск в сообщениях"
           />

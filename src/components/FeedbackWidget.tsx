@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MessageSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 export default function FeedbackWidget() {
 	const [isOpen, setIsOpen] = useState(false)
+	const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
 	const [formData, setFormData] = useState({
 		name: '',
 		email: '',
@@ -14,6 +15,18 @@ export default function FeedbackWidget() {
 		type: 'general',
 	})
 	const [isSubmitting, setIsSubmitting] = useState(false)
+
+	// Отслеживаем открытие модального окна редактирования профиля
+	useEffect(() => {
+		const checkModal = () => {
+			setIsProfileModalOpen(!!document.querySelector('[data-profile-modal]'))
+		}
+		
+		checkModal()
+		const interval = setInterval(checkModal, 100)
+		
+		return () => clearInterval(interval)
+	}, [])
 
 	// Закрытие по Escape
 	useEscapeKey(() => {
@@ -53,13 +66,15 @@ export default function FeedbackWidget() {
 	return (
 		<>
 			{/* Плавающая кнопка */}
-			<button
-				onClick={() => setIsOpen(true)}
-				className='fixed bottom-6 left-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:shadow-[0_0_30px_rgba(16,185,129,0.7)] transition-all duration-300 hover:scale-110'
-				aria-label='Отправить обратную связь'
-			>
-				<MessageSquare className='w-6 h-6' />
-			</button>
+			{!isProfileModalOpen && (
+				<button
+					onClick={() => setIsOpen(true)}
+					className='fixed bottom-6 left-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:shadow-[0_0_30px_rgba(16,185,129,0.7)] transition-all duration-300 hover:scale-110'
+					aria-label='Отправить обратную связь'
+				>
+					<MessageSquare className='w-6 h-6' />
+				</button>
+			)}
 
 			{/* Модальное окно */}
 			{isOpen && (

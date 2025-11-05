@@ -234,24 +234,26 @@ export default function Header() {
 		setNotifications(prev => [data, ...prev.slice(0, 4)])
 		setUnreadCount(prev => prev + 1)
 
-		// Добавляем toast уведомление
-		const toastNotification = {
-			id: `${Date.now()}-${Math.random()}`,
-			type: data.type || 'notification',
-			title: data.title || 'Новое уведомление',
-			message: data.message || '',
-			link: data.link,
-			userId: data.userId,
-			senderId: data.senderId,
-			timestamp: data.timestamp || new Date().toISOString(),
+		// Добавляем toast уведомление (но не для типа 'login')
+		if (data.type !== 'login') {
+			const toastNotification = {
+				id: `${Date.now()}-${Math.random()}`,
+				type: data.type || 'notification',
+				title: data.title || 'Новое уведомление',
+				message: data.message || '',
+				link: data.link,
+				userId: data.userId,
+				senderId: data.senderId,
+				timestamp: data.timestamp || new Date().toISOString(),
+			}
+			
+			console.log('🎉 Добавление toast уведомления:', toastNotification)
+			setToastNotifications(prev => {
+				const newNotifications = [...prev, toastNotification]
+				console.log('📋 Текущие toast уведомления:', newNotifications.length)
+				return newNotifications
+			})
 		}
-		
-		console.log('🎉 Добавление toast уведомления:', toastNotification)
-		setToastNotifications(prev => {
-			const newNotifications = [...prev, toastNotification]
-			console.log('📋 Текущие toast уведомления:', newNotifications.length)
-			return newNotifications
-		})
 	}, [])
 
 	// Загрузка количества непрочитанных сообщений и SSE
@@ -875,13 +877,16 @@ export default function Header() {
 												📊 Аналитика
 											</Link>
 
-											<Link
-												href='/portfolio'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												💼 Портфолио
-											</Link>
+											{/* Портфолио - только для исполнителей */}
+											{user.role === 'executor' && (
+												<Link
+													href='/portfolio'
+													className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+													onClick={() => setMobileMenuOpen(false)}
+												>
+													💼 Портфолио
+												</Link>
+											)}
 
 											<Link
 												href='/settings'
@@ -1194,14 +1199,17 @@ export default function Header() {
 													>
 														📊 Аналитика
 													</Link>
-													<Link
-														href='/portfolio'
-														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
-														onClick={() => setMenuOpen(false)}
-														data-onboarding-target="more-menu-portfolio"
-													>
-														💼 Портфолио
-													</Link>
+													{/* Портфолио - только для исполнителей */}
+													{user.role === 'executor' && (
+														<Link
+															href='/portfolio'
+															className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+															onClick={() => setMenuOpen(false)}
+															data-onboarding-target="more-menu-portfolio"
+														>
+															💼 Портфолио
+														</Link>
+													)}
 												</div>
 
 												<div className='border-t border-emerald-500/20 py-2'>

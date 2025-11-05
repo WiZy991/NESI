@@ -27,6 +27,7 @@ export async function GET(req: Request) {
           frozenBalance: true,
           xp: true,
           completedTasksCount: true,
+          createdAt: true,
           avatarFile: {
             select: { id: true }
           },

@@ -14,7 +14,7 @@ type OnboardingStep = {
 }
 
 export default function WelcomeOnboarding() {
-  const { user, loading } = useUser()
+  const { user, loading, token } = useUser()
   const pathname = usePathname()
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const [isTourActive, setIsTourActive] = useState(false)
@@ -84,16 +84,62 @@ export default function WelcomeOnboarding() {
       }
     }
 
-    // Показываем онбординг только новым пользователям
+    // Проверяем, является ли пользователь новым (создан менее 24 часов назад)
+    // Для старых пользователей не показываем онбординг автоматически
+    const checkUserAge = async () => {
+      try {
+        // Получаем токен из контекста или из других источников
+        const authToken = token || (typeof window !== 'undefined' ? (localStorage.getItem('token') || document.cookie.match(/token=([^;]+)/)?.[1] || '') : '')
+        if (!authToken) {
+          // Если токена нет, не показываем онбординг
+          return () => {
+            window.removeEventListener('restart-onboarding', handleRestartOnboarding)
+          }
+        }
+        
+        const res = await fetch('/api/profile', {
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.user?.createdAt) {
+            const userCreatedAt = new Date(data.user.createdAt)
+            const now = new Date()
+            const hoursSinceCreation = (now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60)
+            
+            // Показываем онбординг только если пользователь создан менее 24 часов назад
+            if (hoursSinceCreation > 24) {
+              // Старый пользователь - сохраняем флаг, чтобы не показывать онбординг
+              localStorage.setItem(onboardingKey, 'true')
+              return () => {
+                window.removeEventListener('restart-onboarding', handleRestartOnboarding)
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Ошибка проверки возраста пользователя:', err)
+        // При ошибке тоже не показываем онбординг
+        localStorage.setItem(onboardingKey, 'true')
+        return () => {
+          window.removeEventListener('restart-onboarding', handleRestartOnboarding)
+        }
+      }
+      
+      // Показываем онбординг только новым пользователям
       // Небольшая задержка перед показом
       const timer = setTimeout(() => {
         setShowWelcomeModal(true)
       }, 1500)
-
+      
       return () => {
         clearTimeout(timer)
         window.removeEventListener('restart-onboarding', handleRestartOnboarding)
       }
+    }
+    
+    const cleanup = checkUserAge()
+    return cleanup
   }, [user, loading, pathname])
 
   // Получаем шаги онбординга

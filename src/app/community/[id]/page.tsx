@@ -367,6 +367,10 @@ export default function CommunityPostPage() {
                   alt="post"
                   className="w-full h-auto object-cover"
                   loading="lazy"
+                  onError={(e) => {
+                    console.error('Ошибка загрузки изображения:', post.imageUrl)
+                    e.currentTarget.style.display = 'none'
+                  }}
                 />
               </div>
             )}
@@ -376,13 +380,13 @@ export default function CommunityPostPage() {
                 onClick={toggleLike}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
                   liked
-                    ? 'bg-emerald-600 border-emerald-500 text-black'
-                    : 'border-emerald-500/40 text-gray-300 hover:bg-emerald-700/20'
+                    ? 'bg-pink-600 border-pink-500 text-white'
+                    : 'border-pink-500/40 text-gray-300 hover:bg-pink-700/20'
                 }`}
               >
                 <Heart
                   className={`w-4 h-4 ${
-                    liked ? 'fill-black text-black' : 'text-emerald-400'
+                    liked ? 'fill-pink-500 text-pink-500' : 'text-pink-400'
                   }`}
                 />
                 {post._count.likes}

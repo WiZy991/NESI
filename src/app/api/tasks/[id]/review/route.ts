@@ -103,8 +103,12 @@ export async function POST(
         )
 
         // ✅ Проверяем бейджи после начисления XP
+        // Проверяем достижения для получателя отзыва (исполнителя)
         const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
         await checkAndAwardBadges(toUserId)
+        
+        // Также проверяем достижения для отправителя отзыва (заказчика)
+        await checkAndAwardBadges(user.id)
       } catch (xpError) {
         // Логируем ошибку, но не прерываем выполнение
         console.error('[XP] Ошибка начисления XP при отзыве:', xpError)

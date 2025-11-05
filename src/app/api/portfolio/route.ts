@@ -20,6 +20,19 @@ export async function GET(req: NextRequest) {
     }
 
     const decoded = verify(token, JWT_SECRET) as { userId: string }
+    
+    // Проверяем, что пользователь - исполнитель
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { role: true }
+    })
+    
+    if (!user || user.role !== 'executor') {
+      return NextResponse.json(
+        { error: 'Портфолио доступно только для исполнителей' },
+        { status: 403 }
+      )
+    }
 
     const portfolio = await prisma.portfolio.findMany({
       where: { userId: decoded.userId },
@@ -61,6 +74,20 @@ export async function POST(req: NextRequest) {
     }
 
     const decoded = verify(token, JWT_SECRET) as { userId: string }
+    
+    // Проверяем, что пользователь - исполнитель
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { role: true }
+    })
+    
+    if (!user || user.role !== 'executor') {
+      return NextResponse.json(
+        { error: 'Портфолио доступно только для исполнителей' },
+        { status: 403 }
+      )
+    }
+    
     const { title, description, imageUrl, externalUrl, taskId } = await req.json()
 
     if (!title?.trim() || !description?.trim()) {

@@ -401,6 +401,10 @@ export default function CommunityPage() {
 													src={post.imageUrl}
 													alt=''
 													className='rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[250px] sm:max-h-[350px] lg:max-h-[450px]'
+													onError={(e) => {
+														console.error('Ошибка загрузки изображения:', post.imageUrl)
+														e.currentTarget.style.display = 'none'
+													}}
 												/>
 											</div>
 										)}

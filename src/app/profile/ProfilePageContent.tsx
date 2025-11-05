@@ -11,6 +11,7 @@ import {
 	FaCalendarAlt,
 	FaCertificate,
 	FaChartLine,
+	FaCode,
 	FaDatabase,
 	FaGlobe,
 	FaJs,
@@ -102,14 +103,52 @@ type Tab = 'overview' | 'achievements' | 'reviews' | 'tasks' | 'wallet' | 'certi
 
 const getSkillIcon = (skill: string) => {
 	const lower = skill.toLowerCase()
+	// Языки программирования
 	if (lower.includes('python'))
 		return <FaPython className='mr-1 text-emerald-400' />
-	if (lower.includes('js') || lower.includes('javascript'))
+	if (lower.includes('js') || lower.includes('javascript') || lower.includes('typescript'))
 		return <FaJs className='mr-1 text-yellow-400' />
-	if (lower.includes('sql') || lower.includes('db'))
+	if (lower.includes('java'))
+		return <FaCode className='mr-1 text-orange-400' />
+	if (lower.includes('c#') || lower.includes('csharp') || lower.includes('.net'))
+		return <FaCode className='mr-1 text-purple-400' />
+	if (lower.includes('php'))
+		return <FaCode className='mr-1 text-indigo-400' />
+	if (lower.includes('go') || lower.includes('golang'))
+		return <FaCode className='mr-1 text-cyan-400' />
+	if (lower.includes('rust'))
+		return <FaCode className='mr-1 text-orange-500' />
+	if (lower.includes('ruby'))
+		return <FaCode className='mr-1 text-red-400' />
+	// Фреймворки и библиотеки
+	if (lower.includes('react') || lower.includes('next.js') || lower.includes('nextjs'))
+		return <FaCode className='mr-1 text-blue-400' />
+	if (lower.includes('vue') || lower.includes('vue.js'))
+		return <FaCode className='mr-1 text-green-400' />
+	if (lower.includes('angular'))
+		return <FaCode className='mr-1 text-red-500' />
+	if (lower.includes('node') || lower.includes('nodejs') || lower.includes('node.js'))
+		return <FaCode className='mr-1 text-green-500' />
+	if (lower.includes('django') || lower.includes('flask') || lower.includes('fastapi'))
+		return <FaCode className='mr-1 text-emerald-500' />
+	if (lower.includes('laravel') || lower.includes('symfony'))
+		return <FaCode className='mr-1 text-red-500' />
+	// Базы данных
+	if (lower.includes('sql') || lower.includes('db') || lower.includes('database') || lower.includes('postgresql') || lower.includes('mysql') || lower.includes('mongodb'))
 		return <FaDatabase className='mr-1 text-blue-400' />
-	if (lower.includes('dns') || lower.includes('network'))
+	// Сеть и инфраструктура
+	if (lower.includes('dns') || lower.includes('network') || lower.includes('aws') || lower.includes('azure') || lower.includes('gcp') || lower.includes('docker') || lower.includes('kubernetes'))
 		return <FaGlobe className='mr-1 text-indigo-400' />
+	// Дизайн
+	if (lower.includes('figma') || lower.includes('ui/ux') || lower.includes('design') || lower.includes('photoshop') || lower.includes('illustrator'))
+		return <FaCode className='mr-1 text-pink-400' />
+	// Контент
+	if (lower.includes('seo') || lower.includes('smm') || lower.includes('marketing') || lower.includes('копирайтинг') || lower.includes('контент'))
+		return <FaCode className='mr-1 text-yellow-500' />
+	// 1С
+	if (lower.includes('1с') || lower.includes('1c'))
+		return <FaCode className='mr-1 text-blue-500' />
+	// Общее
 	return <FaToolbox className='mr-1 text-gray-400' />
 }
 
@@ -119,6 +158,8 @@ export default function ProfilePageContent() {
 	const [profile, setProfile] = useState<FullUser | null>(null)
 	const [loadingProfile, setLoadingProfile] = useState(true)
 	const [activeTab, setActiveTab] = useState<Tab>('overview')
+	const [customerCompletedTasks, setCustomerCompletedTasks] = useState<any[]>([])
+	const [loadingCustomerTasks, setLoadingCustomerTasks] = useState(false)
 
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [transactionsLoaded, setTransactionsLoaded] = useState(false)
@@ -135,6 +176,7 @@ export default function ProfilePageContent() {
 			})
 			if (!res.ok) throw new Error('Ошибка загрузки профиля')
 			const data = await res.json()
+			console.log('Профиль загружен:', { skills: data.user?.skills, role: data.user?.role })
 			setProfile(data.user)
 			login(data.user, token)
 		} catch (err) {
@@ -187,6 +229,32 @@ export default function ProfilePageContent() {
 		}
 
 		fetchReviews()
+	}, [user, token, activeTab])
+
+	// Загружаем завершенные задачи для заказчика
+	useEffect(() => {
+		const fetchCustomerTasks = async () => {
+			if (!user || user.role !== 'customer' || activeTab !== 'tasks') return
+			if (loadingCustomerTasks) return // Предотвращаем повторные запросы
+			try {
+				setLoadingCustomerTasks(true)
+				const res = await fetch('/api/tasks?mine=true&status=completed', {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				})
+				if (res.ok) {
+					const data = await res.json()
+					setCustomerCompletedTasks(data.tasks || [])
+				}
+			} catch (err) {
+				console.error('Ошибка загрузки задач заказчика:', err)
+			} finally {
+				setLoadingCustomerTasks(false)
+			}
+		}
+
+		fetchCustomerTasks()
 	}, [user, token, activeTab])
 
 	const handleWithdraw = async () => {
@@ -250,8 +318,8 @@ export default function ProfilePageContent() {
 		{ id: 'overview', label: 'Обзор', icon: <FaUserCircle /> },
 		{ id: 'achievements', label: 'Достижения', icon: <FaTrophy />, count: profile.badges?.length },
 		{ id: 'reviews', label: 'Отзывы', icon: <FaStar />, count: profile._count?.reviewsReceived },
-		{ id: 'tasks', label: 'Задачи', icon: <FaTasks />, count: profile.executedTasks?.length },
-		{ id: 'certifications', label: 'Сертификации', icon: <FaCertificate />, count: profile.certifications?.length },
+		{ id: 'tasks', label: 'Задачи', icon: <FaTasks />, count: user.role === 'executor' ? profile.executedTasks?.length : undefined },
+		...(user.role === 'executor' ? [{ id: 'certifications' as Tab, label: 'Сертификации', icon: <FaCertificate />, count: profile.certifications?.length }] : []),
 		{ id: 'wallet', label: 'Кошелёк', icon: <FaWallet /> },
 	]
 
@@ -368,21 +436,21 @@ export default function ProfilePageContent() {
 								</div>
 							)}
 
-							{/* Навыки */}
-							{profile.skills && profile.skills.length > 0 && (
+							{/* Навыки - только для исполнителей */}
+							{user.role === 'executor' && profile.skills && Array.isArray(profile.skills) && profile.skills.length > 0 && (
 								<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
 									<h3 className='text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2'>
 										<FaToolbox />
 										Навыки
 									</h3>
 									<div className='flex flex-wrap gap-2'>
-										{profile.skills.map((skill, index) => (
+										{profile.skills.filter(skill => skill && skill.trim()).map((skill, index) => (
 											<div
 												key={index}
 												className='flex items-center px-3 py-1.5 rounded-full text-xs border border-emerald-500/40 bg-black/60'
 											>
 												{getSkillIcon(skill)}
-												{skill.trim()}
+												<span>{skill.trim()}</span>
 											</div>
 										))}
 									</div>
@@ -403,16 +471,19 @@ export default function ProfilePageContent() {
 										</div>
 										<FaChevronRight className='text-gray-400 group-hover:text-purple-400 transition' />
 									</Link>
-									<Link
-										href='/portfolio'
-										className='flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:border-blue-400/50 transition group'
-									>
-										<div className='flex items-center gap-3'>
-											<span className='text-xl'>💼</span>
-											<span className='text-white font-medium'>Портфолио</span>
-										</div>
-										<FaChevronRight className='text-gray-400 group-hover:text-blue-400 transition' />
-									</Link>
+									{/* Портфолио - только для исполнителей */}
+									{user.role === 'executor' && (
+										<Link
+											href='/portfolio'
+											className='flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:border-blue-400/50 transition group'
+										>
+											<div className='flex items-center gap-3'>
+												<span className='text-xl'>💼</span>
+												<span className='text-white font-medium'>Портфолио</span>
+											</div>
+											<FaChevronRight className='text-gray-400 group-hover:text-blue-400 transition' />
+										</Link>
+									)}
 									{profile.isExecutor && (
 										<Link
 											href='/level'
@@ -474,7 +545,7 @@ export default function ProfilePageContent() {
 				{/* Достижения */}
 				{activeTab === 'achievements' && (
 					<div>
-						{profile.badges && profile.badges.length > 0 ? (
+						{profile.badges && Array.isArray(profile.badges) && profile.badges.length > 0 ? (
 							<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6'>
 								{profile.badges.map(userBadge => (
 									<div
@@ -529,6 +600,12 @@ export default function ProfilePageContent() {
 							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
 								<FaTrophy className='text-6xl text-gray-600 mx-auto mb-4' />
 								<p className='text-gray-400'>Пока нет достижений</p>
+								{user.role === 'customer' && (
+									<p className='text-gray-500 text-sm mt-2'>Создавайте задачи, завершайте их и получайте достижения!</p>
+								)}
+								{user.role === 'executor' && (
+									<p className='text-gray-500 text-sm mt-2'>Выполняйте задачи и получайте достижения!</p>
+								)}
 							</div>
 						)}
 					</div>
@@ -629,39 +706,91 @@ export default function ProfilePageContent() {
 				{/* Задачи */}
 				{activeTab === 'tasks' && (
 					<div>
-						{profile.executedTasks && profile.executedTasks.length > 0 ? (
-							<div className='space-y-3'>
-								{profile.executedTasks.map(task => (
-									<div
-										key={task.id}
-										className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'
-									>
-										<div className='flex justify-between items-start mb-2'>
-											<h4 className='font-semibold text-white'>{task.title}</h4>
-											{task.price && (
-												<span className='text-emerald-300 font-semibold text-sm'>
-													{task.price} ₽
-												</span>
-											)}
-										</div>
-										<p className='text-gray-300 text-sm mb-3 line-clamp-2'>{task.description}</p>
-										<div className='flex justify-between items-center text-xs text-gray-400'>
-											<span>Заказчик: {task.customer.fullName || task.customer.email}</span>
-											{task.completedAt && (
-												<span className='flex items-center gap-1'>
-													<FaCalendarAlt />
-													{new Date(task.completedAt).toLocaleDateString()}
-												</span>
-											)}
-										</div>
-									</div>
-								))}
-							</div>
+						{user.role === 'executor' ? (
+							// Для исполнителя - выполненные задачи
+							profile.executedTasks && profile.executedTasks.length > 0 ? (
+								<div className='space-y-3'>
+									{profile.executedTasks.map(task => (
+										<Link
+											key={task.id}
+											href={`/tasks/${task.id}`}
+											className='block bg-black/40 p-4 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all'
+										>
+											<div className='flex justify-between items-start mb-2'>
+												<h4 className='font-semibold text-white'>{task.title}</h4>
+												{task.price && (
+													<span className='text-emerald-300 font-semibold text-sm'>
+														{task.price} ₽
+													</span>
+												)}
+											</div>
+											<p className='text-gray-300 text-sm mb-3 line-clamp-2'>{task.description}</p>
+											<div className='flex justify-between items-center text-xs text-gray-400'>
+												<span>Заказчик: {task.customer.fullName || task.customer.email}</span>
+												{task.completedAt && (
+													<span className='flex items-center gap-1'>
+														<FaCalendarAlt />
+														{new Date(task.completedAt).toLocaleDateString()}
+													</span>
+												)}
+											</div>
+										</Link>
+									))}
+								</div>
+							) : (
+								<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+									<FaTasks className='text-6xl text-gray-600 mx-auto mb-4' />
+									<p className='text-gray-400'>Пока нет выполненных задач</p>
+									<Link href='/tasks' className='mt-4 inline-block text-emerald-400 hover:text-emerald-300 underline'>
+										Перейти к задачам
+									</Link>
+								</div>
+							)
 						) : (
-							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
-								<FaTasks className='text-6xl text-gray-600 mx-auto mb-4' />
-								<p className='text-gray-400'>Пока нет выполненных задач</p>
-							</div>
+							// Для заказчика - завершенные задачи
+							loadingCustomerTasks ? (
+								<div className='text-center py-12'>
+									<div className='w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4' />
+									<p className='text-gray-400'>Загрузка задач...</p>
+								</div>
+							) : customerCompletedTasks.length > 0 ? (
+								<div className='space-y-3'>
+									{customerCompletedTasks.map((task: any) => (
+										<Link
+											key={task.id}
+											href={`/tasks/${task.id}`}
+											className='block bg-black/40 p-4 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all'
+										>
+											<div className='flex justify-between items-start mb-2'>
+												<h4 className='font-semibold text-white'>{task.title}</h4>
+												{task.price && (
+													<span className='text-emerald-300 font-semibold text-sm'>
+														{Number(task.price).toFixed(2)} ₽
+													</span>
+												)}
+											</div>
+											<p className='text-gray-300 text-sm mb-3 line-clamp-2'>{task.description}</p>
+											<div className='flex justify-between items-center text-xs text-gray-400'>
+												<span>Исполнитель: {task.executor?.fullName || task.executor?.email || 'Не назначен'}</span>
+												{task.completedAt && (
+													<span className='flex items-center gap-1'>
+														<FaCalendarAlt />
+														{new Date(task.completedAt).toLocaleDateString()}
+													</span>
+												)}
+											</div>
+										</Link>
+									))}
+								</div>
+							) : (
+								<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+									<FaTasks className='text-6xl text-gray-600 mx-auto mb-4' />
+									<p className='text-gray-400'>Пока нет завершенных задач</p>
+									<Link href='/tasks' className='mt-4 inline-block text-emerald-400 hover:text-emerald-300 underline'>
+										Перейти к задачам
+									</Link>
+								</div>
+							)
 						)}
 					</div>
 				)}

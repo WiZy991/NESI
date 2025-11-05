@@ -23,6 +23,20 @@ export async function PUT(
     }
 
     const decoded = verify(token, JWT_SECRET) as { userId: string }
+    
+    // Проверяем, что пользователь - исполнитель
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { role: true }
+    })
+    
+    if (!user || user.role !== 'executor') {
+      return NextResponse.json(
+        { error: 'Портфолио доступно только для исполнителей' },
+        { status: 403 }
+      )
+    }
+    
     const { title, description, imageUrl, externalUrl, taskId } = await req.json()
 
     // Проверяем, что портфолио принадлежит пользователю
@@ -93,6 +107,19 @@ export async function DELETE(
     }
 
     const decoded = verify(token, JWT_SECRET) as { userId: string }
+    
+    // Проверяем, что пользователь - исполнитель
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { role: true }
+    })
+    
+    if (!user || user.role !== 'executor') {
+      return NextResponse.json(
+        { error: 'Портфолио доступно только для исполнителей' },
+        { status: 403 }
+      )
+    }
 
     // Проверяем, что портфолио принадлежит пользователю
     const existing = await prisma.portfolio.findUnique({

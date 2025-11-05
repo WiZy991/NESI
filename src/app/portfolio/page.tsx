@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Plus, Edit2, Trash2, X, ExternalLink } from 'lucide-react'
+import { useUser } from '@/context/UserContext'
 
 type PortfolioItem = {
   id: string
@@ -21,6 +22,7 @@ type PortfolioItem = {
 
 export default function PortfolioPage() {
   const router = useRouter()
+  const { user, loading: userLoading } = useUser()
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -38,14 +40,27 @@ export default function PortfolioPage() {
   })
 
   useEffect(() => {
-    fetchPortfolio()
-  }, [])
+    // Редирект для заказчиков
+    if (!userLoading && user && user.role !== 'executor') {
+      router.push('/profile')
+      return
+    }
+    
+    if (user && user.role === 'executor') {
+      fetchPortfolio()
+    }
+  }, [user, userLoading, router])
 
   const fetchPortfolio = async () => {
     try {
       const res = await fetch('/api/portfolio')
       if (res.status === 401) {
         router.push('/login')
+        return
+      }
+      if (res.status === 403) {
+        // Заказчик пытается получить доступ - редирект
+        router.push('/profile')
         return
       }
       if (!res.ok) throw new Error('Ошибка загрузки')

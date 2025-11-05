@@ -270,6 +270,7 @@ model Badge {
   description String
   icon        String
   condition   String
+  targetRole  String?     // 'executor', 'customer', или null для всех ролей
   users       UserBadge[]
 }
 model UserBadge {

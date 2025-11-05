@@ -375,25 +375,30 @@ export default function EditProfileModal({
 	// Мемоизация прогресса заполнения
 	const completionProgress = useMemo(() => {
 		let filled = 0
-		const total = 4
+		// Для заказчиков не считаем навыки
+		const total = user.role === 'executor' ? 4 : 3
 		
 		if (fullName.trim()) filled++
 		if (description.trim()) filled++
 		if (location.trim()) filled++
-		if (skills.length > 0) filled++
+		if (user.role === 'executor' && skills.length > 0) filled++
 		
 		return Math.round((filled / total) * 100)
-	}, [fullName, description, location, skills])
+	}, [fullName, description, location, skills, user.role])
 
 	// Блокировка прокрутки body когда модальное окно открыто
 	useEffect(() => {
 		if (isOpen) {
+			const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
 			document.body.style.overflow = 'hidden'
+			document.body.style.paddingRight = `${scrollbarWidth}px`
 		} else {
-			document.body.style.overflow = 'unset'
+			document.body.style.overflow = ''
+			document.body.style.paddingRight = ''
 		}
 		return () => {
-			document.body.style.overflow = 'unset'
+			document.body.style.overflow = ''
+			document.body.style.paddingRight = ''
 		}
 	}, [isOpen])
 
@@ -420,7 +425,8 @@ export default function EditProfileModal({
 		// Валидация всех полей
 		const isFullNameValid = validateField('fullName', fullName)
 		const isDescriptionValid = validateField('description', description)
-		const isSkillsValid = validateField('skills', skills as any)
+		// Для заказчиков не валидируем навыки
+		const isSkillsValid = user.role === 'executor' ? validateField('skills', skills as any) : true
 		
 		if (!isFullNameValid || !isDescriptionValid || !isSkillsValid) {
 			return toast.error('Исправьте ошибки в форме')
@@ -479,44 +485,63 @@ export default function EditProfileModal({
 
 	return (
 		<div
-			className='fixed inset-0 z-[9999] flex items-start sm:items-center justify-center pt-16 sm:pt-0 p-0 sm:p-4 bg-black/80 backdrop-blur-sm'
+			className='fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center'
 			onClick={onClose}
+			data-profile-modal
+			style={{
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				width: '100vw',
+				height: '100vh',
+				margin: 0,
+				paddingTop: '4rem',
+				paddingBottom: '1rem',
+				paddingLeft: '1rem',
+				paddingRight: '1rem'
+			}}
 		>
 			<div
-				className='relative w-full h-[calc(100vh-4rem)] sm:h-auto sm:max-w-5xl sm:max-h-[95vh] bg-gradient-to-br from-black via-gray-900 to-black border-0 sm:border border-emerald-500/30 rounded-none sm:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden'
+				className='relative w-full max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 rounded-lg sm:rounded-xl md:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden'
+				style={{
+					maxHeight: '85vh',
+					display: 'flex',
+					flexDirection: 'column'
+				}}
 				onClick={e => e.stopPropagation()}
 			>
 				{/* Заголовок */}
-				<div className='flex-shrink-0 bg-black/40 backdrop-blur-md border-b border-emerald-500/30 p-4 sm:p-6 flex justify-between items-center rounded-none sm:rounded-t-2xl'>
-					<div className='flex items-center gap-2 sm:gap-3'>
+				<div className='flex-shrink-0 bg-black/40 backdrop-blur-md border-b border-emerald-500/30 p-2.5 sm:p-3 flex justify-between items-center rounded-none sm:rounded-t-xl'>
+					<div className='flex items-center gap-2'>
 						<Image
 							src='/astro.png'
 							alt='Космонавт'
 							width={100}
 							height={100}
-							className='astro-icon w-16 h-16 sm:w-20 sm:h-20 object-contain'
+							className='astro-icon w-10 h-10 sm:w-12 sm:h-12 object-contain'
 						/>
-						<h2 className='text-xl sm:text-2xl font-bold text-emerald-400'>
+						<h2 className='text-base sm:text-lg font-bold text-emerald-400'>
 							Редактировать профиль
 						</h2>
 					</div>
 					<button
 						onClick={onClose}
-						className='text-gray-400 hover:text-emerald-400 transition p-2 hover:bg-emerald-500/10 rounded-lg'
+						className='text-gray-400 hover:text-emerald-400 transition p-1.5 hover:bg-emerald-500/10 rounded-lg'
 					>
-						<FaTimes className='text-lg sm:text-xl' />
+						<FaTimes className='text-base sm:text-lg' />
 					</button>
 				</div>
 
 				{/* Контент */}
-				<div className='flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 text-white custom-scrollbar'>
+				<div className='flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 pb-6 text-white custom-scrollbar'>
 					{/* Индикатор заполнения */}
-					<div className='mb-8 bg-black/40 border border-emerald-500/30 rounded-xl p-4 sm:p-5'>
-						<div className='flex items-center justify-between mb-3'>
-							<span className='text-base sm:text-lg text-gray-300 font-medium'>Прогресс заполнения</span>
-							<span className='text-base sm:text-lg font-bold text-emerald-400'>{completionProgress}%</span>
+					<div className='mb-4 bg-black/40 border border-emerald-500/30 rounded-lg p-2.5 sm:p-3'>
+						<div className='flex items-center justify-between mb-2'>
+							<span className='text-xs sm:text-sm text-gray-300 font-medium'>Прогресс заполнения</span>
+							<span className='text-xs sm:text-sm font-bold text-emerald-400'>{completionProgress}%</span>
 						</div>
-						<div className='w-full bg-gray-700/50 rounded-full h-3 overflow-hidden'>
+						<div className='w-full bg-gray-700/50 rounded-full h-2 overflow-hidden'>
 							<div
 								className='h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500'
 								style={{ width: `${completionProgress}%` }}
@@ -525,16 +550,16 @@ export default function EditProfileModal({
 					</div>
 
 					{/* Основная информация */}
-					<div className='mb-8 space-y-6'>
-						<h3 className='text-lg sm:text-xl font-bold text-emerald-400 mb-4 pb-2 border-b border-emerald-500/30'>
+					<div className='mb-4 space-y-3'>
+						<h3 className='text-sm sm:text-base font-semibold text-emerald-400 mb-2 pb-1.5 border-b border-emerald-500/30'>
 							Основная информация
 						</h3>
 						
 						{/* Имя */}
-						<div className='space-y-3'>
-							<label className='flex items-center gap-2 text-emerald-400 font-semibold text-base sm:text-lg'>
-								<FaFileSignature className='text-base sm:text-lg' /> Имя
-								<span className='text-red-400 text-sm'>*</span>
+						<div className='space-y-1.5'>
+							<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+								<FaFileSignature className='text-xs sm:text-sm' /> Имя
+								<span className='text-red-400 text-xs'>*</span>
 							</label>
 							<div className='relative'>
 								<input
@@ -547,7 +572,7 @@ export default function EditProfileModal({
 										}
 									}}
 									onBlur={() => validateField('fullName', fullName)}
-									className={`w-full px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg bg-black/40 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition ${
+									className={`w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition ${
 										validationErrors.fullName
 											? 'border-red-500/50 focus:border-red-400 focus:ring-red-400/30'
 											: 'border-emerald-500/30 focus:border-emerald-400 focus:ring-emerald-400/30'
@@ -555,28 +580,28 @@ export default function EditProfileModal({
 									placeholder='Введите ваше имя'
 								/>
 								{fullName.trim() && !validationErrors.fullName && (
-									<FaCheckCircle className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 text-lg' />
+									<FaCheckCircle className='absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 text-sm' />
 								)}
 								{validationErrors.fullName && (
-									<FaExclamationCircle className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400 text-lg' />
+									<FaExclamationCircle className='absolute right-3 top-1/2 -translate-y-1/2 text-red-400 text-sm' />
 								)}
 							</div>
 							{validationErrors.fullName && (
-								<p className='text-sm text-red-400 flex items-center gap-2'>
-									<FaExclamationCircle className='text-sm' />
+								<p className='text-xs text-red-400 flex items-center gap-1'>
+									<FaExclamationCircle className='text-xs' />
 									{validationErrors.fullName}
 								</p>
 							)}
 							{fullName.trim() && !validationErrors.fullName && (
-								<p className='text-sm text-gray-500'>{fullName.trim().length}/100 символов</p>
+								<p className='text-xs text-gray-500'>{fullName.trim().length}/100 символов</p>
 							)}
 						</div>
 
 						{/* Описание */}
-						<div className='space-y-3'>
-							<label className='text-emerald-400 font-semibold text-base sm:text-lg'>
+						<div className='space-y-1.5'>
+							<label className='text-emerald-400 font-medium text-xs sm:text-sm'>
 								Описание
-								<span className='text-gray-500 text-sm ml-2 font-normal'>(необязательно)</span>
+								<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
 							</label>
 							<div className='relative'>
 								<textarea
@@ -588,32 +613,32 @@ export default function EditProfileModal({
 										}
 									}}
 									onBlur={() => validateField('description', description)}
-									rows={4}
+									rows={3}
 									placeholder='Расскажите немного о себе, своем опыте и специализации...'
-									className={`w-full px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg bg-black/40 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition resize-none ${
+									className={`w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition resize-none ${
 										validationErrors.description
 											? 'border-red-500/50 focus:border-red-400 focus:ring-red-400/30'
 											: 'border-emerald-500/30 focus:border-emerald-400 focus:ring-emerald-400/30'
 									}`}
 								/>
 								{validationErrors.description && (
-									<FaExclamationCircle className='absolute right-4 top-4 text-red-400 text-lg' />
+									<FaExclamationCircle className='absolute right-3 top-2.5 text-red-400 text-sm' />
 								)}
 							</div>
 							{validationErrors.description && (
-								<p className='text-sm text-red-400 flex items-center gap-2'>
-									<FaExclamationCircle className='text-sm' />
+								<p className='text-xs text-red-400 flex items-center gap-1'>
+									<FaExclamationCircle className='text-xs' />
 									{validationErrors.description}
 								</p>
 							)}
-							<p className='text-sm text-gray-500'>{description.length}/1000 символов</p>
+							<p className='text-xs text-gray-500'>{description.length}/1000 символов</p>
 						</div>
 
 						{/* Город - автодополнение с выпадающим списком */}
-						<div className='space-y-3'>
-							<label className='flex items-center gap-2 text-emerald-400 font-semibold text-base sm:text-lg'>
-								<FaCity className='text-base sm:text-lg' /> Город
-								<span className='text-gray-500 text-sm font-normal'>(необязательно)</span>
+						<div className='space-y-1.5'>
+							<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+								<FaCity className='text-xs sm:text-sm' /> Город
+								<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
 							</label>
 							<div className='relative' ref={cityDropdownRef}>
 								<input
@@ -628,17 +653,17 @@ export default function EditProfileModal({
 									onBlur={() => {
 										setTimeout(() => setShowCityDropdown(false), 200)
 									}}
-									className='w-full px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg bg-black/40 border border-emerald-500/30 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
+									className='w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
 									placeholder='Начните вводить название города...'
 								/>
 								{showCityDropdown && filteredCities.length > 0 && (
-									<div className='absolute z-50 w-full mt-2 bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] max-h-60 sm:max-h-80 overflow-y-auto custom-scrollbar'>
+									<div className='absolute z-50 w-full mt-1 bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.3)] max-h-48 sm:max-h-60 overflow-y-auto custom-scrollbar'>
 										{filteredCities.map(city => (
 											<button
 												key={city}
 												type='button'
 												onClick={() => handleCitySelect(city)}
-												className='w-full px-4 py-3 text-left text-base text-white hover:bg-emerald-500/20 hover:text-emerald-300 transition border-b border-emerald-500/10 last:border-b-0'
+												className='w-full px-3 sm:px-4 py-2 text-left text-sm sm:text-base text-white hover:bg-emerald-500/20 hover:text-emerald-300 transition border-b border-emerald-500/10 last:border-b-0'
 											>
 												{city}
 											</button>
@@ -646,24 +671,24 @@ export default function EditProfileModal({
 									</div>
 								)}
 							</div>
-							<p className='text-sm text-gray-500'>Выберите из списка или введите свой город</p>
+							<p className='text-xs text-gray-500'>Выберите из списка или введите свой город</p>
 						</div>
 					</div>
 
 					{/* Аватар */}
-					<div className='mb-8 space-y-6'>
-						<h3 className='text-lg sm:text-xl font-bold text-emerald-400 mb-4 pb-2 border-b border-emerald-500/30'>
+					<div className='mb-4 space-y-3'>
+						<h3 className='text-sm sm:text-base font-semibold text-emerald-400 mb-2 pb-1.5 border-b border-emerald-500/30'>
 							Фото профиля
 						</h3>
-						<div className='space-y-4'>
-							<label className='flex items-center gap-2 text-emerald-400 font-semibold text-base sm:text-lg'>
-								<FaImage className='text-base sm:text-lg' /> Аватар
-								<span className='text-gray-500 text-sm font-normal'>(необязательно)</span>
+						<div className='space-y-2'>
+							<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+								<FaImage className='text-xs sm:text-sm' /> Аватар
+								<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
 							</label>
-							<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6'>
+							<div className='flex flex-col sm:flex-row items-start sm:items-center gap-3'>
 								<label
 									htmlFor='avatar-upload'
-									className='px-5 sm:px-6 py-3 sm:py-4 text-base sm:text-lg bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] cursor-pointer transition font-medium'
+									className='px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-emerald-500/20 border border-emerald-500/40 rounded-lg text-emerald-300 hover:bg-emerald-500/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer transition font-medium'
 								>
 									📷 Загрузить фото
 								</label>
@@ -677,7 +702,7 @@ export default function EditProfileModal({
 									className='hidden'
 								/>
 								{avatarPreview && (
-									<div className='w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_25px_rgba(16,185,129,0.4)]'>
+									<div className='w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]'>
 										<img
 											src={avatarPreview}
 											alt='Аватар'
@@ -686,62 +711,64 @@ export default function EditProfileModal({
 									</div>
 								)}
 							</div>
-							<p className='text-sm text-gray-500'>Рекомендуемый размер: квадрат, не более 5MB</p>
+							<p className='text-xs text-gray-500'>Рекомендуемый размер: квадрат, не более 5MB</p>
 						</div>
 					</div>
 
-					{/* Навыки */}
-					<div className='mb-6 space-y-6'>
-						<h3 className='text-lg sm:text-xl font-bold text-emerald-400 mb-4 pb-2 border-b border-emerald-500/30'>
-							Навыки и специализация
-						</h3>
-						<div className='space-y-4'>
-							<label className='flex items-center gap-2 text-emerald-400 font-semibold text-base sm:text-lg'>
-								<FaCode className='text-base sm:text-lg' /> Ваши навыки
-								<span className='text-gray-500 text-sm font-normal'>(необязательно)</span>
-							</label>
-							<SkillsSelector 
-								skills={skills} 
-								setSkills={(newSkills) => {
-									setSkills(newSkills)
-									if (newSkills.length > 20) {
-										validateField('skills', newSkills as any)
-									} else {
-										setValidationErrors(prev => {
-											const next = { ...prev }
-											delete next.skills
-											return next
-										})
-									}
-								}} 
-							/>
-							{skills.length > 0 && (
-								<p className={`text-sm font-medium ${skills.length > 20 ? 'text-red-400' : 'text-gray-400'}`}>
-									Выбрано: <span className={skills.length > 20 ? 'text-red-400 font-bold' : 'text-emerald-400'}>{skills.length}</span>/20 навыков
-								</p>
-							)}
-							{validationErrors.skills && (
-								<p className='text-sm text-red-400 flex items-center gap-2'>
-									<FaExclamationCircle className='text-sm' />
-									{validationErrors.skills}
-								</p>
-							)}
+					{/* Навыки - только для исполнителей */}
+					{user.role === 'executor' && (
+						<div className='mb-4 space-y-3'>
+							<h3 className='text-sm sm:text-base font-semibold text-emerald-400 mb-2 pb-1.5 border-b border-emerald-500/30'>
+								Навыки и специализация
+							</h3>
+							<div className='space-y-2'>
+								<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+									<FaCode className='text-xs sm:text-sm' /> Ваши навыки
+									<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
+								</label>
+								<SkillsSelector 
+									skills={skills} 
+									setSkills={(newSkills) => {
+										setSkills(newSkills)
+										if (newSkills.length > 20) {
+											validateField('skills', newSkills as any)
+										} else {
+											setValidationErrors(prev => {
+												const next = { ...prev }
+												delete next.skills
+												return next
+											})
+										}
+									}} 
+								/>
+								{skills.length > 0 && (
+									<p className={`text-xs font-medium ${skills.length > 20 ? 'text-red-400' : 'text-gray-400'}`}>
+										Выбрано: <span className={skills.length > 20 ? 'text-red-400 font-bold' : 'text-emerald-400'}>{skills.length}</span>/20 навыков
+									</p>
+								)}
+								{validationErrors.skills && (
+									<p className='text-xs text-red-400 flex items-center gap-1'>
+										<FaExclamationCircle className='text-xs' />
+										{validationErrors.skills}
+									</p>
+								)}
+							</div>
 						</div>
-					</div>
+					)}
 				</div>
 
 				{/* Футер с кнопками */}
-				<div className='flex-shrink-0 bg-black/40 backdrop-blur-md border-t border-emerald-500/30 p-4 sm:p-6 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-end rounded-none sm:rounded-b-2xl'>
+				<div className='flex-shrink-0 bg-black/40 backdrop-blur-md border-t border-emerald-500/30 p-3 sm:p-4 flex flex-col sm:flex-row gap-2 sm:gap-3 justify-end rounded-none sm:rounded-b-xl'>
 					<button
 						onClick={onClose}
-						className='w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500 transition font-semibold'
+						className='w-full sm:w-auto px-4 sm:px-5 py-2 text-sm rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500 transition font-medium'
 					>
 						Отмена
 					</button>
 					<button
 						onClick={handleSave}
 						disabled={saving}
-						className='w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)]'
+						className='w-full sm:w-auto px-4 sm:px-5 py-2 text-sm rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white transition font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)]'
 					>
 						{saving ? '💾 Сохраняем...' : '✅ Сохранить'}
 					</button>

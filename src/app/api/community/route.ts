@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
     const formatted = posts.map((p) => ({
       ...p,
       liked: me ? p.likes.length > 0 : false,
+      // Форматируем imageUrl если он начинается с /api/files, иначе оставляем как есть
+      imageUrl: p.imageUrl ? (p.imageUrl.startsWith('/api/files') ? p.imageUrl : p.imageUrl) : null,
       author: {
         ...p.author,
         avatarUrl: p.author.avatarFileId

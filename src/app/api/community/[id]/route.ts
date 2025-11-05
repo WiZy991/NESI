@@ -68,10 +68,12 @@ export async function GET(
       liked = !!like
     }
 
-    // Формируем корректные ссылки на аватарки
+    // Формируем корректные ссылки на аватарки и изображения
     const formatted = {
       ...post,
       liked,
+      // Форматируем imageUrl если он начинается с /api/files, иначе оставляем как есть
+      imageUrl: post.imageUrl ? (post.imageUrl.startsWith('/api/files') ? post.imageUrl : post.imageUrl) : null,
       author: {
         ...post.author,
         avatarUrl: post.author.avatarFileId
@@ -80,6 +82,8 @@ export async function GET(
       },
       comments: post.comments.map((c) => ({
         ...c,
+        // Форматируем imageUrl для комментариев
+        imageUrl: c.imageUrl ? (c.imageUrl.startsWith('/api/files') ? c.imageUrl : c.imageUrl) : null,
         author: {
           ...c.author,
           avatarUrl: c.author.avatarFileId
