@@ -1,118 +1,428 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+	FaCheckCircle,
 	FaCity,
 	FaCode,
+	FaExclamationCircle,
 	FaFileSignature,
 	FaImage,
 	FaTimes,
-	FaCheckCircle,
-	FaExclamationCircle,
 } from 'react-icons/fa'
 import { toast } from 'sonner'
 
 const cityOptions = [
-	'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
-	'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону',
-	'Уфа', 'Красноярск', 'Пермь', 'Воронеж', 'Волгоград', 'Краснодар',
-	'Саратов', 'Тюмень', 'Тольятти', 'Ижевск', 'Барнаул', 'Ульяновск',
-	'Иркутск', 'Хабаровск', 'Ярославль', 'Владивосток', 'Махачкала', 'Томск',
-	'Оренбург', 'Кемерово', 'Новокузнецк', 'Рязань', 'Астрахань', 'Набережные Челны',
-	'Пенза', 'Липецк', 'Киров', 'Чебоксары', 'Балашиха', 'Калининград',
-	'Тула', 'Курск', 'Ставрополь', 'Улан-Удэ', 'Сочи', 'Тверь', 'Магнитогорск',
-	'Иваново', 'Брянск', 'Белгород', 'Сургут', 'Владимир', 'Чита', 'Нижний Тагил',
-	'Архангельск', 'Калуга', 'Симферополь', 'Смоленск', 'Волжский', 'Якутск',
-	'Грозный', 'Подольск', 'Саранск', 'Череповец', 'Вологда', 'Орёл',
-	'Владикавказ', 'Йошкар-Ола', 'Каменск-Уральский', 'Мытищи', 'Мурманск',
-	'Нижневартовск', 'Новороссийск', 'Таганрог', 'Комсомольск-на-Амуре',
-	'Петрозаводск', 'Нальчик', 'Стерлитамак', 'Кострома', 'Химки',
-	'Каменск-Шахтинский', 'Тамбов', 'Курган', 'Энгельс', 'Благовещенск',
-	'Севастополь', 'Сыктывкар', 'Нижнекамск', 'Шахты', 'Ногинск', 'Зеленоград',
-	'Орск', 'Бийск', 'Димитровград', 'Новый Уренгой', 'Псков', 'Кисловодск',
-	'Армавир', 'Рыбинск', 'Ангарск', 'Балашов', 'Элиста', 'Копейск',
-	'Березники', 'Златоуст', 'Миасс', 'Абакан', 'Норильск', 'Сызрань',
-	'Великий Новгород', 'Бердск', 'Салават', 'Арзамас', 'Коломна', 'Домодедово',
-	'Жуковский', 'Одинцово', 'Кызыл', 'Ессентуки', 'Новочеркасск', 'Серпухов',
-	'Нефтеюганск', 'Дербент', 'Каменка', 'Майкоп', 'Клин', 'Раменское',
-	'Сергиев Посад', 'Новоуральск', 'Альметьевск', 'Находка', 'Обнинск',
-	'Каменск', 'Хасавюрт', 'Каспийск', 'Назрань', 'Евпатория', 'Пятигорск',
-	'Королёв', 'Люберцы', 'Щёлково', 'Красногорск', 'Электросталь',
-	'Железнодорожный', 'Новомосковск', 'Сергиевск', 'Черкесск', 'Геленджик',
-	'Минеральные Воды', 'Будённовск', 'Ковров', 'Саров', 'Егорьевск',
-	'Уссурийск', 'Тобольск', 'Ноябрьск', 'Северск', 'Муром', 'Камышин',
-	'Каспийский', 'Долгопрудный', 'Пушкино', 'Реутов', 'Нягань', 'Северодвинск',
-	'Ачинск', 'Канск', 'Минусинск', 'Саянск', 'Усть-Илимск', 'Братск',
-	'Ухта', 'Воркута', 'Печора', 'Сосногорск', 'Когалым', 'Радужный',
-	'Мегион', 'Лангепас', 'Пыть-Ях', 'Советский', 'Белоярский', 'Урай',
-	'Ханты-Мансийск', 'Югорск', 'Лабытнанги', 'Салехард', 'Надым',
-	'Губкинский', 'Тарко-Сале', 'Южно-Сахалинск'
+	'Москва',
+	'Санкт-Петербург',
+	'Новосибирск',
+	'Екатеринбург',
+	'Казань',
+	'Нижний Новгород',
+	'Челябинск',
+	'Самара',
+	'Омск',
+	'Ростов-на-Дону',
+	'Уфа',
+	'Красноярск',
+	'Пермь',
+	'Воронеж',
+	'Волгоград',
+	'Краснодар',
+	'Саратов',
+	'Тюмень',
+	'Тольятти',
+	'Ижевск',
+	'Барнаул',
+	'Ульяновск',
+	'Иркутск',
+	'Хабаровск',
+	'Ярославль',
+	'Владивосток',
+	'Махачкала',
+	'Томск',
+	'Оренбург',
+	'Кемерово',
+	'Новокузнецк',
+	'Рязань',
+	'Астрахань',
+	'Набережные Челны',
+	'Пенза',
+	'Липецк',
+	'Киров',
+	'Чебоксары',
+	'Балашиха',
+	'Калининград',
+	'Тула',
+	'Курск',
+	'Ставрополь',
+	'Улан-Удэ',
+	'Сочи',
+	'Тверь',
+	'Магнитогорск',
+	'Иваново',
+	'Брянск',
+	'Белгород',
+	'Сургут',
+	'Владимир',
+	'Чита',
+	'Нижний Тагил',
+	'Архангельск',
+	'Калуга',
+	'Симферополь',
+	'Смоленск',
+	'Волжский',
+	'Якутск',
+	'Грозный',
+	'Подольск',
+	'Саранск',
+	'Череповец',
+	'Вологда',
+	'Орёл',
+	'Владикавказ',
+	'Йошкар-Ола',
+	'Каменск-Уральский',
+	'Мытищи',
+	'Мурманск',
+	'Нижневартовск',
+	'Новороссийск',
+	'Таганрог',
+	'Комсомольск-на-Амуре',
+	'Петрозаводск',
+	'Нальчик',
+	'Стерлитамак',
+	'Кострома',
+	'Химки',
+	'Каменск-Шахтинский',
+	'Тамбов',
+	'Курган',
+	'Энгельс',
+	'Благовещенск',
+	'Севастополь',
+	'Сыктывкар',
+	'Нижнекамск',
+	'Шахты',
+	'Ногинск',
+	'Зеленоград',
+	'Орск',
+	'Бийск',
+	'Димитровград',
+	'Новый Уренгой',
+	'Псков',
+	'Кисловодск',
+	'Армавир',
+	'Рыбинск',
+	'Ангарск',
+	'Балашов',
+	'Элиста',
+	'Копейск',
+	'Березники',
+	'Златоуст',
+	'Миасс',
+	'Абакан',
+	'Норильск',
+	'Сызрань',
+	'Великий Новгород',
+	'Бердск',
+	'Салават',
+	'Арзамас',
+	'Коломна',
+	'Домодедово',
+	'Жуковский',
+	'Одинцово',
+	'Кызыл',
+	'Ессентуки',
+	'Новочеркасск',
+	'Серпухов',
+	'Нефтеюганск',
+	'Дербент',
+	'Каменка',
+	'Майкоп',
+	'Клин',
+	'Раменское',
+	'Сергиев Посад',
+	'Новоуральск',
+	'Альметьевск',
+	'Находка',
+	'Обнинск',
+	'Каменск',
+	'Хасавюрт',
+	'Каспийск',
+	'Назрань',
+	'Евпатория',
+	'Пятигорск',
+	'Королёв',
+	'Люберцы',
+	'Щёлково',
+	'Красногорск',
+	'Электросталь',
+	'Железнодорожный',
+	'Новомосковск',
+	'Сергиевск',
+	'Черкесск',
+	'Геленджик',
+	'Минеральные Воды',
+	'Будённовск',
+	'Ковров',
+	'Саров',
+	'Егорьевск',
+	'Уссурийск',
+	'Тобольск',
+	'Ноябрьск',
+	'Северск',
+	'Муром',
+	'Камышин',
+	'Каспийский',
+	'Долгопрудный',
+	'Пушкино',
+	'Реутов',
+	'Нягань',
+	'Северодвинск',
+	'Ачинск',
+	'Канск',
+	'Минусинск',
+	'Саянск',
+	'Усть-Илимск',
+	'Братск',
+	'Ухта',
+	'Воркута',
+	'Печора',
+	'Сосногорск',
+	'Когалым',
+	'Радужный',
+	'Мегион',
+	'Лангепас',
+	'Пыть-Ях',
+	'Советский',
+	'Белоярский',
+	'Урай',
+	'Ханты-Мансийск',
+	'Югорск',
+	'Лабытнанги',
+	'Салехард',
+	'Надым',
+	'Губкинский',
+	'Тарко-Сале',
+	'Южно-Сахалинск',
 ]
 
 // Расширенный список навыков на основе категорий
 const skillCategories: Record<string, string[]> = {
 	'IT и программирование': [
-		'JavaScript', 'TypeScript', 'React', 'Next.js', 'Vue.js', 'Angular',
-		'Node.js', 'Express', 'Python', 'Django', 'Flask', 'FastAPI',
-		'PHP', 'Laravel', 'Symfony', 'Java', 'Spring Boot', 'Kotlin',
-		'C#', '.NET', 'ASP.NET', 'Go', 'Rust', 'Ruby', 'Ruby on Rails',
-		'PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Elasticsearch',
-		'REST API', 'GraphQL', 'WebSocket', 'Docker', 'Kubernetes',
-		'Git', 'Linux', 'AWS', 'Azure', 'GCP', 'CI/CD', 'Jenkins',
-		'Bitrix', 'WordPress', 'Drupal', 'Joomla', 'Frontend', 'Backend',
-		'Fullstack', 'DevOps', 'Базы данных', 'Телеграм-боты',
-		'Интеграции API', 'Тестирование', 'QA', 'Selenium', 'Jest',
-		'AI / ML', 'Нейросети', 'TensorFlow', 'PyTorch', 'Игровая разработка',
-		'Unity', 'Unreal Engine', 'Скрипты', 'Автоматизация'
+		'JavaScript',
+		'TypeScript',
+		'React',
+		'Next.js',
+		'Vue.js',
+		'Angular',
+		'Node.js',
+		'Express',
+		'Python',
+		'Django',
+		'Flask',
+		'FastAPI',
+		'PHP',
+		'Laravel',
+		'Symfony',
+		'Java',
+		'Spring Boot',
+		'Kotlin',
+		'C#',
+		'.NET',
+		'ASP.NET',
+		'Go',
+		'Rust',
+		'Ruby',
+		'Ruby on Rails',
+		'PostgreSQL',
+		'MySQL',
+		'MongoDB',
+		'Redis',
+		'Elasticsearch',
+		'REST API',
+		'GraphQL',
+		'WebSocket',
+		'Docker',
+		'Kubernetes',
+		'Git',
+		'Linux',
+		'AWS',
+		'Azure',
+		'GCP',
+		'CI/CD',
+		'Jenkins',
+		'Bitrix',
+		'WordPress',
+		'Drupal',
+		'Joomla',
+		'Frontend',
+		'Backend',
+		'Fullstack',
+		'DevOps',
+		'Базы данных',
+		'Телеграм-боты',
+		'Интеграции API',
+		'Тестирование',
+		'QA',
+		'Selenium',
+		'Jest',
+		'AI / ML',
+		'Нейросети',
+		'TensorFlow',
+		'PyTorch',
+		'Игровая разработка',
+		'Unity',
+		'Unreal Engine',
+		'Скрипты',
+		'Автоматизация',
 	],
 	'1С': [
-		'1С: Бухгалтерия', '1С: УТ', '1С: ERP', '1С: ЗУП', '1С: Розница',
-		'1С: Конфигурация', '1С: Внедрение', '1С: Обновление', '1С: Интеграция'
+		'1С: Бухгалтерия',
+		'1С: УТ',
+		'1С: ERP',
+		'1С: ЗУП',
+		'1С: Розница',
+		'1С: Конфигурация',
+		'1С: Внедрение',
+		'1С: Обновление',
+		'1С: Интеграция',
 	],
-	'Дизайн': [
-		'UI/UX', 'Figma', 'Adobe XD', 'Sketch', 'Photoshop', 'Illustrator',
-		'InDesign', 'After Effects', 'Premiere Pro', 'Адаптивный дизайн',
-		'Логотипы', 'Фирменный стиль', 'Веб-дизайн', 'Мобильный дизайн',
-		'Презентации', 'Инфографика', 'Анимация', 'Видео', '3D-графика',
-		'Blender', 'Cinema 4D', 'Полиграфия', 'Иллюстрации', 'Иконки',
-		'Моушн-дизайн', 'Интерактивный дизайн'
+	Дизайн: [
+		'UI/UX',
+		'Figma',
+		'Adobe XD',
+		'Sketch',
+		'Photoshop',
+		'Illustrator',
+		'InDesign',
+		'After Effects',
+		'Premiere Pro',
+		'Адаптивный дизайн',
+		'Логотипы',
+		'Фирменный стиль',
+		'Веб-дизайн',
+		'Мобильный дизайн',
+		'Презентации',
+		'Инфографика',
+		'Анимация',
+		'Видео',
+		'3D-графика',
+		'Blender',
+		'Cinema 4D',
+		'Полиграфия',
+		'Иллюстрации',
+		'Иконки',
+		'Моушн-дизайн',
+		'Интерактивный дизайн',
 	],
 	'Контент и копирайтинг': [
-		'SEO', 'SMM', 'Маркетинг', 'Копирайтинг', 'Контент-маркетинг',
-		'Редактура', 'Корректура', 'Написание статей', 'SEO-тексты',
-		'Коммерческие тексты', 'Переводы', 'Нейминг', 'Слоганы',
-		'Сценарии', 'Скрипты', 'Посты для соцсетей', 'Email-маркетинг',
-		'Контент-план', 'Таргетированная реклама', 'Контекстная реклама'
+		'SEO',
+		'SMM',
+		'Маркетинг',
+		'Копирайтинг',
+		'Контент-маркетинг',
+		'Редактура',
+		'Корректура',
+		'Написание статей',
+		'SEO-тексты',
+		'Коммерческие тексты',
+		'Переводы',
+		'Нейминг',
+		'Слоганы',
+		'Сценарии',
+		'Скрипты',
+		'Посты для соцсетей',
+		'Email-маркетинг',
+		'Контент-план',
+		'Таргетированная реклама',
+		'Контекстная реклама',
 	],
 	'Бизнес и жизнь': [
-		'Консалтинг', 'Бизнес-планы', 'Обучение', 'Коучинг', 'Менторинг',
-		'Подбор персонала', 'HR', 'Юридические услуги', 'Документооборот',
-		'Продажи', 'Переговоры', 'Проектный менеджмент', 'PM', 'Scrum',
-		'Agile', 'Kanban', 'Аналитика', 'Бухгалтерия', 'Финансы'
+		'Консалтинг',
+		'Бизнес-планы',
+		'Обучение',
+		'Коучинг',
+		'Менторинг',
+		'Подбор персонала',
+		'HR',
+		'Юридические услуги',
+		'Документооборот',
+		'Продажи',
+		'Переговоры',
+		'Проектный менеджмент',
+		'PM',
+		'Scrum',
+		'Agile',
+		'Kanban',
+		'Аналитика',
+		'Бухгалтерия',
+		'Финансы',
 	],
 	'Аудио, видео, съёмка': [
-		'Видеомонтаж', 'Монтаж', 'Цветокоррекция', 'Звукорежиссура',
-		'Озвучка', 'Субтитры', 'Видеосъёмка', 'Фотосъёмка', 'Обработка фото',
-		'Стриминг', 'YouTube', 'Подкасты', 'Музыка', 'Аудио-постпродакшн'
+		'Видеомонтаж',
+		'Монтаж',
+		'Цветокоррекция',
+		'Звукорежиссура',
+		'Озвучка',
+		'Субтитры',
+		'Видеосъёмка',
+		'Фотосъёмка',
+		'Обработка фото',
+		'Стриминг',
+		'YouTube',
+		'Подкасты',
+		'Музыка',
+		'Аудио-постпродакшн',
 	],
-	'Маркетплейсы': [
-		'Wildberries', 'Ozon', 'Яндекс.Маркет', 'Авито', 'Юла',
-		'Настройка карточек', 'SEO карточек', 'Продвижение', 'Аналитика',
-		'Работа с отзывами', 'Логистика', 'Фулфилмент'
+	Маркетплейсы: [
+		'Wildberries',
+		'Ozon',
+		'Яндекс.Маркет',
+		'Авито',
+		'Юла',
+		'Настройка карточек',
+		'SEO карточек',
+		'Продвижение',
+		'Аналитика',
+		'Работа с отзывами',
+		'Логистика',
+		'Фулфилмент',
 	],
 	'Соцсети и мессенджеры': [
-		'ВКонтакте', 'Telegram', 'WhatsApp', 'Instagram', 'Facebook',
-		'Одноклассники', 'YouTube', 'TikTok', 'Настройка рекламы',
-		'Ведение сообществ', 'Контент для соцсетей', 'Модерация'
+		'ВКонтакте',
+		'Telegram',
+		'WhatsApp',
+		'Instagram',
+		'Facebook',
+		'Одноклассники',
+		'YouTube',
+		'TikTok',
+		'Настройка рекламы',
+		'Ведение сообществ',
+		'Контент для соцсетей',
+		'Модерация',
 	],
-	'Разное': [
-		'Вёрстка', 'HTML', 'CSS', 'SCSS', 'SASS', 'Tailwind CSS',
-		'Bootstrap', 'Адаптивная вёрстка', 'Микроразметка', 'PWA',
-		'Веб-аналитика', 'Google Analytics', 'Яндекс.Метрика',
-		'Техническая поддержка', 'Администрирование', 'Безопасность',
-		'Парсинг данных', 'Автоматизация процессов'
-	]
+	Разное: [
+		'Вёрстка',
+		'HTML',
+		'CSS',
+		'SCSS',
+		'SASS',
+		'Tailwind CSS',
+		'Bootstrap',
+		'Адаптивная вёрстка',
+		'Микроразметка',
+		'PWA',
+		'Веб-аналитика',
+		'Google Analytics',
+		'Яндекс.Метрика',
+		'Техническая поддержка',
+		'Администрирование',
+		'Безопасность',
+		'Парсинг данных',
+		'Автоматизация процессов',
+	],
 }
 
 // Компонент выбора навыков
@@ -136,15 +446,21 @@ function SkillsSelector({
 	}, [searchQuery])
 
 	// Мемоизация функций для оптимизации
-	const addSkill = useCallback((skill: string) => {
-		if (!skills.includes(skill)) {
-			setSkills([...skills, skill])
-		}
-	}, [skills, setSkills])
+	const addSkill = useCallback(
+		(skill: string) => {
+			if (!skills.includes(skill)) {
+				setSkills([...skills, skill])
+			}
+		},
+		[skills, setSkills]
+	)
 
-	const removeSkill = useCallback((skill: string) => {
-		setSkills(skills.filter(s => s !== skill))
-	}, [skills, setSkills])
+	const removeSkill = useCallback(
+		(skill: string) => {
+			setSkills(skills.filter(s => s !== skill))
+		},
+		[skills, setSkills]
+	)
 
 	// Мемоизация фильтрованных категорий
 	const filteredCategories = useMemo(() => {
@@ -152,18 +468,23 @@ function SkillsSelector({
 			if (selectedCategory && category !== selectedCategory) return false
 			if (!debouncedSearchQuery) return true
 			const query = debouncedSearchQuery.toLowerCase()
-			return category.toLowerCase().includes(query) || 
-			       items.some(item => item.toLowerCase().includes(query))
+			return (
+				category.toLowerCase().includes(query) ||
+				items.some(item => item.toLowerCase().includes(query))
+			)
 		})
 	}, [selectedCategory, debouncedSearchQuery])
 
 	// Мемоизация фильтрованных навыков для категории
-	const getFilteredSkills = useCallback((category: string) => {
-		const items = skillCategories[category] || []
-		if (!debouncedSearchQuery) return items
-		const query = debouncedSearchQuery.toLowerCase()
-		return items.filter(item => item.toLowerCase().includes(query))
-	}, [debouncedSearchQuery])
+	const getFilteredSkills = useCallback(
+		(category: string) => {
+			const items = skillCategories[category] || []
+			if (!debouncedSearchQuery) return items
+			const query = debouncedSearchQuery.toLowerCase()
+			return items.filter(item => item.toLowerCase().includes(query))
+		},
+		[debouncedSearchQuery]
+	)
 
 	return (
 		<div className='space-y-4'>
@@ -231,11 +552,14 @@ function SkillsSelector({
 				{filteredCategories.map(([category]) => {
 					const skillsToShow = getFilteredSkills(category)
 					if (skillsToShow.length === 0) return null
-					
+
 					return (
 						<div key={category}>
 							<h3 className='text-emerald-400 text-xs sm:text-sm mb-1.5 sm:mb-2 font-medium'>
-								{category} <span className='text-gray-500 text-xs'>({skillsToShow.length})</span>
+								{category}{' '}
+								<span className='text-gray-500 text-xs'>
+									({skillsToShow.length})
+								</span>
 							</h3>
 							<div className='flex flex-wrap gap-1.5 sm:gap-2'>
 								{skillsToShow.map(skill => (
@@ -259,7 +583,8 @@ function SkillsSelector({
 				})}
 				{filteredCategories.length === 0 && debouncedSearchQuery && (
 					<div className='text-center py-8 text-gray-400 text-sm'>
-						Навыки не найдены. Попробуйте другой запрос или добавьте свой навык ниже.
+						Навыки не найдены. Попробуйте другой запрос или добавьте свой навык
+						ниже.
 					</div>
 				)}
 			</div>
@@ -306,7 +631,9 @@ export default function EditProfileModal({
 	const [saving, setSaving] = useState(false)
 	const [mounted, setMounted] = useState(false)
 	const [showCityDropdown, setShowCityDropdown] = useState(false)
-	const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+	const [validationErrors, setValidationErrors] = useState<
+		Record<string, string>
+	>({})
 	const locationInputRef = useRef<HTMLInputElement>(null)
 	const cityDropdownRef = useRef<HTMLDivElement>(null)
 	const citySearchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -347,49 +674,57 @@ export default function EditProfileModal({
 	}, [])
 
 	// Валидация в реальном времени
-	const validateField = useCallback((field: string, value: string | string[]) => {
-		const errors: Record<string, string> = {}
-		
-		if (field === 'fullName' && typeof value === 'string') {
-			if (!value.trim()) {
-				errors.fullName = 'Имя обязательно для заполнения'
-			} else if (value.trim().length < 2) {
-				errors.fullName = 'Имя должно содержать минимум 2 символа'
-			} else if (value.trim().length > 100) {
-				errors.fullName = 'Имя не должно превышать 100 символов'
+	const validateField = useCallback(
+		(field: string, value: string | string[]) => {
+			const errors: Record<string, string> = {}
+
+			if (field === 'fullName' && typeof value === 'string') {
+				if (!value.trim()) {
+					errors.fullName = 'Имя обязательно для заполнения'
+				} else if (value.trim().length < 2) {
+					errors.fullName = 'Имя должно содержать минимум 2 символа'
+				} else if (value.trim().length > 100) {
+					errors.fullName = 'Имя не должно превышать 100 символов'
+				}
 			}
-		}
-		
-		if (field === 'description' && typeof value === 'string' && value.length > 1000) {
-			errors.description = 'Описание не должно превышать 1000 символов'
-		}
-		
-		if (field === 'skills' && Array.isArray(value) && value.length > 20) {
-			errors.skills = 'Можно выбрать не более 20 навыков'
-		}
-		
-		setValidationErrors(prev => ({ ...prev, ...errors }))
-		return Object.keys(errors).length === 0
-	}, [])
+
+			if (
+				field === 'description' &&
+				typeof value === 'string' &&
+				value.length > 1000
+			) {
+				errors.description = 'Описание не должно превышать 1000 символов'
+			}
+
+			if (field === 'skills' && Array.isArray(value) && value.length > 20) {
+				errors.skills = 'Можно выбрать не более 20 навыков'
+			}
+
+			setValidationErrors(prev => ({ ...prev, ...errors }))
+			return Object.keys(errors).length === 0
+		},
+		[]
+	)
 
 	// Мемоизация прогресса заполнения
 	const completionProgress = useMemo(() => {
 		let filled = 0
 		// Для заказчиков не считаем навыки
 		const total = user.role === 'executor' ? 4 : 3
-		
+
 		if (fullName.trim()) filled++
 		if (description.trim()) filled++
 		if (location.trim()) filled++
 		if (user.role === 'executor' && skills.length > 0) filled++
-		
+
 		return Math.round((filled / total) * 100)
 	}, [fullName, description, location, skills, user.role])
 
 	// Блокировка прокрутки body когда модальное окно открыто
 	useEffect(() => {
 		if (isOpen) {
-			const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+			const scrollbarWidth =
+				window.innerWidth - document.documentElement.clientWidth
 			document.body.style.overflow = 'hidden'
 			document.body.style.paddingRight = `${scrollbarWidth}px`
 		} else {
@@ -421,13 +756,14 @@ export default function EditProfileModal({
 
 	const handleSave = useCallback(async () => {
 		if (!token) return toast.error('Нет токена авторизации')
-		
+
 		// Валидация всех полей
 		const isFullNameValid = validateField('fullName', fullName)
 		const isDescriptionValid = validateField('description', description)
 		// Для заказчиков не валидируем навыки
-		const isSkillsValid = user.role === 'executor' ? validateField('skills', skills as any) : true
-		
+		const isSkillsValid =
+			user.role === 'executor' ? validateField('skills', skills as any) : true
+
 		if (!isFullNameValid || !isDescriptionValid || !isSkillsValid) {
 			return toast.error('Исправьте ошибки в форме')
 		}
@@ -462,7 +798,18 @@ export default function EditProfileModal({
 		} finally {
 			setSaving(false)
 		}
-	}, [token, fullName, description, location, skills, avatarFile, user.role, validateField, onSuccess, onClose])
+	}, [
+		token,
+		fullName,
+		description,
+		location,
+		skills,
+		avatarFile,
+		user.role,
+		validateField,
+		onSuccess,
+		onClose,
+	])
 
 	const handleAvatarChange = useCallback((file: File) => {
 		// Валидация размера файла (макс 5MB)
@@ -470,13 +817,13 @@ export default function EditProfileModal({
 			toast.error('Размер файла не должен превышать 5MB')
 			return
 		}
-		
+
 		// Валидация типа файла
 		if (!file.type.startsWith('image/')) {
 			toast.error('Выберите изображение')
 			return
 		}
-		
+
 		setAvatarFile(file)
 		setAvatarPreview(URL.createObjectURL(file))
 	}, [])
@@ -485,7 +832,7 @@ export default function EditProfileModal({
 
 	return (
 		<div
-			className='fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center'
+			className='fixed inset-0 z-[10003] bg-black/80 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6'
 			onClick={onClose}
 			data-profile-modal
 			style={{
@@ -493,21 +840,17 @@ export default function EditProfileModal({
 				left: 0,
 				right: 0,
 				bottom: 0,
-				width: '100vw',
-				height: '100vh',
-				margin: 0,
-				paddingTop: '4rem',
-				paddingBottom: '1rem',
-				paddingLeft: '1rem',
-				paddingRight: '1rem'
+				paddingTop: '0rem',
+				paddingBottom: '0rem',
 			}}
 		>
 			<div
-				className='relative w-full max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 rounded-lg sm:rounded-xl md:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden'
+				className='relative w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 rounded-lg sm:rounded-xl md:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden'
 				style={{
-					maxHeight: '85vh',
+					height: 'calc(100vh - 3.5rem - 1rem)',
+					maxHeight: 'calc(100vh - 3rem - 1rem)',
 					display: 'flex',
-					flexDirection: 'column'
+					flexDirection: 'column',
 				}}
 				onClick={e => e.stopPropagation()}
 			>
@@ -534,12 +877,19 @@ export default function EditProfileModal({
 				</div>
 
 				{/* Контент */}
-				<div className='flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 pb-6 text-white custom-scrollbar'>
+				<div
+					className='flex-1 overflow-y-auto p-4 sm:p-5 text-white custom-scrollbar'
+					style={{ minHeight: 0 }}
+				>
 					{/* Индикатор заполнения */}
 					<div className='mb-4 bg-black/40 border border-emerald-500/30 rounded-lg p-2.5 sm:p-3'>
 						<div className='flex items-center justify-between mb-2'>
-							<span className='text-xs sm:text-sm text-gray-300 font-medium'>Прогресс заполнения</span>
-							<span className='text-xs sm:text-sm font-bold text-emerald-400'>{completionProgress}%</span>
+							<span className='text-xs sm:text-sm text-gray-300 font-medium'>
+								Прогресс заполнения
+							</span>
+							<span className='text-xs sm:text-sm font-bold text-emerald-400'>
+								{completionProgress}%
+							</span>
 						</div>
 						<div className='w-full bg-gray-700/50 rounded-full h-2 overflow-hidden'>
 							<div
@@ -554,7 +904,7 @@ export default function EditProfileModal({
 						<h3 className='text-sm sm:text-base font-semibold text-emerald-400 mb-2 pb-1.5 border-b border-emerald-500/30'>
 							Основная информация
 						</h3>
-						
+
 						{/* Имя */}
 						<div className='space-y-1.5'>
 							<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
@@ -593,7 +943,9 @@ export default function EditProfileModal({
 								</p>
 							)}
 							{fullName.trim() && !validationErrors.fullName && (
-								<p className='text-xs text-gray-500'>{fullName.trim().length}/100 символов</p>
+								<p className='text-xs text-gray-500'>
+									{fullName.trim().length}/100 символов
+								</p>
 							)}
 						</div>
 
@@ -601,7 +953,9 @@ export default function EditProfileModal({
 						<div className='space-y-1.5'>
 							<label className='text-emerald-400 font-medium text-xs sm:text-sm'>
 								Описание
-								<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
+								<span className='text-gray-500 text-xs ml-1.5 font-normal'>
+									(необязательно)
+								</span>
 							</label>
 							<div className='relative'>
 								<textarea
@@ -631,14 +985,18 @@ export default function EditProfileModal({
 									{validationErrors.description}
 								</p>
 							)}
-							<p className='text-xs text-gray-500'>{description.length}/1000 символов</p>
+							<p className='text-xs text-gray-500'>
+								{description.length}/1000 символов
+							</p>
 						</div>
 
 						{/* Город - автодополнение с выпадающим списком */}
 						<div className='space-y-1.5'>
 							<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
 								<FaCity className='text-xs sm:text-sm' /> Город
-								<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
+								<span className='text-gray-500 text-xs ml-1.5 font-normal'>
+									(необязательно)
+								</span>
 							</label>
 							<div className='relative' ref={cityDropdownRef}>
 								<input
@@ -671,7 +1029,9 @@ export default function EditProfileModal({
 									</div>
 								)}
 							</div>
-							<p className='text-xs text-gray-500'>Выберите из списка или введите свой город</p>
+							<p className='text-xs text-gray-500'>
+								Выберите из списка или введите свой город
+							</p>
 						</div>
 					</div>
 
@@ -683,7 +1043,9 @@ export default function EditProfileModal({
 						<div className='space-y-2'>
 							<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
 								<FaImage className='text-xs sm:text-sm' /> Аватар
-								<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
+								<span className='text-gray-500 text-xs ml-1.5 font-normal'>
+									(необязательно)
+								</span>
 							</label>
 							<div className='flex flex-col sm:flex-row items-start sm:items-center gap-3'>
 								<label
@@ -711,7 +1073,9 @@ export default function EditProfileModal({
 									</div>
 								)}
 							</div>
-							<p className='text-xs text-gray-500'>Рекомендуемый размер: квадрат, не более 5MB</p>
+							<p className='text-xs text-gray-500'>
+								Рекомендуемый размер: квадрат, не более 5MB
+							</p>
 						</div>
 					</div>
 
@@ -724,11 +1088,13 @@ export default function EditProfileModal({
 							<div className='space-y-2'>
 								<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
 									<FaCode className='text-xs sm:text-sm' /> Ваши навыки
-									<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
+									<span className='text-gray-500 text-xs ml-1.5 font-normal'>
+										(необязательно)
+									</span>
 								</label>
-								<SkillsSelector 
-									skills={skills} 
-									setSkills={(newSkills) => {
+								<SkillsSelector
+									skills={skills}
+									setSkills={newSkills => {
 										setSkills(newSkills)
 										if (newSkills.length > 20) {
 											validateField('skills', newSkills as any)
@@ -739,11 +1105,25 @@ export default function EditProfileModal({
 												return next
 											})
 										}
-									}} 
+									}}
 								/>
 								{skills.length > 0 && (
-									<p className={`text-xs font-medium ${skills.length > 20 ? 'text-red-400' : 'text-gray-400'}`}>
-										Выбрано: <span className={skills.length > 20 ? 'text-red-400 font-bold' : 'text-emerald-400'}>{skills.length}</span>/20 навыков
+									<p
+										className={`text-xs font-medium ${
+											skills.length > 20 ? 'text-red-400' : 'text-gray-400'
+										}`}
+									>
+										Выбрано:{' '}
+										<span
+											className={
+												skills.length > 20
+													? 'text-red-400 font-bold'
+													: 'text-emerald-400'
+											}
+										>
+											{skills.length}
+										</span>
+										/20 навыков
 									</p>
 								)}
 								{validationErrors.skills && (
