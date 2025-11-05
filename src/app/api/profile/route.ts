@@ -166,12 +166,12 @@ export async function GET(req: Request) {
             return false
           }
           if (fullUser.role === 'executor' && customerOnlyFields.includes(conditionType)) {
-            return false
+      return false
           }
         } catch (error) {
           // Если не удалось распарсить условие, оставляем badge
           console.error(`[Profile API] Ошибка парсинга условия для badge ${badge.id}:`, error)
-        }
+    }
       }
       
       return true

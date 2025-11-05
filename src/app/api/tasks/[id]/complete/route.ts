@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { awardXP } from '@/lib/level/awardXP'
+import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 
 export async function PATCH(req: NextRequest, { params }: any) {
 	try {
@@ -162,38 +163,71 @@ export async function PATCH(req: NextRequest, { params }: any) {
 					20, // +20 XP за выполненную задачу
 					`Выполнена задача "${task.title}"`
 				)
-
-				// ✅ Проверяем бейджи после начисления XP (для исполнителя)
-				try {
-					const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
-					await checkAndAwardBadges(task.executorId)
-				} catch (badgeError) {
-					console.error('[Badges] Ошибка проверки достижений для исполнителя:', badgeError)
-				}
 			}
 		} catch (xpError) {
 			// Логируем ошибку, но не прерываем выполнение
 			console.error('[XP] Ошибка начисления XP при завершении задачи:', xpError)
 		}
 
-		// ✅ Проверяем бейджи для заказчика (при завершении задачи) - ВЫНОСИМ ОТДЕЛЬНО
-		// Это должно быть после транзакции, чтобы задача уже была в статусе 'completed'
+		// 🎯 Проверяем и начисляем достижения после завершения задачи
+		// Для заказчика: проверяем paidTasks и totalSpent
+		// Для исполнителя: проверяем completedTasks
+		let customerBadges: Array<{ id: string; name: string; icon: string; description?: string }> = []
+		let executorBadges: Array<{ id: string; name: string; icon: string; description?: string }> = []
+		
 		try {
-			console.log(`[Badges] Проверка достижений для заказчика ${task.customerId} после завершения задачи ${task.id}`)
-			const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
-			const awardedBadges = await checkAndAwardBadges(task.customerId)
-			if (awardedBadges.length > 0) {
-				console.log(`[Badges] ✅ Заказчик ${task.customerId} получил ${awardedBadges.length} достижений:`, awardedBadges.map(b => b.name))
-			} else {
-				console.log(`[Badges] ℹ️ Заказчик ${task.customerId} не получил новых достижений`)
+			console.log(`[Badges] 🔍 Проверяем достижения для заказчика ${task.customerId} после завершения задачи ${task.id}`)
+			const newCustomerBadges = await checkAndAwardBadges(task.customerId)
+			if (newCustomerBadges.length > 0) {
+				const badgeIds = newCustomerBadges.map(b => b.id)
+				const fullBadges = await prisma.badge.findMany({
+					where: { id: { in: badgeIds } },
+					select: { id: true, name: true, icon: true, description: true }
+				})
+				customerBadges = fullBadges.map(badge => ({
+					id: badge.id,
+					name: badge.name,
+					icon: badge.icon,
+					description: badge.description
+				}))
+				console.log(`[Badges] ✅ Заказчику ${task.customerId} начислено ${customerBadges.length} достижений:`, customerBadges.map(b => b.name))
+			}
+
+			if (task.executorId) {
+				console.log(`[Badges] 🔍 Проверяем достижения для исполнителя ${task.executorId} после завершения задачи ${task.id}`)
+				const newExecutorBadges = await checkAndAwardBadges(task.executorId)
+				if (newExecutorBadges.length > 0) {
+					const badgeIds = newExecutorBadges.map(b => b.id)
+					const fullBadges = await prisma.badge.findMany({
+						where: { id: { in: badgeIds } },
+						select: { id: true, name: true, icon: true, description: true }
+					})
+					executorBadges = fullBadges.map(badge => ({
+						id: badge.id,
+						name: badge.name,
+						icon: badge.icon,
+						description: badge.description
+					}))
+					console.log(`[Badges] ✅ Исполнителю ${task.executorId} начислено ${executorBadges.length} достижений:`, executorBadges.map(b => b.name))
+				}
 			}
 		} catch (badgeError) {
-			console.error('[Badges] ❌ Ошибка проверки достижений для заказчика:', badgeError)
+			console.error('[Badges] ❌ Ошибка проверки достижений:', badgeError)
 		}
 
-		return NextResponse.json({ success: true })
-	} catch (err) {
+		return NextResponse.json({ 
+			success: true,
+			task: {
+				...task,
+				status: 'completed'
+			},
+			awardedBadges: {
+				customer: customerBadges,
+				executor: executorBadges
+			}
+		})
+	} catch (err: any) {
 		console.error('Ошибка при завершении задачи:', err)
-		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+		return NextResponse.json({ error: err.message || 'Ошибка сервера' }, { status: 500 })
 	}
 }

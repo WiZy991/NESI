@@ -78,7 +78,8 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
         select: {
           amount: true,
           type: true,
-          createdAt: true
+          createdAt: true,
+          taskId: true
         }
       })
     ])
@@ -176,19 +177,51 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
     
     // Статистика для заказчиков
     const completedTasks = user.role === 'customer' ? completedTasksAsCustomer : completedTasksAsExecutor
-    // Платежи заказчика (транзакции типа payment или связанные с задачами)
-    const paymentTransactions = transactions.filter(t => 
-      t.type === 'payment' || (t.type && t.type.toLowerCase().includes('payment'))
-    )
-    const paidTasks = paymentTransactions.length
-    const totalSpent = paymentTransactions.reduce((sum, t) => sum + (t.amount ? Number(t.amount) : 0), 0)
+    
+    // Оплаченные задачи заказчика: считаем только завершенные задачи с транзакциями типа 'payment'
+    // Транзакции типа 'payment' создаются при завершении задачи (см. tasks/[id]/complete/route.ts)
+    // Используем оптимизированный запрос: получаем только транзакции для завершенных задач заказчика
+    const completedTasksWithPayments = await prisma.task.findMany({
+      where: {
+        customerId: userId,
+        status: 'completed',
+        Transaction: {
+          some: {
+            type: 'payment',
+            userId: userId
+          }
+        }
+      },
+      include: {
+        Transaction: {
+          where: {
+            type: 'payment',
+            userId: userId
+          },
+          select: {
+            amount: true
+          }
+        }
+      }
+    })
+    
+    const paidTasks = completedTasksWithPayments.length
+    // totalSpent считаем по абсолютному значению суммы (т.к. payment транзакции отрицательные)
+    const totalSpent = completedTasksWithPayments.reduce((sum, task) => {
+      const taskPayment = task.Transaction[0] // Берем первую транзакцию payment для задачи
+      if (taskPayment) {
+        return sum + Math.abs(taskPayment.amount ? Number(taskPayment.amount) : 0)
+      }
+      return sum
+    }, 0)
     const reviewsGivenCount = reviewsGiven.length
     
-    // Уникальные исполнители (для заказчиков)
+    // Уникальные исполнители (для заказчиков): считаем только по завершенным задачам
     const uniqueExecutorsResult = await prisma.task.findMany({
       where: {
         customerId: userId,
-        executorId: { not: null }
+        executorId: { not: null },
+        status: 'completed' // Только завершенные задачи
       },
       select: {
         executorId: true
@@ -198,27 +231,42 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
     const uniqueExecutors = uniqueExecutorsResult.length
     
     // Активность по месяцам (для заказчиков)
-    // Проверяем, есть ли завершенные задачи в каждом из последних 3 месяцев
+    // Проверяем, была ли активность (создание или завершение задач) в каждый из последних месяцев
     const now = new Date()
     const monthlyActiveMonths = []
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 12; i++) { // Проверяем до 12 месяцев для гибкости
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59)
-      const tasksInMonth = await prisma.task.count({
-        where: {
-          customerId: userId,
-          status: 'completed',
-          completedAt: {
-            gte: monthStart,
-            lte: monthEnd
+      
+      // Проверяем активность: созданные задачи ИЛИ завершенные задачи в этом месяце
+      const [createdInMonth, completedInMonth] = await Promise.all([
+        prisma.task.count({
+          where: {
+            customerId: userId,
+            createdAt: {
+              gte: monthStart,
+              lte: monthEnd
+            }
           }
-        }
-      })
-      if (tasksInMonth > 0) {
+        }),
+        prisma.task.count({
+          where: {
+            customerId: userId,
+            status: 'completed',
+            completedAt: {
+              gte: monthStart,
+              lte: monthEnd
+            }
+          }
+        })
+      ])
+      
+      // Если есть активность (создание или завершение), месяц считается активным
+      if (createdInMonth > 0 || completedInMonth > 0) {
         monthlyActiveMonths.push(i)
       }
     }
-    const monthlyActive = monthlyActiveMonths.length // Количество месяцев с активностью (0-3)
+    const monthlyActive = monthlyActiveMonths.length // Количество активных месяцев
     
     // Детальное логирование статистики для заказчиков
     if (user.role === 'customer') {
@@ -307,11 +355,11 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
         continue
       }
       
-             // Дополнительная проверка: для достижений с targetRole = null проверяем, что условие подходит для роли
-       // Например, если условие использует completedTasks, то для заказчика должно быть completedTasksAsCustomer
-       if (badge.targetRole === null) {
-         console.log(`[Badges] ℹ️ Бейдж ${badge.id} (${badge.name}) предназначен для всех ролей (targetRole = null) - проверяем условие`)
-       }
+      // Дополнительная проверка: для достижений с targetRole = null проверяем, что условие подходит для роли
+      // Например, если условие использует completedTasks, то для заказчика должно быть completedTasksAsCustomer
+      if (badge.targetRole === null) {
+        console.log(`[Badges] ℹ️ Бейдж ${badge.id} (${badge.name}) предназначен для всех ролей (targetRole = null) - проверяем условие`)
+      }
 
        // Дополнительная проверка: если условие использует поле, специфичное для одной роли,
        // то для универсальных badges (targetRole = null) нужно проверить, что условие применимо к роли пользователя
@@ -332,7 +380,7 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
          }
        }
 
-       // Подготавливаем статистику для проверки
+      // Подготавливаем статистику для проверки
        // ВАЖНО: Для заказчиков используем только статистику заказчика, для исполнителей - только исполнителя
       const stats = {
         completedTasks: user.role === 'customer' ? completedTasksAsCustomer : completedTasksAsExecutor,

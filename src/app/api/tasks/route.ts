@@ -1,6 +1,7 @@
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
+import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 
 export async function GET(req: Request) {
 	const user = await getUserFromRequest(req)
@@ -284,11 +285,24 @@ export async function POST(req: Request) {
 
 		// ✅ Проверяем достижения для заказчика при создании задачи
 		// Важно: проверяем после сохранения задачи в БД
+		// ✅ Проверяем достижения после создания задачи (для заказчика)
+		let awardedBadges: Array<{ id: string; name: string; icon: string; description?: string }> = []
 		try {
 			console.log(`[Badges] 🎯 Проверка достижений для заказчика ${user.id} после создания задачи ${task.id}`)
-			const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
-			const awardedBadges = await checkAndAwardBadges(user.id)
-			if (awardedBadges.length > 0) {
+			const newBadges = await checkAndAwardBadges(user.id)
+			if (newBadges.length > 0) {
+				// Получаем полную информацию о достижениях (включая description)
+				const badgeIds = newBadges.map(b => b.id)
+				const fullBadges = await prisma.badge.findMany({
+					where: { id: { in: badgeIds } },
+					select: { id: true, name: true, icon: true, description: true }
+				})
+				awardedBadges = fullBadges.map(badge => ({
+					id: badge.id,
+					name: badge.name,
+					icon: badge.icon,
+					description: badge.description
+				}))
 				console.log(`[Badges] ✅ Заказчик ${user.id} получил ${awardedBadges.length} достижений при создании задачи:`, awardedBadges.map(b => b.name))
 			} else {
 				console.log(`[Badges] ℹ️ Заказчик ${user.id} не получил новых достижений при создании задачи`)
@@ -297,7 +311,7 @@ export async function POST(req: Request) {
 			console.error('[Badges] ❌ Ошибка проверки достижений при создании задачи:', badgeError)
 		}
 
-		return NextResponse.json({ task })
+		return NextResponse.json({ task, awardedBadges })
 	} catch (err) {
 		console.error('Ошибка при создании задачи:', err)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })

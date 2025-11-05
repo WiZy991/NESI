@@ -6,6 +6,7 @@ import { createNotification } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
+import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 
 export async function POST(req: Request, context: { params: { id: string } }) {
 	try {
@@ -143,9 +144,32 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 			console.error('❌ Ошибка отправки уведомления о назначении:', notifError)
 		}
 
-		return NextResponse.json({ success: true })
-	} catch (err) {
+		// 🎯 Проверяем достижения для заказчика после назначения исполнителя (для uniqueExecutors)
+		let awardedBadges: Array<{ id: string; name: string; icon: string; description?: string }> = []
+		try {
+			console.log(`[Badges] 🔍 Проверяем достижения для заказчика ${user.id} после назначения исполнителя для задачи ${taskId}`)
+			const newBadges = await checkAndAwardBadges(user.id)
+			if (newBadges.length > 0) {
+				const badgeIds = newBadges.map(b => b.id)
+				const fullBadges = await prisma.badge.findMany({
+					where: { id: { in: badgeIds } },
+					select: { id: true, name: true, icon: true, description: true }
+				})
+				awardedBadges = fullBadges.map((badge: any) => ({
+					id: badge.id,
+					name: badge.name,
+					icon: badge.icon,
+					description: badge.description
+				}))
+				console.log(`[Badges] ✅ Заказчику ${user.id} начислено ${awardedBadges.length} достижений:`, awardedBadges.map(b => b.name))
+			}
+		} catch (badgeError) {
+			console.error('[Badges] ❌ Ошибка проверки достижений для заказчика:', badgeError)
+		}
+
+		return NextResponse.json({ task, awardedBadges })
+	} catch (err: any) {
 		console.error('Ошибка при назначении исполнителя:', err)
-		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+		return NextResponse.json({ error: err.message || 'Ошибка сервера' }, { status: 500 })
 	}
 }

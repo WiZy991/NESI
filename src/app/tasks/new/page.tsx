@@ -11,6 +11,7 @@ import TaskPreview from '@/components/TaskPreview'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import TaskTemplates, { SaveTemplateButton } from '@/components/TaskTemplates'
 import type { TaskTemplate } from '@/hooks/useTaskTemplates'
+import { BadgeUnlockedModal, BadgeData } from '@/components/BadgeUnlockedModal'
 
 type Category = {
   id: string
@@ -31,6 +32,8 @@ export default function CreateTaskPage() {
   const [loading, setLoading] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [currentBadge, setCurrentBadge] = useState<BadgeData | null>(null)
+  const [badgeQueue, setBadgeQueue] = useState<BadgeData[]>([])
 
   // Автосохранение черновика
   const formData = {
@@ -69,6 +72,25 @@ export default function CreateTaskPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const showNextBadge = () => {
+    if (badgeQueue.length > 0) {
+      setCurrentBadge(badgeQueue[0])
+      setBadgeQueue(prev => prev.slice(1))
+    } else {
+      setCurrentBadge(null)
+    }
+  }
+
+  const handleBadgeClose = () => {
+    setCurrentBadge(null)
+    // Показываем следующее достижение после небольшой задержки
+    setTimeout(() => {
+      if (badgeQueue.length > 0) {
+        showNextBadge()
+      }
+    }, 300)
+  }
+
   const handleCreate = async () => {
     if (!title.trim() || !description.trim() || !subcategoryId) {
       return toast.error('Заполни все поля и выбери подкатегорию')
@@ -84,29 +106,42 @@ export default function CreateTaskPage() {
       formData.append('title', title)
       formData.append('description', description)
       formData.append('subcategoryId', subcategoryId)
-      files.forEach((file) => formData.append('files', file))
+      files.forEach((file) => {
+        formData.append('files', file)
+      })
 
-      await toast.promise(
-        fetch('/api/tasks', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }).then((res) => {
-          if (!res.ok) throw new Error('Ошибка при создании')
-          return res
-        }),
-        {
-          loading: 'Создание задачи...',
-          success: 'Задача успешно создана!',
-          error: 'Ошибка сервера',
-        }
-      )
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
 
-      // Удаляем черновик после успешной отправки
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast.error(data.error || 'Ошибка при создании задачи')
+        return
+      }
+
       clearDraft()
-      router.push('/profile')
+      toast.success('Задача создана!')
+
+      // Показываем достижения, если они есть
+      if (data.awardedBadges && data.awardedBadges.length > 0) {
+        setBadgeQueue(data.awardedBadges)
+        showNextBadge()
+        // Переходим на страницу задачи после показа всех достижений
+        setTimeout(() => {
+          router.push(`/tasks/${data.task.id}`)
+        }, data.awardedBadges.length * 5500) // Время на показ всех достижений
+      } else {
+        router.push(`/tasks/${data.task.id}`)
+      }
+    } catch (err) {
+      console.error('Ошибка при создании задачи:', err)
+      toast.error('Ошибка сети')
     } finally {
       setLoading(false)
     }
@@ -134,8 +169,8 @@ export default function CreateTaskPage() {
   // Проверка, можно ли показать предпросмотр
   const canPreview = title.trim() && description.trim() && subcategoryId
 
-  return (
-    <ProtectedPage>
+  	return (
+		<ProtectedPage>
       <div className="relative flex justify-center items-center min-h-[80vh] overflow-hidden">
         {/* фоновая подсветка - убрана анимация pulse для устранения мерцания */}
         <div className="absolute w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full" />
@@ -360,6 +395,10 @@ export default function CreateTaskPage() {
           files={files}
           onClose={() => setShowPreview(false)}
         />
+      )}
+
+      {currentBadge && (
+        <BadgeUnlockedModal badge={currentBadge} onClose={handleBadgeClose} />
       )}
     </ProtectedPage>
   )
