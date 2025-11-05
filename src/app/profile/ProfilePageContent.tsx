@@ -97,6 +97,12 @@ type FullUser = {
 		reviewsReceived: number
 		responses: number
 	}
+	customerStats?: {
+		createdTasks: number
+		completedTasks: number
+		totalSpent: number
+		uniqueExecutors: number
+	}
 }
 
 type Tab = 'overview' | 'achievements' | 'reviews' | 'tasks' | 'wallet' | 'certifications'
@@ -421,6 +427,31 @@ export default function ProfilePageContent() {
 								</div>
 							</div>
 						)}
+						{/* Быстрая статистика для заказчиков */}
+						{user.role === 'customer' && (
+							<div className='flex flex-wrap gap-4 mt-4'>
+								{profile.avgRating && (
+									<div className='flex items-center gap-2 text-sm'>
+										<FaStar className='text-yellow-400' />
+										<span className='text-gray-300'>
+											{profile.avgRating.toFixed(1)} / 5 ({profile._count?.reviewsReceived || 0} отзывов)
+										</span>
+									</div>
+								)}
+								{profile.customerStats && (
+									<>
+										<div className='flex items-center gap-2 text-sm'>
+											<FaTasks className='text-blue-400' />
+											<span className='text-gray-300'>{profile.customerStats.completedTasks || 0} завершено</span>
+										</div>
+										<div className='flex items-center gap-2 text-sm'>
+											<FaWallet className='text-green-400' />
+											<span className='text-gray-300'>{Number(profile.balance ?? 0).toFixed(2)} ₽</span>
+										</div>
+									</>
+								)}
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
@@ -560,6 +591,50 @@ export default function ProfilePageContent() {
 												{profile._count?.responses || 0}
 											</div>
 											<div className='text-xs text-gray-400 mt-1'>Откликов</div>
+										</div>
+									</div>
+								</div>
+							)}
+
+							{/* Статистика для заказчиков */}
+							{user.role === 'customer' && profile.customerStats && (
+								<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
+									<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
+										<FaChartLine />
+										Статистика
+									</h3>
+									<div className='grid grid-cols-2 md:grid-cols-5 gap-4'>
+										{profile.avgRating && (
+											<div className='text-center p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20'>
+												<div className='text-2xl font-bold text-yellow-300'>
+													{profile.avgRating.toFixed(1)}
+												</div>
+												<div className='text-xs text-gray-400 mt-1'>Рейтинг</div>
+											</div>
+										)}
+										<div className='text-center p-3 bg-blue-500/10 rounded-lg border border-blue-500/20'>
+											<div className='text-2xl font-bold text-blue-300'>
+												{profile._count?.reviewsReceived || 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Отзывов</div>
+										</div>
+										<div className='text-center p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20'>
+											<div className='text-2xl font-bold text-emerald-300'>
+												{profile.customerStats.createdTasks || 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Созданных задач</div>
+										</div>
+										<div className='text-center p-3 bg-purple-500/10 rounded-lg border border-purple-500/20'>
+											<div className='text-2xl font-bold text-purple-300'>
+												{profile.customerStats.completedTasks || 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Завершено</div>
+										</div>
+										<div className='text-center p-3 bg-orange-500/10 rounded-lg border border-orange-500/20'>
+											<div className='text-2xl font-bold text-orange-300'>
+												{profile.customerStats.totalSpent ? Math.round(profile.customerStats.totalSpent).toLocaleString('ru-RU') : 0}
+											</div>
+											<div className='text-xs text-gray-400 mt-1'>Потрачено ₽</div>
 										</div>
 									</div>
 								</div>

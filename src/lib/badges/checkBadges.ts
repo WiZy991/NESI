@@ -250,15 +250,15 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
           }
         }),
         prisma.task.count({
-          where: {
-            customerId: userId,
-            status: 'completed',
-            completedAt: {
-              gte: monthStart,
-              lte: monthEnd
-            }
+        where: {
+          customerId: userId,
+          status: 'completed',
+          completedAt: {
+            gte: monthStart,
+            lte: monthEnd
           }
-        })
+        }
+      })
       ])
       
       // Если есть активность (создание или завершение), месяц считается активным
@@ -378,7 +378,7 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
            console.log(`[Badges] Пропускаем универсальное достижение ${badge.id} (${badge.name}) - условие использует поле "${condition.type}", которое применимо только для заказчиков`)
            continue
          }
-       }
+      }
 
       // Подготавливаем статистику для проверки
        // ВАЖНО: Для заказчиков используем только статистику заказчика, для исполнителей - только исполнителя

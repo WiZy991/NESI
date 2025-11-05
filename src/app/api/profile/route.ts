@@ -133,6 +133,66 @@ export async function GET(req: Request) {
     ? `/api/files/${fullUser.avatarFileId}`
     : null
 
+    // 4️⃣ Добавляем статистику для заказчика
+    let customerStats = null
+    if (fullUser.role === 'customer') {
+      const [
+        createdTasksCount,
+        completedTasksCount,
+        totalSpentResult,
+        uniqueExecutorsResult
+      ] = await Promise.all([
+        // Созданные задачи
+        prisma.task.count({
+          where: { customerId: user.id }
+        }),
+        // Завершенные задачи
+        prisma.task.count({
+          where: {
+            customerId: user.id,
+            status: 'completed'
+          }
+        }),
+        // Сумма всех расходов заказчика (транзакции типа 'payment' с отрицательным amount)
+        prisma.transaction.aggregate({
+          where: {
+            userId: user.id,
+            type: 'payment',
+            amount: { lt: 0 } // Только отрицательные (расходы)
+          },
+          _sum: {
+            amount: true
+          }
+        }),
+        // Уникальные исполнители (только по завершенным задачам)
+        prisma.task.findMany({
+          where: {
+            customerId: user.id,
+            executorId: { not: null },
+            status: 'completed'
+          },
+          select: {
+            executorId: true
+          },
+          distinct: ['executorId']
+        })
+      ])
+
+      const uniqueExecutors = uniqueExecutorsResult.length
+      
+      // Вычисляем totalSpent из суммы всех отрицательных транзакций типа 'payment'
+      const totalSpent = totalSpentResult._sum.amount 
+        ? Math.abs(Number(totalSpentResult._sum.amount))
+        : 0
+
+      customerStats = {
+        createdTasks: createdTasksCount,
+        completedTasks: completedTasksCount,
+        totalSpent,
+        uniqueExecutors
+      }
+    }
+
     // 4️⃣ Фильтруем достижения по роли пользователя
     // Оставляем только те достижения, которые подходят для роли пользователя
     // Поля, специфичные для исполнителей
@@ -184,7 +244,8 @@ export async function GET(req: Request) {
       badges: filteredBadges, // Возвращаем отфильтрованные достижения
       avatarUrl,
       avgRating,
-        isExecutor: fullUser.role === 'executor',
+      isExecutor: fullUser.role === 'executor',
+      customerStats, // Статистика для заказчика
     },
   })
   } catch (error) {

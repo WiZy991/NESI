@@ -7,85 +7,111 @@ export async function GET(
 ) {
 	try {
 		const { id } = await params
-		const user = await prisma.user.findUnique({
-			where: { id },
-			select: {
-				id: true,
-				fullName: true,
-				email: true,
-				role: true,
-				skills: true,
-				location: true,
-				description: true,
-				avatarFileId: true,
-				xp: true,
-				completedTasksCount: true,
-				avgRating: true,
-				level: true,
-				badges: {
-					select: {
-						id: true,
-						earnedAt: true,
-						badge: {
-							select: {
-								id: true,
-								name: true,
-								description: true,
-								icon: true,
-								targetRole: true,
-								condition: true, // Добавляем condition для проверки универсальных badges
-							} as any // Обход проблемы с типами Prisma
-						}
-					},
-					orderBy: { earnedAt: 'desc' },
-				},
-				certifications: {
-					select: {
-						id: true,
-						level: true,
-						grantedAt: true,
-						subcategory: {
-							select: {
-								id: true,
-								name: true,
-							}
-						}
-					},
-					orderBy: { grantedAt: 'desc' },
-					take: 4, // показываем только последние 4 сертификации
-				},
-				reviewsReceived: { 
-					select: { 
-						id: true,
-						rating: true,
-						comment: true,
-						createdAt: true,
-						taskId: true,
-						task: {
-							select: {
-								id: true,
-								title: true
+		
+		// Вычисляем avgRating параллельно с загрузкой пользователя
+		const [user, avgRatingResult, _count] = await Promise.all([
+			prisma.user.findUnique({
+				where: { id },
+				select: {
+					id: true,
+					fullName: true,
+					email: true,
+					role: true,
+					skills: true,
+					location: true,
+					description: true,
+					avatarFileId: true,
+					xp: true,
+					completedTasksCount: true,
+					level: true,
+					badges: {
+						select: {
+							id: true,
+							earnedAt: true,
+							badge: {
+								select: {
+									id: true,
+									name: true,
+									description: true,
+									icon: true,
+									targetRole: true,
+									condition: true, // Добавляем condition для проверки универсальных badges
+								} as any // Обход проблемы с типами Prisma
 							}
 						},
-						fromUser: {
-							select: {
-								id: true,
-								fullName: true,
-								email: true
-							}
-						}
+						orderBy: { earnedAt: 'desc' },
 					},
-					orderBy: { createdAt: 'desc' },
-					take: 10,
+					certifications: {
+						select: {
+							id: true,
+							level: true,
+							grantedAt: true,
+							subcategory: {
+								select: {
+									id: true,
+									name: true,
+								}
+							}
+						},
+						orderBy: { grantedAt: 'desc' },
+						take: 4, // показываем только последние 4 сертификации
+					},
+					reviewsReceived: { 
+						select: { 
+							id: true,
+							rating: true,
+							comment: true,
+							createdAt: true,
+							taskId: true,
+							task: {
+								select: {
+									id: true,
+									title: true
+								}
+							},
+							fromUser: {
+								select: {
+									id: true,
+									fullName: true,
+									email: true
+								}
+							}
+						},
+						orderBy: { createdAt: 'desc' },
+						take: 10,
+					},
 				},
-			},
-		})
+			}),
+			// Вычисляем avgRating через агрегацию (как в /api/profile)
+			prisma.review.aggregate({
+				where: { toUserId: id },
+				_avg: { rating: true },
+				_count: { rating: true },
+			}),
+			// Получаем количество отзывов и выполненных задач
+			prisma.user.findUnique({
+				where: { id },
+				select: {
+					_count: {
+						select: {
+							reviewsReceived: true,
+							executedTasks: { where: { status: 'completed' } },
+						},
+					},
+				},
+			}),
+		])
 
 		if (!user) {
 			return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 		}
 
 		const avatarUrl = user.avatarFileId ? `/api/files/${user.avatarFileId}` : null
+		
+		// Вычисляем avgRating из результата агрегации
+		const avgRating = avgRatingResult._avg.rating && avgRatingResult._count.rating > 0
+			? avgRatingResult._avg.rating
+			: null
 
 		// Фильтруем достижения по роли пользователя
 		// Поля, специфичные для исполнителей
@@ -117,7 +143,7 @@ export async function GET(
 						return false
 					}
 					if (user.role === 'executor' && customerOnlyFields.includes(conditionType)) {
-						return false
+			return false
 					}
 				} catch (error) {
 					// Если не удалось распарсить условие, оставляем badge
@@ -133,9 +159,11 @@ export async function GET(
 
 		return NextResponse.json({
 			user: {
-				...user,
+			...user,
 				badges: limitedBadges, // Отфильтрованные и ограниченные badges
 				avatarUrl,
+				avgRating, // Вычисленный рейтинг
+				_count: _count?._count, // Добавляем _count для статистики
 			},
 		})
 	} catch (error) {

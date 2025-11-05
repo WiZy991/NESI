@@ -111,11 +111,11 @@ export default function CreateTaskPage() {
       })
 
       const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
       })
 
       const data = await res.json()
@@ -169,8 +169,8 @@ export default function CreateTaskPage() {
   // Проверка, можно ли показать предпросмотр
   const canPreview = title.trim() && description.trim() && subcategoryId
 
-  	return (
-		<ProtectedPage>
+  return (
+    <ProtectedPage>
       <div className="relative flex justify-center items-center min-h-[80vh] overflow-hidden">
         {/* фоновая подсветка - убрана анимация pulse для устранения мерцания */}
         <div className="absolute w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full" />

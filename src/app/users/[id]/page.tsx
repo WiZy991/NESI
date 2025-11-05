@@ -368,11 +368,13 @@ export default function UserPublicProfilePage() {
 	}
 
 	const reviews = viewUser.reviewsReceived || []
-	const avgRating =
-		reviews.length > 0
-			? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-			: null
-	const reviewsCount = reviews.length
+	// Используем avgRating из API если есть, иначе вычисляем локально из загруженных отзывов
+	const avgRating = viewUser.avgRating !== null && viewUser.avgRating !== undefined
+		? Number(viewUser.avgRating).toFixed(1)
+		: reviews.length > 0
+		? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+		: null
+	const reviewsCount = viewUser._count?.reviewsReceived ?? reviews.length
 
 	const isExecutor = viewUser.role === 'executor'
 	const canHire = user?.role === 'customer' && user?.id !== viewUser.id && isExecutor
@@ -504,6 +506,19 @@ export default function UserPublicProfilePage() {
 										<span className='text-gray-300'>{viewUser._count.executedTasks} задач</span>
 									</div>
 								)}
+								{avgRating && (
+									<div className='flex items-center gap-2 text-sm'>
+										<FaStar className='text-yellow-400' />
+										<span className='text-gray-300'>
+											{avgRating} / 5 ({reviewsCount} отзывов)
+										</span>
+									</div>
+								)}
+							</div>
+						)}
+						{/* Быстрая статистика для заказчиков */}
+						{viewUser.role === 'customer' && (
+							<div className='flex flex-wrap gap-4 mt-4'>
 								{avgRating && (
 									<div className='flex items-center gap-2 text-sm'>
 										<FaStar className='text-yellow-400' />
