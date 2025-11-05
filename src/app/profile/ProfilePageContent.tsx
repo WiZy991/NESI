@@ -48,6 +48,7 @@ type FullUser = {
 	balance?: number
 	frozenBalance?: number
 	xp?: number
+	xpComputed?: number
 	completedTasksCount?: number
 	avgRating?: number
 	level?: {
@@ -409,7 +410,7 @@ export default function ProfilePageContent() {
 							<div className='flex flex-wrap gap-4 mt-4'>
 								<div className='flex items-center gap-2 text-sm'>
 									<FaChartLine className='text-emerald-400' />
-									<span className='text-gray-300'>{profile.xp || 0} XP</span>
+									<span className='text-gray-300'>{profile.xpComputed ?? profile.xp ?? 0} XP</span>
 								</div>
 								<div className='flex items-center gap-2 text-sm'>
 									<FaTasks className='text-blue-400' />

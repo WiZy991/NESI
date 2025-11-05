@@ -128,6 +128,12 @@ export async function GET(req: Request) {
       ? avgRatingResult._avg.rating
       : null
 
+    // 2️⃣ Вычисляем бонусный XP за сертификации (10 XP за каждую пройденную сертификацию)
+    const passedCertifications = await prisma.certificationAttempt.count({
+      where: { userId: user.id, passed: true }
+    })
+    const xpComputed = (fullUser.xp ?? 0) + passedCertifications * 10
+
     // 3️⃣ Аватар
     const avatarUrl = fullUser.avatarFileId
     ? `/api/files/${fullUser.avatarFileId}`
@@ -193,7 +199,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // 4️⃣ Фильтруем достижения по роли пользователя
+    // 5️⃣ Фильтруем достижения по роли пользователя
     // Оставляем только те достижения, которые подходят для роли пользователя
     // Поля, специфичные для исполнителей
     const executorOnlyFields = ['passedTests', 'completedTasks']
@@ -237,14 +243,15 @@ export async function GET(req: Request) {
       return true
     })
 
-    // 5️⃣ Возвращаем оптимизированный ответ
+    // 6️⃣ Возвращаем оптимизированный ответ
   return NextResponse.json({
     user: {
       ...fullUser,
       badges: filteredBadges, // Возвращаем отфильтрованные достижения
       avatarUrl,
       avgRating,
-      isExecutor: fullUser.role === 'executor',
+      xpComputed, // XP с учетом бонуса за сертификации
+        isExecutor: fullUser.role === 'executor',
       customerStats, // Статистика для заказчика
     },
   })

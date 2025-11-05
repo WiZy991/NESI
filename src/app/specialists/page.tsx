@@ -146,7 +146,10 @@ export default function SpecialistsPage() {
 		const name = u.fullName || u.email || 'Без имени'
 		const letter = (name[0] || '•').toUpperCase()
 		const xpValue = (u.xpComputed ?? u.xp ?? 0) || 0
-		const calc = levelFromXp(xpValue)
+		// Используем данные из API (правильный расчет уровня из БД), если они есть
+		const calc = u.lvl !== undefined && u.progress !== undefined && u.toNext !== undefined
+			? { lvl: u.lvl, progress: u.progress, toNext: u.toNext }
+			: levelFromXp(xpValue) // fallback на локальную функцию
 		const reviews = u.reviewsCount ?? u._count?.reviewsReceived ?? 0
 		const skillsStr = Array.isArray(u.skills)
 			? u.skills.join(', ')

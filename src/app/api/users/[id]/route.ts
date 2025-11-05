@@ -112,6 +112,12 @@ export async function GET(
 		const avgRating = avgRatingResult._avg.rating && avgRatingResult._count.rating > 0
 			? avgRatingResult._avg.rating
 			: null
+		
+		// Вычисляем бонусный XP за сертификации (10 XP за каждую пройденную сертификацию)
+		const passedCertifications = await prisma.certificationAttempt.count({
+			where: { userId: id, passed: true }
+		})
+		const xpComputed = (user.xp ?? 0) + passedCertifications * 10
 
 		// Фильтруем достижения по роли пользователя
 		// Поля, специфичные для исполнителей
@@ -163,6 +169,7 @@ export async function GET(
 				badges: limitedBadges, // Отфильтрованные и ограниченные badges
 				avatarUrl,
 				avgRating, // Вычисленный рейтинг
+				xpComputed, // XP с учетом бонуса за сертификации
 				_count: _count?._count, // Добавляем _count для статистики
 			},
 		})

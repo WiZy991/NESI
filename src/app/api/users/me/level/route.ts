@@ -17,24 +17,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Неверный токен или пользователь не найден' }, { status: 401 })
     }
 
-    // ==== 1. Используем сохраненный XP из БД ====
-    const xp = user.xp || 0
+    // ==== 1. Используем сохраненный XP из БД + бонусный XP за сертификации ====
+    const baseXp = user.xp || 0
+    const passedTests = await prisma.certificationAttempt.count({
+      where: { userId: user.id, passed: true }
+    })
+    const xpComputed = baseXp + passedTests * 10 // Бонусный XP за сертификации (10 XP за каждую)
 
-    // ==== 2. Получаем уровень из единой системы ====
-    const currentLevel = await getLevelFromXP(xp)
-    const nextLevelInfo = await getNextLevel(xp)
+    // ==== 2. Получаем уровень из единой системы (используем xpComputed) ====
+    const currentLevel = await getLevelFromXP(xpComputed)
+    const nextLevelInfo = await getNextLevel(xpComputed)
 
-    // ==== 3. Рассчитываем прогресс ====
-    const xpToNextLevel = nextLevelInfo ? nextLevelInfo.minScore - xp : 0
+    // ==== 3. Рассчитываем прогресс (используем xpComputed) ====
+    const xpToNextLevel = nextLevelInfo ? nextLevelInfo.minScore - xpComputed : 0
     const progressPercent = nextLevelInfo
-      ? Math.max(0, Math.min(100, Math.floor(((xp - currentLevel.minScore) / (nextLevelInfo.minScore - currentLevel.minScore)) * 100)))
+      ? Math.max(0, Math.min(100, Math.floor(((xpComputed - currentLevel.minScore) / (nextLevelInfo.minScore - currentLevel.minScore)) * 100)))
       : 100
 
     // ==== 4. Получаем статистику для подсказок ====
-    const [passedTests, completedTasks, positiveReviews] = await Promise.all([
-      prisma.certificationAttempt.count({
-        where: { userId: user.id, passed: true }
-      }),
+    const [completedTasks, positiveReviews] = await Promise.all([
       prisma.task.count({
         where: { executorId: user.id, status: 'completed' }
       }),
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
       level: currentLevel.level,
       levelName: currentLevel.name,
       levelDescription: currentLevel.description,
-      xp,
+      xp: xpComputed, // Возвращаем XP с учетом бонуса за сертификации
       nextLevelXP: nextLevelInfo?.minScore ?? null,
       nextLevelName: nextLevelInfo?.name ?? null,
       xpToNextLevel,

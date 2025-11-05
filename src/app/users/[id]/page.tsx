@@ -51,6 +51,7 @@ type PublicUser = {
 	description?: string | null
 	skills?: string[]
 	xp?: number
+	xpComputed?: number
 	completedTasksCount?: number
 	avgRating?: number
 	level?: {
@@ -494,16 +495,10 @@ export default function UserPublicProfilePage() {
 						{/* Быстрая статистика для исполнителей */}
 						{isExecutor && (
 							<div className='flex flex-wrap gap-4 mt-4'>
-								{viewUser.xp !== undefined && (
+								{(viewUser.xpComputed !== undefined || viewUser.xp !== undefined) && (
 									<div className='flex items-center gap-2 text-sm'>
 										<FaChartLine className='text-emerald-400' />
-										<span className='text-gray-300'>{viewUser.xp || 0} XP</span>
-									</div>
-								)}
-								{viewUser._count?.executedTasks !== undefined && (
-									<div className='flex items-center gap-2 text-sm'>
-										<FaBriefcase className='text-blue-400' />
-										<span className='text-gray-300'>{viewUser._count.executedTasks} задач</span>
+										<span className='text-gray-300'>{viewUser.xpComputed ?? viewUser.xp ?? 0} XP</span>
 									</div>
 								)}
 								{avgRating && (
@@ -602,13 +597,7 @@ export default function UserPublicProfilePage() {
 										<FaChartLine />
 										Статистика
 									</h3>
-									<div className='grid grid-cols-2 md:grid-cols-3 gap-4'>
-										<div className='text-center p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20'>
-											<div className='text-2xl font-bold text-emerald-300'>
-												{viewUser._count.executedTasks || 0}
-											</div>
-											<div className='text-xs text-gray-400 mt-1'>Задач выполнено</div>
-										</div>
+									<div className='grid grid-cols-2 md:grid-cols-2 gap-4'>
 										<div className='text-center p-3 bg-blue-500/10 rounded-lg border border-blue-500/20'>
 											<div className='text-2xl font-bold text-blue-300'>
 												{viewUser._count.reviewsReceived || 0}

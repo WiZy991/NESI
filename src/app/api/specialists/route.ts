@@ -1,22 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-
-/* ---------- шкала уровней (та же, что и в профиле) ---------- */
-const BOUNDS = [0, 100, 300, 600, 1000, 1500, 2100]
-
-function computeLevel(xpRaw: number) {
-  const xp = Math.max(0, xpRaw ?? 0)
-  let lvl = 0
-  for (let i = 0; i < BOUNDS.length; i++) {
-    if (xp >= BOUNDS[i]) lvl = i
-    else break
-  }
-  const prev = BOUNDS[lvl] ?? 0
-  const next = BOUNDS[lvl + 1] ?? prev + 400
-  const progress = Math.min(100, Math.round(((xp - prev) / Math.max(1, next - prev)) * 100))
-  const toNext = Math.max(0, next - xp)
-  return { lvl, progress, toNext }
-}
+import { getLevelFromXP, getNextLevel } from '@/lib/level/calculate'
 
 /**
  * GET /api/specialists
@@ -92,7 +76,7 @@ export async function GET(req: Request) {
 
     const ids = users.map((u) => u.id)
 
-    // ── бонусный XP за сертификации
+    // ── бонусный XP за сертификации (10 XP за каждую пройденную сертификацию)
     let passedByUser: Record<string, number> = {}
     if (ids.length) {
       const grouped = await prisma.certificationAttempt.groupBy({
@@ -115,10 +99,21 @@ export async function GET(req: Request) {
     }
 
     // ── финальная подготовка данных
-    const scored = users.map((u) => {
+    const scored = await Promise.all(users.map(async (u) => {
+      // Базовый XP из профиля + бонусный XP за сертификации (10 XP за каждую)
       const passed = passedByUser[u.id] || 0
       const xpComputed = (u.xp ?? 0) + passed * 10
-      const { lvl, progress, toNext } = computeLevel(xpComputed)
+      
+      // Используем правильную функцию расчета уровня из БД (та же, что и в профиле)
+      const currentLevel = await getLevelFromXP(xpComputed)
+      const nextLevel = await getNextLevel(xpComputed)
+      
+      const lvl = currentLevel.level
+      const progress = nextLevel 
+        ? Math.max(0, Math.min(100, Math.floor(((xpComputed - currentLevel.minScore) / (nextLevel.minScore - currentLevel.minScore)) * 100)))
+        : 100
+      const toNext = nextLevel ? Math.max(0, nextLevel.minScore - xpComputed) : 0
+      
       const avgRating = ratingByUser[u.id] ?? 0
       const reviews = u._count?.reviewsReceived ?? 0
 
@@ -144,7 +139,7 @@ export async function GET(req: Request) {
         reviewsCount: reviews,
         score,
       }
-    })
+    }))
 
     // ── сортировка
     scored.sort((a, b) => b.score - a.score)
