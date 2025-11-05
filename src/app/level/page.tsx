@@ -283,7 +283,7 @@ export default function LevelPage() {
                     
                     {/* Описание */}
                     <div className="bg-black/30 border border-gray-800/50 rounded-lg p-3 mt-2">
-                      <p className="text-xs text-gray-300 leading-relaxed line-clamp-3">
+                      <p className="text-xs text-gray-300 leading-relaxed">
                         {badge.description}
                       </p>
                     </div>
