@@ -19,7 +19,16 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
       where: { id: userId },
       include: {
         badges: {
-          include: { badge: true }
+          include: { 
+            badge: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                targetRole: true
+              }
+            }
+          }
         },
         level: {
           select: { slug: true }
@@ -84,8 +93,44 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
       }
     })
     
-    console.log(`[Badges] Найдено бейджей в БД:`, allBadges.map(b => ({ id: b.id, name: b.name, targetRole: b.targetRole })))
+    console.log(`[Badges] Найдено бейджей в БД для роли ${user.role}:`, allBadges.length)
+    console.log(`[Badges] Детали бейджей:`, allBadges.map(b => ({ id: b.id, name: b.name, targetRole: b.targetRole })))
     const earnedBadgeIds = user.badges.map(b => b.badgeId)
+    console.log(`[Badges] Уже получено бейджей: ${earnedBadgeIds.length}`, earnedBadgeIds)
+    
+    // Очищаем неправильно присвоенные достижения (если роль пользователя не соответствует targetRole)
+    const incorrectlyAwardedBadges = user.badges.filter(ub => {
+      const badge = ub.badge
+      return badge.targetRole && badge.targetRole !== user.role
+    })
+    
+    if (incorrectlyAwardedBadges.length > 0) {
+      console.log(`[Badges] 🧹 Найдено ${incorrectlyAwardedBadges.length} неправильно присвоенных достижений для пользователя ${userId} (роль: ${user.role})`)
+      for (const incorrectBadge of incorrectlyAwardedBadges) {
+        try {
+          await prisma.userBadge.delete({
+            where: { id: incorrectBadge.id }
+          })
+          console.log(`[Badges] ✅ Удалено неправильно присвоенное достижение "${incorrectBadge.badge.name}" (targetRole: ${incorrectBadge.badge.targetRole}, роль пользователя: ${user.role})`)
+        } catch (error) {
+          console.error(`[Badges] ❌ Ошибка удаления неправильного достижения ${incorrectBadge.id}:`, error)
+        }
+      }
+      // Обновляем список полученных достижений после очистки
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          badges: {
+            select: { badgeId: true }
+          }
+        }
+      })
+      if (updatedUser) {
+        // Очищаем и обновляем earnedBadgeIds
+        earnedBadgeIds.length = 0
+        earnedBadgeIds.push(...updatedUser.badges.map(b => b.badgeId))
+      }
+    }
 
     // Статистика пользователя
     const passedTests = certifications.length
@@ -120,18 +165,41 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
     const uniqueExecutors = uniqueExecutorsResult.length
     
     // Активность по месяцам (для заказчиков)
+    // Проверяем, есть ли завершенные задачи в каждом из последних 3 месяцев
     const now = new Date()
-    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1)
-    const monthlyActiveTasks = await prisma.task.count({
-      where: {
-        customerId: userId,
-        status: 'completed',
-        completedAt: {
-          gte: threeMonthsAgo
+    const monthlyActiveMonths = []
+    for (let i = 0; i < 3; i++) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59)
+      const tasksInMonth = await prisma.task.count({
+        where: {
+          customerId: userId,
+          status: 'completed',
+          completedAt: {
+            gte: monthStart,
+            lte: monthEnd
+          }
         }
+      })
+      if (tasksInMonth > 0) {
+        monthlyActiveMonths.push(i)
       }
-    })
-    const monthlyActive = monthlyActiveTasks > 0 ? 1 : 0 // Упрощенная логика - если есть завершенные задачи за последние 3 месяца
+    }
+    const monthlyActive = monthlyActiveMonths.length // Количество месяцев с активностью (0-3)
+    
+    // Детальное логирование статистики для заказчиков
+    if (user.role === 'customer') {
+      console.log(`[Badges] 📊 Статистика заказчика ${userId}:`, {
+        completedTasksAsCustomer,
+        completedTasksAsExecutor,
+        createdTasks,
+        paidTasks,
+        totalSpent,
+        reviewsGivenCount,
+        uniqueExecutors,
+        monthlyActive
+      })
+    }
 
     console.log(`[Badges] ========================================`)
     console.log(`[Badges] Проверка достижений для пользователя ${userId} (роль: ${user.role})`)
@@ -141,13 +209,27 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
     if (allBadges.length === 0) {
       console.warn(`[Badges] ⚠️ ВНИМАНИЕ: Не найдено ни одного бейджа для роли ${user.role}!`)
       console.warn(`[Badges] Возможные причины:`)
-      console.warn(`[Badges] 1. Достижения не созданы в БД (нужно запустить seed)`)
+      console.warn(`[Badges] 1. Достижения не созданы в БД (нужно запустить seed через POST /api/admin/badges/seed)`)
       console.warn(`[Badges] 2. Миграция не применена (поле targetRole не существует)`)
       console.warn(`[Badges] 3. Все достижения имеют targetRole, отличный от ${user.role}`)
+      
+      // Проверяем, есть ли вообще достижения в БД
+      const totalBadgesInDb = await prisma.badge.count()
+      if (totalBadgesInDb === 0) {
+        console.error(`[Badges] ❌ КРИТИЧНО: В БД вообще нет достижений! Нужно запустить seed.`)
+      } else {
+        const badgesForRole = await prisma.badge.count({
+          where: { targetRole: user.role }
+        })
+        const badgesForAll = await prisma.badge.count({
+          where: { targetRole: null }
+        })
+        console.warn(`[Badges] Всего в БД: ${totalBadgesInDb}, для роли ${user.role}: ${badgesForRole}, для всех: ${badgesForAll}`)
+      }
     }
     
     // Логируем статистику для диагностики
-    console.log(`[Badges] Статистика пользователя:`, {
+    const finalStats = {
       role: user.role,
       completedTasksAsExecutor,
       completedTasksAsCustomer,
@@ -163,7 +245,8 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
       positiveReviews,
       totalXP,
       level: levelNumber
-    })
+    }
+    console.log(`[Badges] 📊 Статистика пользователя ${userId} (${user.role}):`, finalStats)
     console.log(`[Badges] ========================================`)
     
     // Проверяем каждый бейдж
@@ -183,8 +266,14 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
       
       console.log(`[Badges] Проверка бейджа ${badge.id} (${badge.name}) для роли ${user.role}, targetRole: ${badge.targetRole}`)
 
-      // Проверяем условие
-      const meetsCondition = checkCondition(condition, {
+      // Дополнительная проверка: убеждаемся, что достижение подходит для роли пользователя
+      if (badge.targetRole && badge.targetRole !== user.role) {
+        console.log(`[Badges] ⚠️ Пропускаем бейдж ${badge.id} - он предназначен для роли ${badge.targetRole}, а пользователь - ${user.role}`)
+        continue
+      }
+
+      // Подготавливаем статистику для проверки
+      const stats = {
         completedTasks: user.role === 'customer' ? completedTasksAsCustomer : completedTasksAsExecutor,
         createdTasks,
         passedTests,
@@ -197,9 +286,23 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
         reviewsGiven: reviewsGivenCount,
         monthlyActive,
         uniqueExecutors
-      })
+      }
 
-      console.log(`[Badges] Условие для бейджа ${badge.id}:`, condition, 'Результат:', meetsCondition)
+      // Детальное логирование для заказчиков
+      if (user.role === 'customer') {
+        console.log(`[Badges] 📊 Статистика для проверки бейджа "${badge.name}":`, {
+          condition: condition.type,
+          operator: condition.operator,
+          requiredValue: condition.value,
+          actualValue: stats[condition.type as keyof typeof stats],
+          stats
+        })
+      }
+
+      // Проверяем условие
+      const meetsCondition = checkCondition(condition, stats)
+
+      console.log(`[Badges] Условие для бейджа ${badge.id} (${badge.name}):`, condition, 'Результат:', meetsCondition)
       
       if (meetsCondition) {
         try {

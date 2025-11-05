@@ -283,11 +283,18 @@ export async function POST(req: Request) {
 		})
 
 		// ✅ Проверяем достижения для заказчика при создании задачи
+		// Важно: проверяем после сохранения задачи в БД
 		try {
+			console.log(`[Badges] 🎯 Проверка достижений для заказчика ${user.id} после создания задачи ${task.id}`)
 			const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
-			await checkAndAwardBadges(user.id)
+			const awardedBadges = await checkAndAwardBadges(user.id)
+			if (awardedBadges.length > 0) {
+				console.log(`[Badges] ✅ Заказчик ${user.id} получил ${awardedBadges.length} достижений при создании задачи:`, awardedBadges.map(b => b.name))
+			} else {
+				console.log(`[Badges] ℹ️ Заказчик ${user.id} не получил новых достижений при создании задачи`)
+			}
 		} catch (badgeError) {
-			console.error('[Badges] Ошибка проверки достижений при создании задачи:', badgeError)
+			console.error('[Badges] ❌ Ошибка проверки достижений при создании задачи:', badgeError)
 		}
 
 		return NextResponse.json({ task })

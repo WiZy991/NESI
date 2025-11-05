@@ -167,6 +167,7 @@ export default function ProfilePageContent() {
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
+	const [checkingBadges, setCheckingBadges] = useState(false)
 
 	const fetchProfile = async () => {
 		if (!token) return
@@ -256,6 +257,32 @@ export default function ProfilePageContent() {
 
 		fetchCustomerTasks()
 	}, [user, token, activeTab])
+
+	// Автоматическая проверка достижений при открытии вкладки (как у исполнителей на странице /level)
+	useEffect(() => {
+		if (activeTab === 'achievements' && token && !checkingBadges) {
+			const checkBadges = async () => {
+				setCheckingBadges(true)
+				try {
+					await fetch('/api/badges/check', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+					})
+					// Обновляем профиль после проверки
+					fetchProfile()
+				} catch (badgeError) {
+					console.error('Ошибка проверки достижений:', badgeError)
+				} finally {
+					setCheckingBadges(false)
+				}
+			}
+			checkBadges()
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeTab, token])
 
 	const handleWithdraw = async () => {
 		if (!amount || amount <= 0) {
@@ -545,6 +572,15 @@ export default function ProfilePageContent() {
 				{/* Достижения */}
 				{activeTab === 'achievements' && (
 					<div>
+						{checkingBadges && (
+							<div className='mb-4 text-center py-2'>
+								<div className='inline-flex items-center gap-2 text-emerald-400 text-sm'>
+									<div className='w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin'></div>
+									<span>Проверка достижений...</span>
+								</div>
+							</div>
+						)}
+						
 						{profile.badges && Array.isArray(profile.badges) && profile.badges.length > 0 ? (
 							<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6'>
 								{profile.badges.map(userBadge => (

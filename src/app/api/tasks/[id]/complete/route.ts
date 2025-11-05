@@ -164,20 +164,31 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				)
 
 				// ✅ Проверяем бейджи после начисления XP (для исполнителя)
-				const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
-				await checkAndAwardBadges(task.executorId)
-			}
-			
-			// ✅ Проверяем бейджи для заказчика (при завершении задачи)
-			try {
-				const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
-				await checkAndAwardBadges(task.customerId)
-			} catch (badgeError) {
-				console.error('[Badges] Ошибка проверки достижений для заказчика:', badgeError)
+				try {
+					const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
+					await checkAndAwardBadges(task.executorId)
+				} catch (badgeError) {
+					console.error('[Badges] Ошибка проверки достижений для исполнителя:', badgeError)
+				}
 			}
 		} catch (xpError) {
 			// Логируем ошибку, но не прерываем выполнение
 			console.error('[XP] Ошибка начисления XP при завершении задачи:', xpError)
+		}
+
+		// ✅ Проверяем бейджи для заказчика (при завершении задачи) - ВЫНОСИМ ОТДЕЛЬНО
+		// Это должно быть после транзакции, чтобы задача уже была в статусе 'completed'
+		try {
+			console.log(`[Badges] Проверка достижений для заказчика ${task.customerId} после завершения задачи ${task.id}`)
+			const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
+			const awardedBadges = await checkAndAwardBadges(task.customerId)
+			if (awardedBadges.length > 0) {
+				console.log(`[Badges] ✅ Заказчик ${task.customerId} получил ${awardedBadges.length} достижений:`, awardedBadges.map(b => b.name))
+			} else {
+				console.log(`[Badges] ℹ️ Заказчик ${task.customerId} не получил новых достижений`)
+			}
+		} catch (badgeError) {
+			console.error('[Badges] ❌ Ошибка проверки достижений для заказчика:', badgeError)
 		}
 
 		return NextResponse.json({ success: true })
