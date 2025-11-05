@@ -3,11 +3,12 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
 	req: Request,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
+		const { id } = await params
 		const user = await prisma.user.findUnique({
-			where: { id: params.id },
+			where: { id },
 			select: {
 				id: true,
 				fullName: true,
@@ -22,12 +23,34 @@ export async function GET(
 				avgRating: true,
 				level: true,
 				badges: {
-					include: { badge: true },
+					select: {
+						id: true,
+						earnedAt: true,
+						badge: {
+							select: {
+								id: true,
+								name: true,
+								description: true,
+								icon: true,
+								targetRole: true, // Добавляем targetRole для фильтрации
+							}
+						}
+					},
 					orderBy: { earnedAt: 'desc' },
 					take: 6, // показываем только последние 6 значков
 				},
 				certifications: {
-					include: { subcategory: true },
+					select: {
+						id: true,
+						level: true,
+						grantedAt: true,
+						subcategory: {
+							select: {
+								id: true,
+								name: true,
+							}
+						}
+					},
 					orderBy: { grantedAt: 'desc' },
 					take: 4, // показываем только последние 4 сертификации
 				},
@@ -72,15 +95,39 @@ export async function GET(
 			)
 		}
 
-		// Добавляем avatarUrl, чтобы фронту было удобно
+		// Фильтруем достижения по роли пользователя
+		const filteredBadges = (user.badges || []).filter(userBadge => {
+			// Защита от отсутствующих данных
+			if (!userBadge || !userBadge.badge) {
+				return false
+			}
+			const badge = userBadge.badge
+			// Если у достижения указана роль, она должна совпадать с ролью пользователя
+			// Если targetRole = null, достижение для всех ролей
+			if (badge.targetRole === null || badge.targetRole === user.role) {
+				return true
+			}
+			return false
+		})
+
+		// Фильтруем сертификации - только для исполнителей
+		const filteredCertifications = user.role === 'executor' ? (user.certifications || []) : []
+
+		// Добавляем avatarUrl и применяем фильтры
 		const userWithAvatar = {
 			...user,
+			badges: filteredBadges, // Отфильтрованные достижения
+			certifications: filteredCertifications, // Сертификации только для исполнителей
 			avatarUrl: user.avatarFileId ? `/api/files/${user.avatarFileId}` : null,
 		}
 
 		return NextResponse.json({ user: userWithAvatar })
 	} catch (error) {
 		console.error('[USER_API_ERROR]', error)
-		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+		console.error('[USER_API_ERROR] Stack:', error instanceof Error ? error.stack : 'No stack')
+		return NextResponse.json({ 
+			error: 'Ошибка сервера',
+			message: error instanceof Error ? error.message : 'Unknown error'
+		}, { status: 500 })
 	}
 }

@@ -134,7 +134,11 @@ export async function GET(req: Request) {
 
     // 4️⃣ Фильтруем достижения по роли пользователя
     // Оставляем только те достижения, которые подходят для роли пользователя
-    const filteredBadges = fullUser.badges.filter(userBadge => {
+    const filteredBadges = (fullUser.badges || []).filter(userBadge => {
+      // Защита от отсутствующих данных
+      if (!userBadge || !userBadge.badge) {
+        return false
+      }
       const badge = userBadge.badge
       // Если у достижения указана роль, она должна совпадать с ролью пользователя
       // Если targetRole = null, достижение для всех ролей
@@ -146,7 +150,7 @@ export async function GET(req: Request) {
       return false
     })
     
-    if (fullUser.badges.length !== filteredBadges.length) {
+    if (fullUser.badges && fullUser.badges.length !== filteredBadges.length) {
       console.log(`[Profile API] 🧹 Отфильтровано ${fullUser.badges.length - filteredBadges.length} неправильных достижений для пользователя ${fullUser.id} (роль: ${fullUser.role})`)
     }
 

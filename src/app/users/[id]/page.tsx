@@ -393,8 +393,9 @@ export default function UserPublicProfilePage() {
 	].filter(tab => {
 		// Портфолио только для исполнителей
 		if (tab.id === 'portfolio' && !isExecutor) return false
-		// Отзывы только для исполнителей
-		if (tab.id === 'reviews' && !isExecutor) return false
+		// Сертификации только для исполнителей
+		if (tab.id === 'certifications' && !isExecutor) return false
+		// Отзывы показываем для всех (и исполнителей, и заказчиков)
 		return true
 	})
 
@@ -676,7 +677,7 @@ export default function UserPublicProfilePage() {
 				)}
 
 				{/* Отзывы */}
-				{activeTab === 'reviews' && isExecutor && (
+				{activeTab === 'reviews' && (
 					<div>
 						{reviews.length > 0 ? (
 							<div className='space-y-4 sm:space-y-6'>

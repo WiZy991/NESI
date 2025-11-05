@@ -8,18 +8,17 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-	const user = await getUserFromRequest(req)
-	if (!user) {
-		return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-	}
-
-	const { searchParams } = new URL(req.url)
-	const sinceParam = searchParams.get('since')
-
-	// Если указана дата, берем уведомления после неё
-	const since = sinceParam ? new Date(sinceParam) : new Date(Date.now() - 10000) // по умолчанию последние 10 секунд
-
 	try {
+		const user = await getUserFromRequest(req)
+		if (!user) {
+			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+		}
+
+		const { searchParams } = new URL(req.url)
+		const sinceParam = searchParams.get('since')
+
+		// Если указана дата, берем уведомления после неё
+		const since = sinceParam ? new Date(sinceParam) : new Date(Date.now() - 10000) // по умолчанию последние 10 секунд
 		// Получаем новые уведомления
 		const notifications = await prisma.notification.findMany({
 			where: {
@@ -53,8 +52,12 @@ export async function GET(req: NextRequest) {
 		})
 	} catch (error) {
 		console.error('❌ Ошибка при polling уведомлений:', error)
+		console.error('❌ Stack:', error instanceof Error ? error.stack : 'No stack')
 		return NextResponse.json(
-			{ error: 'Ошибка сервера' },
+			{ 
+				error: 'Ошибка сервера',
+				message: error instanceof Error ? error.message : 'Unknown error'
+			},
 			{ status: 500 }
 		)
 	}
