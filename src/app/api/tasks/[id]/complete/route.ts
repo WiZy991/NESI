@@ -100,11 +100,13 @@ export async function PATCH(req: NextRequest, { params }: any) {
 								amount: new Prisma.Decimal(-escrowNum),
 								type: 'payment',
 								reason: `Оплата за задачу "${task.title}"`,
+								taskId: task.id, // ✅ Добавляем связь с задачей для корректного подсчета достижений
 							},
 							{
 								amount: new Prisma.Decimal(-commission),
 								type: 'commission',
 								reason: `Комиссия 20% с задачи "${task.title}"`,
+								taskId: task.id, // ✅ Добавляем связь с задачей
 							},
 						],
 					},
