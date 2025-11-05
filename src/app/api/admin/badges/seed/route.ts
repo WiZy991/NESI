@@ -303,7 +303,7 @@ export async function POST(req: NextRequest) {
             description: badge.description,
             icon: badge.icon,
             condition: badge.condition,
-            targetRole: badge.targetRole || null
+            targetRole: badge.targetRole // Сохраняем targetRole как есть (может быть 'customer', 'executor' или null)
           }
         })
         updatedBadges.push(badge.name)

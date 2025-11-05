@@ -14,6 +14,14 @@ export interface BadgeCondition {
 export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: string; name: string; icon: string }>> {
   const awardedBadges: Array<{ id: string; name: string; icon: string }> = []
   try {
+    // Быстрая проверка наличия достижений в БД (для диагностики на сервере)
+    const badgesCount = await prisma.badge.count().catch(() => 0)
+    if (badgesCount === 0) {
+      console.error(`[Badges] ❌ КРИТИЧНО: В БД нет достижений! Нужно запустить seed.`)
+      console.error(`[Badges] Выполните на сервере: POST /api/admin/badges/seed (как админ)`)
+      return []
+    }
+    
     // Получаем пользователя со всей статистикой
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -87,14 +95,28 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
     // Получаем все бейджи из БД, СТРОГО фильтруя по роли пользователя
     // Для заказчиков - ТОЛЬКО достижения с targetRole = 'customer' или null
     // Для исполнителей - ТОЛЬКО достижения с targetRole = 'executor' или null
-    const allBadges = await prisma.badge.findMany({
-      where: {
-        OR: [
-          { targetRole: user.role } as any, // Достижения для конкретной роли (приоритет)
-          { targetRole: null } as any // Достижения для всех ролей (только если нет специфичных)
-        ]
-      }
-    }) as Array<{ id: string; name: string; description: string; icon: string; condition: string; targetRole: string | null }>
+    // Используем raw запрос для надежности на сервере, если Prisma типы не работают
+    let allBadges: Array<{ id: string; name: string; description: string; icon: string; condition: string; targetRole: string | null }>
+    
+    try {
+      // Пробуем стандартный Prisma запрос
+      allBadges = await prisma.badge.findMany({
+        where: {
+          OR: [
+            { targetRole: user.role },
+            { targetRole: null }
+          ]
+        }
+      }) as any
+    } catch (error) {
+      // Если не работает, используем более надежный подход
+      console.warn(`[Badges] Стандартный запрос не сработал, используем альтернативный метод:`, error)
+      const allBadgesRaw = await prisma.badge.findMany()
+      allBadges = allBadgesRaw.filter(badge => {
+        const targetRole = (badge as any).targetRole
+        return targetRole === null || targetRole === user.role
+      }) as any
+    }
     
     // Нормализуем targetRole: пустые строки и другие невалидные значения заменяем на null
     const normalizedBadges = allBadges.map(badge => ({
@@ -117,6 +139,32 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
     console.log(`[Badges] Найдено бейджей в БД для роли ${user.role}:`, allBadges.length)
     console.log(`[Badges] После нормализации и фильтрации:`, filteredBadges.length)
     console.log(`[Badges] Детали бейджей:`, filteredBadges.map((b: any) => ({ id: b.id, name: b.name, targetRole: b.targetRole })))
+    
+    // Дополнительная диагностика на сервере
+    if (allBadges.length === 0) {
+      console.error(`[Badges] ❌ КРИТИЧНО: Не найдено ни одного достижения для роли ${user.role}!`)
+      console.error(`[Badges] Проверьте:`)
+      console.error(`[Badges] 1. Запущен ли seed: POST /api/admin/badges/seed`)
+      console.error(`[Badges] 2. Применены ли миграции: npx prisma migrate deploy`)
+      console.error(`[Badges] 3. Пересобран ли Prisma client: npx prisma generate`)
+      
+      // Пробуем получить все достижения без фильтра для диагностики
+      try {
+        const allBadgesNoFilter = await prisma.badge.findMany()
+        console.error(`[Badges] Всего достижений в БД (без фильтра):`, allBadgesNoFilter.length)
+        if (allBadgesNoFilter.length > 0) {
+          const sampleBadge = allBadgesNoFilter[0] as any
+          console.error(`[Badges] Пример достижения:`, {
+            id: sampleBadge.id,
+            name: sampleBadge.name,
+            targetRole: sampleBadge.targetRole,
+            targetRoleType: typeof sampleBadge.targetRole
+          })
+        }
+      } catch (error) {
+        console.error(`[Badges] Ошибка при получении всех достижений:`, error)
+      }
+    }
     const earnedBadgeIds = (user.badges as any[]).map((b: any) => b.badgeId)
     console.log(`[Badges] Уже получено бейджей: ${earnedBadgeIds.length}`, earnedBadgeIds)
     
@@ -299,13 +347,22 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
       if (totalBadgesInDb === 0) {
         console.error(`[Badges] ❌ КРИТИЧНО: В БД вообще нет достижений! Нужно запустить seed.`)
       } else {
-        const badgesForRole = await prisma.badge.count({
-          where: { targetRole: user.role } as any
-        })
-        const badgesForAll = await prisma.badge.count({
-          where: { targetRole: null } as any
-        })
-        console.warn(`[Badges] Всего в БД: ${totalBadgesInDb}, для роли ${user.role}: ${badgesForRole}, для всех: ${badgesForAll}`)
+        // Более надежный способ подсчета
+        try {
+          const badgesForRole = await prisma.badge.count({
+            where: { targetRole: user.role }
+          })
+          const badgesForAll = await prisma.badge.count({
+            where: { targetRole: null }
+          })
+          console.warn(`[Badges] Всего в БД: ${totalBadgesInDb}, для роли ${user.role}: ${badgesForRole}, для всех: ${badgesForAll}`)
+        } catch (error) {
+          // Если запрос не работает, считаем вручную
+          const allBadgesRaw = await prisma.badge.findMany()
+          const badgesForRole = allBadgesRaw.filter(b => (b as any).targetRole === user.role).length
+          const badgesForAll = allBadgesRaw.filter(b => (b as any).targetRole === null).length
+          console.warn(`[Badges] Всего в БД: ${totalBadgesInDb}, для роли ${user.role}: ${badgesForRole}, для всех: ${badgesForAll}`)
+        }
       }
     }
     
