@@ -99,6 +99,24 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   const isAuthPage = ['/login', '/register', '/forgot-password'].includes(pathname)
   const isChatPage = pathname === '/chats'
 
+  // Применяем overflow-hidden и h-full только для страницы чата
+  useEffect(() => {
+    if (isChatPage) {
+      document.body.style.overflow = 'hidden'
+      document.body.style.height = '100%'
+      document.documentElement.style.height = '100%'
+    } else {
+      document.body.style.overflow = ''
+      document.body.style.height = ''
+      document.documentElement.style.height = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.height = ''
+      document.documentElement.style.height = ''
+    }
+  }, [isChatPage])
+
   return (
     <ErrorBoundary>
       <UserProvider>
@@ -108,7 +126,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         {/* Хедер показываем только там, где нужно (не на главной и авторизации) */}
         {!isHome && !isAuthPage && <Header />}
 
-        <main className="relative h-full w-full overflow-hidden text-white" role="main">
+        <main className={`relative w-full text-white ${isChatPage ? 'h-full overflow-hidden' : 'min-h-screen'}`} role="main">
         {/* Градиент — везде кроме главной (включая авторизацию) */}
         {!isHome && (
           <>

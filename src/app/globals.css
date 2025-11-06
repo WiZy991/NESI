@@ -28,7 +28,6 @@
 /* 🧠 Базовый стиль html и body */
 html {
 	background-color: #111827;
-	height: 100%;
 }
 
 body {
@@ -38,7 +37,6 @@ body {
 	font-weight: 400;
 	letter-spacing: 0.02em;
 	position: relative;
-	height: 100%;
 	overflow-x: hidden;
 	z-index: 1;
 
