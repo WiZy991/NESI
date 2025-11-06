@@ -127,7 +127,28 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 		localStorage.setItem('token', token)
 	}
 
-	const logout = () => {
+	const logout = async () => {
+		const currentToken = token || localStorage.getItem('token')
+		
+		// Вызываем API для обновления lastActivityAt перед выходом
+		if (currentToken) {
+			try {
+				await fetch('/api/logout', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${currentToken}`,
+					},
+				}).catch(err => {
+					// Игнорируем ошибки сети при выходе
+					console.error('Ошибка при вызове API logout:', err)
+				})
+			} catch (err) {
+				// Игнорируем ошибки при выходе
+				console.error('Ошибка при выходе:', err)
+			}
+		}
+		
 		setUser(null)
 		setToken(null)
 		setUnreadCount(0)

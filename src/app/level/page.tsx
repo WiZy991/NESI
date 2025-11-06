@@ -107,13 +107,24 @@ export default function LevelPage() {
       )
     }
 
-    if (text.includes('задач')) {
+    if (text.includes('Выполни больше задач')) {
       return (
         <>
           <Link href="/tasks" className="text-emerald-400 hover:text-emerald-300 underline font-semibold transition">
             Выполни
           </Link>{' '}
           больше задач — это даст XP и поднимет рейтинг
+        </>
+      )
+    }
+
+    if (text.includes('Завершенные задачи дают опыт')) {
+      return (
+        <>
+          <Link href="/tasks" className="text-emerald-400 hover:text-emerald-300 underline font-semibold transition">
+            Завершенные задачи
+          </Link>{' '}
+          дают опыт — выполняй больше задач для роста уровня
         </>
       )
     }
