@@ -120,16 +120,6 @@ export default function BadgesModal({ isOpen, onClose, earnedBadges }: BadgesMod
                               : 'bg-gradient-to-br from-gray-950/90 via-black/90 to-gray-950/90 border-2 border-gray-800/50 opacity-60 hover:opacity-80'
                           }`}
                         >
-                          {/* Затемнение для недостигнутых */}
-                          {!isEarned && (
-                            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 rounded-xl flex items-center justify-center">
-                              <div className="text-center">
-                                <div className="text-4xl mb-2 opacity-50">🔒</div>
-                                <p className="text-xs text-gray-500 font-semibold">Скрыто</p>
-                              </div>
-                            </div>
-                          )}
-
                           {/* Декоративный фон */}
                           <div className={`absolute inset-0 bg-gradient-to-br ${
                             isEarned
@@ -140,7 +130,7 @@ export default function BadgesModal({ isOpen, onClose, earnedBadges }: BadgesMod
                           <div className="relative z-10">
                             <div className="flex items-start gap-4 mb-4">
                               {/* Иконка бейджа */}
-                              <div className="flex-shrink-0">
+                              <div className="flex-shrink-0 relative">
                                 <div className={isEarned ? '' : 'grayscale opacity-50'}>
                                   <BadgeIcon
                                     icon={badge.icon}
@@ -149,36 +139,39 @@ export default function BadgesModal({ isOpen, onClose, earnedBadges }: BadgesMod
                                     className="group-hover:scale-110 transition-transform"
                                   />
                                 </div>
+                                {/* Замок поверх иконки для недостигнутых */}
+                                {!isEarned && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full">
+                                    <div className="text-2xl opacity-70">🔒</div>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Название */}
                               <div className="flex-1 min-w-0 pt-1">
-                                <h3 className={`font-bold text-base mb-1 transition line-clamp-2 ${
+                                <h3 className={`font-bold text-base mb-2 transition line-clamp-2 ${
                                   isEarned
                                     ? 'text-white group-hover:text-emerald-300'
                                     : 'text-gray-400'
                                 }`}>
                                   {badge.name}
                                 </h3>
-                                {isEarned && (
-                                  <div className="flex items-center gap-1 mt-1">
-                                    <span className="text-xs text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <div className="flex items-center gap-1">
+                                  {isEarned ? (
+                                    <span className="text-xs text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
                                       ✓ Получено
                                     </span>
-                                  </div>
-                                )}
-                                {!isEarned && (
-                                  <div className="flex items-center gap-1 mt-1">
-                                    <span className="text-xs text-gray-500 bg-gray-800/50 px-2 py-0.5 rounded-full">
+                                  ) : (
+                                    <span className="text-xs text-gray-500 bg-gray-800/50 px-2 py-0.5 rounded-full border border-gray-700/50">
                                       🔒 Не получено
                                     </span>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
                             </div>
 
                             {/* Описание */}
-                            <div className={`border rounded-lg p-3 mt-2 ${
+                            <div className={`border rounded-lg p-3 mt-3 ${
                               isEarned
                                 ? 'bg-black/30 border-gray-800/50'
                                 : 'bg-black/50 border-gray-900/50'
