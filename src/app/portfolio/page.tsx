@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Plus, Edit2, Trash2, X, ExternalLink } from 'lucide-react'
+import { Briefcase, Plus, Edit2, Trash2, X, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import { useUser } from '@/context/UserContext'
 
 type PortfolioItem = {
@@ -10,6 +10,7 @@ type PortfolioItem = {
   title: string
   description: string
   imageUrl: string | null
+  mediaType?: string | null
   externalUrl: string | null
   taskId: string | null
   createdAt: string
@@ -28,13 +29,15 @@ export default function PortfolioPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string>('')
+  const [mediaFile, setMediaFile] = useState<File | null>(null)
+  const [mediaPreview, setMediaPreview] = useState<string>('')
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
   
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     imageUrl: '',
+    mediaType: 'image',
     externalUrl: '',
     taskId: '',
   })
@@ -73,27 +76,31 @@ export default function PortfolioPage() {
     }
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setImageFile(file)
+      setMediaFile(file)
+      
+      // Определяем тип файла
+      const isVideo = file.type.startsWith('video/')
+      setMediaType(isVideo ? 'video' : 'image')
       
       // Создаём превью
       const reader = new FileReader()
       reader.onloadend = () => {
-        setImagePreview(reader.result as string)
+        setMediaPreview(reader.result as string)
       }
       reader.readAsDataURL(file)
     }
   }
 
-  const uploadImage = async (): Promise<string | null> => {
-    if (!imageFile) return null
+  const uploadMedia = async (): Promise<{ url: string; mediaType: string } | null> => {
+    if (!mediaFile) return null
     
     setUploading(true)
     try {
       const uploadFormData = new FormData()
-      uploadFormData.append('file', imageFile)
+      uploadFormData.append('file', mediaFile)
       
       const res = await fetch('/api/upload/portfolio', {
         method: 'POST',
@@ -102,15 +109,15 @@ export default function PortfolioPage() {
       
       if (!res.ok) {
         const error = await res.json()
-        alert(error.error || 'Ошибка загрузки изображения')
+        alert(error.error || 'Ошибка загрузки файла')
         return null
       }
       
       const data = await res.json()
-      return data.url
+      return { url: data.url, mediaType: data.mediaType }
     } catch (err) {
       console.error(err)
-      alert('Ошибка загрузки изображения')
+      alert('Ошибка загрузки файла')
       return null
     } finally {
       setUploading(false)
@@ -121,12 +128,15 @@ export default function PortfolioPage() {
     e.preventDefault()
     
     try {
-      // Загружаем изображение если выбрано новое
+      // Загружаем медиа если выбрано новое
       let imageUrl = formData.imageUrl
-      if (imageFile) {
-        const uploadedUrl = await uploadImage()
-        if (uploadedUrl) {
-          imageUrl = uploadedUrl
+      let mediaType = formData.mediaType
+      
+      if (mediaFile) {
+        const uploaded = await uploadMedia()
+        if (uploaded) {
+          imageUrl = uploaded.url
+          mediaType = uploaded.mediaType
         } else {
           return // Прерываем если загрузка не удалась
         }
@@ -141,6 +151,7 @@ export default function PortfolioPage() {
         body: JSON.stringify({
           ...formData,
           imageUrl,
+          mediaType,
         }),
       })
       
@@ -153,12 +164,14 @@ export default function PortfolioPage() {
       await fetchPortfolio()
       setShowForm(false)
       setEditingId(null)
-      setImageFile(null)
-      setImagePreview('')
+      setMediaFile(null)
+      setMediaPreview('')
+      setMediaType('image')
       setFormData({
         title: '',
         description: '',
         imageUrl: '',
+        mediaType: 'image',
         externalUrl: '',
         taskId: '',
       })
@@ -170,15 +183,18 @@ export default function PortfolioPage() {
 
   const handleEdit = (item: PortfolioItem) => {
     setEditingId(item.id)
+    const itemMediaType = item.mediaType || 'image'
     setFormData({
       title: item.title,
       description: item.description,
       imageUrl: item.imageUrl || '',
+      mediaType: itemMediaType,
       externalUrl: item.externalUrl || '',
       taskId: item.taskId || '',
     })
-    setImageFile(null)
-    setImagePreview(item.imageUrl || '')
+    setMediaFile(null)
+    setMediaPreview(item.imageUrl || '')
+    setMediaType(itemMediaType as 'image' | 'video')
     setShowForm(true)
   }
 
@@ -219,12 +235,14 @@ export default function PortfolioPage() {
             onClick={() => {
               setShowForm(!showForm)
               setEditingId(null)
-              setImageFile(null)
-              setImagePreview('')
+              setMediaFile(null)
+              setMediaPreview('')
+              setMediaType('image')
               setFormData({
                 title: '',
                 description: '',
                 imageUrl: '',
+                mediaType: 'image',
                 externalUrl: '',
                 taskId: '',
               })
@@ -275,22 +293,31 @@ export default function PortfolioPage() {
               </div>
               
               <div>
-                <label className="text-emerald-300 text-sm mb-2 block">Изображение работы</label>
+                <label className="text-emerald-300 text-sm mb-2 block">Медиа работы (изображение или видео)</label>
                 
-                {/* Превью изображения */}
-                {imagePreview && (
+                {/* Превью медиа */}
+                {mediaPreview && (
                   <div className="mb-3 relative">
-                    <img 
-                      src={imagePreview} 
-                      alt="Preview" 
-                      className="w-full max-w-md h-48 object-cover rounded-lg border border-emerald-500/30"
-                    />
+                    {mediaType === 'video' ? (
+                      <video 
+                        src={mediaPreview} 
+                        controls
+                        className="w-full max-w-md h-48 object-cover rounded-lg border border-emerald-500/30"
+                      />
+                    ) : (
+                      <img 
+                        src={mediaPreview} 
+                        alt="Preview" 
+                        className="w-full max-w-md h-48 object-cover rounded-lg border border-emerald-500/30"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => {
-                        setImageFile(null)
-                        setImagePreview('')
-                        setFormData({ ...formData, imageUrl: '' })
+                        setMediaFile(null)
+                        setMediaPreview('')
+                        setMediaType('image')
+                        setFormData({ ...formData, imageUrl: '', mediaType: 'image' })
                       }}
                       className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg transition"
                     >
@@ -304,18 +331,19 @@ export default function PortfolioPage() {
                   <label className="flex-1 cursor-pointer">
                     <div className="flex items-center justify-center gap-2 bg-gray-900/50 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-lg hover:border-emerald-500 hover:bg-emerald-500/10 transition">
                       <Plus className="w-4 h-4" />
-                      <span>{imagePreview ? 'Изменить изображение' : 'Загрузить изображение'}</span>
+                      <span>{mediaPreview ? 'Изменить медиа' : 'Загрузить изображение или видео'}</span>
                     </div>
                     <input
                       type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
+                      accept="image/*,video/*"
+                      onChange={handleMediaChange}
                       className="hidden"
                     />
                   </label>
                 </div>
                 <p className="text-gray-400 text-xs mt-2">
-                  JPG, PNG, GIF, WEBP • Максимум 5MB
+                  Изображения: JPG, PNG, GIF, WEBP • Максимум 5MB<br />
+                  Видео: MP4, WEBM, MOV, AVI • Максимум 100MB
                 </p>
               </div>
               
@@ -356,73 +384,291 @@ export default function PortfolioPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {portfolio.map((item) => (
-              <div key={item.id} className="bg-black/40 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] overflow-hidden hover:border-emerald-500/50 hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] transition">
-                {item.imageUrl && (
-                  <div className="aspect-video bg-gray-900 relative overflow-hidden">
-                    <img
-                      src={item.imageUrl.startsWith('/') || item.imageUrl.startsWith('http') ? item.imageUrl : `/api/files/${item.imageUrl}`}
-                      alt={item.title}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        console.error('Ошибка загрузки изображения портфолио:', item.imageUrl)
-                        // Пробуем альтернативный путь
-                        const img = e.target as HTMLImageElement
-                        if (!img.src.includes('/api/files/')) {
-                          img.src = `/api/files/${item.imageUrl}`
-                        } else {
-                          img.style.display = 'none'
-                        }
-                      }}
-                    />
-                  </div>
-                )}
-                
-                <div className="p-4">
-                  <h3 className="text-emerald-400 font-bold text-lg mb-2">{item.title}</h3>
-                  <p className="text-gray-400 text-sm mb-3 line-clamp-3">{item.description}</p>
-                  
-                  {item.task && (
-                    <div className="text-emerald-300 text-xs mb-3 flex items-center gap-1">
-                      <span>📋</span>
-                      <span>Связано с задачей: {item.task.title}</span>
-                    </div>
-                  )}
-                  
-                  {item.externalUrl && (
-                    <a
-                      href={item.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-emerald-400 hover:text-emerald-300 text-sm mb-3 flex items-center gap-1 hover:underline transition"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Открыть проект
-                    </a>
-                  )}
-                  
-                  <div className="flex gap-2 mt-4">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-1"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                      Редактировать
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-1"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Удалить
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <PortfolioGrid portfolio={portfolio} onEdit={handleEdit} onDelete={handleDelete} />
         )}
+      </div>
+    </div>
+  )
+}
+
+// Функция для определения типа медиа по расширению файла
+function detectMediaType(imageUrl: string | null, currentType?: string | null): 'image' | 'video' {
+  // Сначала проверяем расширение файла (приоритет)
+  if (imageUrl) {
+    const lower = imageUrl.toLowerCase()
+    if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.avi') || lower.endsWith('.mkv')) {
+      return 'video'
+    }
+    // Проверяем расширения изображений
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
+      return 'image'
+    }
+  }
+  // Если currentType валидный, используем его
+  if (currentType === 'video' || currentType === 'image') {
+    return currentType
+  }
+  // По умолчанию - изображение
+  return 'image'
+}
+
+// Функция для получения правильного URL медиа
+function getMediaUrl(imageUrl: string | null): string {
+  if (!imageUrl) return ''
+  // Если уже полный URL (http/https) или начинается с /uploads/, используем как есть
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('/uploads/')) {
+    return imageUrl
+  }
+  // Если начинается с /, используем как есть
+  if (imageUrl.startsWith('/')) {
+    return imageUrl
+  }
+  // Иначе используем через /api/files/
+  return `/api/files/${imageUrl}`
+}
+
+function PortfolioGrid({ portfolio, onEdit, onDelete }: { portfolio: PortfolioItem[], onEdit: (item: PortfolioItem) => void, onDelete: (id: string) => void }) {
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
+  const [selectedItem, setSelectedItem] = useState<PortfolioItem | null>(null)
+  
+  const toggleDescription = (id: string) => {
+    setExpandedDescriptions(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  return (
+    <>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {portfolio.map((item) => {
+        const itemMediaType = detectMediaType(item.imageUrl, item.mediaType)
+        const descriptionLength = item.description.length
+        const shouldShowExpand = descriptionLength > 150
+        const isExpanded = expandedDescriptions.has(item.id)
+        
+        return (
+          <div 
+            key={item.id} 
+            onClick={() => setSelectedItem(item)}
+            className="bg-black/40 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] overflow-hidden hover:border-emerald-500/50 hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] transition flex flex-col cursor-pointer"
+          >
+            {item.imageUrl && (
+              <div className="aspect-video bg-gray-900 relative overflow-hidden">
+                {itemMediaType === 'video' || (item.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(item.imageUrl)) ? (
+                  <video
+                    src={getMediaUrl(item.imageUrl)}
+                    controls
+                    className="w-full h-full object-cover"
+                    preload="metadata"
+                    onError={(e) => {
+                      console.error('Ошибка загрузки видео портфолио:', item.imageUrl)
+                      const video = e.target as HTMLVideoElement
+                      const currentSrc = video.src
+                      // Если это не /api/files/, пробуем через /api/files/
+                      if (!currentSrc.includes('/api/files/') && !item.imageUrl.startsWith('/uploads/')) {
+                        video.src = `/api/files/${item.imageUrl}`
+                      } else {
+                        video.style.display = 'none'
+                      }
+                    }}
+                  />
+                ) : (
+                  <img
+                    src={getMediaUrl(item.imageUrl)}
+                    alt={item.title}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      console.error('Ошибка загрузки изображения портфолио:', item.imageUrl)
+                      const img = e.target as HTMLImageElement
+                      const currentSrc = img.src
+                      // Если это не /api/files/, пробуем через /api/files/
+                      if (!currentSrc.includes('/api/files/') && !item.imageUrl.startsWith('/uploads/')) {
+                        img.src = `/api/files/${item.imageUrl}`
+                      } else {
+                        img.style.display = 'none'
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            )}
+            
+            <div className="p-4 flex-1 flex flex-col">
+              <h3 className="text-emerald-400 font-bold text-lg mb-2">{item.title}</h3>
+              <div className="flex-1">
+                <p className={`text-gray-400 text-sm mb-3 ${!isExpanded && shouldShowExpand ? 'line-clamp-3' : ''}`}>
+                  {item.description}
+                </p>
+                {shouldShowExpand && (
+                  <button
+                    onClick={() => toggleDescription(item.id)}
+                    className="text-emerald-400 hover:text-emerald-300 text-xs flex items-center gap-1 mb-3 transition"
+                  >
+                    {isExpanded ? (
+                      <>
+                        <ChevronUp className="w-3 h-3" />
+                        Свернуть
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3 h-3" />
+                        Развернуть
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              
+              {item.task && (
+                <div className="text-emerald-300 text-xs mb-3 flex items-center gap-1">
+                  <span>📋</span>
+                  <span>Связано с задачей: {item.task.title}</span>
+                </div>
+              )}
+              
+              {item.externalUrl && (
+                <a
+                  href={item.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 hover:text-emerald-300 text-sm mb-3 flex items-center gap-1 hover:underline transition"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Открыть проект
+                </a>
+              )}
+              
+              <div className="flex gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => onEdit(item)}
+                  className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-1"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  Редактировать
+                </button>
+                <button
+                  onClick={() => onDelete(item.id)}
+                  className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+    {selectedItem && (
+      <PortfolioDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+    )}
+    </>
+  )
+}
+
+function PortfolioDetailModal({ item, onClose }: { item: PortfolioItem, onClose: () => void }) {
+  const itemMediaType = detectMediaType(item.imageUrl, item.mediaType)
+  
+  // Закрытие по Escape
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose])
+  
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-gray-900/95 border border-emerald-500/20 rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Компактный заголовок */}
+        <div className="px-4 py-3 border-b border-emerald-500/20 flex items-center justify-between bg-gray-900/50">
+          <h2 className="text-lg sm:text-xl font-bold text-emerald-400 truncate pr-2">{item.title}</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors text-2xl leading-none flex-shrink-0 w-6 h-6 flex items-center justify-center hover:bg-gray-800 rounded"
+            aria-label="Закрыть"
+          >
+            ×
+          </button>
+        </div>
+        
+        {/* Контент с прокруткой */}
+        <div className="overflow-y-auto flex-1">
+          {item.imageUrl && (
+            <div className="bg-gray-800/50">
+              {itemMediaType === 'video' || (item.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(item.imageUrl)) ? (
+                <video
+                  src={getMediaUrl(item.imageUrl)}
+                  controls
+                  className="w-full h-auto max-h-[50vh]"
+                  preload="metadata"
+                  onError={(e) => {
+                    const video = e.target as HTMLVideoElement
+                    const currentSrc = video.src
+                    if (!currentSrc.includes('/api/files/') && !item.imageUrl?.startsWith('/uploads/')) {
+                      video.src = `/api/files/${item.imageUrl}`
+                    } else {
+                      video.style.display = 'none'
+                    }
+                  }}
+                />
+              ) : (
+                <img
+                  src={getMediaUrl(item.imageUrl)}
+                  alt={item.title}
+                  className="w-full h-auto max-h-[50vh] object-contain"
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement
+                    const currentSrc = img.src
+                    if (!currentSrc.includes('/api/files/') && !item.imageUrl?.startsWith('/uploads/')) {
+                      img.src = `/api/files/${item.imageUrl}`
+                    } else {
+                      img.style.display = 'none'
+                    }
+                  }}
+                />
+              )}
+            </div>
+          )}
+          
+          <div className="p-4 space-y-3">
+            <div>
+              <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{item.description}</p>
+            </div>
+            
+            {item.task && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+                <div className="text-emerald-400 text-xs mb-1 font-medium">📋 Связанная задача</div>
+                <div className="text-white text-sm">{item.task.title}</div>
+              </div>
+            )}
+            
+            {item.externalUrl && (
+              <a
+                href={item.externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 px-3 py-2 rounded-lg transition-colors text-sm"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Открыть проект</span>
+              </a>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

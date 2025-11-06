@@ -60,21 +60,32 @@ export default function BadgesModal({ isOpen, onClose, earnedBadges }: BadgesMod
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Overlay */}
+          {/* Overlay - фиксирован относительно viewport */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10003] flex items-center justify-center"
+            style={{ 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0,
+              position: 'fixed'
+            }}
           >
-            {/* Modal */}
+            {/* Modal - центрирован с правильными размерами */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.9, y: -20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              exit={{ opacity: 0, scale: 0.9, y: -20 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-emerald-500/40 rounded-3xl shadow-[0_0_60px_rgba(16,185,129,0.4)] max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+              className="relative bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-emerald-500/40 rounded-3xl shadow-[0_0_60px_rgba(16,185,129,0.4)] w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col mx-4"
+              style={{
+                marginTop: '80px', // Отступ от хедера
+                marginBottom: '20px'
+              }}
             >
               {/* Header */}
               <div className="relative p-6 sm:p-8 border-b border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-transparent">
@@ -193,7 +204,7 @@ export default function BadgesModal({ isOpen, onClose, earnedBadges }: BadgesMod
                     })}
                   </div>
                 )}
-              </div>
+                </div>
             </motion.div>
           </motion.div>
         </>

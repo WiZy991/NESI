@@ -56,19 +56,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Проверяем тип файла
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
+    const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes]
+    
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Неподдерживаемый тип файла. Разрешены: JPG, PNG, GIF, WEBP' },
+        { error: 'Неподдерживаемый тип файла. Разрешены: JPG, PNG, GIF, WEBP, MP4, WEBM, MOV, AVI' },
         { status: 400 }
       )
     }
 
-    // Проверяем размер файла (максимум 5MB)
-    const maxSize = 5 * 1024 * 1024 // 5MB
+    // Определяем тип медиа
+    const isVideo = allowedVideoTypes.includes(file.type)
+    const mediaType = isVideo ? 'video' : 'image'
+    
+    // Проверяем размер файла
+    const maxImageSize = 5 * 1024 * 1024 // 5MB для изображений
+    const maxVideoSize = 100 * 1024 * 1024 // 100MB для видео
+    const maxSize = isVideo ? maxVideoSize : maxImageSize
+    
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'Файл слишком большой. Максимум 5MB' },
+        { error: `Файл слишком большой. Максимум ${isVideo ? '100MB' : '5MB'}` },
         { status: 400 }
       )
     }
@@ -98,6 +108,7 @@ export async function POST(req: NextRequest) {
       success: true,
       url: fileUrl,
       filename,
+      mediaType,
     })
   } catch (err) {
     console.error('❌ Ошибка загрузки файла:', err)

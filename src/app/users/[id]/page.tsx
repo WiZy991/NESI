@@ -6,6 +6,7 @@ import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import {
 	FaAward,
 	FaCertificate,
@@ -838,47 +839,7 @@ export default function UserPublicProfilePage() {
 								<p className='text-gray-400'>Портфолио пусто</p>
 							</div>
 						) : (
-							<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-								{portfolio.map((item: any) => (
-									<div
-										key={item.id}
-										className='bg-black/40 border border-blue-500/30 rounded-xl overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
-									>
-										{item.imageUrl && (
-											<div className='aspect-video bg-gray-900 relative overflow-hidden'>
-												<img
-													src={item.imageUrl}
-													alt={item.title}
-													className='w-full h-full object-cover hover:scale-105 transition-transform duration-300'
-												/>
-											</div>
-										)}
-										<div className='p-4'>
-											<h4 className='text-white font-semibold text-lg mb-2 line-clamp-1'>
-												{item.title}
-											</h4>
-											<p className='text-gray-400 text-sm mb-3 line-clamp-2'>{item.description}</p>
-											{item.task && (
-												<div className='text-blue-400 text-xs mb-2 flex items-center gap-1'>
-													<span>📋</span>
-													<span className='line-clamp-1'>{item.task.title}</span>
-												</div>
-											)}
-											{item.externalUrl && (
-												<a
-													href={item.externalUrl}
-													target='_blank'
-													rel='noopener noreferrer'
-													className='text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 hover:underline transition-colors'
-												>
-													<span>🔗</span>
-													<span>Открыть проект</span>
-												</a>
-											)}
-										</div>
-									</div>
-								))}
-							</div>
+							<PublicPortfolioGrid portfolio={portfolio} />
 						)}
 					</div>
 				)}
@@ -959,6 +920,267 @@ export default function UserPublicProfilePage() {
 					</div>
 				</div>
 			)}
+		</div>
+	)
+}
+
+// Функция для определения типа медиа по расширению файла
+function detectMediaType(imageUrl: string | null, currentType?: string | null): 'image' | 'video' {
+	// Сначала проверяем расширение файла (приоритет)
+	if (imageUrl) {
+		const lower = imageUrl.toLowerCase()
+		if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.avi') || lower.endsWith('.mkv')) {
+			return 'video'
+		}
+		// Проверяем расширения изображений
+		if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
+			return 'image'
+		}
+	}
+	// Если currentType валидный, используем его
+	if (currentType === 'video' || currentType === 'image') {
+		return currentType
+	}
+	// По умолчанию - изображение
+	return 'image'
+}
+
+// Функция для получения правильного URL медиа
+function getMediaUrl(imageUrl: string | null): string {
+	if (!imageUrl) return ''
+	// Если уже полный URL (http/https) или начинается с /uploads/, используем как есть
+	if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('/uploads/')) {
+		return imageUrl
+	}
+	// Если начинается с /, используем как есть
+	if (imageUrl.startsWith('/')) {
+		return imageUrl
+	}
+	// Иначе используем через /api/files/
+	return `/api/files/${imageUrl}`
+}
+
+function PublicPortfolioGrid({ portfolio }: { portfolio: any[] }) {
+	const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
+	const [selectedItem, setSelectedItem] = useState<any>(null)
+	
+	const toggleDescription = (id: string) => {
+		setExpandedDescriptions(prev => {
+			const next = new Set(prev)
+			if (next.has(id)) {
+				next.delete(id)
+			} else {
+				next.add(id)
+			}
+			return next
+		})
+	}
+
+	return (
+		<>
+		<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+			{portfolio.map((item: any) => {
+				const itemMediaType = detectMediaType(item.imageUrl, item.mediaType)
+				const descriptionLength = item.description?.length || 0
+				const shouldShowExpand = descriptionLength > 150
+				const isExpanded = expandedDescriptions.has(item.id)
+				
+				return (
+					<div
+						key={item.id}
+						onClick={() => setSelectedItem(item)}
+						className='bg-black/40 border border-blue-500/30 rounded-xl overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] flex flex-col cursor-pointer'
+					>
+						{item.imageUrl && (
+							<div className='aspect-video bg-gray-900 relative overflow-hidden'>
+								{itemMediaType === 'video' || (item.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(item.imageUrl)) ? (
+									<video
+										src={getMediaUrl(item.imageUrl)}
+										controls
+										className='w-full h-full object-cover'
+										preload="metadata"
+										onError={(e) => {
+											const video = e.target as HTMLVideoElement
+											const currentSrc = video.src
+											if (!currentSrc.includes('/api/files/') && !item.imageUrl?.startsWith('/uploads/')) {
+												video.src = `/api/files/${item.imageUrl}`
+											} else {
+												video.style.display = 'none'
+											}
+										}}
+									/>
+								) : (
+									<img
+										src={getMediaUrl(item.imageUrl)}
+										alt={item.title}
+										className='w-full h-full object-cover hover:scale-105 transition-transform duration-300'
+										onError={(e) => {
+											const img = e.target as HTMLImageElement
+											const currentSrc = img.src
+											if (!currentSrc.includes('/api/files/') && !item.imageUrl?.startsWith('/uploads/')) {
+												img.src = `/api/files/${item.imageUrl}`
+											} else {
+												img.style.display = 'none'
+											}
+										}}
+									/>
+								)}
+							</div>
+						)}
+						<div className='p-4 flex-1 flex flex-col'>
+							<h4 className='text-white font-semibold text-lg mb-2 line-clamp-1'>
+								{item.title}
+							</h4>
+							<div className='flex-1'>
+								<p className={`text-gray-400 text-sm mb-3 ${!isExpanded && shouldShowExpand ? 'line-clamp-2' : ''}`}>
+									{item.description}
+								</p>
+								{shouldShowExpand && (
+									<button
+										onClick={() => toggleDescription(item.id)}
+										className='text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mb-3 transition'
+									>
+										{isExpanded ? (
+											<>
+												<ChevronUp className='w-3 h-3' />
+												Свернуть
+											</>
+										) : (
+											<>
+												<ChevronDown className='w-3 h-3' />
+												Развернуть
+											</>
+										)}
+									</button>
+								)}
+							</div>
+							{item.task && (
+								<div className='text-blue-400 text-xs mb-2 flex items-center gap-1'>
+									<span>📋</span>
+									<span className='line-clamp-1'>{item.task.title}</span>
+								</div>
+							)}
+							{item.externalUrl && (
+								<a
+									href={item.externalUrl}
+									target='_blank'
+									rel='noopener noreferrer'
+									className='text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 hover:underline transition-colors'
+								>
+									<span>🔗</span>
+									<span>Открыть проект</span>
+								</a>
+							)}
+						</div>
+					</div>
+				)
+			})}
+		</div>
+		{selectedItem && (
+			<PortfolioDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+		)}
+	</>
+	)
+}
+
+function PortfolioDetailModal({ item, onClose }: { item: any, onClose: () => void }) {
+	const itemMediaType = detectMediaType(item.imageUrl, item.mediaType)
+	
+	// Закрытие по Escape
+	useEffect(() => {
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') onClose()
+		}
+		document.addEventListener('keydown', handleEscape)
+		return () => document.removeEventListener('keydown', handleEscape)
+	}, [onClose])
+	
+	return (
+		<div
+			className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4'
+			onClick={onClose}
+		>
+			<div
+				className='bg-gray-900/95 border border-blue-500/20 rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col'
+				onClick={(e) => e.stopPropagation()}
+			>
+				{/* Компактный заголовок */}
+				<div className='px-4 py-3 border-b border-blue-500/20 flex items-center justify-between bg-gray-900/50'>
+					<h2 className='text-lg sm:text-xl font-bold text-white truncate pr-2'>{item.title}</h2>
+					<button
+						onClick={onClose}
+						className='text-gray-400 hover:text-white transition-colors text-2xl leading-none flex-shrink-0 w-6 h-6 flex items-center justify-center hover:bg-gray-800 rounded'
+						aria-label='Закрыть'
+					>
+						×
+					</button>
+				</div>
+				
+				{/* Контент с прокруткой */}
+				<div className='overflow-y-auto flex-1'>
+					{item.imageUrl && (
+						<div className='bg-gray-800/50'>
+							{itemMediaType === 'video' || (item.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(item.imageUrl)) ? (
+								<video
+									src={getMediaUrl(item.imageUrl)}
+									controls
+									className='w-full h-auto max-h-[50vh]'
+									preload="metadata"
+									onError={(e) => {
+										const video = e.target as HTMLVideoElement
+										const currentSrc = video.src
+										if (!currentSrc.includes('/api/files/') && !item.imageUrl?.startsWith('/uploads/')) {
+											video.src = `/api/files/${item.imageUrl}`
+										} else {
+											video.style.display = 'none'
+										}
+									}}
+								/>
+							) : (
+								<img
+									src={getMediaUrl(item.imageUrl)}
+									alt={item.title}
+									className='w-full h-auto max-h-[50vh] object-contain'
+									onError={(e) => {
+										const img = e.target as HTMLImageElement
+										const currentSrc = img.src
+										if (!currentSrc.includes('/api/files/') && !item.imageUrl?.startsWith('/uploads/')) {
+											img.src = `/api/files/${item.imageUrl}`
+										} else {
+											img.style.display = 'none'
+										}
+									}}
+								/>
+							)}
+						</div>
+					)}
+					
+					<div className='p-4 space-y-3'>
+						<div>
+							<p className='text-gray-300 text-sm leading-relaxed whitespace-pre-wrap'>{item.description}</p>
+						</div>
+						
+						{item.task && (
+							<div className='bg-blue-500/10 border border-blue-500/20 rounded-lg p-3'>
+								<div className='text-blue-400 text-xs mb-1 font-medium'>📋 Связанная задача</div>
+								<div className='text-white text-sm'>{item.task.title}</div>
+							</div>
+						)}
+						
+						{item.externalUrl && (
+							<a
+								href={item.externalUrl}
+								target='_blank'
+								rel='noopener noreferrer'
+								className='inline-flex items-center gap-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 px-3 py-2 rounded-lg transition-colors text-sm'
+							>
+								<span>🔗</span>
+								<span>Открыть проект</span>
+							</a>
+						)}
+					</div>
+				</div>
+			</div>
 		</div>
 	)
 }

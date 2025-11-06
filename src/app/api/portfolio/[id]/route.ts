@@ -5,14 +5,97 @@ import { prisma } from '@/lib/prisma'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
 /**
+ * GET /api/portfolio/[id]
+ * Получить элемент портфолио
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    
+    console.log('📥 GET /api/portfolio/[id] запрос:', id)
+    
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      console.error('❌ Неверный ID:', id)
+      return NextResponse.json(
+        { error: 'Неверный ID портфолио' },
+        { status: 400 }
+      )
+    }
+    
+    let portfolioItem
+    try {
+      portfolioItem = await prisma.portfolio.findUnique({
+        where: { id },
+        include: {
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+            },
+          },
+        },
+      })
+    } catch (dbError: any) {
+      // Если ошибка связана с отсутствующим полем mediaType
+      if (dbError?.message?.includes('mediaType') || dbError?.code === 'P2009') {
+        console.error('⚠️ Поле mediaType отсутствует в БД. Нужно применить миграцию.')
+        // Пытаемся получить без include task
+        portfolioItem = await prisma.portfolio.findUnique({
+          where: { id },
+        })
+        if (portfolioItem) {
+          // Добавляем mediaType по умолчанию
+          return NextResponse.json({
+            ...portfolioItem,
+            mediaType: 'image',
+            task: null,
+          })
+        }
+      }
+      throw dbError
+    }
+
+    if (!portfolioItem) {
+      return NextResponse.json(
+        { error: 'Портфолио не найдено' },
+        { status: 404 }
+      )
+    }
+
+    // Убеждаемся, что mediaType есть (для старых записей)
+    const result = {
+      ...portfolioItem,
+      mediaType: (portfolioItem as any).mediaType || 'image',
+    }
+
+    return NextResponse.json(result)
+  } catch (err: any) {
+    console.error('❌ Ошибка получения портфолио:', err)
+    console.error('Детали ошибки:', {
+      message: err?.message,
+      stack: err?.stack,
+    })
+    return NextResponse.json(
+      { error: 'Ошибка получения портфолио', details: process.env.NODE_ENV === 'development' ? err?.message : undefined },
+      { status: 500 }
+    )
+  }
+}
+
+/**
  * PUT /api/portfolio/[id]
  * Редактировать элемент портфолио
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const token = req.cookies.get('token')?.value
 
     if (!token) {
@@ -37,11 +120,11 @@ export async function PUT(
       )
     }
     
-    const { title, description, imageUrl, externalUrl, taskId } = await req.json()
+    const { title, description, imageUrl, mediaType, externalUrl, taskId } = await req.json()
 
     // Проверяем, что портфолио принадлежит пользователю
     const existing = await prisma.portfolio.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existing) {
@@ -58,31 +141,77 @@ export async function PUT(
       )
     }
 
-    const updated = await prisma.portfolio.update({
-      where: { id: params.id },
-      data: {
-        title: title?.trim() || existing.title,
-        description: description?.trim() || existing.description,
-        imageUrl: imageUrl?.trim() || existing.imageUrl,
-        externalUrl: externalUrl?.trim() || existing.externalUrl,
-        taskId: taskId || existing.taskId,
-      },
-      include: {
-        task: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
+    // Подготавливаем данные для обновления (без mediaType сначала)
+    const updateData: any = {
+      title: title?.trim() || existing.title,
+      description: description?.trim() || existing.description,
+      imageUrl: imageUrl?.trim() || existing.imageUrl,
+      externalUrl: externalUrl?.trim() || existing.externalUrl,
+      taskId: taskId || existing.taskId,
+    }
+
+    let updated
+    try {
+      // Пытаемся обновить с mediaType
+      const dataWithMediaType = {
+        ...updateData,
+        mediaType: mediaType || (existing as any).mediaType || 'image',
+      }
+      updated = await prisma.portfolio.update({
+        where: { id },
+        data: dataWithMediaType,
+        include: {
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+            },
           },
         },
-      },
-    })
+      })
+    } catch (updateError: any) {
+      // Если ошибка из-за mediaType, пытаемся без него
+      if (updateError?.message?.includes('mediaType') || 
+          updateError?.message?.includes('Unknown column') ||
+          updateError?.code === 'P2009' ||
+          updateError?.code === 'P2011') {
+        console.log('⚠️ Поле mediaType отсутствует в БД, обновляем без него')
+        updated = await prisma.portfolio.update({
+          where: { id },
+          data: updateData,
+        })
+        // Добавляем mediaType вручную в результат
+        updated = {
+          ...updated,
+          mediaType: mediaType || (existing as any).mediaType || 'image',
+          task: null,
+        }
+      } else {
+        // Если это другая ошибка - пробрасываем дальше
+        throw updateError
+      }
+    }
 
-    return NextResponse.json(updated)
-  } catch (err) {
+    // Убеждаемся, что mediaType есть в результате
+    const result = {
+      ...updated,
+      mediaType: (updated as any).mediaType || mediaType || 'image',
+    }
+
+    return NextResponse.json(result)
+  } catch (err: any) {
     console.error('❌ Ошибка обновления портфолио:', err)
+    console.error('Детали ошибки:', {
+      message: err?.message,
+      stack: err?.stack,
+      code: err?.code,
+    })
     return NextResponse.json(
-      { error: 'Ошибка обновления портфолио' },
+      { 
+        error: 'Ошибка обновления портфолио',
+        details: process.env.NODE_ENV === 'development' ? err?.message : undefined
+      },
       { status: 500 }
     )
   }
@@ -94,9 +223,10 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const token = req.cookies.get('token')?.value
 
     if (!token) {
@@ -123,7 +253,7 @@ export async function DELETE(
 
     // Проверяем, что портфолио принадлежит пользователю
     const existing = await prisma.portfolio.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existing) {
@@ -141,7 +271,7 @@ export async function DELETE(
     }
 
     await prisma.portfolio.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ success: true })

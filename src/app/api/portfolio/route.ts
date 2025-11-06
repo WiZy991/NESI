@@ -34,25 +34,60 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const portfolio = await prisma.portfolio.findMany({
-      where: { userId: decoded.userId },
-      include: {
-        task: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
+    let portfolio
+    try {
+      portfolio = await prisma.portfolio.findMany({
+        where: { userId: decoded.userId },
+        include: {
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+        orderBy: { createdAt: 'desc' },
+      })
+    } catch (dbError: any) {
+      // Если ошибка связана с отсутствующим полем mediaType
+      if (dbError?.message?.includes('mediaType') || dbError?.code === 'P2009') {
+        console.error('⚠️ Поле mediaType отсутствует в БД. Получаем без include.')
+        // Пытаемся получить без include
+        portfolio = await prisma.portfolio.findMany({
+          where: { userId: decoded.userId },
+          orderBy: { createdAt: 'desc' },
+        })
+        // Добавляем mediaType по умолчанию и task: null
+        portfolio = portfolio.map((item: any) => ({
+          ...item,
+          mediaType: 'image',
+          task: null,
+        }))
+      } else {
+        throw dbError
+      }
+    }
 
-    return NextResponse.json(portfolio)
-  } catch (err) {
+    // Убеждаемся, что у всех элементов есть mediaType
+    const result = portfolio.map((item: any) => ({
+      ...item,
+      mediaType: item.mediaType || 'image',
+    }))
+
+    return NextResponse.json(result)
+  } catch (err: any) {
     console.error('❌ Ошибка получения портфолио:', err)
+    console.error('Детали ошибки:', {
+      message: err?.message,
+      stack: err?.stack,
+      code: err?.code,
+    })
     return NextResponse.json(
-      { error: 'Ошибка получения портфолио' },
+      { 
+        error: 'Ошибка получения портфолио', 
+        details: process.env.NODE_ENV === 'development' ? err?.message : undefined 
+      },
       { status: 500 }
     )
   }
@@ -88,7 +123,7 @@ export async function POST(req: NextRequest) {
       )
     }
     
-    const { title, description, imageUrl, externalUrl, taskId } = await req.json()
+    const { title, description, imageUrl, mediaType, externalUrl, taskId } = await req.json()
 
     if (!title?.trim() || !description?.trim()) {
       return NextResponse.json(
@@ -115,25 +150,53 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const portfolioItem = await prisma.portfolio.create({
-      data: {
-        userId: decoded.userId,
-        title: title.trim(),
-        description: description.trim(),
-        imageUrl: imageUrl?.trim() || null,
-        externalUrl: externalUrl?.trim() || null,
-        taskId: taskId || null,
-      },
-      include: {
-        task: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
+    let portfolioItem
+    try {
+      portfolioItem = await prisma.portfolio.create({
+        data: {
+          userId: decoded.userId,
+          title: title.trim(),
+          description: description.trim(),
+          imageUrl: imageUrl?.trim() || null,
+          mediaType: mediaType || 'image',
+          externalUrl: externalUrl?.trim() || null,
+          taskId: taskId || null,
+        },
+        include: {
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+            },
           },
         },
-      },
-    })
+      })
+    } catch (dbError: any) {
+      // Если ошибка связана с отсутствующим полем mediaType
+      if (dbError?.message?.includes('mediaType') || dbError?.code === 'P2009') {
+        console.error('⚠️ Поле mediaType отсутствует в БД. Создаем без mediaType.')
+        // Создаем без mediaType
+        portfolioItem = await prisma.portfolio.create({
+          data: {
+            userId: decoded.userId,
+            title: title.trim(),
+            description: description.trim(),
+            imageUrl: imageUrl?.trim() || null,
+            externalUrl: externalUrl?.trim() || null,
+            taskId: taskId || null,
+          },
+        })
+        // Добавляем mediaType вручную
+        portfolioItem = {
+          ...portfolioItem,
+          mediaType: mediaType || 'image',
+          task: null,
+        }
+      } else {
+        throw dbError
+      }
+    }
 
     return NextResponse.json(portfolioItem)
   } catch (err) {

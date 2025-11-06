@@ -502,6 +502,7 @@ model Portfolio {
   title       String
   description String   @db.Text
   imageUrl    String?
+  mediaType   String?  @default("image") // "image" или "video"
   externalUrl String?
   taskId      String?
   createdAt   DateTime @default(now())
