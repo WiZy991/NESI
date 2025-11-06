@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     // Фильтруем достижения по роли пользователя
     // Оставляем только те достижения, которые подходят для роли пользователя
-    const filteredBadges = earned.filter(entry => {
+    let filteredBadges = earned.filter(entry => {
       const badge = entry.badge
       // Если у достижения указана роль, она должна совпадать с ролью пользователя
       // Если targetRole = null, достижение для всех ролей
@@ -27,6 +27,26 @@ export async function GET(req: NextRequest) {
       }
       return false
     })
+
+    // Для заказчиков исключаем достижения, связанные с XP и уровнями
+    if (user.role === 'customer') {
+      filteredBadges = filteredBadges.filter(entry => {
+        const badge = entry.badge
+        const condition = badge.condition.toLowerCase()
+        const description = badge.description.toLowerCase()
+        const name = badge.name.toLowerCase()
+        
+        // Исключаем достижения, связанные с XP, уровнями, опытом
+        const xpKeywords = ['xp', 'опыт', 'уровень', 'level', 'очки опыта', 'totalXP', 'level']
+        const hasXpReference = xpKeywords.some(keyword => 
+          condition.includes(keyword) || 
+          description.includes(keyword) || 
+          name.includes(keyword)
+        )
+        
+        return !hasXpReference
+      })
+    }
 
     return NextResponse.json({
       badges: filteredBadges.map(entry => ({

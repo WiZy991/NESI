@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { broadcastOnlineCountUpdate } from '../users/activity/stream/route'
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
       }).catch(err => {
         // Игнорируем ошибки обновления активности при выходе
         console.error('Ошибка обновления активности при выходе:', err)
+      })
+
+      // Broadcast обновление онлайн счетчика всем подключенным клиентам
+      broadcastOnlineCountUpdate().catch(err => {
+        console.error('Ошибка broadcast при выходе:', err)
       })
     }
   } catch (error) {

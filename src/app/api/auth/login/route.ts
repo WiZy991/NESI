@@ -6,6 +6,7 @@ import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 import { checkUserBlocked, logActivity } from '@/lib/antifraud'
 import { setSecureCookie } from '@/lib/security'
 import { NextResponse } from 'next/server'
+import { broadcastOnlineCountUpdate } from '@/app/api/users/activity/stream/route'
 
 export async function POST(req: Request) {
   try {
@@ -74,6 +75,11 @@ export async function POST(req: Request) {
     await prisma.user.update({
       where: { id: user.id },
       data: { lastActivityAt: new Date() },
+    })
+
+    // 📢 Broadcast обновление онлайн счетчика всем подключенным клиентам
+    broadcastOnlineCountUpdate().catch(err => {
+      console.error('Ошибка broadcast при входе:', err)
     })
 
     // 📨 Создаём уведомление

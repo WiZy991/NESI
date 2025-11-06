@@ -127,7 +127,7 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
     }))
     
     // Дополнительная фильтрация после нормализации для безопасности
-    const filteredBadges = normalizedBadges.filter(badge => {
+    let filteredBadges = normalizedBadges.filter(badge => {
       // Если targetRole указан и не соответствует роли пользователя - исключаем
       if (badge.targetRole !== null && badge.targetRole !== user.role) {
         console.warn(`[Badges] ⚠️ Исключаем badge ${badge.id} (${badge.name}): targetRole="${badge.targetRole}", роль пользователя="${user.role}"`)
@@ -135,6 +135,29 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{ id: s
       }
       return true
     })
+
+    // Для заказчиков исключаем достижения, связанные с XP и уровнями
+    if (user.role === 'customer') {
+      filteredBadges = filteredBadges.filter(badge => {
+        const condition = badge.condition?.toLowerCase() || ''
+        const description = badge.description?.toLowerCase() || ''
+        const name = badge.name?.toLowerCase() || ''
+        
+        // Исключаем достижения, связанные с XP, уровнями, опытом
+        const xpKeywords = ['xp', 'опыт', 'уровень', 'level', 'очки опыта', 'totalxp', 'level']
+        const hasXpReference = xpKeywords.some(keyword => 
+          condition.includes(keyword) || 
+          description.includes(keyword) || 
+          name.includes(keyword)
+        )
+        
+        if (hasXpReference) {
+          console.log(`[Badges] Исключаем XP-достижение для заказчика: ${badge.name}`)
+        }
+        
+        return !hasXpReference
+      })
+    }
     
     console.log(`[Badges] Найдено бейджей в БД для роли ${user.role}:`, allBadges.length)
     console.log(`[Badges] После нормализации и фильтрации:`, filteredBadges.length)

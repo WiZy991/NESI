@@ -206,7 +206,7 @@ export async function GET(req: Request) {
     // Поля, специфичные для заказчиков
     const customerOnlyFields = ['createdTasks', 'paidTasks', 'totalSpent', 'monthlyActive', 'uniqueExecutors']
     
-    const filteredBadges = (fullUser.badges || []).filter((userBadge: any) => {
+    let filteredBadges = (fullUser.badges || []).filter((userBadge: any) => {
       // Защита от отсутствующих данных
       if (!userBadge || !userBadge.badge) {
         return false
@@ -232,16 +232,50 @@ export async function GET(req: Request) {
             return false
           }
           if (fullUser.role === 'executor' && customerOnlyFields.includes(conditionType)) {
-      return false
+            return false
+          }
+
+          // Исключаем достижения, связанные с XP и уровнями для заказчиков
+          if (fullUser.role === 'customer' && (conditionType === 'totalXP' || conditionType === 'level')) {
+            return false
           }
         } catch (error) {
-          // Если не удалось распарсить условие, оставляем badge
-          console.error(`[Profile API] Ошибка парсинга условия для badge ${badge.id}:`, error)
-    }
+          // Если не удалось распарсить условие, проверяем по тексту
+          const condition = badge.condition?.toLowerCase() || ''
+          const description = badge.description?.toLowerCase() || ''
+          const name = badge.name?.toLowerCase() || ''
+          
+          const xpKeywords = ['xp', 'опыт', 'уровень', 'level', 'очки опыта', 'totalxp']
+          if (fullUser.role === 'customer' && xpKeywords.some(keyword => 
+            condition.includes(keyword) || description.includes(keyword) || name.includes(keyword)
+          )) {
+            return false
+          }
+        }
       }
       
       return true
     })
+
+    // Дополнительная фильтрация для заказчиков: исключаем достижения, связанные с XP и уровнями
+    if (fullUser.role === 'customer') {
+      filteredBadges = filteredBadges.filter((userBadge: any) => {
+        const badge = userBadge.badge as any
+        const condition = badge.condition?.toLowerCase() || ''
+        const description = badge.description?.toLowerCase() || ''
+        const name = badge.name?.toLowerCase() || ''
+        
+        // Исключаем достижения, связанные с XP, уровнями, опытом
+        const xpKeywords = ['xp', 'опыт', 'уровень', 'level', 'очки опыта', 'totalxp']
+        const hasXpReference = xpKeywords.some(keyword => 
+          condition.includes(keyword) || 
+          description.includes(keyword) || 
+          name.includes(keyword)
+        )
+        
+        return !hasXpReference
+      })
+    }
 
     // 6️⃣ Возвращаем оптимизированный ответ
   return NextResponse.json({

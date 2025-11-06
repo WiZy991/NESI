@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
 import BadgeIcon from '@/components/BadgeIcon'
+import BadgesModal from '@/components/BadgesModal'
 
 type Badge = {
   id: string
@@ -32,6 +33,8 @@ export default function LevelPage() {
   const [data, setData] = useState<LevelInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [checkingBadges, setCheckingBadges] = useState(false)
+  const [badgesModalOpen, setBadgesModalOpen] = useState(false)
+  const [lockedBadges, setLockedBadges] = useState<any[]>([])
 
   useEffect(() => {
     if (!token) return
@@ -65,6 +68,22 @@ export default function LevelPage() {
         if (!res.ok) throw new Error(`Ошибка ${res.status}`)
         const json = await res.json()
         setData(json)
+
+        // Загружаем недостигнутые достижения
+        try {
+          const badgesRes = await fetch('/api/badges/all', {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          if (badgesRes.ok) {
+            const badgesData = await badgesRes.json()
+            setLockedBadges(badgesData.locked || [])
+          }
+        } catch (err) {
+          console.error('Ошибка загрузки недостигнутых достижений:', err)
+        }
       } catch (err) {
         console.error('Ошибка загрузки уровня:', err)
       } finally {
@@ -233,7 +252,7 @@ export default function LevelPage() {
       {/* Бейджи - главная секция */}
       <div className="mb-8">
         <div className="bg-gradient-to-br from-black/60 via-gray-900/60 to-black/60 border border-emerald-500/30 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.25)] p-6 sm:p-8 lg:p-10 backdrop-blur-sm">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
             <h2 className="text-2xl sm:text-3xl font-bold text-emerald-400 flex items-center gap-3">
               <span className="text-3xl sm:text-4xl">🏅</span>
               <span>Твои достижения</span>
@@ -250,11 +269,23 @@ export default function LevelPage() {
             <div className="bg-gradient-to-br from-black/40 to-gray-900/20 border-2 border-dashed border-emerald-500/30 rounded-2xl p-12 sm:p-16 text-center">
               <div className="text-6xl sm:text-7xl mb-4 opacity-60">🏆</div>
               <p className="text-xl text-gray-300 font-semibold mb-2">Пока нет достижений</p>
-              <p className="text-sm text-gray-500">Выполняй задачи, проходи тесты и получай бейджи!</p>
+              <p className="text-sm text-gray-500 mb-6">Выполняй задачи, проходи тесты и получай бейджи!</p>
+              {lockedBadges.length > 0 && (
+                <button
+                  onClick={() => setBadgesModalOpen(true)}
+                  className="px-6 py-3 bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl text-gray-400 hover:text-gray-300 hover:border-gray-600/50 transition-all text-sm font-semibold"
+                >
+                  Показать скрытые достижения ({lockedBadges.length})
+                </button>
+              )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {data.badges.map((badge) => (
+            <div className="space-y-6">
+              {/* Полученные достижения */}
+              <div>
+                <h3 className="text-lg font-semibold text-emerald-400 mb-4">✓ Полученные</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {data.badges.map((badge) => (
                 <div
                   key={badge.id}
                   className="group relative overflow-hidden bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90 border-2 border-gray-700/50 rounded-xl p-5 transition-all duration-300 hover:border-emerald-500/60 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-[1.02] cursor-pointer"
@@ -304,8 +335,103 @@ export default function LevelPage() {
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
               ))}
+                </div>
+              </div>
+              
+              {/* Кнопка показать скрытые достижения */}
+              {lockedBadges.length > 0 && (
+                <button
+                  onClick={() => setBadgesModalOpen(true)}
+                  className="w-full py-4 bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl text-gray-400 hover:text-gray-300 hover:border-gray-600/50 transition-all text-base font-semibold flex items-center justify-center gap-2"
+                >
+                  <span>🔒</span>
+                  <span>Показать скрытые достижения ({lockedBadges.length})</span>
+                </button>
+              )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Информация о системе XP */}
+      <div className="mb-8">
+        <div className="bg-gradient-to-br from-black/60 via-gray-900/60 to-black/60 border border-emerald-500/30 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.25)] p-6 sm:p-8 lg:p-10 backdrop-blur-sm">
+          <h2 className="text-2xl sm:text-3xl font-bold text-emerald-400 flex items-center gap-3 mb-6">
+            <span className="text-3xl sm:text-4xl">📊</span>
+            <span>Как получить опыт (XP)</span>
+          </h2>
+          
+          <div className="space-y-4">
+            <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-5 hover:border-emerald-500/50 hover:bg-black/60 transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 border border-emerald-500/50 flex items-center justify-center text-emerald-300 font-bold text-lg group-hover:scale-110 transition-transform">
+                  ✓
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white mb-2 group-hover:text-emerald-300 transition">
+                    Завершение задачи
+                  </h3>
+                  <p className="text-gray-300 text-base mb-2">
+                    Выполни задачу как исполнитель и получи опыт за качественную работу
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 rounded-full text-emerald-400 font-bold text-sm">
+                      +20 XP
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-5 hover:border-emerald-500/50 hover:bg-black/60 transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 border border-emerald-500/50 flex items-center justify-center text-emerald-300 font-bold text-lg group-hover:scale-110 transition-transform">
+                  ⭐
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white mb-2 group-hover:text-emerald-300 transition">
+                    Получение хорошего отзыва
+                  </h3>
+                  <p className="text-gray-300 text-base mb-2">
+                    Получи отзыв с рейтингом 4 или 5 звезд от заказчика
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 rounded-full text-emerald-400 font-bold text-sm">
+                      +5 XP
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-5 hover:border-emerald-500/50 hover:bg-black/60 transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 border border-emerald-500/50 flex items-center justify-center text-emerald-300 font-bold text-lg group-hover:scale-110 transition-transform">
+                  🎓
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white mb-2 group-hover:text-emerald-300 transition">
+                    Прохождение сертификации
+                  </h3>
+                  <p className="text-gray-300 text-base mb-2">
+                    Успешно пройди тест по категории и получи сертификацию
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 rounded-full text-emerald-400 font-bold text-sm">
+                      +10 XP
+                    </span>
+                    <span className="text-xs text-gray-500">за каждую сертификацию</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+            <p className="text-sm text-gray-300">
+              <span className="text-emerald-400 font-semibold">💡 Совет:</span> Чем больше задач вы выполняете и чем выше качество вашей работы, тем быстрее вы повышаете уровень и получаете доступ к новым возможностям!
+            </p>
+          </div>
         </div>
       </div>
 
@@ -340,6 +466,13 @@ export default function LevelPage() {
           </div>
         )}
       </div>
+
+      {/* Модальное окно всех достижений */}
+      <BadgesModal
+        isOpen={badgesModalOpen}
+        onClose={() => setBadgesModalOpen(false)}
+        earnedBadges={data.badges || []}
+      />
     </div>
   )
 }

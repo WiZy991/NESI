@@ -2,6 +2,7 @@
 
 import EditProfileModal from '@/components/EditProfileModal'
 import BadgeIcon from '@/components/BadgeIcon'
+import BadgesModal from '@/components/BadgesModal'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -175,6 +176,8 @@ export default function ProfilePageContent() {
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
 	const [checkingBadges, setCheckingBadges] = useState(false)
+	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
+	const [lockedBadges, setLockedBadges] = useState<any[]>([])
 
 	const fetchProfile = async () => {
 		if (!token) return
@@ -289,6 +292,29 @@ export default function ProfilePageContent() {
 			checkBadges()
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeTab, token])
+
+	// Загрузка скрытых достижений при открытии вкладки достижений
+	useEffect(() => {
+		if (activeTab === 'achievements' && token) {
+			const fetchLockedBadges = async () => {
+				try {
+					const res = await fetch('/api/badges/all', {
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+					})
+					if (res.ok) {
+						const data = await res.json()
+						setLockedBadges(data.locked || [])
+					}
+				} catch (err) {
+					console.error('Ошибка загрузки скрытых достижений:', err)
+				}
+			}
+			fetchLockedBadges()
+		}
 	}, [activeTab, token])
 
 	const handleWithdraw = async () => {
@@ -658,65 +684,91 @@ export default function ProfilePageContent() {
 						)}
 						
 						{profile.badges && Array.isArray(profile.badges) && profile.badges.length > 0 ? (
-							<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6'>
-								{profile.badges.map(userBadge => (
-									<div
-										key={userBadge.id}
-										className='group relative overflow-hidden bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90 border-2 border-gray-700/50 rounded-xl p-5 transition-all duration-300 hover:border-emerald-500/60 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-[1.02] cursor-default'
-									>
-										{/* Декоративный фон */}
-										<div className='absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
-										<div className='absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500'></div>
-										
-										<div className='relative z-10'>
-											<div className='flex items-start gap-4 mb-4'>
-												{/* Игровая иконка бейджа */}
-												<div className='flex-shrink-0'>
-													<BadgeIcon 
-														icon={userBadge.badge.icon} 
-														name={userBadge.badge.name} 
-														size='md'
-														className='group-hover:scale-110'
-													/>
+							<div className='space-y-6'>
+								<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6'>
+									{profile.badges.map(userBadge => (
+										<div
+											key={userBadge.id}
+											className='group relative overflow-hidden bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90 border-2 border-gray-700/50 rounded-xl p-5 transition-all duration-300 hover:border-emerald-500/60 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-[1.02] cursor-default'
+										>
+											{/* Декоративный фон */}
+											<div className='absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
+											<div className='absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500'></div>
+											
+											<div className='relative z-10'>
+												<div className='flex items-start gap-4 mb-4'>
+													{/* Игровая иконка бейджа */}
+													<div className='flex-shrink-0'>
+														<BadgeIcon 
+															icon={userBadge.badge.icon} 
+															name={userBadge.badge.name} 
+															size='md'
+															className='group-hover:scale-110'
+														/>
+													</div>
+													
+													{/* Название и дата */}
+													<div className='flex-1 min-w-0 pt-1'>
+														<h4 className='font-bold text-white text-base mb-1 group-hover:text-emerald-300 transition line-clamp-2'>
+															{userBadge.badge.name}
+														</h4>
+														<p className='text-xs text-gray-400'>
+															{new Date(userBadge.earnedAt).toLocaleDateString('ru-RU', { 
+																day: 'numeric', 
+																month: 'long', 
+																year: 'numeric' 
+															})}
+														</p>
+													</div>
 												</div>
 												
-												{/* Название и дата */}
-												<div className='flex-1 min-w-0 pt-1'>
-													<h4 className='font-bold text-white text-base mb-1 group-hover:text-emerald-300 transition line-clamp-2'>
-														{userBadge.badge.name}
-													</h4>
-													<p className='text-xs text-gray-400'>
-														{new Date(userBadge.earnedAt).toLocaleDateString('ru-RU', { 
-															day: 'numeric', 
-															month: 'long', 
-															year: 'numeric' 
-														})}
+												{/* Описание */}
+												<div className='bg-black/30 border border-gray-800/50 rounded-lg p-3'>
+													<p className='text-xs text-gray-300 leading-relaxed'>
+														{userBadge.badge.description}
 													</p>
 												</div>
 											</div>
 											
-											{/* Описание */}
-											<div className='bg-black/30 border border-gray-800/50 rounded-lg p-3'>
-												<p className='text-xs text-gray-300 leading-relaxed'>
-													{userBadge.badge.description}
-												</p>
-											</div>
+											{/* Блестящий эффект сверху */}
+											<div className='absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
 										</div>
-										
-										{/* Блестящий эффект сверху */}
-										<div className='absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
-									</div>
-								))}
+									))}
+								</div>
+								
+								{/* Кнопка показать скрытые достижения */}
+								{lockedBadges.length > 0 && (
+									<button
+										onClick={() => setBadgesModalOpen(true)}
+										className='w-full py-4 bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl text-gray-400 hover:text-gray-300 hover:border-gray-600/50 transition-all text-base font-semibold flex items-center justify-center gap-2'
+									>
+										<span>🔒</span>
+										<span>Показать скрытые достижения ({lockedBadges.length})</span>
+									</button>
+								)}
 							</div>
 						) : (
-							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
-								<FaTrophy className='text-6xl text-gray-600 mx-auto mb-4' />
-								<p className='text-gray-400'>Пока нет достижений</p>
-								{user.role === 'customer' && (
-									<p className='text-gray-500 text-sm mt-2'>Создавайте задачи, завершайте их и получайте достижения!</p>
-								)}
-								{user.role === 'executor' && (
-									<p className='text-gray-500 text-sm mt-2'>Выполняйте задачи и получайте достижения!</p>
+							<div className='space-y-4'>
+								<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+									<FaTrophy className='text-6xl text-gray-600 mx-auto mb-4' />
+									<p className='text-gray-400'>Пока нет достижений</p>
+									{user.role === 'customer' && (
+										<p className='text-gray-500 text-sm mt-2'>Создавайте задачи, завершайте их и получайте достижения!</p>
+									)}
+									{user.role === 'executor' && (
+										<p className='text-gray-500 text-sm mt-2'>Выполняйте задачи и получайте достижения!</p>
+									)}
+								</div>
+								
+								{/* Кнопка показать скрытые достижения */}
+								{lockedBadges.length > 0 && (
+									<button
+										onClick={() => setBadgesModalOpen(true)}
+										className='w-full py-4 bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl text-gray-400 hover:text-gray-300 hover:border-gray-600/50 transition-all text-base font-semibold flex items-center justify-center gap-2'
+									>
+										<span>🔒</span>
+										<span>Показать скрытые достижения ({lockedBadges.length})</span>
+									</button>
 								)}
 							</div>
 						)}
@@ -1011,6 +1063,21 @@ export default function ProfilePageContent() {
 					user={profile}
 					token={token}
 					onSuccess={handleProfileUpdateSuccess}
+				/>
+			)}
+
+			{/* Модальное окно всех достижений */}
+			{token && (
+				<BadgesModal
+					isOpen={badgesModalOpen}
+					onClose={() => setBadgesModalOpen(false)}
+					earnedBadges={profile?.badges?.map(ub => ({
+						id: ub.badge.id,
+						name: ub.badge.name,
+						description: ub.badge.description,
+						icon: ub.badge.icon,
+						earnedAt: ub.earnedAt,
+					})) || []}
 				/>
 			)}
 		</div>

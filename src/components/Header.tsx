@@ -191,9 +191,12 @@ export default function Header() {
 		fetchNotifications()
 	}, [user, token])
 
-	// Отслеживание активности и загрузка онлайн пользователей
+	// Отслеживание активности и загрузка онлайн пользователей через SSE
 	useEffect(() => {
-		if (!user || !token) return
+		if (!user || !token) {
+			setOnlineCount(0)
+			return
+		}
 
 		// Обновляем активность при загрузке
 		const updateActivity = async () => {
@@ -216,63 +219,99 @@ export default function Header() {
 			}
 		}
 
-		// Загружаем количество онлайн пользователей
-		const fetchOnlineCount = async () => {
-			try {
-				const res = await fetch('/api/users/activity/online', {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' },
-				})
-				
-				if (!res.ok) {
-					const errorText = await res.text()
-					console.error('❌ Ошибка получения онлайн пользователей (статус):', res.status, errorText)
-					setOnlineCount(0)
-					return
-				}
-				
-				let data
-				try {
-					data = await res.json()
-				} catch (parseError) {
-					console.error('❌ Ошибка парсинга JSON:', parseError)
-					setOnlineCount(0)
-					return
-				}
-				
-				console.log('📊 Онлайн пользователей:', data.onlineCount)
-				setOnlineCount(data.onlineCount || 0)
-			} catch (err: any) {
-				console.error('❌ Ошибка получения онлайн пользователей:', err)
-				console.error('❌ Детали ошибки:', err?.message, err?.stack)
-				setOnlineCount(0)
-			}
-		}
-
+		// Обновляем активность при первом подключении
 		updateActivity()
-		fetchOnlineCount()
 
-		// Обновляем активность каждые 2 минуты
-		const activityInterval = setInterval(updateActivity, 2 * 60 * 1000)
-		
-		// Обновляем количество онлайн пользователей каждые 30 секунд
-		const onlineInterval = setInterval(fetchOnlineCount, 30 * 1000)
+		// Обновляем активность каждые 4 минуты (чтобы не быть неактивным 5 минут)
+		const activityInterval = setInterval(updateActivity, 4 * 60 * 1000)
 
 		// Обновляем активность при взаимодействии с пользователем
+		let lastActivityTime = Date.now()
 		const handleActivity = () => {
-			updateActivity()
+			const now = Date.now()
+			// Обновляем активность только если прошло больше 30 секунд с последнего обновления
+			if (now - lastActivityTime > 30000) {
+				lastActivityTime = now
+				updateActivity()
+			}
 		}
 
 		window.addEventListener('mousedown', handleActivity)
 		window.addEventListener('keydown', handleActivity)
 		window.addEventListener('scroll', handleActivity, { passive: true })
 
+		// Подключаемся к SSE потоку для онлайн счетчика
+		let eventSource: EventSource | null = null
+		
+		try {
+			const sseUrl = `/api/users/activity/stream?token=${encodeURIComponent(token)}`
+			eventSource = new EventSource(sseUrl)
+
+			eventSource.onmessage = (event) => {
+				try {
+					const data = JSON.parse(event.data)
+					if (data.type === 'onlineCount') {
+						console.log('📊 Обновление онлайн счетчика через SSE:', data.count)
+						setOnlineCount(data.count || 0)
+					}
+				} catch (err) {
+					console.error('❌ Ошибка парсинга SSE данных:', err)
+				}
+			}
+
+			eventSource.onerror = (error) => {
+				console.error('❌ Ошибка SSE соединения для онлайн счетчика:', error)
+				// Переподключаемся через 5 секунд
+				setTimeout(() => {
+					if (eventSource) {
+						eventSource.close()
+						eventSource = null
+						// Попытка переподключения будет сделана при следующем useEffect
+					}
+				}, 5000)
+			}
+
+			console.log('✅ SSE подключение для онлайн счетчика установлено')
+		} catch (err) {
+			console.error('❌ Ошибка создания SSE соединения:', err)
+			// Fallback на polling если SSE не работает
+			const fetchOnlineCount = async () => {
+				try {
+					const res = await fetch('/api/users/activity/online', {
+						method: 'GET',
+						headers: { 'Content-Type': 'application/json' },
+					})
+					
+					if (res.ok) {
+						const data = await res.json()
+						setOnlineCount(data.onlineCount || 0)
+					}
+				} catch (fetchErr) {
+					console.error('❌ Ошибка fallback получения онлайн пользователей:', fetchErr)
+				}
+			}
+			
+			fetchOnlineCount()
+			const onlineInterval = setInterval(fetchOnlineCount, 30 * 1000)
+
+			return () => {
+				clearInterval(activityInterval)
+				clearInterval(onlineInterval)
+				window.removeEventListener('mousedown', handleActivity)
+				window.removeEventListener('keydown', handleActivity)
+				window.removeEventListener('scroll', handleActivity)
+			}
+		}
+
 		return () => {
 			clearInterval(activityInterval)
-			clearInterval(onlineInterval)
 			window.removeEventListener('mousedown', handleActivity)
 			window.removeEventListener('keydown', handleActivity)
 			window.removeEventListener('scroll', handleActivity)
+			if (eventSource) {
+				eventSource.close()
+				eventSource = null
+			}
 		}
 	}, [user, token])
 
