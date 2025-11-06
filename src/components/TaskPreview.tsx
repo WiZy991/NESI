@@ -20,7 +20,7 @@ export default function TaskPreview({
   onClose,
 }: TaskPreviewProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" data-nextjs-scroll-focus-boundary={false}>
       <div className="bg-gradient-to-br from-black/90 via-gray-900 to-black/90 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-gray-900/95 backdrop-blur-md border-b border-emerald-500/30 p-6 flex justify-between items-center rounded-t-2xl z-10">

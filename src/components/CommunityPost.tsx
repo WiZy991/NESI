@@ -4,6 +4,44 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
 
+// Функция для определения типа медиа по расширению файла
+function detectMediaType(imageUrl: string | null, currentType?: string | null): 'image' | 'video' {
+  // Сначала проверяем currentType из базы данных (наиболее надежный источник)
+  if (currentType === 'video' || currentType === 'image') {
+    return currentType
+  }
+  
+  // Если currentType не указан, проверяем расширение в URL (fallback)
+  if (imageUrl) {
+    const lower = imageUrl.toLowerCase()
+    if (lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('.mkv')) {
+      return 'video'
+    }
+    // Проверяем расширения изображений
+    if (lower.includes('.jpg') || lower.includes('.jpeg') || lower.includes('.png') || lower.includes('.gif') || lower.includes('.webp') || lower.includes('.svg')) {
+      return 'image'
+    }
+  }
+  
+  // По умолчанию - изображение
+  return 'image'
+}
+
+// Функция для получения правильного URL медиа
+function getMediaUrl(imageUrl: string | null): string {
+  if (!imageUrl) return ''
+  // Если уже полный URL (http/https) или начинается с /uploads/, используем как есть
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('/uploads/')) {
+    return imageUrl
+  }
+  // Если начинается с /, используем как есть
+  if (imageUrl.startsWith('/')) {
+    return imageUrl
+  }
+  // Иначе используем через /api/files/
+  return `/api/files/${imageUrl}`
+}
+
 type Author = {
   id: string
   fullName: string | null
@@ -16,6 +54,7 @@ type Comment = {
   content: string
   createdAt: string
   imageUrl?: string | null
+  mediaType?: string | null
   author: Author
   parentId?: string | null
   replies: Comment[]
@@ -25,6 +64,7 @@ type Post = {
   id: string
   content: string
   imageUrl?: string | null
+  mediaType?: string | null
   createdAt: string
   author: Author
   _count: { comments: number; likes: number }
@@ -92,7 +132,7 @@ export default function CommunityPost({ post }: { post: Post }) {
     }
   }
 
-  const uploadFile = async (): Promise<string | undefined> => {
+  const uploadFile = async (): Promise<{ url: string; mediaType: string } | undefined> => {
     if (!file) return undefined
     const formData = new FormData()
     formData.append('file', file)
@@ -103,7 +143,17 @@ export default function CommunityPost({ post }: { post: Post }) {
         body: formData,
       })
       const data = await res.json()
-      return data?.id ? `/api/files/${data.id}` : undefined
+      if (!data?.id) return undefined
+      
+      // Определяем тип медиа
+      const fileType = file.type
+      const isVideo = fileType.startsWith('video/')
+      const mediaType = isVideo ? 'video' : 'image'
+      
+      return {
+        url: `/api/files/${data.id}`,
+        mediaType
+      }
     } catch (err) {
       console.error('Ошибка загрузки файла:', err)
       return undefined
@@ -115,8 +165,13 @@ export default function CommunityPost({ post }: { post: Post }) {
 
     setUploading(true)
     let imageUrl: string | undefined
+    let mediaType: string | undefined
     if (file) {
-      imageUrl = await uploadFile()
+      const uploadResult = await uploadFile()
+      if (uploadResult) {
+        imageUrl = uploadResult.url
+        mediaType = uploadResult.mediaType
+      }
     }
 
     try {
@@ -124,7 +179,10 @@ export default function CommunityPost({ post }: { post: Post }) {
         content: commentInput,
         parentId: replyTo,
       }
-      if (imageUrl) body.imageUrl = imageUrl
+      if (imageUrl) {
+        body.imageUrl = imageUrl
+        body.mediaType = mediaType
+      }
 
       const res = await fetch(`/api/community/${post.id}/comment`, {
         method: 'POST',
@@ -170,9 +228,25 @@ export default function CommunityPost({ post }: { post: Post }) {
           <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
             <p className="text-sm font-semibold">{reply.author.fullName || reply.author.email}</p>
             <p className="text-sm">{reply.content}</p>
-            {reply.imageUrl && (
-              <Image src={reply.imageUrl} alt="img" width={300} height={200} className="mt-2 rounded" />
-            )}
+            {reply.imageUrl && (() => {
+              const itemMediaType = detectMediaType(reply.imageUrl, reply.mediaType)
+              return itemMediaType === 'video' || (reply.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(reply.imageUrl)) ? (
+                <video
+                  src={getMediaUrl(reply.imageUrl)}
+                  controls
+                  className="w-full max-w-xs max-h-48 rounded mt-2 object-contain"
+                  preload="metadata"
+                />
+              ) : (
+                <Image 
+                  src={getMediaUrl(reply.imageUrl)} 
+                  alt="img" 
+                  width={300} 
+                  height={200} 
+                  className="mt-2 rounded" 
+                />
+              )
+            })()}
             <button
               onClick={() => setReplyTo(reply.id)}
               className="text-xs text-emerald-400 hover:underline mt-1"
@@ -194,9 +268,25 @@ export default function CommunityPost({ post }: { post: Post }) {
           <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
             <p className="text-sm font-semibold">{c.author.fullName || c.author.email}</p>
             <p className="text-sm">{c.content}</p>
-            {c.imageUrl && (
-              <Image src={c.imageUrl} alt="img" width={300} height={200} className="mt-2 rounded" />
-            )}
+            {c.imageUrl && (() => {
+              const itemMediaType = detectMediaType(c.imageUrl, c.mediaType)
+              return itemMediaType === 'video' || (c.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(c.imageUrl)) ? (
+                <video
+                  src={getMediaUrl(c.imageUrl)}
+                  controls
+                  className="w-full max-w-xs max-h-48 rounded mt-2 object-contain"
+                  preload="metadata"
+                />
+              ) : (
+                <Image 
+                  src={getMediaUrl(c.imageUrl)} 
+                  alt="img" 
+                  width={300} 
+                  height={200} 
+                  className="mt-2 rounded" 
+                />
+              )
+            })()}
             <button
               onClick={() => setReplyTo(c.id)}
               className="text-xs text-emerald-400 hover:underline mt-1"
@@ -221,9 +311,33 @@ export default function CommunityPost({ post }: { post: Post }) {
       </div>
 
       <p>{post.content}</p>
-      {post.imageUrl && (
-        <Image src={post.imageUrl} alt="post image" width={600} height={400} className="rounded-lg mt-2" />
-      )}
+      {post.imageUrl && (() => {
+        const itemMediaType = detectMediaType(post.imageUrl, post.mediaType)
+        return itemMediaType === 'video' || (post.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(post.imageUrl)) ? (
+          <video
+            src={getMediaUrl(post.imageUrl)}
+            controls
+            className="w-full max-h-96 rounded-lg mt-2 object-contain"
+            preload="metadata"
+            onError={(e) => {
+              const video = e.target as HTMLVideoElement
+              video.style.display = 'none'
+            }}
+          />
+        ) : (
+          <Image 
+            src={getMediaUrl(post.imageUrl)} 
+            alt="post image" 
+            width={600} 
+            height={400} 
+            className="rounded-lg mt-2" 
+            onError={(e) => {
+              const img = e.target as HTMLImageElement
+              img.style.display = 'none'
+            }}
+          />
+        )
+      })()}
 
       <div className="flex items-center gap-6 text-sm">
         <button onClick={toggleLike} className="flex items-center gap-1 hover:text-emerald-400">
@@ -263,7 +377,7 @@ export default function CommunityPost({ post }: { post: Post }) {
 
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               ref={fileInputRef}
               onChange={(e) => {
                 if (e.target.files?.[0]) setFile(e.target.files[0])
@@ -302,7 +416,7 @@ export default function CommunityPost({ post }: { post: Post }) {
       )}
 
       {showAllComments && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" data-nextjs-scroll-focus-boundary={false}>
           <div ref={modalRef} className="bg-gray-900 max-h-[80vh] overflow-y-auto w-full max-w-2xl p-6 rounded-xl">
             <h3 className="text-lg font-semibold mb-4">Все комментарии</h3>
             {renderComments(comments, comments.length)}

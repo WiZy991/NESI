@@ -34,42 +34,31 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    let portfolio
-    try {
-      portfolio = await prisma.portfolio.findMany({
-        where: { userId: decoded.userId },
-        include: {
-          task: {
-            select: {
-              id: true,
-              title: true,
-              status: true,
-            },
+    // Используем select вместо include, чтобы избежать проблем с отсутствующими полями
+    const portfolio = await prisma.portfolio.findMany({
+      where: { userId: decoded.userId },
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        description: true,
+        imageUrl: true,
+        externalUrl: true,
+        taskId: true,
+        createdAt: true,
+        updatedAt: true,
+        task: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
           },
         },
-        orderBy: { createdAt: 'desc' },
-      })
-    } catch (dbError: any) {
-      // Если ошибка связана с отсутствующим полем mediaType
-      if (dbError?.message?.includes('mediaType') || dbError?.code === 'P2009') {
-        console.error('⚠️ Поле mediaType отсутствует в БД. Получаем без include.')
-        // Пытаемся получить без include
-        portfolio = await prisma.portfolio.findMany({
-          where: { userId: decoded.userId },
-          orderBy: { createdAt: 'desc' },
-        })
-        // Добавляем mediaType по умолчанию и task: null
-        portfolio = portfolio.map((item: any) => ({
-          ...item,
-          mediaType: 'image',
-          task: null,
-        }))
-      } else {
-        throw dbError
-      }
-    }
+      },
+      orderBy: { createdAt: 'desc' },
+    })
 
-    // Убеждаемся, что у всех элементов есть mediaType
+    // Убеждаемся, что у всех элементов есть mediaType (добавляем по умолчанию, если поле отсутствует в БД)
     const result = portfolio.map((item: any) => ({
       ...item,
       mediaType: item.mediaType || 'image',
@@ -150,19 +139,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Создаем данные для портфолио
+    const portfolioData: any = {
+      userId: decoded.userId,
+      title: title.trim(),
+      description: description.trim(),
+      imageUrl: imageUrl?.trim() || null,
+      externalUrl: externalUrl?.trim() || null,
+      taskId: taskId || null,
+    }
+
+    // Пытаемся добавить mediaType, если поле существует в БД
+    // Проверяем через try-catch в отдельном запросе или просто добавляем вручную в ответ
     let portfolioItem
     try {
       portfolioItem = await prisma.portfolio.create({
-        data: {
-          userId: decoded.userId,
-          title: title.trim(),
-          description: description.trim(),
-          imageUrl: imageUrl?.trim() || null,
-          mediaType: mediaType || 'image',
-          externalUrl: externalUrl?.trim() || null,
-          taskId: taskId || null,
-        },
-        include: {
+        data: portfolioData,
+        select: {
+          id: true,
+          userId: true,
+          title: true,
+          description: true,
+          imageUrl: true,
+          externalUrl: true,
+          taskId: true,
+          createdAt: true,
+          updatedAt: true,
           task: {
             select: {
               id: true,
@@ -173,32 +175,45 @@ export async function POST(req: NextRequest) {
         },
       })
     } catch (dbError: any) {
-      // Если ошибка связана с отсутствующим полем mediaType
-      if (dbError?.message?.includes('mediaType') || dbError?.code === 'P2009') {
+      // Если ошибка связана с отсутствующим полем mediaType или другими полями
+      if (dbError?.message?.includes('mediaType') || dbError?.code === 'P2009' || dbError?.code === 'P2022') {
         console.error('⚠️ Поле mediaType отсутствует в БД. Создаем без mediaType.')
         // Создаем без mediaType
         portfolioItem = await prisma.portfolio.create({
-          data: {
-            userId: decoded.userId,
-            title: title.trim(),
-            description: description.trim(),
-            imageUrl: imageUrl?.trim() || null,
-            externalUrl: externalUrl?.trim() || null,
-            taskId: taskId || null,
+          data: portfolioData,
+          select: {
+            id: true,
+            userId: true,
+            title: true,
+            description: true,
+            imageUrl: true,
+            externalUrl: true,
+            taskId: true,
+            createdAt: true,
+            updatedAt: true,
           },
         })
-        // Добавляем mediaType вручную
+        // Добавляем mediaType вручную и task: null
         portfolioItem = {
           ...portfolioItem,
           mediaType: mediaType || 'image',
-          task: null,
+          task: taskId ? await prisma.task.findUnique({
+            where: { id: taskId },
+            select: { id: true, title: true, status: true },
+          }) : null,
         }
       } else {
         throw dbError
       }
     }
 
-    return NextResponse.json(portfolioItem)
+    // Убеждаемся, что mediaType присутствует в ответе
+    const result = {
+      ...portfolioItem,
+      mediaType: portfolioItem.mediaType || mediaType || 'image',
+    }
+
+    return NextResponse.json(result)
   } catch (err) {
     console.error('❌ Ошибка создания портфолио:', err)
     return NextResponse.json(

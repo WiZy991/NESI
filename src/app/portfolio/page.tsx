@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Plus, Edit2, Trash2, X, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { Briefcase, Plus, Edit2, Trash2, X, ExternalLink, ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import { useUser } from '@/context/UserContext'
+import VideoPlayer from '@/components/VideoPlayer'
 
 type PortfolioItem = {
   id: string
@@ -392,21 +393,28 @@ export default function PortfolioPage() {
 }
 
 // Функция для определения типа медиа по расширению файла
-function detectMediaType(imageUrl: string | null, currentType?: string | null): 'image' | 'video' {
+function detectMediaType(imageUrl: string | null, currentType?: string | null): 'image' | 'video' | 'document' {
   // Сначала проверяем расширение файла (приоритет)
   if (imageUrl) {
     const lower = imageUrl.toLowerCase()
+    // Видео
     if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.avi') || lower.endsWith('.mkv')) {
       return 'video'
     }
-    // Проверяем расширения изображений
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
+    // Документы
+    if (lower.endsWith('.pdf') || lower.endsWith('.doc') || lower.endsWith('.docx') || 
+        lower.endsWith('.txt') || lower.endsWith('.rtf') || lower.endsWith('.odt')) {
+      return 'document'
+    }
+    // Изображения
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || 
+        lower.endsWith('.gif') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
       return 'image'
     }
   }
   // Если currentType валидный, используем его
-  if (currentType === 'video' || currentType === 'image') {
-    return currentType
+  if (currentType === 'video' || currentType === 'image' || currentType === 'document') {
+    return currentType as 'image' | 'video' | 'document'
   }
   // По умолчанию - изображение
   return 'image'
@@ -460,24 +468,30 @@ function PortfolioGrid({ portfolio, onEdit, onDelete }: { portfolio: PortfolioIt
           >
             {item.imageUrl && (
               <div className="aspect-video bg-gray-900 relative overflow-hidden">
-                {itemMediaType === 'video' || (item.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(item.imageUrl)) ? (
-                  <video
+                {itemMediaType === 'video' ? (
+                  <VideoPlayer
                     src={getMediaUrl(item.imageUrl)}
-                    controls
-                    className="w-full h-full object-cover"
-                    preload="metadata"
+                    className="w-full h-full"
                     onError={(e) => {
                       console.error('Ошибка загрузки видео портфолио:', item.imageUrl)
-                      const video = e.target as HTMLVideoElement
-                      const currentSrc = video.src
-                      // Если это не /api/files/, пробуем через /api/files/
-                      if (!currentSrc.includes('/api/files/') && !item.imageUrl.startsWith('/uploads/')) {
-                        video.src = `/api/files/${item.imageUrl}`
-                      } else {
-                        video.style.display = 'none'
+                      if (e.currentTarget) {
+                        e.currentTarget.style.display = 'none'
                       }
                     }}
                   />
+                ) : itemMediaType === 'document' ? (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                    <iframe
+                      src={getMediaUrl(item.imageUrl)}
+                      className="w-full h-full"
+                      title={item.title}
+                      onError={(e) => {
+                        console.error('Ошибка загрузки документа портфолио:', item.imageUrl)
+                        const iframe = e.target as HTMLIFrameElement
+                        iframe.style.display = 'none'
+                      }}
+                    />
+                  </div>
                 ) : (
                   <img
                     src={getMediaUrl(item.imageUrl)}
@@ -588,6 +602,7 @@ function PortfolioDetailModal({ item, onClose }: { item: PortfolioItem, onClose:
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4"
       onClick={onClose}
+      data-nextjs-scroll-focus-boundary={false}
     >
       <div
         className="bg-gray-900/95 border border-emerald-500/20 rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
@@ -609,22 +624,30 @@ function PortfolioDetailModal({ item, onClose }: { item: PortfolioItem, onClose:
         <div className="overflow-y-auto flex-1">
           {item.imageUrl && (
             <div className="bg-gray-800/50">
-              {itemMediaType === 'video' || (item.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(item.imageUrl)) ? (
-                <video
+              {itemMediaType === 'video' ? (
+                <VideoPlayer
                   src={getMediaUrl(item.imageUrl)}
-                  controls
                   className="w-full h-auto max-h-[50vh]"
-                  preload="metadata"
                   onError={(e) => {
-                    const video = e.target as HTMLVideoElement
-                    const currentSrc = video.src
-                    if (!currentSrc.includes('/api/files/') && !item.imageUrl?.startsWith('/uploads/')) {
-                      video.src = `/api/files/${item.imageUrl}`
-                    } else {
-                      video.style.display = 'none'
+                    console.error('Ошибка загрузки видео портфолио:', item.imageUrl)
+                    if (e.currentTarget) {
+                      e.currentTarget.style.display = 'none'
                     }
                   }}
                 />
+              ) : itemMediaType === 'document' ? (
+                <div className="w-full h-[60vh] bg-gray-900">
+                  <iframe
+                    src={getMediaUrl(item.imageUrl)}
+                    className="w-full h-full"
+                    title={item.title}
+                    onError={(e) => {
+                      console.error('Ошибка загрузки документа портфолио:', item.imageUrl)
+                      const iframe = e.target as HTMLIFrameElement
+                      iframe.style.display = 'none'
+                    }}
+                  />
+                </div>
               ) : (
                 <img
                   src={getMediaUrl(item.imageUrl)}

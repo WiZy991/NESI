@@ -4,11 +4,14 @@ import { getUserFromRequest } from "@/lib/auth";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // В Next.js 15+ params - это промис, нужно await'ить
+    const { id } = await params;
+    
     const file = await prisma.file.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!file) {
@@ -18,7 +21,7 @@ export async function GET(
     // Проверяем, является ли файл аватаром - если да, то доступен публично
     const asAvatar = await prisma.user.findFirst({
       where: {
-        avatarFileId: params.id,
+        avatarFileId: id,
       },
     });
 
@@ -38,6 +41,73 @@ export async function GET(
       return NextResponse.json({ error: "Файл пуст" }, { status: 404 });
     }
 
+    // Сначала проверяем, является ли файл частью публичного контента (посты/комментарии сообщества)
+    // Эти файлы доступны всем без авторизации
+    const [inCommunityPost, inCommunityComment] = await Promise.all([
+      prisma.communityPost.findFirst({
+        where: {
+          OR: [
+            { imageUrl: { contains: id } },
+            { imageUrl: { contains: `/api/files/${id}` } },
+          ],
+          isDeleted: false,
+        },
+        select: { id: true },
+      }),
+      prisma.communityComment.findFirst({
+        where: {
+          OR: [
+            { imageUrl: { contains: id } },
+            { imageUrl: { contains: `/api/files/${id}` } },
+          ],
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    // Если файл из поста или комментария сообщества - доступен публично
+    if (inCommunityPost || inCommunityComment) {
+      if (file.data) {
+        const buffer = file.data as Buffer
+        const isVideo = file.mimetype?.startsWith('video/')
+        
+        // Поддержка Range requests для видео (необходимо для потоковой загрузки)
+        const range = req.headers.get('range')
+        if (isVideo && range) {
+          const parts = range.replace(/bytes=/, "").split("-")
+          const start = parseInt(parts[0], 10)
+          const end = parts[1] ? parseInt(parts[1], 10) : buffer.length - 1
+          const chunksize = (end - start) + 1
+          const chunk = buffer.slice(start, end + 1)
+          
+          return new NextResponse(chunk, {
+            status: 206, // Partial Content
+            headers: {
+              "Content-Range": `bytes ${start}-${end}/${buffer.length}`,
+              "Accept-Ranges": "bytes",
+              "Content-Length": chunksize.toString(),
+              "Content-Type": file.mimetype || "application/octet-stream",
+              "Cache-Control": "public, max-age=31536000",
+            },
+          })
+        }
+        
+        // Для изображений и видео без range request - возвращаем весь файл
+        return new NextResponse(buffer, {
+          headers: {
+            "Content-Type": file.mimetype || "application/octet-stream",
+            "Content-Length": buffer.length.toString(),
+            "Accept-Ranges": "bytes", // Поддержка range requests
+            "Cache-Control": "public, max-age=31536000",
+          },
+        });
+      }
+      if (file.url) {
+        return NextResponse.redirect(file.url);
+      }
+      return NextResponse.json({ error: "Файл пуст" }, { status: 404 });
+    }
+
     // Для остальных файлов требуется авторизация
     const user = await getUserFromRequest(req);
     if (!user) {
@@ -45,11 +115,16 @@ export async function GET(
     }
 
     // Проверка прав доступа: файл должен быть связан с сообщением, задачей или пользователем
-    // Для простоты проверяем через связи в базе данных
-    const hasAccess = await prisma.$transaction(async (tx) => {
+    // Выполняем проверки параллельно для оптимизации производительности
+    const [
+      inTaskMessage,
+      inPrivateMessage,
+      inTask,
+      inPortfolio,
+    ] = await Promise.all([
       // Файл в сообщениях задач
-      const inTaskMessage = await tx.message.findFirst({
-        where: { fileId: params.id },
+      prisma.message.findFirst({
+        where: { fileId: id },
         include: {
           task: {
             select: {
@@ -58,102 +133,63 @@ export async function GET(
             },
           },
         },
-      });
-
-      if (inTaskMessage) {
-        const task = inTaskMessage.task;
-        return (
-          task.customerId === user.id ||
-          task.executorId === user.id ||
-          user.role === "admin"
-        );
-      }
-
+      }),
       // Файл в приватных сообщениях
-      const inPrivateMessage = await tx.privateMessage.findFirst({
-        where: { fileId: params.id },
+      prisma.privateMessage.findFirst({
+        where: { fileId: id },
         select: {
           senderId: true,
           recipientId: true,
         },
-      });
-
-      if (inPrivateMessage) {
-        return (
-          inPrivateMessage.senderId === user.id ||
-          inPrivateMessage.recipientId === user.id ||
-          user.role === "admin"
-        );
-      }
-
-      // Файл в задачах (прикрепленные файлы) - доступен всем авторизованным пользователям
-      const inTask = await tx.task.findFirst({
+      }),
+      // Файл в задачах (прикрепленные файлы)
+      prisma.task.findFirst({
         where: {
           files: {
-            some: { id: params.id },
+            some: { id },
           },
         },
         select: {
           customerId: true,
           executorId: true,
         },
-      });
-
-      if (inTask) {
-        // Файлы задач доступны всем авторизованным пользователям (даже если не назначены исполнителем)
-        return true;
-      }
-
-      // Файл в постах сообщества - доступен всем авторизованным пользователям
-      const inCommunityPost = await tx.communityPost.findFirst({
+      }),
+      // Портфолио
+      prisma.portfolio.findFirst({
         where: {
           imageUrl: {
-            contains: params.id,
+            contains: id,
           },
         },
-      });
-
-      if (inCommunityPost) {
-        // Изображения в постах сообщества доступны всем авторизованным пользователям
-        return true;
-      }
-
-      // Файл в комментариях к постам сообщества - доступен всем авторизованным пользователям
-      const inCommunityComment = await tx.communityComment.findFirst({
-        where: {
-          imageUrl: {
-            contains: params.id,
-          },
+        select: {
+          userId: true,
         },
-      });
+      }).then(result => result ? { user: { id: result.userId } } : null),
+    ]);
 
-      if (inCommunityComment) {
-        // Изображения в комментариях доступны всем авторизованным пользователям
-        return true;
-      }
+    // Проверяем доступ на основе найденных связей
+    let hasAccess = false;
 
-      // Портфолио (если есть связь)
-      const inPortfolio = await tx.portfolioItem.findFirst({
-        where: {
-          fileId: params.id,
-        },
-        include: {
-          user: {
-            select: { id: true },
-          },
-        },
-      });
-
-      if (inPortfolio) {
-        return (
-          inPortfolio.user.id === user.id ||
-          user.role === "admin"
-        );
-      }
-
-      // Если файл ни с чем не связан - запрещаем доступ (или разрешаем админу)
-      return user.role === "admin";
-    });
+    if (inTaskMessage) {
+      const task = inTaskMessage.task;
+      hasAccess =
+        task.customerId === user.id ||
+        task.executorId === user.id ||
+        user.role === "admin";
+    } else if (inPrivateMessage) {
+      hasAccess =
+        inPrivateMessage.senderId === user.id ||
+        inPrivateMessage.recipientId === user.id ||
+        user.role === "admin";
+    } else if (inTask) {
+      // Файлы задач доступны всем авторизованным пользователям
+      hasAccess = true;
+    } else if (inPortfolio) {
+      hasAccess = inPortfolio?.user?.id === user.id || user.role === "admin";
+    } else {
+      // Если файл ни с чем не связан - разрешаем только админу
+      hasAccess = user.role === "admin";
+    }
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -164,12 +200,38 @@ export async function GET(
 
     // Если бинарь хранится в базе
     if (file.data) {
-      return new NextResponse(file.data as Buffer, {
+      const buffer = file.data as Buffer
+      const isVideo = file.mimetype?.startsWith('video/')
+      
+      // Поддержка Range requests для видео (необходимо для потоковой загрузки)
+      const range = req.headers.get('range')
+      if (isVideo && range) {
+        const parts = range.replace(/bytes=/, "").split("-")
+        const start = parseInt(parts[0], 10)
+        const end = parts[1] ? parseInt(parts[1], 10) : buffer.length - 1
+        const chunksize = (end - start) + 1
+        const chunk = buffer.slice(start, end + 1)
+        
+        return new NextResponse(chunk, {
+          status: 206, // Partial Content
+          headers: {
+            "Content-Range": `bytes ${start}-${end}/${buffer.length}`,
+            "Accept-Ranges": "bytes",
+            "Content-Length": chunksize.toString(),
+            "Content-Type": file.mimetype || "application/octet-stream",
+            "Cache-Control": "public, max-age=31536000",
+          },
+        })
+      }
+      
+      return new NextResponse(buffer, {
         headers: {
-          "Content-Type": file.mimetype || "application/octet-stream", 
+          "Content-Type": file.mimetype || "application/octet-stream",
+          "Content-Length": buffer.length.toString(),
+          "Accept-Ranges": "bytes", // Поддержка range requests
           "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
             file.filename
-          )}`, 
+          )}`,
         },
       });
     }
@@ -185,3 +247,5 @@ export async function GET(
     return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
   }
 }
+
+

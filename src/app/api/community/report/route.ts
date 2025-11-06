@@ -39,9 +39,25 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    console.log('✅ Жалоба создана:', {
+      id: report.id,
+      type: report.type,
+      postId: report.postId,
+      commentId: report.commentId,
+      reporterId: report.reporterId,
+    })
+
     return NextResponse.json({ ok: true, report })
-  } catch (err) {
-    console.error('🔥 Ошибка отправки жалобы:', err)
-    return NextResponse.json({ error: 'Ошибка сервера при обработке жалобы' }, { status: 500 })
+  } catch (err: any) {
+    console.error('🔥 Ошибка отправки жалобы:', {
+      message: err?.message,
+      code: err?.code,
+      meta: err?.meta,
+      stack: err?.stack,
+    })
+    return NextResponse.json({ 
+      error: err?.message || 'Ошибка сервера при обработке жалобы',
+      details: process.env.NODE_ENV === 'development' ? err?.message : undefined
+    }, { status: 500 })
   }
 }

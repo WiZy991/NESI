@@ -359,6 +359,7 @@ model CommunityPost {
   title     String
   content   String
   imageUrl  String?
+  mediaType String?  @default("image") // "image" или "video"
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
   likes     CommunityLike[]
@@ -380,6 +381,7 @@ model CommunityComment {
   createdAt DateTime      @default(now())
   parentId  String?
   imageUrl  String?
+  mediaType String?  @default("image") // "image" или "video"
   author    User          @relation(fields: [authorId], references: [id])
   post      CommunityPost @relation(fields: [postId], references: [id])
   reports     CommunityReport[]

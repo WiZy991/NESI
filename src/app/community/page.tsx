@@ -2,6 +2,7 @@
 
 import LoadingSpinner from '@/components/LoadingSpinner'
 import ReportModal from '@/components/ReportModal'
+import VideoPlayer from '@/components/VideoPlayer'
 import { useUser } from '@/context/UserContext'
 import {
 	Compass,
@@ -383,32 +384,61 @@ export default function CommunityPage() {
 									</div>
 
 									{/* Контент поста */}
-									<Link
-										href={`/community/${post.id}`}
-										className='block mt-2 sm:mt-3'
-									>
-										{post.title && (
-											<h2 className='text-base sm:text-lg font-semibold text-white group-hover:text-emerald-400 transition line-clamp-2'>
-												{post.title}
-											</h2>
-										)}
-										<p className='text-sm sm:text-base text-gray-300 mt-1 whitespace-pre-line line-clamp-2 sm:line-clamp-3'>
-											{post.content}
-										</p>
-										{post.imageUrl && (
-											<div className='mt-3'>
-												<img
-													src={post.imageUrl}
-													alt=''
-													className='rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[250px] sm:max-h-[350px] lg:max-h-[450px]'
-													onError={(e) => {
-														console.error('Ошибка загрузки изображения:', post.imageUrl)
-														e.currentTarget.style.display = 'none'
-													}}
-												/>
-											</div>
-										)}
-									</Link>
+									<div className='mt-2 sm:mt-3'>
+										<Link
+											href={`/community/${post.id}`}
+											className='block'
+										>
+											{post.title && (
+												<h2 className='text-base sm:text-lg font-semibold text-white group-hover:text-emerald-400 transition line-clamp-2'>
+													{post.title}
+												</h2>
+											)}
+											<p className='text-sm sm:text-base text-gray-300 mt-1 whitespace-pre-line line-clamp-2 sm:line-clamp-3'>
+												{post.content}
+											</p>
+										</Link>
+										
+										{/* Медиа вынесено из Link для отдельной обработки кликов */}
+										{post.imageUrl && (() => {
+											// Определяем тип медиа
+											const isVideo = post.mediaType === 'video' || 
+												(post.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(post.imageUrl))
+											return (
+												<div className='mt-3'>
+													{isVideo ? (
+														<div onClick={(e) => e.stopPropagation()}>
+															<VideoPlayer
+																src={post.imageUrl}
+																className='rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full max-h-[250px] sm:max-h-[350px] lg:max-h-[450px]'
+																onError={(e) => {
+																	console.error('Ошибка загрузки видео:', post.imageUrl)
+																	if (e.currentTarget) {
+																		e.currentTarget.style.display = 'none'
+																	}
+																}}
+															/>
+														</div>
+													) : (
+														<Link
+															href={`/community/${post.id}`}
+															className='block'
+														>
+															<img
+																src={post.imageUrl}
+																alt=''
+																className='rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[250px] sm:max-h-[350px] lg:max-h-[450px] cursor-pointer'
+																onError={(e) => {
+																	console.error('Ошибка загрузки изображения:', post.imageUrl)
+																	e.currentTarget.style.display = 'none'
+																}}
+															/>
+														</Link>
+													)}
+												</div>
+											)
+										})()}
+									</div>
 
 									{/* Панель */}
 									<div className='mt-3 flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-400'>
@@ -458,33 +488,50 @@ export default function CommunityPage() {
 						<Compass className='w-4 h-4' /> Последние посты
 					</h2>
 					<div className='space-y-3'>
-						{topPosts.map(p => (
-							<Link
-								href={`/community/${p.id}`}
-								key={p.id}
-								className='flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition'
-							>
-								{p.imageUrl ? (
-									<img
-										src={p.imageUrl}
-										alt=''
-										className='w-14 h-14 object-cover rounded-md border border-gray-800'
-									/>
-								) : (
-									<div className='w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs'>
-										нет фото
+						{topPosts.map(p => {
+							const isVideo = p.mediaType === 'video' || 
+								(p.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(p.imageUrl))
+							return (
+								<Link
+									href={`/community/${p.id}`}
+									key={p.id}
+									className='flex items-center gap-3 p-2 rounded-md hover:bg-emerald-600/10 transition'
+								>
+									{p.imageUrl ? (
+										isVideo ? (
+											<div className='w-14 h-14 rounded-md border border-gray-800 overflow-hidden bg-gray-900 flex items-center justify-center relative'>
+												<video
+													src={p.imageUrl}
+													className='w-full h-full object-cover'
+													preload='metadata'
+												/>
+												<div className='absolute inset-0 flex items-center justify-center bg-black/30'>
+													<span className='text-xs'>▶️</span>
+												</div>
+											</div>
+										) : (
+											<img
+												src={p.imageUrl}
+												alt=''
+												className='w-14 h-14 object-cover rounded-md border border-gray-800'
+											/>
+										)
+									) : (
+										<div className='w-14 h-14 rounded-md bg-gray-800 flex items-center justify-center text-gray-500 text-xs'>
+											нет фото
+										</div>
+									)}
+									<div className='flex-1'>
+										<p className='text-sm font-medium text-gray-200 line-clamp-2'>
+											{p.title || p.content.slice(0, 60)}
+										</p>
+										<p className='text-xs text-gray-500 mt-1'>
+											❤️ {p._count.likes} • 💬 {p._count.comments}
+										</p>
 									</div>
-								)}
-								<div className='flex-1'>
-									<p className='text-sm font-medium text-gray-200 line-clamp-2'>
-										{p.title || p.content.slice(0, 60)}
-									</p>
-									<p className='text-xs text-gray-500 mt-1'>
-										❤️ {p._count.likes} • 💬 {p._count.comments}
-									</p>
-								</div>
-							</Link>
-						))}
+								</Link>
+							)
+						})}
 					</div>
 				</aside>
 			</div>
@@ -496,6 +543,7 @@ export default function CommunityPage() {
 					onClose={() => setReportTarget(null)}
 				/>
 			)}
+			
 		</div>
 	)
 }

@@ -78,7 +78,7 @@ export default function FeedbackWidget() {
 
 			{/* Модальное окно */}
 			{isOpen && (
-				<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
+				<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm' data-nextjs-scroll-focus-boundary={false}>
 					<div className='bg-gray-900 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-md mx-4 p-6 md:p-8 animate-fadeIn relative'>
 						{/* Кнопка закрытия */}
 						<button

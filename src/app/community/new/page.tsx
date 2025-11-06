@@ -6,11 +6,27 @@ import { useUser } from '@/context/UserContext'
 import { toast } from 'sonner'
 import { ImagePlus, Send, Loader2 } from 'lucide-react'
 
+// Функция для форматирования размера файла
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
 export default function NewPostPage() {
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
   const [fileId, setFileId] = useState<string | null>(null)
   const [fileName, setFileName] = useState('')
+  const [filePreview, setFilePreview] = useState<string | null>(null)
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [fileSize, setFileSize] = useState(0)
+  const [uploadXHR, setUploadXHR] = useState<XMLHttpRequest | null>(null)
   const router = useRouter()
   const { token } = useUser()
 
@@ -32,6 +48,7 @@ export default function NewPostPage() {
         body: JSON.stringify({
           content,
           imageUrl: fileId ? `/api/files/${fileId}` : null,
+          mediaType: mediaType,
         }),
       })
       const data = await res.json()
@@ -50,19 +67,150 @@ export default function NewPostPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Отменяем предыдущую загрузку, если она идет
+    if (isUploading && uploadXHR) {
+      uploadXHR.abort()
+      setUploadXHR(null)
+    }
+
+    // Очищаем предыдущие значения
+    setFileId(null)
+    setFileName('')
+    setFilePreview(null)
+    setIsUploading(false)
+    setIsProcessing(false)
+    setUploadProgress(0)
+    setFileSize(0)
+
+    // Определяем тип файла
+    const fileType = file.type
+    const isVideo = fileType.startsWith('video/')
+    const isImage = fileType.startsWith('image/')
+    
+    if (!isVideo && !isImage) {
+      toast.error('Поддерживаются только изображения и видео')
+      e.target.value = '' // Очищаем input
+      return
+    }
+
+    const detectedMediaType = isVideo ? 'video' : 'image'
+    setMediaType(detectedMediaType)
+
+    // Создаем превью сразу
+    let previewUrl: string | null = null
+    if (isVideo) {
+      previewUrl = URL.createObjectURL(file)
+      setFilePreview(previewUrl)
+    } else {
+      previewUrl = URL.createObjectURL(file)
+      setFilePreview(previewUrl)
+    }
+
+    // Устанавливаем имя файла и размер сразу для отображения
+    setFileName(file.name)
+    setFileSize(file.size)
+
+    // Загружаем файл на сервер с отслеживанием прогресса
     const formData = new FormData()
     formData.append('file', file)
 
+    setIsUploading(true)
+    setUploadProgress(0)
+
     try {
-      const res = await fetch('/api/upload/chat-file', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (res.ok) {
-        setFileId(data.id)
-        setFileName(file.name)
-        toast.success('Файл загружен')
-      } else toast.error(data.error || 'Ошибка загрузки')
-    } catch {
+      const xhr = new XMLHttpRequest()
+      setUploadXHR(xhr)
+
+      // Отслеживание прогресса загрузки
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = Math.round((e.loaded / e.total) * 100)
+          setUploadProgress(percentComplete)
+          
+          // Когда загрузка завершена (100%), но еще ждем ответ сервера
+          if (percentComplete === 100 && !isProcessing) {
+            setIsProcessing(true)
+          }
+        }
+      })
+
+      // Обработка завершения
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText)
+            console.log('📤 Ответ сервера:', { ok: true, status: xhr.status, data })
+            
+            if (data && (data.id || data.url)) {
+              const uploadedId = data.id || (data.url ? data.url.replace('/api/files/', '') : null)
+              
+              if (uploadedId) {
+                setFileId(uploadedId)
+                setUploadProgress(100)
+                setIsUploading(false)
+                setIsProcessing(false)
+                setUploadXHR(null)
+                console.log('✅ Файл успешно загружен, ID:', uploadedId)
+                
+                // Через небольшую задержку убираем прогресс-бар
+                setTimeout(() => {
+                  setUploadProgress(0)
+                }, 1500)
+              } else {
+                throw new Error('ID файла не получен')
+              }
+            } else {
+              throw new Error('Неверный формат ответа')
+            }
+          } catch (parseError) {
+            console.error('❌ Ошибка парсинга ответа:', parseError)
+            handleUploadError(previewUrl, e)
+          }
+        } else {
+          handleUploadError(previewUrl, e)
+        }
+      })
+
+      // Обработка ошибок
+      xhr.addEventListener('error', () => {
+        handleUploadError(previewUrl, e)
+      })
+
+      xhr.addEventListener('abort', () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl)
+        setFilePreview(null)
+        setFileName('')
+        setFileId(null)
+        setIsUploading(false)
+        setIsProcessing(false)
+        setUploadProgress(0)
+        setFileSize(0)
+        setUploadXHR(null)
+        toast.info('Загрузка отменена')
+      })
+
+      // Отправка запроса
+      xhr.open('POST', '/api/upload/chat-file')
+      xhr.send(formData)
+
+    } catch (error: any) {
+      handleUploadError(previewUrl, e)
+    }
+
+    function handleUploadError(previewUrl: string | null, input: HTMLInputElement) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setFilePreview(null)
+      setFileName('')
+      setFileId(null)
+      setIsUploading(false)
+      setIsProcessing(false)
+      setUploadProgress(0)
+      setFileSize(0)
+      setUploadXHR(null)
       toast.error('Ошибка при загрузке файла')
+      input.value = ''
+      console.error('❌ Ошибка загрузки файла')
     }
   }
 
@@ -106,27 +254,112 @@ export default function NewPostPage() {
           </div>
 
           {/* Прикрепленный файл */}
-          {fileName && (
-            <div className="flex items-center gap-3 p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-xl animate-fadeIn">
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <ImagePlus className="w-5 h-5 text-emerald-400" />
+          {(fileName || filePreview) && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-xl animate-fadeIn">
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <ImagePlus className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-emerald-300 flex items-center gap-2 flex-wrap">
+                    <span>{mediaType === 'video' ? 'Видео прикреплено' : 'Изображение прикреплено'}</span>
+                    {fileId ? (
+                      <span className="text-xs text-emerald-400 flex items-center gap-1 bg-emerald-900/30 px-2 py-0.5 rounded">
+                        <span>✓</span>
+                        <span>Загружено</span>
+                      </span>
+                    ) : isProcessing ? (
+                      <span className="text-xs text-blue-400 flex items-center gap-1 bg-blue-900/30 px-2 py-0.5 rounded animate-pulse">
+                        <span>⚙️</span>
+                        <span>Обработка...</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-yellow-400 flex items-center gap-1 bg-yellow-900/30 px-2 py-0.5 rounded animate-pulse">
+                        <span>⏳</span>
+                        <span>Загрузка...</span>
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate">{fileName}</p>
+                  {/* Прогресс-бар загрузки */}
+                  {(isUploading || isProcessing) && uploadProgress >= 0 && (
+                    <div className="mt-2 w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ease-out ${
+                          isProcessing 
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-400 animate-pulse' 
+                            : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                        }`}
+                        style={{ width: `${isProcessing ? 100 : uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+                  {(isUploading || isProcessing) && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {isProcessing 
+                        ? `Обработка файла... (${formatFileSize(fileSize)})`
+                        : `Загружено: ${uploadProgress}% (${formatFileSize(fileSize)})`
+                      }
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Отменяем загрузку, если она идет
+                    if (isUploading && uploadXHR) {
+                      uploadXHR.abort()
+                      setUploadXHR(null)
+                    }
+                    if (filePreview) URL.revokeObjectURL(filePreview)
+                    setFileId(null)
+                    setFileName('')
+                    setFilePreview(null)
+                    setMediaType('image')
+                    setIsUploading(false)
+                    setIsProcessing(false)
+                    setUploadProgress(0)
+                    setFileSize(0)
+                    // Очищаем input
+                    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+                    if (fileInput) fileInput.value = ''
+                  }}
+                  className="text-red-400 hover:text-red-300 transition"
+                  title={isUploading ? 'Отменить загрузку' : 'Удалить файл'}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-emerald-300">Изображение прикреплено</p>
-                <p className="text-xs text-gray-400 truncate">{fileName}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setFileId(null)
-                  setFileName('')
-                }}
-                className="text-red-400 hover:text-red-300 transition"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              {filePreview && (
+                <div className="rounded-xl overflow-hidden border border-emerald-500/30 bg-gray-900">
+                  {mediaType === 'video' ? (
+                    <video
+                      src={filePreview}
+                      controls
+                      className="w-full max-h-96 object-contain"
+                      preload="metadata"
+                      onError={(e) => {
+                        console.error('Ошибка загрузки видео превью:', e)
+                        const video = e.target as HTMLVideoElement
+                        video.style.display = 'none'
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={filePreview}
+                      alt="Preview"
+                      className="w-full max-h-96 object-contain"
+                      onError={(e) => {
+                        console.error('Ошибка загрузки изображения превью:', e)
+                        const img = e.target as HTMLImageElement
+                        img.style.display = 'none'
+                      }}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -136,22 +369,23 @@ export default function NewPostPage() {
               border border-emerald-500/30 text-emerald-300 cursor-pointer hover:border-emerald-400/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] 
               transition-all duration-300 group">
               <ImagePlus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="font-medium">Прикрепить изображение</span>
-              <input type="file" accept="image/*,.gif" onChange={handleFileChange} className="hidden" />
+              <span className="font-medium">Прикрепить медиа</span>
+              <input type="file" accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
             </label>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isUploading || isProcessing || (fileName && !fileId)}
               className="flex items-center justify-center gap-3 px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 
                 hover:from-emerald-500 hover:to-emerald-400 font-bold text-white shadow-[0_0_25px_rgba(16,185,129,0.4)] 
                 hover:shadow-[0_0_35px_rgba(16,185,129,0.6)] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed
                 transform hover:scale-105 active:scale-95"
+              title={isUploading || isProcessing ? 'Дождитесь завершения загрузки медиа' : (fileName && !fileId) ? 'Дождитесь завершения загрузки файла' : ''}
             >
-              {loading ? (
+              {loading || isUploading || isProcessing ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Создание...</span>
+                  <span>{isUploading || isProcessing ? 'Загрузка медиа...' : 'Создание...'}</span>
                 </>
               ) : (
                 <>

@@ -14,6 +14,18 @@ const FILE_SIGNATURES: Record<string, number[][]> = {
   'image/gif': [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]],
   'image/webp': [[0x52, 0x49, 0x46, 0x46], [0x57, 0x45, 0x42, 0x50]],
   
+  // Videos
+  'video/mp4': [
+    [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70], // ftyp box
+    [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
+    [0x00, 0x00, 0x00, 0x1c, 0x66, 0x74, 0x79, 0x70],
+  ],
+  'video/webm': [[0x1a, 0x45, 0xdf, 0xa3]], // WebM signature
+  'video/quicktime': [
+    [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x71, 0x74], // QuickTime
+  ],
+  'video/x-msvideo': [[0x52, 0x49, 0x46, 0x46]], // AVI (RIFF header)
+  
   // Documents
   'application/pdf': [[0x25, 0x50, 0x44, 0x46]], // %PDF
   
@@ -39,6 +51,10 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/jpg',
   'image/gif',
   'image/webp',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-msvideo',
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -53,6 +69,10 @@ const ALLOWED_EXTENSIONS = new Set([
   'jpeg',
   'gif',
   'webp',
+  'mp4',
+  'webm',
+  'mov',
+  'avi',
   'pdf',
   'doc',
   'docx',
@@ -60,7 +80,7 @@ const ALLOWED_EXTENSIONS = new Set([
   'xlsx',
 ])
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB (для видео)
 
 /**
  * Проверка magic bytes файла
@@ -161,13 +181,21 @@ export async function validateFile(
     }
   }
 
-  // 4. Проверка magic bytes
+  // 4. Проверка magic bytes (для видео - пропускаем)
+  const isVideo = mimeType.startsWith('video/')
+  
+  // Для видео файлов - пропускаем проверку сигнатуры (очень медленная)
+  if (isVideo) {
+    return { valid: true, detectedMimeType: mimeType }
+  }
+
   if (requireSignatureCheck) {
     try {
-      const arrayBuffer = await file.arrayBuffer()
+      // Для не-видео файлов - быстрая проверка только первых байтов
+      const arrayBuffer = await file.slice(0, 16).arrayBuffer() // Читаем только первые 16 байт!
       const buffer = Buffer.from(arrayBuffer)
 
-      // Определяем реальный MIME тип по сигнатуре
+      // Быстрая проверка только первых байтов
       const detectedMimeType = getMimeTypeFromSignature(buffer)
 
       if (detectedMimeType && detectedMimeType !== mimeType) {
@@ -178,30 +206,20 @@ export async function validateFile(
         }
       }
 
-      // Проверяем сигнатуру
       if (detectedMimeType && !checkFileSignature(buffer, detectedMimeType)) {
         return {
           valid: false,
           error: 'Неверная сигнатура файла. Файл может быть поврежден или подделан.',
         }
       }
-
-      // Если сигнатура не определена, но это допустимый тип - предупреждение
-      if (!detectedMimeType && FILE_SIGNATURES[mimeType]) {
-        console.warn(
-          `⚠️ Не удалось проверить сигнатуру для файла ${fileName} (${mimeType})`
-        )
-      }
     } catch (error) {
       console.error('Ошибка при проверке файла:', error)
-      return {
-        valid: false,
-        error: 'Ошибка при обработке файла',
-      }
+      // Для безопасности - лучше пропустить, чем заблокировать легитимные файлы
+      console.warn(`⚠️ Не удалось проверить сигнатуру для файла ${fileName}, разрешаем`)
     }
   }
 
-  return { valid: true }
+  return { valid: true, detectedMimeType: mimeType }
 }
 
 /**

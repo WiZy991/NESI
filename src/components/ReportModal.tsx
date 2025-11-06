@@ -65,7 +65,7 @@ export default function ReportModal({
   } // ✅ Закрыли sendReport
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" data-nextjs-scroll-focus-boundary={false}>
       <div className="bg-[#001a12]/90 border border-emerald-600/40 shadow-[0_0_30px_rgba(0,255,180,0.25)] rounded-2xl p-6 w-full max-w-md relative animate-fadeIn">
         {/* Закрытие */}
         <button

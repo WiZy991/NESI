@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import ReportModal from '@/components/ReportModal'
+import VideoPlayer from '@/components/VideoPlayer'
+import EmojiPicker from '@/components/EmojiPicker'
 import {
   Heart,
   MessageSquare,
@@ -24,11 +26,14 @@ import {
   Flag,
   Check,
   X,
+  Image,
+  Smile,
+  XCircle,
 } from 'lucide-react'
 
 // 🔧 Утилита для корректных ссылок на аватары
-function resolveAvatarUrl(avatar?: string | null) {
-  if (!avatar) return null
+function resolveAvatarUrl(avatar?: string | null): string {
+  if (!avatar) return '/default-avatar.png'
   if (!avatar.startsWith('http') && !avatar.startsWith('/'))
     return `/api/files/${avatar}`
   return avatar
@@ -39,6 +44,7 @@ type Post = {
   title: string
   content: string
   imageUrl?: string | null
+  mediaType?: string | null
   createdAt: string
   author: {
     id: string
@@ -93,6 +99,23 @@ export default function CommunityPostPage() {
   const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({})
   const [replyText, setReplyText] = useState<Record<string, string>>({})
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment'; id: string } | null>(null)
+  const [commentFile, setCommentFile] = useState<File | null>(null)
+  const [commentFilePreview, setCommentFilePreview] = useState<string>('')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
+  
+  // Закрытие меню при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openMenu && !(e.target as Element).closest('[data-menu-container]')) {
+        setOpenMenu(null)
+      }
+    }
+    if (openMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openMenu])
 
   const fetchPost = async () => {
     try {
@@ -142,27 +165,124 @@ export default function CommunityPostPage() {
   )
 
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Проверяем тип файла (только изображения и GIF)
+      const isImage = file.type.startsWith('image/')
+      if (!isImage) {
+        alert('Можно загружать только изображения (JPG, PNG, GIF, WEBP)')
+        return
+      }
+      
+      // Проверяем размер (максимум 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Файл слишком большой. Максимум 5MB')
+        return
+      }
+      
+      setCommentFile(file)
+      
+      // Создаём превью
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setCommentFilePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const uploadFile = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingFile(true)
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const res = await fetch('/api/upload/chat-file', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        const errorMessage = error.error || `Ошибка загрузки файла: ${res.status} ${res.statusText}`
+        console.error('Ошибка загрузки файла:', error)
+        alert(errorMessage)
+        return null
+      }
+      
+      const data = await res.json()
+      // API возвращает url, но может быть и id
+      const fileUrl = data.url || `/api/files/${data.id}`
+      return fileUrl
+    } catch (err: any) {
+      console.error('Ошибка загрузки файла:', err)
+      alert('Ошибка загрузки файла: ' + (err?.message || 'Неизвестная ошибка'))
+      return null
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
   const sendComment = async () => {
-    if (!commentText.trim()) return
+    if (!commentText.trim() && !commentFile) return
+    
     setSending(true)
     try {
+      let imageUrl: string | null = null
+      let mediaType: string = 'image'
+      
+      // Загружаем файл если есть
+      if (commentFile) {
+        imageUrl = await uploadFile(commentFile)
+        if (!imageUrl) {
+          setSending(false)
+          return
+        }
+        
+        // Определяем тип медиа
+        const isVideo = commentFile.type.startsWith('video/')
+        const isGif = commentFile.type === 'image/gif'
+        mediaType = isVideo ? 'video' : 'image'
+      }
+      
       const res = await fetch(`/api/community/${id}/comment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ content: commentText }),
+        body: JSON.stringify({ 
+          content: commentText.trim() || '',
+          imageUrl,
+          mediaType,
+        }),
       })
+      
       if (res.ok) {
         setCommentText('')
+        setCommentFile(null)
+        setCommentFilePreview('')
         fetchPost()
+      } else {
+        const error = await res.json().catch(() => ({}))
+        const errorMessage = error.error || error.details || `Ошибка отправки: ${res.status} ${res.statusText}`
+        console.error('Ошибка отправки комментария:', error)
+        alert(errorMessage)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Ошибка комментария:', err)
+      alert('Ошибка отправки комментария: ' + (err?.message || 'Неизвестная ошибка'))
     } finally {
       setSending(false)
     }
+  }
+
+  const insertEmoji = (emoji: string) => {
+    setCommentText(prev => prev + emoji)
   }
 
   const sendReply = async (parentId: string) => {
@@ -306,17 +426,21 @@ export default function CommunityPostPage() {
               </Link>
 
               {/* Меню */}
-              <div className="relative">
+              <div className="relative" data-menu-container>
                 <button
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation()
                     setOpenMenu(openMenu === post.id ? null : post.id)
-                  }
+                  }}
                   className="p-1 hover:text-emerald-400"
                 >
                   <MoreHorizontal className="w-5 h-5" />
                 </button>
                 {openMenu === post.id && (
-                  <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
+                  <div 
+                    className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={() => {
                         copyLink(window.location.href)
@@ -360,20 +484,38 @@ export default function CommunityPostPage() {
               {post.content}
             </p>
 
-            {post.imageUrl && (
-              <div className="mt-4 overflow-hidden rounded-xl border border-gray-800">
-                <img
-                  src={post.imageUrl}
-                  alt="post"
-                  className="w-full h-auto object-cover"
-                  loading="lazy"
-                  onError={(e) => {
-                    console.error('Ошибка загрузки изображения:', post.imageUrl)
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-              </div>
-            )}
+            {post.imageUrl && (() => {
+              // Определяем тип медиа
+              const isVideo = post.mediaType === 'video' || 
+                (post.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(post.imageUrl))
+              return (
+                <div className="mt-4 overflow-hidden rounded-xl border border-gray-800" onClick={(e) => e.stopPropagation()}>
+                  {isVideo ? (
+                    <VideoPlayer
+                      src={post.imageUrl}
+                      className="w-full h-auto"
+                      onError={(e) => {
+                        console.error('Ошибка загрузки видео:', post.imageUrl)
+                        if (e.currentTarget) {
+                          e.currentTarget.style.display = 'none'
+                        }
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={post.imageUrl}
+                      alt="post"
+                      className="w-full h-auto object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        console.error('Ошибка загрузки изображения:', post.imageUrl)
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  )}
+                </div>
+              )
+            })()}
 
             <footer className="mt-6 flex items-center gap-4 text-sm">
               <button
@@ -435,26 +577,77 @@ export default function CommunityPostPage() {
                 <h3 className="text-lg font-semibold text-emerald-300 mb-3">
                   Добавить комментарий
                 </h3>
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  rows={3}
-                  placeholder="Напиши что-нибудь..."
-                  className="w-full p-3 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
-                />
+                
+                {/* Превью файла */}
+                {commentFilePreview && (
+                  <div className="mb-3 relative inline-block">
+                    <img
+                      src={commentFilePreview}
+                      alt="Preview"
+                      className="max-w-xs max-h-48 rounded-lg border border-gray-700"
+                    />
+                    <button
+                      onClick={() => {
+                        setCommentFile(null)
+                        setCommentFilePreview('')
+                      }}
+                      className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                
+                <div className="relative">
+                  <textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    rows={3}
+                    placeholder="Напиши что-нибудь..."
+                    className="w-full p-3 pr-20 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                  />
+                  
+                  {/* Кнопки действий */}
+                  <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                    <label className="cursor-pointer p-1.5 hover:bg-emerald-500/20 rounded transition">
+                      <Image className="w-4 h-4 text-gray-400 hover:text-emerald-400" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      onClick={() => setShowEmojiPicker(true)}
+                      className="p-1.5 hover:bg-emerald-500/20 rounded transition"
+                    >
+                      <Smile className="w-4 h-4 text-gray-400 hover:text-emerald-400" />
+                    </button>
+                  </div>
+                </div>
+                
                 <button
                   onClick={sendComment}
-                  disabled={sending}
-                  className="mt-3 flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50"
+                  disabled={sending || uploadingFile || (!commentText.trim() && !commentFile)}
+                  className="mt-3 flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {sending ? (
+                  {sending || uploadingFile ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Send className="w-5 h-5" />
                   )}
-                  {sending ? 'Отправка...' : 'Отправить'}
+                  {uploadingFile ? 'Загрузка...' : sending ? 'Отправка...' : 'Отправить'}
                 </button>
               </div>
+            )}
+            
+            {/* Эмодзи пикер */}
+            {showEmojiPicker && (
+              <EmojiPicker
+                onSelect={insertEmoji}
+                onClose={() => setShowEmojiPicker(false)}
+              />
             )}
           </section>
         </main>
@@ -485,6 +678,19 @@ function CommentNode({
     hour: '2-digit',
     minute: '2-digit',
   })
+  
+  // Закрытие меню при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openMenu && !(e.target as Element).closest('[data-menu-container]')) {
+        setOpenMenu(false)
+      }
+    }
+    if (openMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openMenu])
 
   const saveEdit = async () => {
     try {
@@ -525,91 +731,102 @@ function CommentNode({
   return (
     <div>
       <div
-  id={`comment-${node.id}`} // ← добавляем этот атрибут
-  className="p-4 rounded-xl border bg-gradient-to-br from-[#001a12]/70 to-[#002a22]/60 shadow-[0_0_15px_rgba(0,255,180,0.08)] transition hover:shadow-[0_0_25px_rgba(0,255,180,0.15)] relative"
-  style={{
-    marginLeft: depth ? depth * 24 : 0,
-    borderColor: 'rgba(0,255,180,0.25)',
-  }}
->
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-start gap-3">
+        id={`comment-${node.id}`}
+        className="p-2.5 sm:p-3 rounded-lg border bg-gray-900/40 border-gray-800/50 hover:border-emerald-500/30 transition-all relative group"
+        style={{
+          marginLeft: depth ? depth * 16 : 0,
+        }}
+      >
+        <div className="flex items-start gap-2.5 mb-1.5">
+          <div className="flex-shrink-0">
             {node.author.avatarFileId || node.author.avatarUrl ? (
               <img
                 src={resolveAvatarUrl(
                   node.author.avatarFileId || node.author.avatarUrl
                 )}
                 alt="avatar"
-                className="w-8 h-8 rounded-full object-cover border border-gray-700"
+                className="w-7 h-7 rounded-full object-cover border border-gray-700"
               />
             ) : (
-              <User className="w-8 h-8 text-emerald-400 opacity-70" />
+              <User className="w-7 h-7 text-emerald-400 opacity-70" />
             )}
-            <div>
-              <Link
-                href={`/users/${node.author.id}`}
-                className="font-medium text-emerald-300 hover:text-emerald-400 transition"
-              >
-                {node.author.fullName || node.author.email}
-              </Link>
-              <p className="text-xs text-gray-500">{time}</p>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-0.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <Link
+                  href={`/users/${node.author.id}`}
+                  className="font-medium text-sm text-emerald-300 hover:text-emerald-400 transition truncate"
+                >
+                  {node.author.fullName || node.author.email}
+                </Link>
+                <span className="text-xs text-gray-500 flex-shrink-0">{time}</span>
+              </div>
+              
+              <div className="relative flex-shrink-0" data-menu-container>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setOpenMenu(!openMenu)
+                  }}
+                  className="hover:text-emerald-400"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+
+                {openMenu && (
+                  <div 
+                    className="absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          window.location.href + '#' + node.id
+                        )
+                        setOpenMenu(false)
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+                    >
+                      <Copy className="w-4 h-4" /> Копировать ссылку
+                    </button>
+                    {userId === node.author.id ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditing(true)
+                            setOpenMenu(false)
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+                        >
+                          <Edit3 className="w-4 h-4" /> Редактировать
+                        </button>
+                        <button
+                          onClick={() => {
+                            deleteComment()
+                            setOpenMenu(false)
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
+                        >
+                          <Trash2 className="w-4 h-4" /> Удалить
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          onReport({ type: 'comment', id: node.id })
+                          setOpenMenu(false)
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
+                      >
+                        <Flag className="w-4 h-4" /> Пожаловаться
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          <button
-            onClick={() => setOpenMenu(!openMenu)}
-            className="hover:text-emerald-400"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-
-          {openMenu && (
-            <div className="absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    window.location.href + '#' + node.id
-                  )
-                  setOpenMenu(false)
-                }}
-                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
-              >
-                <Copy className="w-4 h-4" /> Копировать ссылку
-              </button>
-              {userId === node.author.id ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setEditing(true)
-                      setOpenMenu(false)
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
-                  >
-                    <Edit3 className="w-4 h-4" /> Редактировать
-                  </button>
-                  <button
-                    onClick={() => {
-                      deleteComment()
-                      setOpenMenu(false)
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
-                  >
-                    <Trash2 className="w-4 h-4" /> Удалить
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => {
-                    onReport({ type: 'comment', id: node.id })
-                    setOpenMenu(false)
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full"
-                >
-                  <Flag className="w-4 h-4" /> Пожаловаться
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         {editing ? (
@@ -638,23 +855,57 @@ function CommentNode({
             </div>
           </div>
         ) : (
-          <p className="text-gray-200 whitespace-pre-wrap">{node.content}</p>
+          <div className="space-y-1.5 mt-1">
+            {node.content && (
+              <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{node.content}</p>
+            )}
+            {node.imageUrl && (
+              <div className="mt-1.5">
+                {node.mediaType === 'video' ? (
+                  <VideoPlayer
+                    src={node.imageUrl.startsWith('/api/files') ? node.imageUrl : `/api/files/${node.imageUrl}`}
+                    className="max-w-xs rounded-md border border-gray-700/50"
+                    onError={(e) => {
+                      console.error('Ошибка загрузки видео в комментарии:', node.imageUrl)
+                      if (e.currentTarget) {
+                        e.currentTarget.style.display = 'none'
+                      }
+                    }}
+                  />
+                ) : (
+                  <img
+                    src={node.imageUrl.startsWith('/api/files') ? node.imageUrl : `/api/files/${node.imageUrl}`}
+                    alt="Comment media"
+                    className="max-w-[200px] sm:max-w-xs max-h-48 rounded-md border border-gray-700/50 object-cover cursor-pointer hover:opacity-90 transition"
+                    onError={(e) => {
+                      console.error('Ошибка загрузки изображения в комментарии:', node.imageUrl)
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                )}
+              </div>
+            )}
+          </div>
         )}
-
-        <button
-          className="mt-3 flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
-          onClick={() =>
-            setReplyOpen((s: any) => ({
-              ...s,
-              [node.id]: !s[node.id],
-            }))
-          }
-        >
-          <Reply className="w-4 h-4" /> Ответить
-        </button>
+        
+        {/* Кнопка ответа */}
+        <div className="mt-1.5 flex items-center gap-3">
+          <button
+            className="text-xs text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1"
+            onClick={() =>
+              setReplyOpen((s: any) => ({
+                ...s,
+                [node.id]: !s[node.id],
+              }))
+            }
+          >
+            <Reply className="w-3.5 h-3.5" />
+            Ответить
+          </button>
+        </div>
 
         {replyOpen[node.id] && (
-          <div className="mt-3">
+          <div className="mt-2 pt-2 border-t border-gray-800/50">
             <textarea
               value={replyText[node.id] || ''}
               onChange={(e) =>
@@ -665,7 +916,7 @@ function CommentNode({
               }
               rows={2}
               placeholder="Ваш ответ…"
-              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+              className="w-full p-2 text-sm rounded-lg bg-black/40 border border-gray-700/50 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
             />
             <div className="mt-2">
               <button
