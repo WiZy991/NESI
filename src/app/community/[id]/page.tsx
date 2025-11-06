@@ -39,6 +39,24 @@ function resolveAvatarUrl(avatar?: string | null): string {
   return avatar
 }
 
+function resolveMediaUrl(imageUrl?: string | null): string {
+  if (!imageUrl) return ''
+  // Если уже полный URL (http/https) или начинается с /uploads/, используем как есть
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('/uploads/')) {
+    return imageUrl
+  }
+  // Если начинается с /api/files/, используем как есть
+  if (imageUrl.startsWith('/api/files/')) {
+    return imageUrl
+  }
+  // Если начинается с /, используем как есть
+  if (imageUrl.startsWith('/')) {
+    return imageUrl
+  }
+  // Иначе используем через /api/files/
+  return `/api/files/${imageUrl}`
+}
+
 type Post = {
   id: string
   title: string
@@ -103,6 +121,11 @@ export default function CommunityPostPage() {
   const [commentFilePreview, setCommentFilePreview] = useState<string>('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [isEditingPost, setIsEditingPost] = useState(false)
+  const [editPostContent, setEditPostContent] = useState('')
+  const [editPostTitle, setEditPostTitle] = useState('')
+  const [savingPost, setSavingPost] = useState(false)
+  const [isPostExpanded, setIsPostExpanded] = useState(false)
   
   // Закрытие меню при клике вне его
   useEffect(() => {
@@ -168,16 +191,19 @@ export default function CommunityPostPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // Проверяем тип файла (только изображения и GIF)
+      // Проверяем тип файла (только изображения)
       const isImage = file.type.startsWith('image/')
       if (!isImage) {
         alert('Можно загружать только изображения (JPG, PNG, GIF, WEBP)')
+        e.target.value = '' // Очищаем input
         return
       }
       
-      // Проверяем размер (максимум 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Файл слишком большой. Максимум 5MB')
+      // Проверяем размер (максимум 5MB для изображений в комментариях)
+      const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+      if (file.size > MAX_IMAGE_SIZE) {
+        alert(`Файл слишком большой. Максимум ${MAX_IMAGE_SIZE / 1024 / 1024} MB`)
+        e.target.value = '' // Очищаем input
         return
       }
       
@@ -337,6 +363,56 @@ export default function CommunityPostPage() {
     } else alert('Ошибка при удалении поста')
   }
 
+  const startEditingPost = () => {
+    if (!post) return
+    setEditPostContent(post.content)
+    setEditPostTitle(post.title || '')
+    setIsEditingPost(true)
+    setOpenMenu(null)
+  }
+
+  const savePostEdit = async () => {
+    if (!editPostContent.trim() && !editPostTitle.trim()) {
+      alert('Пост не может быть пустым')
+      return
+    }
+
+    setSavingPost(true)
+    try {
+      const res = await fetch(`/api/community/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          content: editPostContent.trim(),
+          title: editPostTitle.trim(),
+        }),
+      })
+
+      if (res.ok) {
+        setIsEditingPost(false)
+        fetchPost()
+        alert('✅ Пост обновлён')
+      } else {
+        const error = await res.json().catch(() => ({}))
+        alert('Ошибка сохранения: ' + (error.error || res.statusText))
+      }
+    } catch (err) {
+      alert('Ошибка сети при сохранении поста')
+      console.error(err)
+    } finally {
+      setSavingPost(false)
+    }
+  }
+
+  const cancelPostEdit = () => {
+    setIsEditingPost(false)
+    setEditPostContent('')
+    setEditPostTitle('')
+  }
+
   if (loading) return <LoadingSpinner />
   if (!post)
     return (
@@ -460,40 +536,118 @@ export default function CommunityPostPage() {
                       <Flag className="w-4 h-4" /> Пожаловаться
                     </button>
                     {user?.id === post.author.id && (
-                      <button
-                        onClick={() => {
-                          deleteItem(`/api/community/${post.id}`)
-                          setOpenMenu(null)
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
-                      >
-                        <Trash2 className="w-4 h-4" /> Удалить
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            startEditingPost()
+                            setOpenMenu(null)
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-emerald-400 transition w-full"
+                        >
+                          <Edit3 className="w-4 h-4" /> Редактировать
+                        </button>
+                        <button
+                          onClick={() => {
+                            deleteItem(`/api/community/${post.id}`)
+                            setOpenMenu(null)
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full"
+                        >
+                          <Trash2 className="w-4 h-4" /> Удалить
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
               </div>
             </header>
 
-            {post.title && (
-              <h1 className="text-2xl font-bold text-emerald-400 mb-3">
-                {post.title}
-              </h1>
+            {isEditingPost ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Заголовок (необязательно)
+                  </label>
+                  <input
+                    type="text"
+                    value={editPostTitle}
+                    onChange={(e) => setEditPostTitle(e.target.value)}
+                    placeholder="Заголовок поста..."
+                    className="w-full px-4 py-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Содержание
+                  </label>
+                  <textarea
+                    value={editPostContent}
+                    onChange={(e) => setEditPostContent(e.target.value)}
+                    rows={8}
+                    placeholder="Содержание поста..."
+                    className="w-full px-4 py-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition resize-y"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={savePostEdit}
+                    disabled={savingPost}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingPost ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4" />
+                    )}
+                    Сохранить
+                  </button>
+                  <button
+                    onClick={cancelPostEdit}
+                    disabled={savingPost}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <X className="w-4 h-4" />
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {post.title && (
+                  <h1 className="text-2xl font-bold text-emerald-400 mb-3">
+                    {post.title}
+                  </h1>
+                )}
+                <div>
+                  <p className={`text-gray-200 leading-relaxed whitespace-pre-wrap break-words ${
+                    !isPostExpanded && post.content.length > 500
+                      ? 'line-clamp-8'
+                      : ''
+                  }`}>
+                    {post.content}
+                  </p>
+                  {post.content.length > 500 && (
+                    <button
+                      onClick={() => setIsPostExpanded(!isPostExpanded)}
+                      className="text-emerald-400 hover:text-emerald-300 text-sm mt-2 font-medium transition"
+                    >
+                      {isPostExpanded ? 'Свернуть' : 'Развернуть'}
+                    </button>
+                  )}
+                </div>
+              </>
             )}
-            <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">
-              {post.content}
-            </p>
 
             {post.imageUrl && (() => {
               // Определяем тип медиа
               const isVideo = post.mediaType === 'video' || 
                 (post.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(post.imageUrl))
               return (
-                <div className="mt-4 overflow-hidden rounded-xl border border-gray-800" onClick={(e) => e.stopPropagation()}>
+                <div className="mt-4 w-full h-[400px] overflow-hidden rounded-xl border border-gray-800" onClick={(e) => e.stopPropagation()}>
                   {isVideo ? (
                     <VideoPlayer
                       src={post.imageUrl}
-                      className="w-full h-auto"
+                      className="w-full h-full"
                       onError={(e) => {
                         console.error('Ошибка загрузки видео:', post.imageUrl)
                         if (e.currentTarget) {
@@ -505,7 +659,7 @@ export default function CommunityPostPage() {
                     <img
                       src={post.imageUrl}
                       alt="post"
-                      className="w-full h-auto object-cover"
+                      className="w-full h-full object-contain object-center"
                       loading="lazy"
                       onError={(e) => {
                         console.error('Ошибка загрузки изображения:', post.imageUrl)
@@ -618,12 +772,24 @@ export default function CommunityPostPage() {
                         className="hidden"
                       />
                     </label>
-                    <button
-                      onClick={() => setShowEmojiPicker(true)}
-                      className="p-1.5 hover:bg-emerald-500/20 rounded transition"
-                    >
-                      <Smile className="w-4 h-4 text-gray-400 hover:text-emerald-400" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowEmojiPicker(!showEmojiPicker)
+                        }}
+                        className={`p-1.5 hover:bg-emerald-500/20 rounded transition ${showEmojiPicker ? 'bg-emerald-500/20' : ''}`}
+                      >
+                        <Smile className="w-4 h-4 text-gray-400 hover:text-emerald-400" />
+                      </button>
+                      {showEmojiPicker && (
+                        <EmojiPicker
+                          onSelect={insertEmoji}
+                          onClose={() => setShowEmojiPicker(false)}
+                          position="top"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
                 
@@ -640,14 +806,6 @@ export default function CommunityPostPage() {
                   {uploadingFile ? 'Загрузка...' : sending ? 'Отправка...' : 'Отправить'}
                 </button>
               </div>
-            )}
-            
-            {/* Эмодзи пикер */}
-            {showEmojiPicker && (
-              <EmojiPicker
-                onSelect={insertEmoji}
-                onClose={() => setShowEmojiPicker(false)}
-              />
             )}
           </section>
         </main>
@@ -797,7 +955,7 @@ function CommentNode({
                             setEditing(true)
                             setOpenMenu(false)
                           }}
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full"
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-emerald-400 transition w-full"
                         >
                           <Edit3 className="w-4 h-4" /> Редактировать
                         </button>
@@ -830,24 +988,24 @@ function CommentNode({
         </div>
 
         {editing ? (
-          <div className="space-y-2">
+          <div className="space-y-2 mt-2">
             <textarea
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
-              rows={2}
-              className="w-full p-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg bg-black/60 border border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition resize-y"
             />
             <div className="flex gap-2">
               <button
                 onClick={saveEdit}
-                className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="w-4 h-4" />
                 Сохранить
               </button>
               <button
                 onClick={() => setEditing(false)}
-                className="flex items-center gap-1 px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 text-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 font-semibold transition"
               >
                 <X className="w-4 h-4" />
                 Отмена
@@ -863,10 +1021,10 @@ function CommentNode({
               <div className="mt-1.5">
                 {node.mediaType === 'video' ? (
                   <VideoPlayer
-                    src={node.imageUrl.startsWith('/api/files') ? node.imageUrl : `/api/files/${node.imageUrl}`}
+                    src={resolveMediaUrl(node.imageUrl)}
                     className="max-w-xs rounded-md border border-gray-700/50"
                     onError={(e) => {
-                      console.error('Ошибка загрузки видео в комментарии:', node.imageUrl)
+                      console.error('Ошибка загрузки видео в комментарии:', node.imageUrl, resolveMediaUrl(node.imageUrl))
                       if (e.currentTarget) {
                         e.currentTarget.style.display = 'none'
                       }
@@ -874,11 +1032,11 @@ function CommentNode({
                   />
                 ) : (
                   <img
-                    src={node.imageUrl.startsWith('/api/files') ? node.imageUrl : `/api/files/${node.imageUrl}`}
+                    src={resolveMediaUrl(node.imageUrl)}
                     alt="Comment media"
-                    className="max-w-[200px] sm:max-w-xs max-h-48 rounded-md border border-gray-700/50 object-cover cursor-pointer hover:opacity-90 transition"
+                    className="max-w-[200px] sm:max-w-xs max-h-48 rounded-md border border-gray-700/50 object-contain cursor-pointer hover:opacity-90 transition"
                     onError={(e) => {
-                      console.error('Ошибка загрузки изображения в комментарии:', node.imageUrl)
+                      console.error('Ошибка загрузки изображения в комментарии:', node.imageUrl, 'Resolved URL:', resolveMediaUrl(node.imageUrl))
                       e.currentTarget.style.display = 'none'
                     }}
                   />

@@ -5,14 +5,18 @@ import ReportModal from '@/components/ReportModal'
 import VideoPlayer from '@/components/VideoPlayer'
 import { useUser } from '@/context/UserContext'
 import {
+	Check,
 	Compass,
+	Edit3,
 	Flame,
 	Heart,
 	Home,
+	Loader2,
 	MessageSquare,
 	MoreHorizontal,
 	Plus,
 	User,
+	X,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -43,6 +47,11 @@ export default function CommunityPage() {
 		type: 'post'
 		id: string
 	} | null>(null)
+	const [editingPostId, setEditingPostId] = useState<string | null>(null)
+	const [editPostContent, setEditPostContent] = useState('')
+	const [editPostTitle, setEditPostTitle] = useState('')
+	const [savingPost, setSavingPost] = useState(false)
+	const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set())
 
 	// загрузка фильтра из URL
 	useEffect(() => {
@@ -68,6 +77,19 @@ export default function CommunityPage() {
 		}
 		fetchPosts()
 	}, [])
+
+	// Закрытие меню при клике вне его
+	useEffect(() => {
+		const handleClickOutside = (e: MouseEvent) => {
+			if (openMenu && !(e.target as Element).closest('[data-menu-container]')) {
+				setOpenMenu(null)
+			}
+		}
+		if (openMenu) {
+			document.addEventListener('mousedown', handleClickOutside)
+			return () => document.removeEventListener('mousedown', handleClickOutside)
+		}
+	}, [openMenu])
 
 	// изменение фильтра с обновлением URL
 	const changeFilter = (type: 'new' | 'popular' | 'my') => {
@@ -166,6 +188,86 @@ export default function CommunityPage() {
 			alert('Ошибка сети при удалении поста')
 			console.error(e)
 		}
+	}
+
+	// начало редактирования поста
+	const startEditingPost = (post: any) => {
+		setEditPostContent(post.content)
+		setEditPostTitle(post.title || '')
+		setEditingPostId(post.id)
+		setOpenMenu(null)
+	}
+
+	// сохранение редактирования поста
+	const savePostEdit = async () => {
+		if (!editingPostId) return
+		if (!editPostContent.trim() && !editPostTitle.trim()) {
+			alert('Пост не может быть пустым')
+			return
+		}
+
+		setSavingPost(true)
+		try {
+			const res = await fetch(`/api/community/${editingPostId}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					content: editPostContent.trim(),
+					title: editPostTitle.trim(),
+				}),
+			})
+
+			if (res.ok) {
+				const data = await res.json()
+				setPosts(prev =>
+					prev.map(p =>
+						p.id === editingPostId
+							? {
+									...p,
+									content: data.post.content,
+									title: data.post.title,
+									updatedAt: data.post.updatedAt,
+							  }
+							: p
+					)
+				)
+				setEditingPostId(null)
+				setEditPostContent('')
+				setEditPostTitle('')
+				alert('✅ Пост обновлён')
+			} else {
+				const error = await res.json().catch(() => ({}))
+				alert('Ошибка сохранения: ' + (error.error || res.statusText))
+			}
+		} catch (err) {
+			alert('Ошибка сети при сохранении поста')
+			console.error(err)
+		} finally {
+			setSavingPost(false)
+		}
+	}
+
+	// отмена редактирования поста
+	const cancelPostEdit = () => {
+		setEditingPostId(null)
+		setEditPostContent('')
+		setEditPostTitle('')
+	}
+
+	// переключение раскрытия текста поста
+	const togglePostExpand = (postId: string) => {
+		setExpandedPosts(prev => {
+			const newSet = new Set(prev)
+			if (newSet.has(postId)) {
+				newSet.delete(postId)
+			} else {
+				newSet.add(postId)
+			}
+			return newSet
+		})
 	}
 
 	return (
@@ -335,7 +437,7 @@ export default function CommunityPage() {
 										</Link>
 
 										{/* Меню */}
-										<div className='relative'>
+										<div className='relative' data-menu-container>
 											<button
 												onClick={() =>
 													setOpenMenu(openMenu === post.id ? null : post.id)
@@ -346,7 +448,10 @@ export default function CommunityPage() {
 											</button>
 
 											{openMenu === post.id && (
-												<div className='absolute right-0 mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20'>
+												<div 
+													className='absolute right-0 mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20'
+													onClick={(e) => e.stopPropagation()}
+												>
 													<button
 														onClick={() => {
 															copyLink(post.id)
@@ -368,15 +473,26 @@ export default function CommunityPage() {
 													</button>
 
 													{user?.id === post.author.id && (
-														<button
-															onClick={() => {
-																deletePost(post.id)
-																setOpenMenu(null)
-															}}
-															className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-pink-500 transition'
-														>
-															🗑 Удалить
-														</button>
+														<>
+															<button
+																onClick={() => {
+																	startEditingPost(post)
+																	setOpenMenu(null)
+																}}
+																className='flex items-center gap-2 px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-emerald-400 transition w-full'
+															>
+																<Edit3 className='w-4 h-4' /> Редактировать
+															</button>
+															<button
+																onClick={() => {
+																	deletePost(post.id)
+																	setOpenMenu(null)
+																}}
+																className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-pink-500 transition'
+															>
+																🗑 Удалить
+															</button>
+														</>
 													)}
 												</div>
 											)}
@@ -385,19 +501,90 @@ export default function CommunityPage() {
 
 									{/* Контент поста */}
 									<div className='mt-2 sm:mt-3'>
-										<Link
-											href={`/community/${post.id}`}
-											className='block'
-										>
-											{post.title && (
-												<h2 className='text-base sm:text-lg font-semibold text-white group-hover:text-emerald-400 transition line-clamp-2'>
-													{post.title}
-												</h2>
-											)}
-											<p className='text-sm sm:text-base text-gray-300 mt-1 whitespace-pre-line line-clamp-2 sm:line-clamp-3'>
-												{post.content}
-											</p>
-										</Link>
+										{editingPostId === post.id ? (
+											<div className='space-y-3'>
+												<div>
+													<label className='block text-xs sm:text-sm font-medium text-gray-400 mb-2'>
+														Заголовок
+													</label>
+													<input
+														type='text'
+														value={editPostTitle}
+														onChange={e => setEditPostTitle(e.target.value)}
+														placeholder='Заголовок поста...'
+														className='w-full px-3 sm:px-4 py-2 rounded-lg bg-black/60 border border-gray-700 text-white text-sm sm:text-base focus:ring-2 focus:ring-emerald-500 outline-none transition'
+													/>
+												</div>
+												<div>
+													<label className='block text-xs sm:text-sm font-medium text-gray-400 mb-2'>
+														Содержание
+													</label>
+													<textarea
+														value={editPostContent}
+														onChange={e => setEditPostContent(e.target.value)}
+														rows={6}
+														placeholder='Содержание поста...'
+														className='w-full px-3 sm:px-4 py-2 rounded-lg bg-black/60 border border-gray-700 text-white text-sm sm:text-base focus:ring-2 focus:ring-emerald-500 outline-none transition resize-y'
+													/>
+												</div>
+												<div className='flex gap-2'>
+													<button
+														onClick={savePostEdit}
+														disabled={savingPost}
+														className='flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed'
+													>
+														{savingPost ? (
+															<Loader2 className='w-4 h-4 animate-spin' />
+														) : (
+															<Check className='w-4 h-4' />
+														)}
+														Сохранить
+													</button>
+													<button
+														onClick={cancelPostEdit}
+														disabled={savingPost}
+														className='flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed'
+													>
+														<X className='w-4 h-4' />
+														Отмена
+													</button>
+												</div>
+											</div>
+										) : (
+											<div>
+												<Link
+													href={`/community/${post.id}`}
+													className='block'
+												>
+													{post.title && (
+														<h2 className='text-base sm:text-lg font-semibold text-white group-hover:text-emerald-400 transition line-clamp-2'>
+															{post.title}
+														</h2>
+													)}
+												</Link>
+												<div className='mt-1'>
+													<p className={`text-sm sm:text-base text-gray-300 whitespace-pre-line break-words ${
+														!expandedPosts.has(post.id) && post.content.length > 200
+															? 'line-clamp-4'
+															: ''
+													}`}>
+														{post.content}
+													</p>
+													{post.content.length > 200 && (
+														<button
+															onClick={(e) => {
+																e.preventDefault()
+																e.stopPropagation()
+																togglePostExpand(post.id)
+															}}
+															className='text-emerald-400 hover:text-emerald-300 text-sm mt-1 font-medium transition'
+														>
+															{expandedPosts.has(post.id) ? 'Свернуть' : 'Развернуть'}
+														</button>
+													)}
+												</div>
+											</div>
+										)}
 										
 										{/* Медиа вынесено из Link для отдельной обработки кликов */}
 										{post.imageUrl && (() => {
@@ -405,12 +592,12 @@ export default function CommunityPage() {
 											const isVideo = post.mediaType === 'video' || 
 												(post.imageUrl && /\.(mp4|webm|mov|avi|mkv)$/i.test(post.imageUrl))
 											return (
-												<div className='mt-3'>
+												<div className='mt-3 w-full h-[400px] overflow-hidden rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition'>
 													{isVideo ? (
-														<div onClick={(e) => e.stopPropagation()}>
+														<div onClick={(e) => e.stopPropagation()} className='w-full h-full'>
 															<VideoPlayer
 																src={post.imageUrl}
-																className='rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full max-h-[250px] sm:max-h-[350px] lg:max-h-[450px]'
+																className='w-full h-full'
 																onError={(e) => {
 																	console.error('Ошибка загрузки видео:', post.imageUrl)
 																	if (e.currentTarget) {
@@ -422,12 +609,12 @@ export default function CommunityPage() {
 													) : (
 														<Link
 															href={`/community/${post.id}`}
-															className='block'
+															className='block w-full h-full'
 														>
 															<img
 																src={post.imageUrl}
 																alt=''
-																className='rounded-md border border-gray-800 group-hover:border-emerald-600/40 transition w-full object-cover max-h-[250px] sm:max-h-[350px] lg:max-h-[450px] cursor-pointer'
+																className='w-full h-full object-contain object-center cursor-pointer'
 																onError={(e) => {
 																	console.error('Ошибка загрузки изображения:', post.imageUrl)
 																	e.currentTarget.style.display = 'none'

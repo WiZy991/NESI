@@ -12,17 +12,19 @@ interface VideoPlayerProps {
 export default function VideoPlayer({ src, className = '', onError }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const isSeekingRef = useRef(false) // Флаг перемотки через ref для избежания задержек
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState(1)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [bufferedEnd, setBufferedEnd] = useState(0) // Конец загруженной части для буферизации
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [showControls, setShowControls] = useState(false) // Скрываем по умолчанию
   const [isVisible, setIsVisible] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
-  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   
   // Lazy loading - загружаем видео только когда оно видимо
   useEffect(() => {
@@ -48,40 +50,220 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
     const video = videoRef.current
     if (!video) return
 
-    const updateTime = () => setCurrentTime(video.currentTime)
-    const updateDuration = () => setDuration(video.duration)
-    const handlePlay = () => setIsPlaying(true)
-    const handlePause = () => setIsPlaying(false)
+    // Флаг для отслеживания монтирования компонента
+    let isMounted = true
+    let animationFrameId: number | null = null
+
+    const updateTime = () => {
+      if (isMounted && video) {
+        setCurrentTime(video.currentTime)
+      }
+    }
+    
+    // Плавное обновление времени и буферизации через requestAnimationFrame
+    const smoothUpdate = () => {
+      if (!isMounted || !video) return
+      
+      // Не обновляем время во время перемотки (пользователь сам управляет)
+      if (!isSeekingRef.current) {
+        setCurrentTime(video.currentTime)
+      }
+      
+      // Обновляем буферизацию (загруженную часть)
+      if (video.buffered.length > 0 && video.duration > 0) {
+        // Находим самый дальний загруженный момент
+        let maxBuffered = 0
+        for (let i = 0; i < video.buffered.length; i++) {
+          if (video.buffered.end(i) > maxBuffered) {
+            maxBuffered = video.buffered.end(i)
+          }
+        }
+        setBufferedEnd(maxBuffered)
+      }
+      
+      // Продолжаем обновление, если видео играет или загружается
+      if (!video.paused || video.readyState < 3) {
+        animationFrameId = requestAnimationFrame(smoothUpdate)
+      }
+    }
+    
+    const updateDuration = () => {
+      if (isMounted && video) {
+        setDuration(video.duration)
+      }
+    }
+    
+    // Обновление буферизации при загрузке
+    const updateBuffered = () => {
+      if (!isMounted || !video || !video.duration) return
+      
+      if (video.buffered.length > 0) {
+        let maxBuffered = 0
+        for (let i = 0; i < video.buffered.length; i++) {
+          if (video.buffered.end(i) > maxBuffered) {
+            maxBuffered = video.buffered.end(i)
+          }
+        }
+        setBufferedEnd(maxBuffered)
+      }
+    }
+    const handlePlay = () => {
+      if (isMounted) {
+        setIsPlaying(true)
+        // Запускаем плавное обновление при воспроизведении
+        animationFrameId = requestAnimationFrame(smoothUpdate)
+      }
+    }
+    const handlePause = () => {
+      if (isMounted) {
+        setIsPlaying(false)
+        // Обновляем время один раз при паузе
+        if (video) {
+          setCurrentTime(video.currentTime)
+        }
+        // Останавливаем плавное обновление при паузе
+        if (animationFrameId !== null) {
+          cancelAnimationFrame(animationFrameId)
+          animationFrameId = null
+        }
+      }
+    }
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement)
+      if (isMounted) {
+        setIsFullscreen(!!document.fullscreenElement)
+      }
+    }
+    
+    // Обработка ошибок воспроизведения
+    const handleError = (e: Event) => {
+      if (isMounted && onError) {
+        onError(e as any)
+      }
     }
 
-    video.addEventListener('timeupdate', updateTime)
-    video.addEventListener('loadedmetadata', updateDuration)
+    // Обработка прерывания воспроизведения
+    const handleAbort = () => {
+      if (isMounted && video) {
+        // Если видео было удалено, останавливаем воспроизведение
+        try {
+          if (!video.paused) {
+            video.pause()
+          }
+          setIsPlaying(false)
+          if (animationFrameId !== null) {
+            cancelAnimationFrame(animationFrameId)
+            animationFrameId = null
+          }
+        } catch (err) {
+          // Игнорируем ошибки при остановке
+        }
+      }
+    }
+
+    // Используем progress для обновления буферизации
+    video.addEventListener('progress', updateBuffered)
+    video.addEventListener('loadedmetadata', () => {
+      updateDuration()
+      updateBuffered()
+    })
+    video.addEventListener('loadeddata', updateBuffered)
+    video.addEventListener('canplay', updateBuffered)
+    video.addEventListener('canplaythrough', updateBuffered)
     video.addEventListener('play', handlePlay)
     video.addEventListener('pause', handlePause)
+    video.addEventListener('error', handleError)
+    video.addEventListener('abort', handleAbort)
+    video.addEventListener('waiting', () => {
+      // При буферизации продолжаем обновление
+      if (isMounted && !animationFrameId) {
+        animationFrameId = requestAnimationFrame(smoothUpdate)
+      }
+    })
+    video.addEventListener('playing', () => {
+      // При возобновлении воспроизведения
+      if (isMounted && !animationFrameId) {
+        animationFrameId = requestAnimationFrame(smoothUpdate)
+      }
+    })
     document.addEventListener('fullscreenchange', handleFullscreenChange)
+    
+    // Запускаем обновление сразу для отслеживания загрузки
+    animationFrameId = requestAnimationFrame(smoothUpdate)
 
     return () => {
-      video.removeEventListener('timeupdate', updateTime)
-      video.removeEventListener('loadedmetadata', updateDuration)
-      video.removeEventListener('play', handlePlay)
-      video.removeEventListener('pause', handlePause)
+      isMounted = false
+      
+      // Отменяем анимацию
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
+      }
+      
+      // Безопасное удаление слушателей
+      if (video) {
+        try {
+          video.removeEventListener('progress', updateBuffered)
+          video.removeEventListener('loadedmetadata', updateDuration)
+          video.removeEventListener('loadeddata', updateBuffered)
+          video.removeEventListener('canplay', updateBuffered)
+          video.removeEventListener('canplaythrough', updateBuffered)
+          video.removeEventListener('play', handlePlay)
+          video.removeEventListener('pause', handlePause)
+          video.removeEventListener('error', handleError)
+          video.removeEventListener('abort', handleAbort)
+          video.removeEventListener('waiting', () => {})
+          video.removeEventListener('playing', () => {})
+          
+          // Останавливаем воспроизведение при размонтировании
+          try {
+            if (!video.paused) {
+              video.pause()
+            }
+          } catch (err) {
+            // Игнорируем ошибки при остановке
+          }
+        } catch (err) {
+          // Игнорируем ошибки при очистке
+        }
+      }
+      
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current)
       }
     }
-  }, [])
+  }, [onError])
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     const video = videoRef.current
     if (!video) return
 
-    if (video.paused) {
-      video.play()
-    } else {
-      video.pause()
+    // Проверяем, что видео все еще в DOM
+    if (!video.offsetParent && video.parentElement === null) {
+      return
+    }
+
+    try {
+      if (video.paused) {
+        // play() возвращает промис, который может быть отклонен
+        await video.play().catch((err) => {
+          // Игнорируем ошибки, если видео было удалено из DOM
+          if (err.name === 'AbortError' || err.name === 'NotAllowedError') {
+            // Это нормально - пользователь может не разрешить автовоспроизведение
+            // или видео было удалено из DOM
+            return
+          }
+          console.warn('Ошибка воспроизведения видео:', err)
+        })
+      } else {
+        video.pause()
+      }
+    } catch (err: any) {
+      // Дополнительная обработка ошибок
+      if (err.name !== 'AbortError') {
+        console.warn('Ошибка управления видео:', err)
+      }
     }
   }
 
@@ -101,12 +283,26 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
     setIsMuted(newVolume === 0)
   }
 
+  const handleSeekStart = () => {
+    isSeekingRef.current = true
+  }
+
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current
-    if (!video) return
+    if (!video || !duration) return
     const newTime = parseFloat(e.target.value)
-    video.currentTime = newTime
+    // Обновляем состояние сразу для отзывчивости (зеленая полоса привязана к этому значению)
     setCurrentTime(newTime)
+    // Обновляем видео
+    video.currentTime = newTime
+  }
+
+  const handleSeekEnd = () => {
+    const video = videoRef.current
+    if (!video) return
+    // Синхронизируем с реальным временем видео
+    setCurrentTime(video.currentTime)
+    isSeekingRef.current = false
   }
 
   const toggleFullscreen = () => {
@@ -143,12 +339,15 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+  // Вычисляем проценты для прогресса и буферизации
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0
+  const bufferedPercent = duration > 0 ? (bufferedEnd / duration) * 100 : 0
 
   return (
     <div
       ref={containerRef}
       className={`relative bg-black rounded-md overflow-hidden ${className}`}
+      style={{ width: '100%', height: '100%' }}
       onMouseEnter={() => {
         setIsHovered(true)
         setShowControls(true)
@@ -170,19 +369,29 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
       <video
         ref={videoRef}
         src={isVisible ? src : undefined}
-        className="w-full h-full"
+        className="w-full h-full object-contain"
         preload={isVisible ? "metadata" : "none"}
         playsInline
         controlsList="nodownload nofullscreen" // Отключаем скачивание и полноэкранный режим через стандартные контролы
         disablePictureInPicture // Отключаем Picture-in-Picture
-        onError={onError}
+        onError={(e) => {
+          // Обрабатываем ошибки воспроизведения
+          if (onError) {
+            onError(e)
+          }
+        }}
         onLoadedMetadata={() => setIsLoaded(true)}
-        onClick={(e) => {
+        onClick={async (e) => {
           e.stopPropagation()
-          togglePlay()
+          await togglePlay()
         }}
         onContextMenu={(e) => {
           e.preventDefault() // Блокируем контекстное меню (правый клик)
+        }}
+        onAbort={() => {
+          // Обрабатываем прерывание загрузки/воспроизведения
+          setIsPlaying(false)
+          setIsLoaded(false)
         }}
       />
       
@@ -209,9 +418,9 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
       {(showControls || isHovered) && !isPlaying && (
         <div
           className="absolute inset-0 flex items-center justify-center cursor-pointer z-10"
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation()
-            togglePlay()
+            await togglePlay()
           }}
         >
           <div className="bg-black/50 rounded-full p-4 hover:bg-black/70 transition">
@@ -223,36 +432,120 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
       {/* Контролы внизу */}
       {(showControls || isHovered) && (
         <div className="absolute bottom-0 left-0 right-0 p-2 space-y-2 z-10">
-          {/* Прогресс-бар */}
-          <div className="relative">
+          {/* Прогресс-бар в стиле Telegram */}
+          <div className="relative h-4 flex items-center">
+            {/* Фоновая полоса (непрогретая часть) - самый нижний слой */}
+            <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-gray-700/50 rounded-full" />
+            {/* Серая полоса буферизации (загруженная часть) - средний слой */}
+            {bufferedPercent > 0 && (
+              <div 
+                className="absolute top-1/2 left-0 h-1 -translate-y-1/2 bg-gray-600 rounded-full transition-all duration-200 ease-out"
+                style={{ width: `${bufferedPercent}%` }}
+              />
+            )}
+            {/* Зеленая полоса прогресса (до текущей позиции) - верхний слой */}
+            {/* Всегда показываем, без transition - обновление уже плавное через RAF */}
+            <div 
+              className="absolute top-1/2 left-0 h-1 -translate-y-1/2 bg-emerald-500 rounded-full"
+              style={{ width: `${progressPercent}%` }}
+            />
+            {/* Input range - самый верхний слой для интерактивности */}
             <input
               type="range"
               min="0"
               max={duration || 0}
+              step="0.1"
               value={currentTime}
+              onMouseDown={handleSeekStart}
+              onTouchStart={handleSeekStart}
               onChange={handleSeek}
-              className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              onMouseUp={handleSeekEnd}
+              onTouchEnd={handleSeekEnd}
+              className="absolute top-1/2 left-0 w-full h-4 -translate-y-1/2 bg-transparent rounded-lg appearance-none cursor-pointer slider"
               style={{
-                background: `linear-gradient(to right, #10b981 0%, #10b981 ${progress}%, #374151 ${progress}%, #374151 100%)`,
+                background: 'transparent',
+                pointerEvents: 'auto',
               }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                // Обработка клика по полоске для перемотки
+                const rect = (e.currentTarget as HTMLInputElement).getBoundingClientRect()
+                const percent = (e.clientX - rect.left) / rect.width
+                const newTime = percent * duration
+                if (!isNaN(newTime) && newTime >= 0 && newTime <= duration) {
+                  setCurrentTime(newTime)
+                  const video = videoRef.current
+                  if (video) {
+                    video.currentTime = newTime
+                  }
+                }
+              }}
             />
             <style jsx>{`
-              .slider::-webkit-slider-thumb {
+              .slider {
+                -webkit-appearance: none;
                 appearance: none;
-                width: 12px;
-                height: 12px;
+                cursor: pointer;
+                margin: 0;
+                padding: 0;
+              }
+              .slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 14px;
+                height: 14px;
                 border-radius: 50%;
                 background: #10b981;
-                cursor: pointer;
+                cursor: grab;
+                border: 2px solid #ffffff;
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+                margin-top: -5px;
+                transition: transform 0.1s ease, width 0.1s ease, height 0.1s ease, margin-top 0.1s ease;
+              }
+              .slider::-webkit-slider-thumb:hover {
+                transform: scale(1.15);
+                width: 16px;
+                height: 16px;
+                margin-top: -6px;
+              }
+              .slider::-webkit-slider-thumb:active {
+                cursor: grabbing;
+                transform: scale(1.2);
+                width: 18px;
+                height: 18px;
+                margin-top: -7px;
               }
               .slider::-moz-range-thumb {
-                width: 12px;
-                height: 12px;
+                width: 14px;
+                height: 14px;
                 border-radius: 50%;
                 background: #10b981;
+                cursor: grab;
+                border: 2px solid #ffffff;
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+                transition: transform 0.1s ease;
+                position: relative;
+              }
+              .slider::-moz-range-thumb:hover {
+                transform: scale(1.15);
+              }
+              .slider::-moz-range-thumb:active {
+                cursor: grabbing;
+                transform: scale(1.2);
+              }
+              .slider::-webkit-slider-runnable-track {
+                width: 100%;
+                height: 4px;
                 cursor: pointer;
-                border: none;
+                background: transparent;
+                border-radius: 2px;
+              }
+              .slider::-moz-range-track {
+                width: 100%;
+                height: 4px;
+                cursor: pointer;
+                background: transparent;
+                border-radius: 2px;
               }
             `}</style>
           </div>
@@ -260,9 +553,9 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
           {/* Кнопки управления */}
           <div className="flex items-center gap-2 text-white">
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation()
-                togglePlay()
+                await togglePlay()
               }}
               className="p-1.5 hover:bg-white/20 rounded transition"
             >

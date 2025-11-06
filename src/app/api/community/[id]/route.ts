@@ -181,6 +181,124 @@ export async function GET(
   }
 }
 
+// ✏️ Редактировать пост
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const me = await getUserFromRequest(req).catch(() => null)
+    if (!me) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    }
+
+    const body = await req.json().catch(() => ({}))
+    const { content, title } = body || {}
+
+    // Валидация
+    if (!content?.trim() && !title?.trim()) {
+      return NextResponse.json(
+        { error: 'Пост не может быть пустым' },
+        { status: 400 }
+      )
+    }
+
+    const post = await prisma.communityPost.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        authorId: true,
+        isDeleted: true,
+      },
+    })
+
+    if (!post) {
+      return NextResponse.json({ error: 'Пост не найден' }, { status: 404 })
+    }
+
+    if (post.isDeleted) {
+      return NextResponse.json({ error: 'Пост удалён' }, { status: 400 })
+    }
+
+    if (post.authorId !== me.id) {
+      return NextResponse.json(
+        { error: 'Нет прав на редактирование этого поста' },
+        { status: 403 }
+      )
+    }
+
+    // Обновляем пост
+    const updated = await prisma.communityPost.update({
+      where: { id },
+      data: {
+        content: content?.trim() || '',
+        title: title?.trim() || '',
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        imageUrl: true,
+        createdAt: true,
+        updatedAt: true,
+        authorId: true,
+        author: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarFileId: true,
+          },
+        },
+        _count: { select: { comments: true, likes: true } },
+      },
+    })
+
+    // Определяем mediaType
+    let detectedMediaType = (updated as any).mediaType || 'image'
+    if (updated.imageUrl) {
+      const imageUrlLower = updated.imageUrl.toLowerCase()
+      if (imageUrlLower.includes('.mp4') || 
+          imageUrlLower.includes('.webm') || 
+          imageUrlLower.includes('.mov') || 
+          imageUrlLower.includes('.avi') || 
+          imageUrlLower.includes('.mkv')) {
+        detectedMediaType = 'video'
+      } else if (updated.imageUrl.startsWith('/api/files/')) {
+        const fileId = updated.imageUrl.replace('/api/files/', '')
+        const file = await prisma.file.findUnique({
+          where: { id: fileId },
+          select: { mimetype: true },
+        })
+        if (file?.mimetype?.startsWith('video/')) {
+          detectedMediaType = 'video'
+        }
+      }
+    }
+
+    const formatted = {
+      ...updated,
+      mediaType: detectedMediaType,
+      author: {
+        ...updated.author,
+        avatarUrl: updated.author.avatarFileId
+          ? `/api/files/${updated.author.avatarFileId}`
+          : null,
+      },
+    }
+
+    return NextResponse.json({ ok: true, post: formatted })
+  } catch (err: any) {
+    console.error('Ошибка редактирования поста:', {
+      message: err?.message,
+      code: err?.code,
+    })
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
+}
+
 // 🗑 Удалить пост
 export async function DELETE(
   req: NextRequest,

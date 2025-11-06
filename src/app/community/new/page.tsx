@@ -94,6 +94,25 @@ export default function NewPostPage() {
       return
     }
 
+    // Проверка размера файла
+    // Оптимальные размеры для веб-платформы:
+    // - Изображения: 5MB достаточно для качественных фото (обычно 500KB-2MB)
+    // - Видео: 30MB для коротких видео в постах (обычно 5-20MB для 15-60 сек видео)
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB для изображений
+    const MAX_VIDEO_SIZE = 30 * 1024 * 1024 // 30MB для видео
+    
+    if (isImage && file.size > MAX_IMAGE_SIZE) {
+      toast.error(`Изображение слишком большое. Максимум ${MAX_IMAGE_SIZE / 1024 / 1024}MB`)
+      e.target.value = '' // Очищаем input
+      return
+    }
+    
+    if (isVideo && file.size > MAX_VIDEO_SIZE) {
+      toast.error(`Видео слишком большое. Максимум ${MAX_VIDEO_SIZE / 1024 / 1024}MB`)
+      e.target.value = '' // Очищаем input
+      return
+    }
+
     const detectedMediaType = isVideo ? 'video' : 'image'
     setMediaType(detectedMediaType)
 
@@ -365,13 +384,18 @@ export default function NewPostPage() {
 
           {/* Панель действий */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-gray-700/50">
-            <label className="flex items-center gap-3 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-900/30 to-emerald-800/30 
-              border border-emerald-500/30 text-emerald-300 cursor-pointer hover:border-emerald-400/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] 
-              transition-all duration-300 group">
-              <ImagePlus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="font-medium">Прикрепить медиа</span>
-              <input type="file" accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
-            </label>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-3 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-900/30 to-emerald-800/30 
+                border border-emerald-500/30 text-emerald-300 cursor-pointer hover:border-emerald-400/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] 
+                transition-all duration-300 group">
+                <ImagePlus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span className="font-medium">Прикрепить медиа</span>
+                <input type="file" accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
+              </label>
+              <p className="text-xs text-gray-500 px-5">
+                Максимальный размер: <span className="text-emerald-400">5 MB</span> для изображений, <span className="text-emerald-400">30 MB</span> для видео
+              </p>
+            </div>
 
             <button
               type="submit"

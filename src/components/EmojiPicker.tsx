@@ -1,6 +1,7 @@
 'use client'
 
 import { X } from 'lucide-react'
+import { useRef, useEffect } from 'react'
 
 const emojiCategories = {
   'Популярные': ['😀', '😂', '🥰', '😍', '🤔', '😎', '😭', '😡', '👍', '👎', '❤️', '🔥', '💯', '🎉', '👏'],
@@ -14,49 +15,65 @@ const emojiCategories = {
 interface EmojiPickerProps {
   onSelect: (emoji: string) => void
   onClose: () => void
+  position?: 'top' | 'bottom'
 }
 
-export default function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
+export default function EmojiPicker({ onSelect, onClose, position = 'bottom' }: EmojiPickerProps) {
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  // Закрытие при клике вне компонента
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [onClose])
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose} data-nextjs-scroll-focus-boundary={false}>
-      <div
-        className="bg-gray-900 border border-emerald-500/30 rounded-xl shadow-xl w-full max-w-md max-h-[70vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-4 py-3 border-b border-emerald-500/20 flex items-center justify-between bg-gray-900/50">
-          <h3 className="text-lg font-bold text-emerald-400">Выберите эмодзи</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-            aria-label="Закрыть"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        
-        <div className="overflow-y-auto flex-1 p-4">
-          {Object.entries(emojiCategories).map(([category, emojis]) => (
-            <div key={category} className="mb-6">
-              <h4 className="text-sm font-semibold text-gray-400 mb-3">{category}</h4>
-              <div className="grid grid-cols-8 gap-2">
-                {emojis.map((emoji, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      onSelect(emoji)
-                      onClose()
-                    }}
-                    className="text-2xl hover:bg-emerald-500/20 rounded-lg p-2 transition hover:scale-110"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
+    <div
+      ref={pickerRef}
+      className={`absolute ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 z-50 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl w-[320px] sm:w-[360px] max-h-[280px] flex flex-col overflow-hidden`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Заголовок - компактный */}
+      <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between bg-gray-800/50">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Эмодзи</h3>
+        <button
+          onClick={onClose}
+          className="text-gray-500 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
+          aria-label="Закрыть"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      
+      {/* Эмодзи - компактная сетка */}
+      <div className="overflow-y-auto flex-1 p-2">
+        {Object.entries(emojiCategories).map(([category, emojis]) => (
+          <div key={category} className="mb-3 last:mb-0">
+            <h4 className="text-[10px] font-semibold text-gray-500 mb-1.5 px-1">{category}</h4>
+            <div className="grid grid-cols-8 gap-1">
+              {emojis.map((emoji, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    onSelect(emoji)
+                    onClose()
+                  }}
+                  className="text-lg sm:text-xl hover:bg-emerald-500/20 rounded transition hover:scale-110 p-1.5 active:scale-95"
+                  title={emoji}
+                >
+                  {emoji}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
-
