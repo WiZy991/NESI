@@ -152,6 +152,9 @@ model Message {
   content   String
   fileUrl   String?
   fileId    String?
+  replyToId String?   // ID сообщения, на которое отвечаем
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies   Message[] @relation("MessageReplies")
   file      File?     @relation("MessageFile", fields: [fileId], references: [id])
   sender    User      @relation("MessageSender", fields: [senderId], references: [id])
   task      Task      @relation(fields: [taskId], references: [id])
@@ -162,6 +165,7 @@ model Message {
   @@index([senderId])
   @@index([createdAt])
   @@index([taskId, createdAt])
+  @@index([replyToId])
 }
 model Notification {
   id        String   @id @default(cuid())
@@ -309,11 +313,16 @@ model PrivateMessage {
   editedAt    DateTime?
   deletedAt   DateTime?
   fileId      String?
+  replyToId   String?   // ID сообщения, на которое отвечаем
+  replyTo     PrivateMessage? @relation("PrivateMessageReplies", fields: [replyToId], references: [id])
+  replies     PrivateMessage[] @relation("PrivateMessageReplies")
   file        File?     @relation("PrivateMessageFile", fields: [fileId], references: [id])
   recipient   User      @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
   sender      User      @relation("PrivateMessageSender", fields: [senderId], references: [id])
   
   reactions PrivateMessageReaction[]
+  
+  @@index([replyToId])
 }
 model AdminInvite {
   id        String   @id @default(cuid())

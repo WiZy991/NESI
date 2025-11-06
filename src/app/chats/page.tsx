@@ -58,7 +58,27 @@ type Message = {
 	fileUrl?: string
 	fileName?: string
 	fileMimetype?: string
+	fileId?: string
 	createdAt: string
+	editedAt?: string | null
+	replyTo?: {
+		id: string
+		content: string
+		sender: {
+			id: string
+			fullName?: string
+			email: string
+		}
+	} | null
+	reactions?: Array<{
+		emoji: string
+		userId: string
+		user?: {
+			id: string
+			fullName?: string
+			email: string
+		}
+	}>
 	sender: {
 		id: string
 		fullName?: string
@@ -86,9 +106,45 @@ function ChatsPageContent() {
 	const [isTyping, setIsTyping] = useState(false)
 	const [typingUser, setTypingUser] = useState<string | null>(null)
 	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
+	const [replyTo, setReplyTo] = useState<Message['replyTo']>(null)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const eventSourceRef = useRef<EventSource | null>(null)
 	const messageSearchRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+	const searchInputRef = useRef<HTMLInputElement>(null)
+
+	// КРИТИЧНО: Убираем квадратную обводку outline для поля поиска чатов
+	useEffect(() => {
+		const input = searchInputRef.current
+		if (!input) return
+
+		const removeOutline = () => {
+			input.style.setProperty('outline', 'none', 'important')
+			input.style.setProperty('outline-offset', '0', 'important')
+			input.style.setProperty('box-shadow', 'none', 'important')
+		}
+
+		removeOutline()
+
+		const events = ['focus', 'blur', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend']
+		events.forEach(event => {
+			input.addEventListener(event, removeOutline, true)
+		})
+
+		const observer = new MutationObserver(() => {
+			removeOutline()
+		})
+		observer.observe(input, {
+			attributes: true,
+			attributeFilter: ['style', 'class']
+		})
+
+		return () => {
+			events.forEach(event => {
+				input.removeEventListener(event, removeOutline, true)
+			})
+			observer.disconnect()
+		}
+	}, [])
 
 	// Блокируем скролл страницы на мобильной версии
 	useEffect(() => {
@@ -120,7 +176,26 @@ function ChatsPageContent() {
 				const res = await fetch('/api/chats', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
-				const data = await res.json()
+				
+				// Проверяем, есть ли содержимое в ответе
+				const text = await res.text()
+				if (!text || text.trim() === '') {
+					console.warn('⚠️ Пустой ответ от API чатов')
+					setChats([])
+					setLoading(false)
+					return
+				}
+
+				let data
+				try {
+					data = JSON.parse(text)
+				} catch (parseError) {
+					console.error('❌ Ошибка парсинга JSON:', parseError, 'Ответ:', text.substring(0, 200))
+					setChats([])
+					setLoading(false)
+					return
+				}
+
 				console.log('📊 Ответ API чатов:', data)
 				if (res.ok) {
 					const loadedChats = data.chats || []
@@ -193,10 +268,17 @@ function ChatsPageContent() {
 						}
 					})
 				} else {
-					console.error('❌ Ошибка API:', data)
+					console.error('❌ Ошибка API чатов:', {
+						status: res.status,
+						statusText: res.statusText,
+						data: data,
+						error: data?.error || 'Неизвестная ошибка'
+					})
+					setChats([])
 				}
-			} catch (error) {
-				console.error('Ошибка загрузки чатов:', error)
+			} catch (error: any) {
+				console.error('❌ Ошибка загрузки чатов:', error)
+				setChats([])
 			} finally {
 				setLoading(false)
 			}
@@ -344,6 +426,11 @@ function ChatsPageContent() {
 		}
 	}, [token, selectedChat])
 
+	// Сбрасываем ответ при смене чата
+	useEffect(() => {
+		setReplyTo(null)
+	}, [selectedChat?.id])
+
 	// Загрузка сообщений для выбранного чата
 	useEffect(() => {
 		if (!selectedChat || !token) return
@@ -372,17 +459,71 @@ function ChatsPageContent() {
 				const res = await fetch(url, {
 					headers: { Authorization: `Bearer ${token}` },
 				})
-				const data = await res.json()
-				console.log('📊 Ответ API сообщений:', data)
+				
+				console.log('📡 Статус ответа:', res.status, res.statusText)
+				
+				// Проверяем, есть ли содержимое в ответе
+				const text = await res.text()
+				if (!text || text.trim() === '') {
+					console.warn('⚠️ Пустой ответ от API, статус:', res.status)
+					setMessages([])
+					setMessagesLoading(false)
+					return
+				}
+
+				let data
+				try {
+					data = JSON.parse(text)
+				} catch (parseError) {
+					console.error('❌ Ошибка парсинга JSON:', parseError, 'Ответ:', text.substring(0, 200))
+					setMessages([])
+					setMessagesLoading(false)
+					return
+				}
+
+				console.log('📊 Ответ API сообщений:', {
+					status: res.status,
+					ok: res.ok,
+					dataType: Array.isArray(data) ? 'array' : typeof data,
+					dataKeys: data && typeof data === 'object' ? Object.keys(data) : null,
+					dataPreview: JSON.stringify(data).substring(0, 200)
+				})
 
 				if (res.ok) {
 					const messagesData = data.messages || data || []
 					console.log('✅ Сообщения загружены:', messagesData.length)
-					console.log('📝 Первое сообщение:', messagesData[0])
+					if (messagesData.length > 0) {
+						console.log('📝 Первое сообщение:', messagesData[0])
+						// Проверяем сообщения с ответами
+						const messagesWithReplies = messagesData.filter((m: Message) => m.replyTo !== null && m.replyTo !== undefined)
+						if (messagesWithReplies.length > 0) {
+							console.log('💬 Найдено сообщений с ответами:', messagesWithReplies.length)
+							console.log('📎 Пример ответа:', JSON.stringify(messagesWithReplies[0].replyTo, null, 2))
+						} else {
+							console.log('⚠️ Нет сообщений с ответами')
+						}
+					}
 					setMessages(messagesData)
 				} else {
-					console.error('❌ Ошибка API сообщений:', data)
-					setMessages([])
+					// Если это ошибка, но есть данные, все равно пытаемся их использовать
+					if (data && typeof data === 'object' && (data.messages || Array.isArray(data))) {
+						const messagesData = data.messages || data || []
+						console.warn('⚠️ API вернул ошибку, но есть данные:', messagesData.length)
+						setMessages(messagesData)
+					} else {
+						console.error('❌ Ошибка API сообщений:', {
+							status: res.status,
+							statusText: res.statusText,
+							data: data,
+							url: url,
+							responseText: text.substring(0, 500)
+						})
+						// Если это ошибка сервера, но не критичная, просто показываем пустой список
+						if (res.status >= 500) {
+							console.error('❌ Серверная ошибка, устанавливаем пустой список сообщений')
+						}
+						setMessages([])
+					}
 				}
 			} catch (error) {
 				console.error('Ошибка загрузки сообщений:', error)
@@ -1031,14 +1172,32 @@ function ChatsPageContent() {
 
 	if (loading) {
 		return (
-			<div className='pt-[64px] min-h-screen flex items-center justify-center px-4'>
-				<ChatSkeleton />
+			<div 
+				className='fixed inset-x-0 top-16 px-3 sm:px-6'
+				style={{ 
+					height: 'calc(100vh - 4rem)',
+					maxHeight: 'calc(100vh - 4rem)',
+					minHeight: 'calc(100vh - 4rem)'
+				}}
+			>
+				<div className='w-full h-full flex items-center justify-center'>
+					<ChatSkeleton />
+				</div>
 			</div>
 		)
 	}
 
 	return (
-		<div className='fixed inset-x-0 top-[64px] bottom-0 px-3 sm:px-6'>
+		<div 
+			className='fixed inset-x-0 px-3 sm:px-6'
+			style={{ 
+				top: 'calc(4rem - 1px)',
+				height: 'calc(100vh - 4rem + 1px)',
+				maxHeight: 'calc(100vh - 4rem + 1px)',
+				minHeight: 'calc(100vh - 4rem + 1px)',
+				paddingTop: 0
+			}}
+		>
 			<div className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden'>
 				<div
 					className='flex flex-1 overflow-hidden min-h-0'
@@ -1057,11 +1216,19 @@ function ChatsPageContent() {
 							</h1>
 							<div className='relative'>
 								<input
+									ref={searchInputRef}
 									type='text'
 									placeholder='Поиск чатов...'
 									value={searchQuery}
 									onChange={e => setSearchQuery(e.target.value)}
-									className='w-full px-5 py-3.5 sm:py-4 bg-slate-800/35 border border-emerald-300/30 rounded-full text-white text-sm sm:text-base placeholder-slate-300/80 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-slate-800/45 transition-all shadow-lg hover:shadow-emerald-300/15 ios-transition'
+									className='w-full px-5 py-3.5 sm:py-4 bg-slate-800/35 border-2 border-emerald-300/30 rounded-full text-white text-sm sm:text-base placeholder-slate-300/80 focus:border-emerald-300 focus:outline-none focus:bg-slate-800/45 transition-all shadow-lg hover:shadow-emerald-300/15 ios-transition'
+									style={{ 
+										outline: 'none',
+										outlineOffset: '0',
+										boxShadow: 'none',
+										WebkitAppearance: 'none',
+										appearance: 'none'
+									} as React.CSSProperties}
 								/>
 								<div className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400/50'>
 									🔍
@@ -1158,7 +1325,7 @@ function ChatsPageContent() {
 					<div
 						className={`${
 							selectedChat ? 'flex' : 'hidden md:flex'
-						} flex-1 flex-col bg-gradient-to-br from-slate-900/35 via-slate-900/20 to-slate-900/8 min-h-0 backdrop-blur-lg`}
+						} flex-1 flex-col bg-gradient-to-br from-slate-900/35 via-slate-900/20 to-slate-900/8 min-h-0 h-full overflow-hidden backdrop-blur-lg`}
 					>
 						{selectedChat ? (
 							<>
@@ -1235,7 +1402,7 @@ function ChatsPageContent() {
 
 								{/* Сообщения - растягиваемая область */}
 								<div
-									className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar relative'
+									className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar relative min-h-0'
 									style={{
 										touchAction: 'pan-y',
 										WebkitOverflowScrolling: 'touch',
@@ -1304,6 +1471,7 @@ function ChatsPageContent() {
 													return (
 														<div
 															key={msg.id}
+															data-message-id={msg.id}
 															ref={el => {
 																if (el) {
 																	messageSearchRefs.current.set(msg.id, el)
@@ -1344,6 +1512,16 @@ function ChatsPageContent() {
 																		)
 																	)
 																}}
+																onReply={messageId => {
+																	const messageToReply = messages.find(m => m.id === messageId)
+																	if (messageToReply) {
+																		setReplyTo({
+																			id: messageToReply.id,
+																			content: messageToReply.content || 'Файл',
+																			sender: messageToReply.sender,
+																		})
+																	}
+																}}
 															/>
 														</div>
 													)
@@ -1380,13 +1558,15 @@ function ChatsPageContent() {
 								</div>
 
 								{/* Поле ввода сообщения - закреплённое внизу колонки */}
-								<div className='flex-shrink-0 border-t border-emerald-300/25 bg-slate-900/40 md:bg-slate-900/32 backdrop-blur-lg shadow-[0_-10px_22px_rgba(15,118,110,0.2)]'>
-									<div className='px-4 py-2 sm:px-5 sm:py-3'>
+								<div className='flex-shrink-0 border-t border-emerald-300/25 bg-slate-900/40 md:bg-slate-900/32 backdrop-blur-lg shadow-[0_-10px_22px_rgba(15,118,110,0.2)] relative z-10'>
+									<div className='px-4 py-2 sm:px-5 sm:px-3'>
 										<MessageInput
 											chatType={selectedChat.type}
 											otherUserId={selectedChat.otherUser?.id}
 											taskId={selectedChat.task?.id}
 											onMessageSent={handleNewMessage}
+											replyTo={replyTo}
+											onCancelReply={() => setReplyTo(null)}
 										/>
 									</div>
 									{/* Безопасная зона для iOS */}

@@ -454,15 +454,38 @@ export default function Header() {
 				const res = await fetch('/api/chats/unread-count', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
-				const data = await res.json()
+				
+				// Проверяем, есть ли содержимое в ответе
+				const text = await res.text()
+				if (!text || text.trim() === '') {
+					console.warn('⚠️ Пустой ответ от API непрочитанных сообщений')
+					setUnreadMessagesCount(0)
+					return
+				}
+
+				let data
+				try {
+					data = JSON.parse(text)
+				} catch (parseError) {
+					console.error('❌ Ошибка парсинга JSON:', parseError)
+					setUnreadMessagesCount(0)
+					return
+				}
+
 				if (res.ok) {
 					setUnreadMessagesCount(data.unreadCount || 0)
 				} else {
-					console.error('Ошибка получения непрочитанных сообщений:', data)
+					console.error('Ошибка получения непрочитанных сообщений:', {
+						status: res.status,
+						statusText: res.statusText,
+						data: data,
+						error: data?.error || 'Неизвестная ошибка'
+					})
 					setUnreadMessagesCount(0)
 				}
-			} catch (err) {
+			} catch (err: any) {
 				console.error('Ошибка получения непрочитанных сообщений:', err)
+				setUnreadMessagesCount(0)
 			}
 		}
 

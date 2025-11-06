@@ -27,7 +27,7 @@ export default function RootLayout({
 	children: React.ReactNode
 }) {
 	return (
-		<html lang='ru'>
+		<html lang='ru' className='h-full'>
 			<head>
 				{/* Можно добавить meta-иконки для старых браузеров */}
 				<link rel='icon' href='/favicon.ico' sizes='any' />
@@ -49,7 +49,7 @@ export default function RootLayout({
 				<meta name='apple-mobile-web-app-status-bar-style' content='black-translucent' />
 				<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' />
 			</head>
-			<body className={`${inter.variable} antialiased`}>
+			<body className={`${inter.variable} antialiased h-full overflow-hidden`}>
 				<LayoutClient>{children}</LayoutClient>
 			</body>
 		</html>

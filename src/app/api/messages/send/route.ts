@@ -46,10 +46,13 @@ export async function POST(req: NextRequest) {
 		let mimeType: string | null = null
 		let size: number | null = null
 
+		let replyToId: string | null = null
+
 		if (ct.includes('multipart/form-data')) {
 			const form = await req.formData()
 			recipientId = form.get('recipientId')?.toString()
 			content = form.get('content')?.toString() || ''
+			replyToId = form.get('replyToId')?.toString() || null
 
 			const blob = form.get('file') as File | null
 			if (blob && blob.size > 0) {
@@ -131,8 +134,45 @@ export async function POST(req: NextRequest) {
 		// Санитизация контента (удаление потенциально опасного HTML)
 		const sanitizedContent = sanitizeText(content)
 
-		const msg = await prisma.privateMessage.create({
-			data: {
+		// Валидация replyToId - если указан, проверяем что сообщение существует и принадлежит тому же диалогу
+		if (replyToId) {
+			try {
+				const replyToMessage = await prisma.privateMessage.findUnique({
+					where: { id: replyToId },
+					select: { id: true, senderId: true, recipientId: true },
+				})
+
+				if (!replyToMessage) {
+					return NextResponse.json(
+						{ error: 'Сообщение для ответа не найдено' },
+						{ status: 404 }
+					)
+				}
+
+				// Проверяем, что сообщение принадлежит этому диалогу
+				const isInDialog = 
+					(replyToMessage.senderId === me.id && replyToMessage.recipientId === recipientId) ||
+					(replyToMessage.senderId === recipientId && replyToMessage.recipientId === me.id)
+
+				if (!isInDialog) {
+					return NextResponse.json(
+						{ error: 'Сообщение для ответа не принадлежит этому диалогу' },
+						{ status: 400 }
+					)
+				}
+			} catch (validationError: any) {
+				console.error('❌ Ошибка валидации replyToId:', validationError)
+				return NextResponse.json(
+					{ error: 'Ошибка проверки сообщения для ответа', details: validationError.message },
+					{ status: 500 }
+				)
+			}
+		}
+
+		// Создаем сообщение с безопасной обработкой replyToId
+		let msg
+		try {
+			const messageData: any = {
 				senderId: me.id,
 				recipientId,
 				content: sanitizedContent,
@@ -140,7 +180,18 @@ export async function POST(req: NextRequest) {
 				fileName,
 				mimeType,
 				size,
-			},
+			}
+
+			// Добавляем replyToId только если он валиден
+			if (replyToId) {
+				messageData.replyToId = replyToId
+			}
+
+			// Если Prisma Client не поддерживает replyToId, создаем без него и обновляем через SQL
+			let messageCreated = false
+			try {
+				msg = await prisma.privateMessage.create({
+					data: messageData as any,
 			include: {
 				sender: {
 					select: {
@@ -165,18 +216,149 @@ export async function POST(req: NextRequest) {
 						mimetype: true,
 					},
 				},
-			},
-		})
+				replyTo: {
+					include: {
+						sender: {
+							select: {
+								id: true,
+								fullName: true,
+								email: true,
+							},
+						},
+					},
+					},
+				},
+			})
+			messageCreated = true
+		} catch (prismaError: any) {
+			// Если ошибка из-за Unknown argument replyToId, создаем без него и обновляем через SQL
+			if (prismaError.message?.includes('Unknown argument') && prismaError.message?.includes('replyToId')) {
+				console.warn('⚠️ Prisma Client не поддерживает replyToId, используем SQL обновление')
+				
+				// Создаем сообщение без replyToId
+				const messageDataWithoutReply = { ...messageData }
+				delete messageDataWithoutReply.replyToId
+				
+				msg = await prisma.privateMessage.create({
+					data: messageDataWithoutReply as any,
+					include: {
+						sender: {
+							select: {
+								id: true,
+								fullName: true,
+								email: true,
+								avatarUrl: true,
+							},
+						},
+						recipient: {
+							select: {
+								id: true,
+								fullName: true,
+								email: true,
+								avatarUrl: true,
+							},
+						},
+						file: {
+							select: {
+								id: true,
+								filename: true,
+								mimetype: true,
+							},
+						},
+					},
+				})
+
+				// Обновляем replyToId через SQL
+				if (replyToId) {
+					await prisma.$executeRawUnsafe(
+						'UPDATE "PrivateMessage" SET "replyToId" = $1 WHERE id = $2',
+						replyToId,
+						msg.id
+					)
+					
+					// Перезагружаем сообщение с replyTo
+					msg = await prisma.privateMessage.findUnique({
+						where: { id: msg.id },
+						include: {
+							sender: {
+								select: {
+									id: true,
+									fullName: true,
+									email: true,
+									avatarUrl: true,
+								},
+							},
+							recipient: {
+								select: {
+									id: true,
+									fullName: true,
+									email: true,
+									avatarUrl: true,
+								},
+							},
+							file: {
+								select: {
+									id: true,
+									filename: true,
+									mimetype: true,
+								},
+							},
+							replyTo: {
+								include: {
+									sender: {
+										select: {
+											id: true,
+											fullName: true,
+											email: true,
+										},
+									},
+								},
+							},
+						},
+					}) as any
+				}
+				messageCreated = true
+			} else {
+				throw prismaError
+			}
+		}
+
+		if (!messageCreated) {
+			throw new Error('Не удалось создать сообщение')
+		}
+		} catch (createError: any) {
+			console.error('❌ Ошибка создания приватного сообщения:', createError)
+			
+			// Если это ошибка Prisma о foreign key, даем более понятное сообщение
+			if (createError.code === 'P2003' || createError.message?.includes('Foreign key constraint')) {
+				return NextResponse.json(
+					{ error: 'Ошибка при создании сообщения: неверная ссылка на сообщение для ответа' },
+					{ status: 400 }
+				)
+			}
+
+			return NextResponse.json(
+				{ error: 'Ошибка создания сообщения', details: createError.message },
+				{ status: 500 }
+			)
+		}
 
 		// Преобразуем данные в нужный формат
 		const result = {
 			id: msg.id,
 			content: msg.content,
 			createdAt: msg.createdAt,
+			editedAt: msg.editedAt,
 			sender: msg.sender,
 			fileUrl: msg.fileUrl || (msg.file ? `/api/files/${msg.file.id}` : null),
 			fileName: msg.fileName || msg.file?.filename || null,
 			fileMimetype: msg.mimeType || msg.file?.mimetype || null,
+			replyTo: msg.replyTo ? {
+				id: msg.replyTo.id,
+				content: msg.replyTo.content,
+				sender: msg.replyTo.sender,
+			} : null,
+			reactions: [],
 		}
 
 	console.log('🔔 Подготовка уведомления для получателя:', recipientId)

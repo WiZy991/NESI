@@ -11,6 +11,16 @@ type MessageInputProps = {
 	otherUserId?: string
 	taskId?: string
 	onMessageSent: (message: any) => void
+	replyTo?: {
+		id: string
+		content: string
+		sender: {
+			id: string
+			fullName?: string
+			email: string
+		}
+	} | null
+	onCancelReply?: () => void
 }
 
 export default function MessageInput({
@@ -18,6 +28,8 @@ export default function MessageInput({
 	otherUserId,
 	taskId,
 	onMessageSent,
+	replyTo,
+	onCancelReply,
 }: MessageInputProps) {
 	const { token } = useUser()
 	const [message, setMessage] = useState('')
@@ -29,6 +41,43 @@ export default function MessageInput({
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 	const emojiPickerRef = useRef<HTMLDivElement>(null)
+
+	// КРИТИЧНО: Убираем квадратную обводку outline - она всегда квадратная!
+	useEffect(() => {
+		const textarea = textareaRef.current
+		if (!textarea) return
+
+		const removeOutline = () => {
+			textarea.style.setProperty('outline', 'none', 'important')
+			textarea.style.setProperty('outline-offset', '0', 'important')
+			textarea.style.setProperty('box-shadow', 'none', 'important')
+		}
+
+		// Устанавливаем сразу
+		removeOutline()
+
+		// Обработчики для всех событий
+		const events = ['focus', 'blur', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend']
+		events.forEach(event => {
+			textarea.addEventListener(event, removeOutline, true)
+		})
+
+		// MutationObserver для отслеживания изменений стилей
+		const observer = new MutationObserver(() => {
+			removeOutline()
+		})
+		observer.observe(textarea, {
+			attributes: true,
+			attributeFilter: ['style', 'class']
+		})
+
+		return () => {
+			events.forEach(event => {
+				textarea.removeEventListener(event, removeOutline, true)
+			})
+			observer.disconnect()
+		}
+	}, [])
 
 	// Функция для отправки события набора
 	const sendTypingEvent = async (typing: boolean) => {
@@ -115,6 +164,9 @@ export default function MessageInput({
 			if (file) {
 				formData.append('file', file)
 			}
+			if (replyTo?.id) {
+				formData.append('replyToId', replyTo.id)
+			}
 
 			let url = ''
 			if (chatType === 'private') {
@@ -132,13 +184,36 @@ export default function MessageInput({
 				body: formData,
 			})
 
-			const data = await res.json()
+			// Проверяем, есть ли содержимое в ответе
+			const text = await res.text()
+			if (!text || text.trim() === '') {
+				console.error('⚠️ Пустой ответ от API при отправке сообщения')
+				alert('Ошибка отправки сообщения: сервер вернул пустой ответ')
+				setSending(false)
+				return
+			}
+
+			let data
+			try {
+				data = JSON.parse(text)
+			} catch (parseError) {
+				console.error('❌ Ошибка парсинга JSON при отправке сообщения:', parseError, 'Ответ:', text.substring(0, 200))
+				alert('Ошибка отправки сообщения: неверный формат ответа от сервера')
+				setSending(false)
+				return
+			}
+
 			if (res.ok) {
 				// Добавляем новое сообщение в список
 				const newMessage = chatType === 'private' ? data : data.message || data
 				onMessageSent(newMessage)
 				setMessage('')
 				setFile(null)
+				
+				// Отменяем ответ после отправки
+				if (onCancelReply) {
+					onCancelReply()
+				}
 				
 				// Сбрасываем высоту textarea к начальному размеру
 				if (textareaRef.current) {
@@ -149,10 +224,28 @@ export default function MessageInput({
 					fileInputRef.current.value = ''
 				}
 			} else {
-				console.error('Ошибка отправки сообщения:', data)
-				alert(
-					'Ошибка отправки сообщения: ' + (data.error || 'Неизвестная ошибка')
-				)
+				console.error('❌ Ошибка отправки сообщения:', {
+					status: res.status,
+					statusText: res.statusText,
+					data: data,
+					hasError: !!data?.error,
+					errorMessage: data?.error || data?.details || 'Неизвестная ошибка'
+				})
+				
+				// Формируем понятное сообщение об ошибке
+				let errorMessage = 'Ошибка отправки сообщения'
+				if (data?.error) {
+					errorMessage += ': ' + data.error
+					if (data.details) {
+						errorMessage += ' (' + data.details + ')'
+					}
+				} else if (data?.details) {
+					errorMessage += ': ' + data.details
+				} else {
+					errorMessage += ': ' + res.statusText
+				}
+				
+				alert(errorMessage)
 			}
 		} catch (error) {
 			console.error('Ошибка отправки сообщения:', error)
@@ -219,6 +312,31 @@ export default function MessageInput({
 
 	return (
 		<form onSubmit={handleSubmit} className='px-2 py-2 sm:px-4 sm:py-3'>
+			{/* Информация об ответе на сообщение */}
+			{replyTo && (
+				<div className='mb-2 px-3 py-2 bg-emerald-500/20 border border-emerald-400/30 rounded-xl flex items-start gap-2 text-xs sm:text-sm transition-all duration-200 ease-out animate-in fade-in-0 slide-in-from-top-2'>
+					<div className='flex-1 min-w-0'>
+						<div className='text-emerald-300 font-medium mb-0.5 flex items-center gap-1.5'>
+							<span className='text-emerald-400'>↩️</span>
+							<span>{replyTo.sender.fullName || replyTo.sender.email}</span>
+						</div>
+						<div className='text-gray-300 line-clamp-2 pl-5 border-l-2 border-emerald-400/40'>
+							{replyTo.content || '📎 Файл'}
+						</div>
+					</div>
+					{onCancelReply && (
+						<button
+							type='button'
+							onClick={onCancelReply}
+							className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-emerald-500/30 text-gray-400 hover:text-white transition-all duration-150 ease-out'
+							aria-label='Отменить ответ'
+						>
+							✕
+						</button>
+					)}
+				</div>
+			)}
+
 			{/* Информация о прикрепленном файле */}
 			{file && (
 				<div className='mb-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-700/50 rounded-lg flex items-center gap-2 text-xs sm:text-sm'>
@@ -248,7 +366,7 @@ export default function MessageInput({
 								fileInputRef.current.value = ''
 							}
 						}}
-						className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-600/50 text-gray-400 hover:text-red-400 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400/50'
+						className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-600/50 text-gray-400 hover:text-red-400 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-0'
 						aria-label='Удалить файл'
 					>
 						<span aria-hidden="true">✕</span>
@@ -322,7 +440,7 @@ export default function MessageInput({
 						}}
 						placeholder='Напишите сообщение...'
 						rows={1}
-						className='w-full px-5 py-3.5 bg-gradient-to-r from-gray-600/40 to-gray-700/40 border border-gray-500/30 rounded-full text-white text-base placeholder-gray-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:bg-gray-600/50 resize-none custom-scrollbar shadow-inner hover:border-emerald-500/40 ios-transition'
+						className='w-full px-5 py-3.5 bg-gradient-to-r from-gray-600/40 to-gray-700/40 border-2 border-gray-500/30 rounded-full text-white text-base placeholder-gray-400 focus:border-emerald-400 focus:outline-none focus:bg-gray-600/50 focus-visible:outline-none focus-visible:ring-0 resize-none custom-scrollbar shadow-inner hover:border-emerald-500/40 transition-all duration-200 ease-out'
 						disabled={sending}
 						style={{ 
 							height: '48px',
@@ -330,8 +448,13 @@ export default function MessageInput({
 							maxHeight: '150px',
 							lineHeight: '1.5',
 							overflow: 'auto',
-							transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-						}}
+							transition: 'border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+							outline: 'none',
+							outlineOffset: '0',
+							boxShadow: 'none',
+							WebkitAppearance: 'none',
+							appearance: 'none'
+						} as React.CSSProperties}
 					/>
 				</div>
 

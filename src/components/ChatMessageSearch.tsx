@@ -2,6 +2,7 @@
 
 import { X, Search, ArrowUp, ArrowDown } from 'lucide-react'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { useEffect, useRef } from 'react'
 
 type ChatMessageSearchProps = {
   isOpen: boolean
@@ -24,11 +25,47 @@ export default function ChatMessageSearch({
   onNext,
   onPrevious,
 }: ChatMessageSearchProps) {
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  
   useEscapeKey(() => {
     if (isOpen) {
       onClose()
     }
   })
+
+  // КРИТИЧНО: Убираем квадратную обводку outline для поля поиска сообщений
+  useEffect(() => {
+    const input = searchInputRef.current
+    if (!input) return
+
+    const removeOutline = () => {
+      input.style.setProperty('outline', 'none', 'important')
+      input.style.setProperty('outline-offset', '0', 'important')
+      input.style.setProperty('box-shadow', 'none', 'important')
+    }
+
+    removeOutline()
+
+    const events = ['focus', 'blur', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend']
+    events.forEach(event => {
+      input.addEventListener(event, removeOutline, true)
+    })
+
+    const observer = new MutationObserver(() => {
+      removeOutline()
+    })
+    observer.observe(input, {
+      attributes: true,
+      attributeFilter: ['style', 'class']
+    })
+
+    return () => {
+      events.forEach(event => {
+        input.removeEventListener(event, removeOutline, true)
+      })
+      observer.disconnect()
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -38,6 +75,7 @@ export default function ChatMessageSearch({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400" />
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Поиск в сообщениях..."
             value={searchQuery}
@@ -51,7 +89,14 @@ export default function ChatMessageSearch({
                 onPrevious()
               }
             }}
-            className="w-full pl-10 pr-12 py-2.5 bg-black/40 border border-emerald-500/50 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+            className="w-full pl-10 pr-12 py-2.5 bg-black/40 border-2 border-emerald-500/50 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-emerald-400 transition-all"
+            style={{ 
+              outline: 'none',
+              outlineOffset: '0',
+              boxShadow: 'none',
+              WebkitAppearance: 'none',
+              appearance: 'none'
+            } as React.CSSProperties}
             autoFocus
             aria-label="Поиск в сообщениях"
           />

@@ -28,6 +28,7 @@
 /* 🧠 Базовый стиль html и body */
 html {
 	background-color: #111827;
+	height: 100%;
 }
 
 body {
@@ -37,7 +38,7 @@ body {
 	font-weight: 400;
 	letter-spacing: 0.02em;
 	position: relative;
-	min-height: 100vh;
+	height: 100%;
 	overflow-x: hidden;
 	z-index: 1;
 
@@ -108,6 +109,38 @@ body {
 	}
 	100% {
 		box-shadow: 0 0 10px rgba(0, 255, 180, 0.3);
+	}
+}
+
+@keyframes fadeInScale {
+	from {
+		opacity: 0;
+		transform: scale(0.95) translate(0, 5px);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1) translate(0, 5px);
+	}
+}
+
+@keyframes slideDownWave {
+	0% {
+		opacity: 0;
+		transform: scaleY(0) translateY(-15px);
+		transform-origin: top;
+		filter: blur(2px);
+	}
+	50% {
+		opacity: 0.8;
+		transform: scaleY(1.05) translateY(-2px);
+		transform-origin: top;
+		filter: blur(0.5px);
+	}
+	100% {
+		opacity: 1;
+		transform: scaleY(1) translateY(0);
+		transform-origin: top;
+		filter: blur(0);
 	}
 }
 
@@ -185,11 +218,38 @@ a:focus-visible {
 	outline-offset: 2px;
 }
 
+/* КРИТИЧНО: Полностью убираем outline для всех полей ввода - он всегда квадратный! */
+input,
+textarea {
+	outline: none !important;
+	outline-offset: 0 !important;
+}
+
+input:focus,
 input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-	outline: 2px solid rgba(16, 185, 129, 0.8);
-	outline-offset: 2px;
+input:active,
+textarea:focus,
+textarea:focus-visible,
+textarea:active {
+	outline: none !important;
+	outline-offset: 0 !important;
+	box-shadow: none !important;
+	-webkit-appearance: none !important;
+	appearance: none !important;
+}
+
+/* Для закругленных полей ввода используем ТОЛЬКО border */
+input[class*="rounded-full"]:focus,
+input[class*="rounded-full"]:focus-visible,
+input[class*="rounded-full"]:active,
+textarea[class*="rounded-full"]:focus,
+textarea[class*="rounded-full"]:focus-visible,
+textarea[class*="rounded-full"]:active {
+	outline: none !important;
+	outline-offset: 0 !important;
+	box-shadow: none !important;
+	-webkit-appearance: none !important;
+	appearance: none !important;
 }
 
 /* Улучшенная контрастность для серых текстов (WCAG AA минимум 4.5:1) */
