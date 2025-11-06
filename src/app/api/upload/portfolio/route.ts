@@ -73,12 +73,12 @@ export async function POST(req: NextRequest) {
     
     // Проверяем размер файла
     const maxImageSize = 5 * 1024 * 1024 // 5MB для изображений
-    const maxVideoSize = 100 * 1024 * 1024 // 100MB для видео
+    const maxVideoSize = 50 * 1024 * 1024 // 50MB для видео (уменьшено с 100MB)
     const maxSize = isVideo ? maxVideoSize : maxImageSize
     
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: `Файл слишком большой. Максимум ${isVideo ? '100MB' : '5MB'}` },
+        { error: `Файл слишком большой. Максимум ${isVideo ? '50MB' : '5MB'}` },
         { status: 400 }
       )
     }

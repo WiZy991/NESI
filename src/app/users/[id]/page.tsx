@@ -957,8 +957,12 @@ function detectMediaType(imageUrl: string | null, currentType?: string | null): 
 // Функция для получения правильного URL медиа
 function getMediaUrl(imageUrl: string | null): string {
 	if (!imageUrl) return ''
-	// Если уже полный URL (http/https) или начинается с /uploads/, используем как есть
-	if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('/uploads/')) {
+	// Если уже полный URL (http/https), используем как есть
+	if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+		return imageUrl
+	}
+	// Если уже начинается с /api/files/ или /uploads/, используем как есть
+	if (imageUrl.startsWith('/api/files/') || imageUrl.startsWith('/uploads/')) {
 		return imageUrl
 	}
 	// Если начинается с /, используем как есть

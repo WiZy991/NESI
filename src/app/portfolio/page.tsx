@@ -80,10 +80,21 @@ export default function PortfolioPage() {
   const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setMediaFile(file)
-      
       // Определяем тип файла
       const isVideo = file.type.startsWith('video/')
+      
+      // Проверяем размер файла
+      const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB для изображений
+      const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 50MB для видео
+      const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE
+      
+      if (file.size > maxSize) {
+        alert(`Файл слишком большой. Максимум ${isVideo ? '50MB' : '5MB'} для ${isVideo ? 'видео' : 'изображений'}`)
+        e.target.value = '' // Очищаем input
+        return
+      }
+      
+      setMediaFile(file)
       setMediaType(isVideo ? 'video' : 'image')
       
       // Создаём превью
@@ -344,7 +355,7 @@ export default function PortfolioPage() {
                 </div>
                 <p className="text-gray-400 text-xs mt-2">
                   Изображения: JPG, PNG, GIF, WEBP • Максимум 5MB<br />
-                  Видео: MP4, WEBM, MOV, AVI • Максимум 100MB
+                  Видео: MP4, WEBM, MOV, AVI • Максимум 50MB
                 </p>
               </div>
               
@@ -423,8 +434,12 @@ function detectMediaType(imageUrl: string | null, currentType?: string | null): 
 // Функция для получения правильного URL медиа
 function getMediaUrl(imageUrl: string | null): string {
   if (!imageUrl) return ''
-  // Если уже полный URL (http/https) или начинается с /uploads/, используем как есть
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('/uploads/')) {
+  // Если уже полный URL (http/https), используем как есть
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl
+  }
+  // Если уже начинается с /api/files/ или /uploads/, используем как есть
+  if (imageUrl.startsWith('/api/files/') || imageUrl.startsWith('/uploads/')) {
     return imageUrl
   }
   // Если начинается с /, используем как есть
