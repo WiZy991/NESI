@@ -3,9 +3,6 @@
 import { useUser } from '@/context/UserContext'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import dynamic from 'next/dynamic'
-
-const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
 type MessageInputProps = {
 	chatType: 'private' | 'task'
@@ -23,6 +20,10 @@ type MessageInputProps = {
 	} | null
 	onCancelReply?: () => void
 }
+
+const emojiList = [
+	'👍','❤️','😂','😮','😢','🔥','👏','🎉','🤔','👎','😊','😍','🤣','😱','😭','🤗','🙏','💪','🎊','✅','❌','⭐','💯','💕','🤝','🙌','👌','🤯','🥳','😎','🤩','😇','🎯','🚀','👀','✨','🥰','😏','😴','🤤','🤬','🤡','🫡','🤖','💩','🧠','🫶','🤌','👏','👆','👇','👉','👈','✌️','🤞','🤟','🖖','🤙','👌'
+]
 
 export default function MessageInput({
 	chatType,
@@ -46,19 +47,7 @@ export default function MessageInput({
 	const [isTyping, setIsTyping] = useState(false)
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 	const [showCaptionEmojiPicker, setShowCaptionEmojiPicker] = useState(false)
-	const [isMobile, setIsMobile] = useState(false)
 	const captionTextareaRef = useRef<HTMLTextAreaElement>(null)
-	
-	// Отслеживание размера окна для адаптивности
-	useEffect(() => {
-		const checkMobile = () => {
-			setIsMobile(window.innerWidth < 640)
-		}
-		
-		checkMobile()
-		window.addEventListener('resize', checkMobile)
-		return () => window.removeEventListener('resize', checkMobile)
-	}, [])
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -67,6 +56,8 @@ export default function MessageInput({
 	const videoPreviewRef = useRef<HTMLVideoElement>(null)
 	const uploadXhrRef = useRef<XMLHttpRequest | null>(null)
 	const currentUploadingFileRef = useRef<File | null>(null)
+	const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640
+const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 
 	// КРИТИЧНО: Убираем квадратную обводку outline - она всегда квадратная!
 	useEffect(() => {
@@ -521,26 +512,7 @@ export default function MessageInput({
 	}
 
 	// Обработчик выбора эмоджи
-	const handleEmojiClick = (emojiData: any, isCaption: boolean = false) => {
-		// emoji-picker-react возвращает эмодзи в разных форматах
-		// Приоритет: emoji > unified (конвертируем) > native
-		let emoji: string = ''
-		
-		if (emojiData.emoji) {
-			emoji = emojiData.emoji
-		} else if (emojiData.unified) {
-			// Конвертируем unified код (например, "1F600" или "1F600-1F5FF") в символ
-			try {
-				const codes = emojiData.unified.split('-').map((hex: string) => parseInt(hex, 16))
-				emoji = String.fromCodePoint(...codes)
-			} catch (e) {
-				console.error('Ошибка конвертации unified кода:', e)
-				emoji = emojiData.native || ''
-			}
-		} else if (emojiData.native) {
-			emoji = emojiData.native
-		}
-		
+	const handleEmojiClick = (emoji: string, isCaption: boolean = false) => {
 		if (emoji) {
 			if (isCaption) {
 				// Вставляем emoji в подпись
@@ -564,9 +536,9 @@ export default function MessageInput({
 					setMessage(prev => prev + emoji)
 				}
 			}
-		} else {
-			console.warn('Не удалось извлечь эмодзи из:', emojiData)
-		}
+	} else {
+		console.warn('Не удалось добавить эмодзи: пустое значение')
+	}
 		
 		setShowEmojiPicker(false)
 	}
@@ -602,7 +574,15 @@ export default function MessageInput({
 	}, [])
 
 	return (
-		<form onSubmit={handleSubmit} className='px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4'>
+		<form 
+			onSubmit={handleSubmit} 
+			className='px-1.5 sm:px-2.5 md:px-3 py-1.5 sm:py-2.5 md:py-3'
+			style={{
+				position: 'relative',
+				zIndex: 10,
+				touchAction: 'manipulation',
+			}}
+		>
 			{/* Информация об ответе на сообщение */}
 			{replyTo && (
 				<div className='mb-3 px-4 py-2.5 bg-slate-700/40 backdrop-blur-sm border border-slate-600/50 rounded-xl flex items-start gap-3 text-xs sm:text-sm transition-all duration-200 ease-out animate-in fade-in-0 slide-in-from-top-2 shadow-lg'>
@@ -930,72 +910,43 @@ export default function MessageInput({
 							</div>
 							
 							{/* Отдельный эмодзи-пикер для подписи */}
-							{showCaptionEmojiPicker && typeof window !== 'undefined' && createPortal(
+				{showCaptionEmojiPicker && typeof window !== 'undefined' && createPortal(
 								<>
-									{/* Overlay для закрытия при клике вне */}
 									<div
 										className='fixed inset-0 z-[10000] bg-transparent'
 										onClick={() => setShowCaptionEmojiPicker(false)}
 									/>
-									{/* Эмодзи пикер */}
 									<div
 										className='fixed z-[10001]'
-							style={{
-								bottom: isMobile ? '250px' : '200px',
-								right: isMobile ? '10px' : '20px',
-								left: isMobile ? '10px' : 'auto',
-								width: isMobile ? 'calc(100vw - 20px)' : '280px',
-								maxWidth: 'calc(100vw - 20px)',
-							}}
+										style={{
+								bottom: isMobileView ? 230 : 180,
+								right: isMobileView ? 12 : 24,
+								left: isMobileView ? 12 : 'auto',
+								width: isMobileView ? Math.min(280, viewportWidth - 24) : 260,
+										}}
 										onClick={(e) => e.stopPropagation()}
 									>
-										<div className='bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl p-2 animate-scaleFadeIn'>
-											{/* Компактный список эмодзи со скроллом */}
-											<div 
-												className='overflow-y-auto custom-scrollbar'
-												style={{ 
-													maxHeight: isMobile ? '200px' : '280px',
-													WebkitOverflowScrolling: 'touch'
-												}}
-											>
-												<div className='grid grid-cols-7 sm:grid-cols-8 gap-1.5 sm:gap-2'>
-													{/* Все популярные эмодзи */}
-													{['👍', '❤️', '😂', '😮', '😢', '🔥', '👏', '🎉', '🤔', '👎', '😊', '😍', '🤣', '😱', '😭', '🤗', '🙏', '💪', '🎊', '✅', '❌', '⭐', '💯', '💖', '💕', '🤝', '🙌', '👌', '🤯', '🥳', '😎', '🤩', '😇', '🎯', '🚀', '👀', '🔥', '💯', '✨', '🎨', '🎭', '🎪', '🎬', '🎤', '🎧', '🎮', '🎯', '🎲', '🎳', '🎸', '🎺', '🎻', '🥁', '🎹', '🎼', '🎵', '🎶'].map((emoji) => (
-														<button
-															key={emoji}
-															onClick={(e) => {
-																e.stopPropagation()
-																const textarea = captionTextareaRef.current
-																if (textarea) {
-																	const start = textarea.selectionStart || 0
-																	const end = textarea.selectionEnd || 0
-																	const textBefore = caption.substring(0, start)
-																	const textAfter = caption.substring(end)
-																	setCaption(textBefore + emoji + textAfter)
-																	
-																	// Устанавливаем курсор после вставленного emoji
-																	setTimeout(() => {
-																		textarea.focus()
-																		textarea.setSelectionRange(start + emoji.length, start + emoji.length)
-																	}, 0)
-																} else {
-																	setCaption(prev => prev + emoji)
-																}
-																setShowCaptionEmojiPicker(false)
-															}}
-															className='w-8 h-8 sm:w-9 sm:h-9 rounded-lg hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center text-lg sm:text-xl transition-all hover:scale-125 active:scale-95 touch-manipulation'
-															aria-label={`Эмодзи ${emoji}`}
-														>
-															{emoji}
-														</button>
-													))}
-												</div>
+										<div className='bg-slate-900/95 border border-slate-700/60 rounded-2xl shadow-2xl p-3 animate-scaleFadeIn'>
+											<div className='grid grid-cols-6 gap-2 max-h-52 overflow-y-auto pr-1 custom-scrollbar'>
+												{emojiList.map((emoji) => (
+													<button
+														key={emoji}
+														onClick={() => {
+															handleEmojiClick(emoji, true)
+															setShowCaptionEmojiPicker(false)
+														}}
+														className='w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800/60 hover:bg-slate-700/70 active:bg-slate-700/80 flex items-center justify-center text-xl sm:text-2xl transition-all hover:scale-110 active:scale-95 touch-manipulation'
+														aria-label={`Эмодзи ${emoji}`}
+													>
+														{emoji}
+													</button>
+												))}
 											</div>
 										</div>
 									</div>
 								</>,
 								document.body
-							)}
+								)}
 						</div>
 						
 						{/* Футер с действиями */}
@@ -1136,11 +1087,24 @@ export default function MessageInput({
 				</div>
 			)}
 
-			<div className='flex items-center gap-2.5'>
+			<div 
+				className='flex items-center gap-2.5'
+				style={{
+					position: 'relative',
+					zIndex: 10,
+					touchAction: 'manipulation',
+				}}
+			>
 				{/* Кнопка прикрепления файла */}
 				<label 
 					className='cursor-pointer flex-shrink-0 w-11 h-11 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:bg-slate-700/80 hover:border-emerald-400/50 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
 					aria-label="Прикрепить файл"
+					style={{
+						position: 'relative',
+						zIndex: 20,
+						touchAction: 'manipulation',
+						WebkitTapHighlightColor: 'transparent',
+					}}
 				>
 					<input
 						ref={fileInputRef}
@@ -1148,6 +1112,11 @@ export default function MessageInput({
 						onChange={handleFileChange}
 						className='hidden'
 						accept='.mp4,.webm,.mov,.avi,.mkv,.wmv,.m4v,.flv,image/*,.pdf,.doc,.docx,.txt'
+						style={{
+							position: 'absolute',
+							opacity: 0,
+							pointerEvents: 'auto',
+						}}
 					/>
 					<svg
 						className='w-5 h-5 text-gray-300 group-hover:text-emerald-400 transition-colors duration-200'
@@ -1164,54 +1133,39 @@ export default function MessageInput({
 					</svg>
 				</label>
 
-				{/* Эмодзи пикер через Portal - стильное всплывающее окно без размытия фона */}
+				{/* Эмодзи пикер через Portal - компактная версия */}
 				{showEmojiPicker && typeof window !== 'undefined' && createPortal(
 					<>
-						{/* Overlay для закрытия при клике вне - прозрачный, без размытия */}
 						<div
 							className='fixed inset-0 z-[9998] bg-transparent'
 							onClick={() => setShowEmojiPicker(false)}
 						/>
-						{/* Контейнер эмодзи пикера - компактный как реакция, но со скроллом */}
 						<div
 							className='fixed z-[9999]'
 							style={{
-								bottom: isMobile ? '140px' : '80px',
-								right: isMobile ? '10px' : '20px',
-								left: isMobile ? '10px' : 'auto',
-								width: isMobile ? 'calc(100vw - 20px)' : '280px',
-								maxWidth: 'calc(100vw - 20px)',
+								bottom: isMobileView ? 140 : 80,
+								right: isMobileView ? 12 : 24,
+								left: isMobileView ? 12 : 'auto',
+								width: isMobileView ? Math.min(280, viewportWidth - 24) : 260,
 							}}
 							onClick={(e) => e.stopPropagation()}
 						>
-							<div className='bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl p-2 animate-scaleFadeIn'>
-								{/* Компактный список эмодзи со скроллом */}
-								<div 
-									className='overflow-y-auto custom-scrollbar'
-									style={{ 
-										maxHeight: isMobile ? '200px' : '280px',
-										WebkitOverflowScrolling: 'touch'
-									}}
-								>
-									<div className='grid grid-cols-7 sm:grid-cols-8 gap-1 sm:gap-1.5'>
-										{/* Все популярные эмодзи */}
-										{['👍', '❤️', '😂', '😮', '😢', '🔥', '👏', '🎉', '🤔', '👎', '😊', '😍', '🤣', '😱', '😭', '🤗', '🙏', '💪', '🎊', '✅', '❌', '⭐', '💯', '💖', '💕', '🤝', '🙌', '👌', '🤯', '🥳', '😎', '🤩', '😇', '🎯', '🚀', '👀', '🔥', '💯', '✨', '🎨', '🎭', '🎪', '🎬', '🎤', '🎧', '🎮', '🎯', '🎲', '🎳', '🎸', '🎺', '🎻', '🥁', '🎹', '🎼', '🎵', '🎶'].map((emoji) => (
-											<button
-												key={emoji}
-												onClick={(e) => {
-													e.stopPropagation()
-													const isCaptionMode = !!(file && filePreview && (getFileType(file) === 'image' || getFileType(file) === 'video'))
-													// Имитируем структуру EmojiClickData
-													handleEmojiClick({ emoji, unified: '' }, isCaptionMode)
-													setShowEmojiPicker(false)
-												}}
-												className='w-9 h-9 sm:w-10 sm:h-10 rounded-lg hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center text-xl sm:text-2xl transition-all hover:scale-125 active:scale-95 touch-manipulation'
-												aria-label={`Эмодзи ${emoji}`}
-											>
-												{emoji}
-											</button>
-										))}
-									</div>
+							<div className='bg-slate-900/95 border border-slate-700/60 rounded-2xl shadow-2xl p-3 animate-scaleFadeIn'>
+								<div className='grid grid-cols-6 gap-2 max-h-52 overflow-y-auto pr-1 custom-scrollbar'>
+									{emojiList.map((emoji) => (
+										<button
+											key={emoji}
+											onClick={() => {
+												const isCaptionMode = !!(file && filePreview && (getFileType(file) === 'image' || getFileType(file) === 'video'))
+												handleEmojiClick(emoji, isCaptionMode)
+												setShowEmojiPicker(false)
+											}}
+											className='w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800/60 hover:bg-slate-700/70 active:bg-slate-700/80 flex items-center justify-center text-xl sm:text-2xl transition-all hover:scale-110 active:scale-95 touch-manipulation'
+											aria-label={`Эмодзи ${emoji}`}
+										>
+											{emoji}
+										</button>
+									))}
 								</div>
 							</div>
 						</div>
@@ -1220,7 +1174,7 @@ export default function MessageInput({
 					)}
 
 				{/* Поле ввода сообщения */}
-				<div className='flex-1 relative'>
+				<div className='flex-1 relative' style={{ position: 'relative', zIndex: 10 }}>
 					<textarea
 						ref={textareaRef}
 						value={message}
@@ -1232,14 +1186,28 @@ export default function MessageInput({
 								handleSubmit(e as any)
 							}
 						}}
+						onTouchStart={(e) => {
+							// Предотвращаем всплытие событий для корректной работы на мобильных
+							e.stopPropagation()
+						}}
+						onTouchEnd={(e) => {
+							// Фокусируем textarea при касании
+							e.stopPropagation()
+							if (textareaRef.current) {
+								textareaRef.current.focus()
+							}
+						}}
+						onClick={(e) => {
+							e.stopPropagation()
+						}}
 						placeholder='Напишите сообщение...'
 						rows={1}
-						className='w-full px-4 py-3 bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 rounded-2xl text-white text-base placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-700/80 focus-visible:outline-none focus-visible:ring-0 resize-none custom-scrollbar shadow-md hover:border-slate-500/70 transition-all duration-200 ease-out'
+						className='w-full px-3 py-2.5 bg-slate-700/55 backdrop-blur-sm border border-slate-600/50 rounded-xl text-white text-sm sm:text-base placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-700/75 focus-visible:outline-none focus-visible:ring-0 resize-none custom-scrollbar shadow-md hover:border-slate-500/70 transition-all duration-200 ease-out'
 						disabled={sending}
 						style={{ 
-							height: '44px',
-							minHeight: '44px', 
-							maxHeight: '150px',
+							height: '40px',
+							minHeight: '40px', 
+							maxHeight: '140px',
 							lineHeight: '1.5',
 							overflow: 'auto',
 							transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -1248,21 +1216,38 @@ export default function MessageInput({
 							boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.05)',
 							WebkitAppearance: 'none',
 							appearance: 'none',
-							fontFamily: "'Inter', 'Poppins', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif"
+							fontFamily: "'Inter', 'Poppins', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif",
+							position: 'relative',
+							zIndex: 10,
+							touchAction: 'manipulation',
+							WebkitTapHighlightColor: 'transparent',
+							pointerEvents: 'auto',
 						} as React.CSSProperties}
 					/>
 				</div>
 
 				{/* Кнопка эмоджи */}
-				<div className='relative' ref={emojiPickerRef}>
+				<div className='relative' ref={emojiPickerRef} style={{ position: 'relative', zIndex: 20 }}>
 					<button
 						ref={emojiButtonRef}
 						type='button'
-						onClick={() => setShowEmojiPicker(prev => !prev)}
+						onClick={(e) => {
+							e.stopPropagation()
+							setShowEmojiPicker(prev => !prev)
+						}}
+						onTouchStart={(e) => {
+							e.stopPropagation()
+						}}
 						className={`flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border ${
 							showEmojiPicker ? 'border-emerald-400/60 bg-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.2)]' : 'border-slate-600/50'
 						} hover:border-emerald-400/50 hover:bg-slate-700/80 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button text-2xl touch-manipulation transition-all duration-200 active:scale-95`}
-						style={{ minHeight: '44px', minWidth: '44px' }}
+						style={{ 
+							minHeight: '44px', 
+							minWidth: '44px',
+							touchAction: 'manipulation',
+							WebkitTapHighlightColor: 'transparent',
+							pointerEvents: 'auto',
+						}}
 						aria-label="Эмодзи"
 					>
 						😊
@@ -1273,8 +1258,22 @@ export default function MessageInput({
 				<button
 					type='submit'
 					disabled={!!(sending || (!message.trim() && !uploadedFileId) || uploading || (file && !uploadedFileId))}
+					onTouchStart={(e) => {
+						e.stopPropagation()
+					}}
+					onClick={(e) => {
+						e.stopPropagation()
+					}}
 					className='flex-shrink-0 w-11 h-11 bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-xl active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ios-button shadow-md hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center touch-manipulation border border-emerald-400/30 transition-all duration-200'
-					style={{ minHeight: '44px', minWidth: '44px' }}
+					style={{ 
+						minHeight: '44px', 
+						minWidth: '44px',
+						position: 'relative',
+						zIndex: 20,
+						touchAction: 'manipulation',
+						WebkitTapHighlightColor: 'transparent',
+						pointerEvents: 'auto',
+					}}
 					title={uploading ? 'Загрузка файла...' : sending ? 'Отправка...' : (file && !uploadedFileId) ? 'Ожидание загрузки файла' : 'Отправить'}
 				>
 					{sending ? (

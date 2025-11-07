@@ -130,9 +130,9 @@ export default function WelcomeOnboarding() {
     
     // Вызываем async функцию
     checkUserAge()
-    
+      
     // Возвращаем функцию очистки
-    return () => {
+      return () => {
       if (onboardingTimerRef.current) {
         clearTimeout(onboardingTimerRef.current)
         onboardingTimerRef.current = null

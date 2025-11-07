@@ -153,12 +153,12 @@ export async function POST(req: NextRequest) {
 		
 		// Валидируем длину только если content не пустой (для файлов content может быть пустым)
 		if (content && content.trim().length > 0) {
-			const contentValidation = validateStringLength(content, maxContentLength, 'Сообщение')
-			if (!contentValidation.valid) {
-				return NextResponse.json(
-					{ error: contentValidation.error },
-					{ status: 400 }
-				)
+		const contentValidation = validateStringLength(content, maxContentLength, 'Сообщение')
+		if (!contentValidation.valid) {
+			return NextResponse.json(
+				{ error: contentValidation.error },
+				{ status: 400 }
+			)
 			}
 		}
 

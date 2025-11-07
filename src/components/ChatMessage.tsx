@@ -76,20 +76,8 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   const [showMenu, setShowMenu] = useState(false)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [showExtendedReactions, setShowExtendedReactions] = useState(false)
-  const [expandReactionsUpward, setExpandReactionsUpward] = useState(false) // Направление раскрытия реакций
+  const [expandReactionsUpward, setExpandReactionsUpward] = useState(false)
   const [reactions, setReactions] = useState(message.reactions || [])
-  const [isMobile, setIsMobile] = useState(false)
-  
-  // Отслеживание размера окна для адаптивности
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640)
-    }
-    
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
   const [showImageModal, setShowImageModal] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
   const [reactionPickerPosition, setReactionPickerPosition] = useState({ x: 0, y: 0 })
@@ -100,6 +88,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
   const messageRef = useRef<HTMLDivElement>(null)
   const reactionsContainerRef = useRef<HTMLDivElement>(null)
+  const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640
   
   // Обновляем реакции при изменении сообщения
   useEffect(() => {
@@ -362,78 +351,96 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
     e.preventDefault()
     e.stopPropagation()
     
-    // Используем точные координаты курсора
-    const clickX = e.clientX
-    const clickY = e.clientY
-    
-    setMenuPosition({ x: clickX, y: clickY })
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const menuWidth = 200
+    const menuHeight = 220
+    const offset = 8
+
+    let finalX = e.clientX
+    let finalY = e.clientY
+
+    if (finalX + menuWidth > viewportWidth - offset) {
+      finalX = viewportWidth - menuWidth - offset
+    }
+    if (finalX < offset) {
+      finalX = offset
+    }
+
+    if (finalY + menuHeight > viewportHeight - offset) {
+      finalY = viewportHeight - menuHeight - offset
+    }
+    if (finalY < offset) {
+      finalY = offset
+    }
+
+    setMenuPosition({ x: finalX, y: finalY })
     setShowMenu(true)
   }
 
   // Обработчик долгого нажатия на мобильных
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Сохраняем начальную позицию касания
     const touch = e.touches[0]
     if (!touch) return
-    
-    touchStartPosRef.current = {
-      x: touch.clientX,
-      y: touch.clientY
-    }
-    
-    // Устанавливаем таймер для долгого нажатия
+
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+
     touchTimerRef.current = setTimeout(() => {
-      // Проверяем, что палец все еще на месте (не двигался слишком сильно)
-      const currentTouch = e.touches[0] || e.changedTouches[0]
-      if (!currentTouch || !touchStartPosRef.current) return
-      
-      const deltaX = Math.abs(currentTouch.clientX - touchStartPosRef.current.x)
-      const deltaY = Math.abs(currentTouch.clientY - touchStartPosRef.current.y)
-      
-      // Если палец сдвинулся больше чем на 15px, отменяем открытие меню
-      if (deltaX > 15 || deltaY > 15) {
+      const activeTouch = e.touches[0] || e.changedTouches[0]
+      if (!activeTouch) return
+
+      const dx = Math.abs(activeTouch.clientX - (touchStartPosRef.current?.x ?? activeTouch.clientX))
+      const dy = Math.abs(activeTouch.clientY - (touchStartPosRef.current?.y ?? activeTouch.clientY))
+      if (dx > 15 || dy > 15) {
         touchStartPosRef.current = null
         return
       }
-      
+
       e.preventDefault()
-      e.stopPropagation()
-      
-      // Используем точные координаты касания
-      setMenuPosition({ x: currentTouch.clientX, y: currentTouch.clientY })
+
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const menuWidth = 200
+      const menuHeight = 220
+      const offset = 8
+
+      let finalX = activeTouch.clientX
+      let finalY = activeTouch.clientY
+
+      if (finalX + menuWidth > viewportWidth - offset) {
+        finalX = viewportWidth - menuWidth - offset
+      }
+      if (finalX < offset) {
+        finalX = offset
+      }
+
+      if (finalY + menuHeight > viewportHeight - offset) {
+        finalY = viewportHeight - menuHeight - offset
+      }
+      if (finalY < offset) {
+        finalY = offset
+      }
+
+      setMenuPosition({ x: finalX, y: finalY })
       setShowMenu(true)
       touchStartPosRef.current = null
-    }, 500) // 500ms для долгого нажатия
+    }, 450)
   }
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    // Отменяем таймер долгого нажатия
+  const handleTouchEnd = () => {
     if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current)
       touchTimerRef.current = null
     }
-    
-    // НЕ закрываем меню при отпускании - меню должно оставаться открытым
-    // и закрываться только при клике вне его или на опцию
     touchStartPosRef.current = null
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    // Отменяем долгое нажатие только если палец сдвинулся значительно
-    if (touchTimerRef.current && touchStartPosRef.current) {
-      const touch = e.touches[0]
-      if (touch) {
-        const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x)
-        const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y)
-        
-        // Если палец сдвинулся больше чем на 15px, отменяем долгое нажатие
-        if (deltaX > 15 || deltaY > 15) {
+  const handleTouchMove = () => {
+    if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current)
       touchTimerRef.current = null
-          touchStartPosRef.current = null
-        }
-      }
     }
+    touchStartPosRef.current = null
   }
 
   // Закрытие меню и пикера реакций при клике вне их
@@ -441,53 +448,48 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node
       
-      // Не закрываем меню, если клик был на пикере реакций или его элементах
-      if (reactionPickerRef.current && reactionPickerRef.current.contains(target)) {
-        return
-      }
+      // Проверяем, был ли клик внутри пикера реакций
+      const clickedOnReactionPicker = reactionPickerRef.current && reactionPickerRef.current.contains(target)
+      // Проверяем, был ли клик внутри меню (включая кнопку "Реакция")
+      const clickedOnMenu = menuRef.current && menuRef.current.contains(target)
       
-      // Не закрываем меню, если клик был на самом меню
-      if (menuRef.current && menuRef.current.contains(target)) {
-        return
-      }
-      
-      // Для touchstart на мобильных - проверяем время открытия меню
-      if (event.type === 'touchstart' && menuRef.current) {
-        const openedAt = menuRef.current.dataset.openedAt
-        if (openedAt) {
-          const timeSinceOpen = Date.now() - parseInt(openedAt)
-          // Если меню открылось менее 500ms назад, не закрываем его
-          if (timeSinceOpen < 500) {
-            return
-          }
+      // Если открыт пикер реакций
+      if (showReactionPicker) {
+        // Если клик был вне пикера реакций и вне меню, закрываем только пикер (меню остается открытым)
+        if (!clickedOnReactionPicker && !clickedOnMenu) {
+          setShowReactionPicker(false)
+          setShowExtendedReactions(false)
+          setExpandReactionsUpward(false)
+          // Меню НЕ закрываем - оно должно остаться открытым
         }
-      }
-      
-      // Закрываем только если клик был действительно вне обоих элементов
-      if (menuRef.current && !menuRef.current.contains(target)) {
-        setShowMenu(false)
-      }
-      if (reactionPickerRef.current && !reactionPickerRef.current.contains(target)) {
-        setShowReactionPicker(false)
-        setShowExtendedReactions(false) // Сбрасываем состояние раскрытия
+        // Если клик был внутри пикера или меню, ничего не делаем
+      } else {
+        // Если пикер закрыт и меню открыто, и клик был вне меню - закрываем меню
+        if (showMenu && !clickedOnMenu && !clickedOnReactionPicker) {
+          setShowMenu(false)
+        }
       }
     }
 
     if (showMenu || showReactionPicker) {
-      // Используем задержку, чтобы не закрывать меню сразу при его открытии
-      // Для мобильных нужна большая задержка
-      const timeoutId = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside, true)
-        document.addEventListener('touchstart', handleClickOutside, true)
-      }, isMobile ? 300 : 100)
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('touchstart', handleClickOutside)
+    }
     
     return () => {
-        clearTimeout(timeoutId)
-        document.removeEventListener('mousedown', handleClickOutside, true)
-        document.removeEventListener('touchstart', handleClickOutside, true)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+      if (touchTimerRef.current) {
+        clearTimeout(touchTimerRef.current)
       }
     }
-  }, [showMenu, showReactionPicker, isMobile])
+  }, [showMenu, showReactionPicker])
+
+  useEffect(() => {
+    if (showReactionPicker) {
+      recalcReactionPickerPosition(showExtendedReactions)
+    }
+  }, [showExtendedReactions, showReactionPicker])
 
   // Обработчик реакции
   const handleReaction = async (emoji: string, e?: React.MouseEvent) => {
@@ -532,7 +534,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
       }
       setShowReactionPicker(false)
       setShowExtendedReactions(false)
-      setShowMenu(false) // Закрываем меню после установки реакции
+      setShowMenu(false)
     } catch (error) {
       console.error('Ошибка при добавлении реакции:', error)
       toast.error('Ошибка при добавлении реакции')
@@ -570,6 +572,41 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   
   // Все эмодзи вместе
   const allEmojis = [...primaryEmojis, ...extendedEmojis]
+
+  const recalcReactionPickerPosition = (isExpanded: boolean) => {
+    if (!reactionButtonRef.current || !menuRef.current) return
+
+    const buttonRect = reactionButtonRef.current.getBoundingClientRect()
+    const menuRect = menuRef.current.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const gap = 10
+    const pickerWidth = 248
+    const pickerHeight = isExpanded ? 300 : 150
+
+    let left = isOwnMessage
+      ? menuRect.left - pickerWidth - gap
+      : menuRect.right + gap
+
+    if (left < gap) left = gap
+    if (left + pickerWidth > viewportWidth - gap) {
+      left = Math.max(gap, viewportWidth - pickerWidth - gap)
+    }
+
+    let openUp = false
+    let top = buttonRect.bottom + gap
+    if (top + pickerHeight > viewportHeight - gap) {
+      openUp = true
+      top = buttonRect.top - pickerHeight - gap
+      if (top < gap) {
+        openUp = false
+        top = Math.max(gap, viewportHeight - pickerHeight - gap)
+      }
+    }
+
+    setExpandReactionsUpward(openUp)
+    setReactionPickerPosition({ x: left, y: top })
+  }
 
 	const handleEdit = async () => {
 		if (!editedContent.trim() || editedContent === message.content) {
@@ -704,16 +741,16 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
               className="text-emerald-400 hover:text-emerald-300 hover:underline transition-colors"
               onClick={(e) => e.stopPropagation()}
             >
-            {message.sender.fullName || message.sender.email}
+              {message.sender.fullName || message.sender.email}
             </Link>
           </div>
         )}
       
         <div 
           className={containsOnlyEmoji ? 'relative' : `relative px-2 py-1.5 sm:px-2.5 sm:py-2 md:px-3 md:py-2 ${getBorderRadius()} shadow-lg backdrop-blur-sm ${
-          isDeleted 
+            isDeleted 
               ? 'bg-gray-800/50 border border-gray-700/30'
-            : isOwnMessage 
+              : isOwnMessage 
                 ? 'bg-gradient-to-br from-emerald-800/75 via-teal-800/75 to-emerald-900/75 text-white border border-emerald-700/20'
                 : 'bg-slate-700/85 text-white border border-slate-600/25'
           }`}
@@ -733,10 +770,6 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
             ref={(node) => {
               if (node && menuRef.current !== node) {
                 menuRef.current = node
-                // Сохраняем время открытия меню для предотвращения преждевременного закрытия
-                if (menuRef.current) {
-                  menuRef.current.dataset.openedAt = Date.now().toString()
-                }
                 // После рендеринга проверяем, не выходит ли меню за границы экрана
                 requestAnimationFrame(() => {
                   if (menuRef.current) {
@@ -749,7 +782,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                     
                     // Проверка по вертикали
                     if (rect.bottom > viewportHeight - 10) {
-                      // Меню выходит снизу, перемещаем выше - прямо у курсора (без большого отступа)
+                      // Меню выходит снизу, перемещаем выше
                       newY = menuPosition.y - rect.height
                       // Если и выше не помещается, прижимаем к верхнему краю
                       if (newY < 10) {
@@ -773,11 +806,10 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                 })
               }
             }}
-            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[103] min-w-[160px] sm:min-w-[180px] overflow-hidden animate-fadeIn"
+            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[100] min-w-[160px] sm:min-w-[180px] overflow-hidden animate-fadeIn"
             style={{
               left: `${menuPosition.x}px`,
               top: `${menuPosition.y}px`,
-              transform: 'translate(0, 0)',
               maxWidth: 'calc(100vw - 20px)',
               maxHeight: '90vh',
               animation: 'slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
@@ -804,97 +836,22 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                     ref={reactionButtonRef}
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (reactionButtonRef.current && menuRef.current) {
-                        const menuRect = menuRef.current.getBoundingClientRect()
-                        const buttonRect = reactionButtonRef.current.getBoundingClientRect()
-                        // Позиционируем пикер рядом с меню, но не перекрывая его
-                        // Ширина пикера ~280px, ширина меню ~180px
-                        const pickerWidth = 280
-                        const spacing = 10
-                        const viewportWidth = window.innerWidth
-                        const viewportHeight = window.innerHeight
-                        const viewportPadding = 10
-                        
-                        // Сначала позиционируем относительно меню по горизонтали
-                        let pickerX = isOwnMessage 
-                          ? menuRect.left - pickerWidth - spacing  // Слева от меню (для правых сообщений)
-                          : menuRect.right + spacing  // Справа от меню (для левых сообщений)
-                        
-                        // Проверяем горизонтальные границы viewport
-                        if (pickerX + pickerWidth > viewportWidth - viewportPadding) {
-                          // Пикер выходит за правый край экрана - перемещаем влево от меню
-                          pickerX = menuRect.left - pickerWidth - spacing
-                          // Если и слева не помещается, прижимаем к правому краю экрана
-                          if (pickerX < viewportPadding) {
-                            pickerX = viewportWidth - pickerWidth - viewportPadding
-                          }
-                        }
-                        if (pickerX < viewportPadding) {
-                          // Пикер выходит за левый край экрана - перемещаем вправо от меню
-                          pickerX = menuRect.right + spacing
-                          // Если и справа не помещается, прижимаем к левому краю экрана
-                          if (pickerX + pickerWidth > viewportWidth - viewportPadding) {
-                            pickerX = viewportPadding
-                          }
-                        }
-                        
-                        // Предполагаемая высота пикера (с учетом раскрытых реакций)
-                        const pickerHeight = showExtendedReactions ? 400 : 80
-                        const menuCenterY = menuRect.top + menuRect.height / 2
-                        const viewportCenterY = viewportHeight / 2
-                        
-                        // Адаптивное позиционирование по вертикали:
-                        // Если меню в нижней половине экрана - пикер сверху от меню
-                        // Если меню в верхней половине экрана - пикер снизу от меню
-                        let pickerY: number
-                        let shouldExpandUpward = false
-                        
-                        if (menuCenterY > viewportCenterY) {
-                          // Меню внизу экрана - показываем пикер сверху от кнопки "Реакция"
-                          pickerY = buttonRect.top - pickerHeight - spacing
-                          shouldExpandUpward = true // Реакции должны раскрываться вверх
-                        } else {
-                          // Меню вверху экрана - показываем пикер снизу от кнопки "Реакция"
-                          pickerY = buttonRect.bottom + spacing
-                          shouldExpandUpward = false // Реакции должны раскрываться вниз
-                        }
-                        
-                        // Проверяем вертикальные границы viewport и корректируем при необходимости
-                        if (pickerY + pickerHeight > viewportHeight - viewportPadding) {
-                          // Пикер выходит за нижний край - перемещаем выше
-                          pickerY = buttonRect.top - pickerHeight - spacing
-                          shouldExpandUpward = true // Если переместили вверх, значит нужно раскрывать вверх
-                        }
-                        if (pickerY < viewportPadding) {
-                          // Пикер выходит за верхний край - перемещаем ниже
-                          pickerY = buttonRect.bottom + spacing
-                          shouldExpandUpward = false // Если переместили вниз, значит нужно раскрывать вниз
-                          // Если и снизу не помещается, прижимаем к верхнему краю экрана
-                          if (pickerY + pickerHeight > viewportHeight - viewportPadding) {
-                            pickerY = viewportPadding
-                            shouldExpandUpward = false
-                          }
-                        }
-                        
-                        // Определяем направление раскрытия на основе финальной позиции пикера
-                        const pickerCenterY = pickerY + (showExtendedReactions ? 200 : 40)
-                        if (pickerCenterY > viewportHeight / 2) {
-                          // Пикер в нижней половине экрана - раскрываем вверх
-                          shouldExpandUpward = true
-                        }
-                        
-                        setExpandReactionsUpward(shouldExpandUpward)
-                        setReactionPickerPosition({
-                          x: pickerX,
-                          y: pickerY
-                        })
-                      }
-                      setShowReactionPicker(!showReactionPicker)
-                      // Сбрасываем состояние раскрытия при закрытии пикера
+                      e.preventDefault()
+                      if (!reactionButtonRef.current || !menuRef.current) return
+
                       if (showReactionPicker) {
+                        // Если пикер уже открыт, закрываем его, но меню оставляем открытым
+                        setShowReactionPicker(false)
                         setShowExtendedReactions(false)
+                        setExpandReactionsUpward(false)
+                        return
                       }
-                      // НЕ закрываем меню - оно должно оставаться видимым
+
+                      // Открываем пикер реакций, но меню НЕ закрываем
+                      setShowExtendedReactions(false)
+                      recalcReactionPickerPosition(false)
+                      setShowReactionPicker(true)
+                      // Меню остается открытым - не вызываем setShowMenu(false)
                     }}
                     className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
                   >
@@ -948,210 +905,114 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
           document.body
         ) : null}
 
-        {/* Пикер реакций - рендерим через Portal */}
-        {showReactionPicker && typeof window !== 'undefined' ? createPortal(
-          <div 
-            ref={(node) => {
-              if (node && reactionPickerRef.current !== node) {
-                reactionPickerRef.current = node
-                // Проверяем границы после рендеринга
-                requestAnimationFrame(() => {
-                  if (reactionPickerRef.current) {
-                    const pickerRect = reactionPickerRef.current.getBoundingClientRect()
-                    const viewportWidth = window.innerWidth
-                    const viewportHeight = window.innerHeight
-                    const viewportPadding = 10
-                    
-                    let adjustedX = reactionPickerPosition.x
-                    let adjustedY = reactionPickerPosition.y
-                    let shouldExpandUpward = expandReactionsUpward
-                    
-                    // Проверяем правый край
-                    if (pickerRect.right > viewportWidth - viewportPadding) {
-                      adjustedX = viewportWidth - pickerRect.width - viewportPadding
-                    }
-                    // Проверяем левый край
-                    if (pickerRect.left < viewportPadding) {
-                      adjustedX = viewportPadding
-                    }
-                    // Проверяем нижний край
-                    if (pickerRect.bottom > viewportHeight - viewportPadding) {
-                      adjustedY = viewportHeight - pickerRect.height - viewportPadding
-                      shouldExpandUpward = true // Если пришлось переместить вверх, раскрываем вверх
-                    }
-                    // Проверяем верхний край
-                    if (pickerRect.top < viewportPadding) {
-                      adjustedY = viewportPadding
-                      shouldExpandUpward = false // Если пришлось переместить вниз, раскрываем вниз
-                    }
-                    
-                    // Определяем направление раскрытия на основе финальной позиции
-                    const pickerCenterY = pickerRect.top + pickerRect.height / 2
-                    if (pickerCenterY > viewportHeight / 2) {
-                      // Пикер в нижней половине экрана - раскрываем вверх
-                      shouldExpandUpward = true
-                    } else {
-                      // Пикер в верхней половине экрана - раскрываем вниз
-                      shouldExpandUpward = false
-                    }
-                    
-                    // Обновляем позицию и направление только если нужно
-                    if (adjustedX !== reactionPickerPosition.x || adjustedY !== reactionPickerPosition.y || shouldExpandUpward !== expandReactionsUpward) {
-                      setExpandReactionsUpward(shouldExpandUpward)
-                      setReactionPickerPosition({
-                        x: adjustedX,
-                        y: adjustedY
-                      })
-                    }
-                  }
-                })
-              }
-            }}
-            className={`fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[104] overflow-hidden flex ${
-              expandReactionsUpward ? 'flex-col-reverse' : 'flex-col'
-            } ${isMobile 
-                ? 'p-3 bottom-20 left-1/2 -translate-x-1/2' 
-                : 'p-2'
-            }`}
-            style={
-              isMobile
-                ? {
-                    animation: 'scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                    maxWidth: 'calc(100vw - 40px)',
-                    width: 'auto',
-                    minWidth: '280px',
-                  }
-                : {
-              left: `${reactionPickerPosition.x}px`,
-              top: `${reactionPickerPosition.y}px`,
-                    maxWidth: '280px',
-                    width: '280px',
-                    maxHeight: 'calc(100vh - 20px)',
-                    animation: 'scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
-                  }
-            }
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Дополнительные эмодзи с анимацией раскрытия (сверху, если expandReactionsUpward) */}
-            {expandReactionsUpward && (
-              <div 
-                className="mb-2"
-                style={{
-                  display: 'grid',
-                  gridTemplateRows: showExtendedReactions ? '1fr' : '0fr',
-                  transition: 'grid-template-rows 0.3s ease-out',
-                  opacity: showExtendedReactions ? 1 : 0,
-                  transitionProperty: 'grid-template-rows, opacity',
-                  transitionDuration: '0.3s',
-                  transitionTimingFunction: 'ease-out',
-                  overflow: 'hidden',
-                }}
-              >
-                <div 
-                  className="overflow-hidden"
-                  style={{
-                    minHeight: 0,
-                  }}
-                >
-                  <div 
-                    className={`flex gap-2 sm:gap-1 flex-wrap overflow-x-auto ${
-                      isMobile 
-                        ? 'max-w-full justify-center' 
-                        : 'max-w-[280px]'
-                    } pb-2 border-b border-gray-700/50`}
-                  >
-                    {extendedEmojis.map((emoji, index) => (
-                      <button
-                        key={emoji}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleReaction(emoji, e)
-                          setShowReactionPicker(false)
-                          setShowExtendedReactions(false)
-                          setShowMenu(false) // Закрываем меню после установки реакции
-                        }}
-                        className={`${
-                          isMobile
-                            ? 'w-12 h-12 text-2xl'
-                            : 'w-9 h-9 text-xl'
-                        } rounded-full hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center transition-all hover:scale-125 active:scale-95 touch-manipulation ${
-                          showExtendedReactions ? 'animate-fadeIn' : ''
-                        }`}
-                        style={
-                          showExtendedReactions
-                            ? {
-                                animationDelay: `${index * 0.01}s`,
-                                animationFillMode: 'forwards'
-                              }
-                            : undefined
-                        }
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Основные эмодзи в одну линию */}
-            <div 
-              className={`flex gap-2 sm:gap-1.5 md:gap-1 flex-nowrap ${
-                isMobile 
-                  ? 'max-w-full justify-center' 
-                  : 'max-w-[280px]'
-              }`}
-            >
-              {primaryEmojis.map(emoji => (
-                <button
-                  key={emoji}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleReaction(emoji, e)
-                    setShowReactionPicker(false)
-                    setShowMenu(false) // Закрываем меню после установки реакции
-                  }}
-                  className={`${
-                    isMobile
-                      ? 'w-12 h-12 text-2xl'
-                      : 'w-10 h-10 sm:w-9 sm:h-9 text-xl'
-                  } rounded-full hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center transition-all hover:scale-125 active:scale-95 touch-manipulation`}
-                >
-                  {emoji}
-                </button>
-              ))}
-              
-              {/* Кнопка раскрытия дополнительных реакций */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowExtendedReactions(!showExtendedReactions)
-                  // НЕ закрываем меню при раскрытии списка реакций
-                }}
-                className={`${
-                  isMobile
-                    ? 'w-12 h-12'
-                    : 'w-9 h-9'
-                } rounded-full hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center text-lg transition-all hover:scale-125 active:scale-95 touch-manipulation ${
-                  showExtendedReactions ? 'bg-gray-700/30' : ''
-                }`}
-              >
-                {expandReactionsUpward ? (
-                  <ChevronUp className={`${
-                    isMobile ? 'w-5 h-5' : 'w-4 h-4'
-                  } text-gray-400 transition-transform duration-300`} />
-                ) : (
-                  <ChevronDown className={`${
-                    isMobile ? 'w-5 h-5' : 'w-4 h-4'
-                  } text-gray-400 transition-transform duration-300 ${
-                    showExtendedReactions ? 'rotate-180' : ''
-                  }`} />
-                )}
-              </button>
-            </div>
-          </div>,
-          document.body
-        ) : null}
+		{/* Пикер реакций - рендерим через Portal */}
+		{showReactionPicker && typeof window !== 'undefined' ? createPortal(
+			<div
+				ref={reactionPickerRef}
+				className={`fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[101] ${
+					isMobileView ? 'p-3 bottom-20 left-1/2 -translate-x-1/2' : 'p-3'
+				}`}
+				style={
+					isMobileView
+						? {
+							animation: 'scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+							maxWidth: 'calc(100vw - 32px)',
+							width: 'auto',
+							minWidth: '240px'
+						}
+						: {
+							left: `${reactionPickerPosition.x}px`,
+							top: `${reactionPickerPosition.y}px`,
+							width: 248,
+							animation: 'scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+						}
+				}
+				onClick={(e) => e.stopPropagation()}
+			>
+				<div className={`flex flex-col ${expandReactionsUpward ? 'flex-col-reverse' : ''} gap-2`}>
+					<div className={`flex gap-2 sm:gap-1.5 flex-wrap ${
+						isMobileView ? 'max-w-full justify-center' : 'max-w-[248px]'
+					}`}>
+						{primaryEmojis.map((emoji) => (
+							<button
+								key={emoji}
+								onClick={(e) => {
+									e.stopPropagation()
+									handleReaction(emoji, e)
+									// handleReaction уже закрывает пикер и меню
+								}}
+								className={`${
+									isMobileView ? 'w-11 h-11 text-2xl' : 'w-9 h-9 text-xl'
+								} rounded-full bg-slate-800/60 hover:bg-slate-700/70 active:bg-slate-700/80 flex items-center justify-center transition-all hover:scale-125 active:scale-95 touch-manipulation`}
+							>
+								{emoji}
+							</button>
+						))}
+						<button
+							onClick={(e) => {
+								e.stopPropagation()
+								setShowExtendedReactions((prev) => !prev)
+							}}
+							className={`${
+								isMobileView ? 'w-11 h-11' : 'w-9 h-9'
+							} rounded-full bg-slate-800/60 hover:bg-slate-700/70 active:bg-slate-700/80 flex items-center justify-center text-lg transition-all hover:scale-125 active:scale-95 touch-manipulation ${
+								showExtendedReactions ? 'bg-slate-700/70' : ''
+							}`}
+							aria-label='Показать больше реакций'
+						>
+							{expandReactionsUpward ? (
+								<ChevronUp className={`${isMobileView ? 'w-5 h-5' : 'w-4 h-4'} text-gray-300`} />
+							) : (
+								<ChevronDown
+									className={`${
+										isMobileView ? 'w-5 h-5' : 'w-4 h-4'
+									} text-gray-300 transition-transform duration-200 ${
+										showExtendedReactions ? 'rotate-180' : ''
+									}`}
+								/>
+							)}
+						</button>
+					</div>
+					<div
+						className={`overflow-hidden transition-all duration-300 ease-out ${
+							showExtendedReactions ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'
+						} ${expandReactionsUpward ? 'mb-1' : 'mt-1'}`}
+					>
+						<div className={`flex gap-2 sm:gap-1 flex-wrap ${
+							isMobileView ? 'max-w-full justify-center' : 'max-w-[248px]'
+						} pt-2 border-t border-gray-700/60`}>
+							{extendedEmojis.map((emoji, index) => (
+								<button
+									key={emoji}
+									onClick={(e) => {
+										e.stopPropagation()
+										handleReaction(emoji, e)
+										// handleReaction уже закрывает пикер и меню
+										setShowExtendedReactions(false)
+									}}
+									className={`${
+										isMobileView ? 'w-11 h-11 text-2xl' : 'w-9 h-9 text-xl'
+									} rounded-full bg-slate-800/60 hover:bg-slate-700/70 active:bg-slate-700/80 flex items-center justify-center transition-all hover:scale-125 active:scale-95 touch-manipulation ${
+										showExtendedReactions ? 'animate-fadeIn' : ''
+									}`}
+									style={
+										showExtendedReactions
+											? {
+												animationDelay: `${index * 0.01}s`,
+												animationFillMode: 'forwards'
+											}
+											: undefined
+									}
+								>
+									{emoji}
+								</button>
+							))}
+						</div>
+					</div>
+				</div>
+			</div>,
+			document.body
+		) : null}
 
         {/* Редактор */}
         {isEditing ? (
@@ -1284,7 +1145,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                     {showImageModal && typeof window !== 'undefined' && createPortal(
                       <div
                         className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
-                style={{
+                        style={{
                           position: 'fixed',
                           top: 0,
                           left: 0,
@@ -1327,8 +1188,8 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                         {message.fileName && (
                           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-black/70 backdrop-blur-sm rounded-lg">
                             <p className="text-sm text-white/90 font-medium">{message.fileName}</p>
-              </div>
-            )}
+                          </div>
+                        )}
                       </div>,
                       document.body
                     )}
@@ -1340,7 +1201,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                     onClick={(e) => e.stopPropagation()}
                   >
                     <VideoPlayer
-                    src={fileUrl}
+                      src={fileUrl}
                       className="w-full h-full rounded-lg shadow-lg object-contain"
                     />
                     {/* Кнопка скачивания видео - появляется при наведении */}
@@ -1444,19 +1305,19 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
 
             {/* Время и статус редактирования */}
             {!containsOnlyEmoji && (
-            <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-              isOwnMessage ? 'text-white/70' : 'text-gray-400'
-            }`}>
-              {isEdited && (
-                <span className="italic">изменено</span>
-              )}
-              <span>
-                {new Date(message.createdAt).toLocaleTimeString('ru-RU', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </span>
-            </div>
+              <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
+                isOwnMessage ? 'text-white/70' : 'text-gray-400'
+              }`}>
+                {isEdited && (
+                  <span className="italic">изменено</span>
+                )}
+                <span>
+                  {new Date(message.createdAt).toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
             )}
             {/* Время для эмодзи сообщений - показываем под эмодзи, но меньше */}
             {containsOnlyEmoji && (
@@ -1483,7 +1344,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
           <div 
             ref={reactionsContainerRef}
             className={`flex gap-1 items-center mt-1 animate-fadeIn flex-wrap ${
-            isOwnMessage ? 'justify-end' : 'justify-start'
+              isOwnMessage ? 'justify-end' : 'justify-start'
             }`}
             style={{ overflow: 'visible' }}
           >

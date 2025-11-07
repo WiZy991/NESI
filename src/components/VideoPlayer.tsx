@@ -130,7 +130,14 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
     }
     const handleFullscreenChange = () => {
       if (isMounted) {
-        setIsFullscreen(!!document.fullscreenElement)
+        // Поддерживаем разные браузеры
+        const isFullscreenNow = !!(
+          document.fullscreenElement ||
+          (document as any).webkitFullscreenElement ||
+          (document as any).mozFullScreenElement ||
+          (document as any).msFullscreenElement
+        )
+        setIsFullscreen(isFullscreenNow)
       }
     }
     
@@ -185,7 +192,11 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
         animationFrameId = requestAnimationFrame(smoothUpdate)
       }
     })
+    // Добавляем слушатели для всех вариантов события полноэкранного режима
     document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange)
     
     // Запускаем обновление сразу для отслеживания загрузки
     animationFrameId = requestAnimationFrame(smoothUpdate)
@@ -228,6 +239,9 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
       }
       
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange)
       
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current)
@@ -307,14 +321,57 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
 
   const toggleFullscreen = () => {
     const video = videoRef.current
+    const container = containerRef.current
     if (!video) return
 
-    if (!document.fullscreenElement) {
-      video.requestFullscreen().catch((err) => {
-        console.error('Ошибка при переходе в полноэкранный режим:', err)
-      })
+    // Проверяем, является ли это iOS устройством
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+
+    // Проверяем текущий полноэкранный режим (поддерживаем разные браузеры)
+    const isCurrentlyFullscreen = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    )
+
+    if (!isCurrentlyFullscreen) {
+      // Входим в полноэкранный режим
+      if (isIOS) {
+        // Для iOS используем нативный метод видео элемента
+        if ((video as any).webkitEnterFullscreen) {
+          ;(video as any).webkitEnterFullscreen()
+        }
+      } else {
+        // Для других платформ используем Fullscreen API
+        const element = container || video
+        
+        if (element.requestFullscreen) {
+          element.requestFullscreen().catch((err) => {
+            console.error('Ошибка при переходе в полноэкранный режим:', err)
+          })
+        } else if ((element as any).webkitRequestFullscreen) {
+          // Для Safari (desktop) и старых браузеров
+          ;(element as any).webkitRequestFullscreen()
+        } else if ((element as any).mozRequestFullScreen) {
+          ;(element as any).mozRequestFullScreen()
+        } else if ((element as any).msRequestFullscreen) {
+          ;(element as any).msRequestFullscreen()
+        }
+      }
     } else {
-      document.exitFullscreen()
+      // Выходим из полноэкранного режима
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch((err) => {
+          console.error('Ошибка при выходе из полноэкранного режима:', err)
+        })
+      } else if ((document as any).webkitExitFullscreen) {
+        ;(document as any).webkitExitFullscreen()
+      } else if ((document as any).mozCancelFullScreen) {
+        ;(document as any).mozCancelFullScreen()
+      } else if ((document as any).msExitFullscreen) {
+        ;(document as any).msExitFullscreen()
+      }
     }
   }
 
@@ -371,8 +428,8 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
         src={isVisible ? src : undefined}
         className="w-full h-full object-contain"
         preload={isVisible ? "metadata" : "none"}
-        playsInline
-        controlsList="nodownload nofullscreen" // Отключаем скачивание и полноэкранный режим через стандартные контролы
+        playsInline // Разрешаем встроенное воспроизведение на iOS
+        controlsList="nodownload" // Отключаем скачивание, но разрешаем полноэкранный режим через наш контрол
         disablePictureInPicture // Отключаем Picture-in-Picture
         onError={(e) => {
           // Обрабатываем ошибки воспроизведения
@@ -604,7 +661,16 @@ export default function VideoPlayer({ src, className = '', onError }: VideoPlaye
                 e.stopPropagation()
                 toggleFullscreen()
               }}
-              className="p-1.5 hover:bg-white/20 rounded transition"
+              onTouchEnd={(e) => {
+                e.stopPropagation()
+                toggleFullscreen()
+              }}
+              className="p-1.5 hover:bg-white/20 rounded transition touch-manipulation"
+              style={{
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+              aria-label={isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'}
             >
               {isFullscreen ? (
                 <Minimize className="w-5 h-5" />

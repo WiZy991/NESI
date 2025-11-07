@@ -1850,8 +1850,24 @@ function ChatsPageContent() {
 								)}
 
 								{/* Поле ввода сообщения - закреплённое внизу колонки */}
-								<div className='flex-shrink-0 border-t border-slate-700/50 bg-slate-800/60 md:bg-slate-800/50 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.3)] relative z-10'>
-									<div className='px-4 py-2 sm:px-5 sm:px-3'>
+								<div 
+									className='flex-shrink-0 border-t border-slate-700/50 bg-slate-800/60 md:bg-slate-800/50 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.3)] relative z-10'
+									style={{
+										position: 'relative',
+										zIndex: 100,
+										touchAction: 'manipulation',
+										pointerEvents: 'auto',
+									}}
+								>
+									<div 
+										className='px-4 py-2 sm:px-5 sm:px-3'
+										style={{
+											position: 'relative',
+											zIndex: 101,
+											touchAction: 'manipulation',
+											pointerEvents: 'auto',
+										}}
+									>
 										<MessageInput
 											chatType={selectedChat.type}
 											otherUserId={selectedChat.otherUser?.id}
