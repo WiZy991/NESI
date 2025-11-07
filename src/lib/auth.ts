@@ -30,7 +30,7 @@ export async function getUserFromToken(token: string) {
 
     return user
   } catch (error: any) {
-    // Проверяем, является ли это ошибкой подключения к БД
+    // Проверяем различные типы ошибок БД
     const isConnectionError = 
       error?.code === 'P1017' || // Server has closed the connection
       error?.code === 'P1001' || // Can't reach database server
@@ -38,10 +38,22 @@ export async function getUserFromToken(token: string) {
       error?.message?.includes('FATAL') ||
       error?.message?.includes('Error in connector')
     
+    const isTableMissingError = 
+      error?.code === 'P2021' || // Table does not exist
+      error?.message?.includes('does not exist') ||
+      error?.message?.includes('Table')
+    
     if (isConnectionError) {
       // Для ошибок подключения выбрасываем специальную ошибку
       const dbError = new Error('Database connection error')
       dbError.name = 'DatabaseConnectionError'
+      throw dbError
+    }
+    
+    if (isTableMissingError) {
+      // Для ошибок отсутствующих таблиц выбрасываем специальную ошибку
+      const dbError = new Error('Database schema error: tables not found. Please run migrations.')
+      dbError.name = 'DatabaseSchemaError'
       throw dbError
     }
     
@@ -103,7 +115,7 @@ export async function getUserFromRequest(req: Request) {
 
     return user
   } catch (error: any) {
-    // Проверяем, является ли это ошибкой подключения к БД
+    // Проверяем различные типы ошибок БД
     const isConnectionError = 
       error?.name === 'DatabaseConnectionError' ||
       error?.code === 'P1017' ||
@@ -111,6 +123,24 @@ export async function getUserFromRequest(req: Request) {
       error?.message?.includes('could not write init file') ||
       error?.message?.includes('FATAL') ||
       error?.message?.includes('Error in connector')
+    
+    const isTableMissingError = 
+      error?.name === 'DatabaseSchemaError' ||
+      error?.code === 'P2021' ||
+      error?.message?.includes('does not exist') ||
+      error?.message?.includes('Table')
+    
+    if (isTableMissingError) {
+      // Логируем ошибку схемы БД не чаще раза в минуту
+      const now = Date.now()
+      if (now - lastDbErrorLog > DB_ERROR_LOG_INTERVAL * 2) {
+        console.error('❌ Ошибка схемы базы данных: таблицы не найдены.')
+        console.error('💡 Решение: Выполните команду: npx prisma migrate deploy')
+        console.error('   Или: npx prisma db push (для разработки)')
+        lastDbErrorLog = now
+      }
+      return null
+    }
     
     if (isConnectionError) {
       // Логируем ошибку БД не чаще раза в 30 секунд, чтобы не спамить консоль

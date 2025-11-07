@@ -164,7 +164,11 @@ export default function MessageInput({
 	const handleSubmit = async (e: React.FormEvent, captionText?: string) => {
 		e.preventDefault()
 		const messageToSend = captionText !== undefined ? captionText : message
-		if (!messageToSend.trim() && !file) return
+		
+		// Убеждаемся, что messageToSend - это строка
+		const contentString = typeof messageToSend === 'string' ? messageToSend : String(messageToSend || '')
+		
+		if (!contentString.trim() && !file) return
 
 		// Останавливаем набор при отправке
 		if (isTyping) {
@@ -177,7 +181,7 @@ export default function MessageInput({
 		try {
 			// Используем JSON для отправки, так как файл уже загружен
 			const body: any = {
-				content: messageToSend.trim() || '', // Отправляем подпись или обычное сообщение
+				content: contentString.trim() || '', // Отправляем подпись или обычное сообщение (всегда строка)
 			}
 
 			if (uploadedFileId) {
@@ -227,7 +231,16 @@ export default function MessageInput({
 			if (res.ok) {
 				// Добавляем новое сообщение в список
 				const newMessage = chatType === 'private' ? data : data.message || data
+				console.log('✅ Сообщение отправлено, полученный ответ:', newMessage)
+				console.log('📎 Данные файла в ответе:', {
+					fileId: newMessage.fileId,
+					fileName: newMessage.fileName,
+					fileMimetype: newMessage.fileMimetype,
+					fileUrl: newMessage.fileUrl
+				})
 				onMessageSent(newMessage)
+				
+				// Сбрасываем все состояния после успешной отправки
 				setMessage('')
 				setCaption('')
 				setShowCaptionEmojiPicker(false)
@@ -237,7 +250,11 @@ export default function MessageInput({
 				setUploadProgress(0)
 				setVideoPlaying(false)
 				setImageRotation(0)
+				setUploading(false)
+				setSending(false)
 				currentUploadingFileRef.current = null
+				
+				// Отменяем активные загрузки
 				if (uploadXhrRef.current) {
 					uploadXhrRef.current.abort()
 					uploadXhrRef.current = null
@@ -261,32 +278,26 @@ export default function MessageInput({
 					fileInputRef.current.value = ''
 				}
 			} else {
+				// Формируем понятное сообщение об ошибке
+				const errorText = data?.error || data?.details || data?.message || 'Неизвестная ошибка'
+				const errorMessage = typeof errorText === 'string' ? errorText : JSON.stringify(errorText)
+				
 				console.error('❌ Ошибка отправки сообщения:', {
 					status: res.status,
 					statusText: res.statusText,
+					error: errorMessage,
 					data: data,
-					hasError: !!data?.error,
-					errorMessage: data?.error || data?.details || 'Неизвестная ошибка'
+					bodySent: body,
 				})
 				
-				// Формируем понятное сообщение об ошибке
-				let errorMessage = 'Ошибка отправки сообщения'
-				if (data?.error) {
-					errorMessage += ': ' + data.error
-					if (data.details) {
-						errorMessage += ' (' + data.details + ')'
-					}
-				} else if (data?.details) {
-					errorMessage += ': ' + data.details
-				} else {
-					errorMessage += ': ' + res.statusText
-				}
-				
-				alert(errorMessage)
+				// Показываем пользователю понятное сообщение об ошибке
+				alert(`Ошибка отправки сообщения: ${errorMessage}`)
+				setSending(false)
 			}
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Ошибка отправки сообщения:', error)
-		} finally {
+			const errorMessage = error?.message || String(error) || 'Неизвестная ошибка'
+			alert(`Ошибка отправки сообщения: ${errorMessage}`)
 			setSending(false)
 		}
 	}
@@ -307,8 +318,8 @@ export default function MessageInput({
 			videoPreviewRef.current.currentTime = 0
 		}
 
-		// Сбрасываем состояние перед загрузкой нового файла
-		setCaption('')
+		// Сбрасываем состояние перед загрузкой нового файла (НО НЕ ПОДПИСЬ!)
+		// setCaption('') - УБРАНО: подпись должна сохраняться при смене файла
 		setShowCaptionEmojiPicker(false)
 		setImageRotation(0)
 		setVideoPlaying(false)
@@ -334,12 +345,13 @@ export default function MessageInput({
 				setFilePreview(reader.result as string)
 			}
 			reader.readAsDataURL(selectedFile)
-		} else {
+				} else {
 			setFilePreview(null)
 		}
 
 		// Сразу начинаем загрузку файла на сервер
 		try {
+			console.log('📤 Начало загрузки файла:', selectedFile.name, selectedFile.size)
 			const formData = new FormData()
 			formData.append('file', selectedFile)
 
@@ -348,30 +360,35 @@ export default function MessageInput({
 			
 			// Отслеживаем прогресс загрузки
 			xhr.upload.addEventListener('progress', (e) => {
-				if (e.lengthComputable) {
+				if (e.lengthComputable && currentUploadingFileRef.current === selectedFile) {
 					const percentComplete = (e.loaded / e.total) * 100
 					setUploadProgress(percentComplete)
+					console.log('📊 Прогресс загрузки:', Math.round(percentComplete) + '%')
 				}
 			})
 
 			const uploadResult = await new Promise<{ id: string; url: string }>((resolve, reject) => {
 				xhr.addEventListener('load', () => {
+					console.log('📥 Загрузка завершена, статус:', xhr.status)
 					uploadXhrRef.current = null
 					if (xhr.status === 200) {
 						try {
 							const responseText = xhr.responseText || xhr.response
 							if (!responseText || responseText.trim() === '') {
+								console.error('❌ Пустой ответ от сервера')
 								reject(new Error('Пустой ответ от сервера'))
 								return
 							}
 							const data = JSON.parse(responseText)
 							if (data.id) {
+								console.log('✅ Файл загружен успешно, ID:', data.id)
 								resolve({ id: data.id, url: data.url || '' })
 							} else {
+								console.error('❌ Неверный формат ответа, отсутствует id:', data)
 								reject(new Error('Неверный формат ответа: отсутствует id файла'))
 							}
 						} catch (e) {
-							console.error('Ошибка парсинга ответа:', e, 'Ответ:', xhr.responseText?.substring(0, 200))
+							console.error('❌ Ошибка парсинга ответа:', e, 'Ответ:', xhr.responseText?.substring(0, 200))
 							reject(new Error('Ошибка парсинга ответа от сервера'))
 						}
 					} else {
@@ -421,8 +438,12 @@ export default function MessageInput({
 
 			// Проверяем, что файл еще актуален (не был заменен другим)
 			if (currentUploadingFileRef.current === selectedFile) {
+				console.log('✅ Устанавливаем uploadedFileId:', uploadResult.id)
 				setUploadedFileId(uploadResult.id)
 				setUploadProgress(100)
+				setUploading(false)
+			} else {
+				console.log('⚠️ Файл был заменен, игнорируем результат загрузки')
 			}
 		} catch (error: any) {
 			// Игнорируем ошибку если загрузка была отменена из-за выбора нового файла
@@ -545,7 +566,7 @@ export default function MessageInput({
 				if (showCaptionEmojiPicker) {
 					setShowCaptionEmojiPicker(false)
 				} else if (showEmojiPicker) {
-					setShowEmojiPicker(false)
+				setShowEmojiPicker(false)
 				}
 			}
 		}
@@ -569,7 +590,7 @@ export default function MessageInput({
 	}, [])
 
 	return (
-		<form onSubmit={handleSubmit} className='px-3 py-3 sm:px-4 sm:py-4'>
+		<form onSubmit={handleSubmit} className='px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4'>
 			{/* Информация об ответе на сообщение */}
 			{replyTo && (
 				<div className='mb-3 px-4 py-2.5 bg-slate-700/40 backdrop-blur-sm border border-slate-600/50 rounded-xl flex items-start gap-3 text-xs sm:text-sm transition-all duration-200 ease-out animate-in fade-in-0 slide-in-from-top-2 shadow-lg'>
@@ -614,45 +635,45 @@ export default function MessageInput({
 					<div 
 						className='absolute inset-0 bg-black/60 backdrop-blur-sm'
 						onClick={() => {
-							if (!uploading) {
-								if (uploadXhrRef.current) {
-									uploadXhrRef.current.abort()
-									uploadXhrRef.current = null
-								}
-								setFile(null)
-								setFilePreview(null)
-								setUploadedFileId(null)
-								setUploadProgress(0)
-								setVideoPlaying(false)
-								setUploading(false)
-								setImageRotation(0)
-								setCaption('')
-								setShowCaptionEmojiPicker(false)
-								currentUploadingFileRef.current = null
-								if (videoPreviewRef.current) {
-									videoPreviewRef.current.pause()
-									videoPreviewRef.current.currentTime = 0
-								}
-								if (fileInputRef.current) {
-									fileInputRef.current.value = ''
-								}
+							// Отменяем загрузку если она идет
+							if (uploadXhrRef.current) {
+								uploadXhrRef.current.abort()
+								uploadXhrRef.current = null
+							}
+							// Очищаем состояние
+							setFile(null)
+							setFilePreview(null)
+							setUploadedFileId(null)
+							setUploadProgress(0)
+							setVideoPlaying(false)
+							setUploading(false)
+							setImageRotation(0)
+							setCaption('')
+							setShowCaptionEmojiPicker(false)
+							currentUploadingFileRef.current = null
+							if (videoPreviewRef.current) {
+								videoPreviewRef.current.pause()
+								videoPreviewRef.current.currentTime = 0
+							}
+							if (fileInputRef.current) {
+								fileInputRef.current.value = ''
 							}
 						}}
 					/>
 					
 					{/* Модальное окно с предпросмотром */}
-					<div className='relative w-full max-w-[420px] bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl animate-scaleFadeIn overflow-hidden z-10'>
+					<div className='relative w-full max-w-[calc(100vw-20px)] sm:max-w-[420px] md:max-w-[500px] bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl animate-scaleFadeIn overflow-hidden z-10 mx-auto'>
 						{/* Заголовок */}
-						<div className='px-4 py-3 flex items-center justify-between border-b border-slate-700/50'>
+						<div className='px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between border-b border-slate-700/50'>
 							<div className='flex items-center gap-2 flex-1 min-w-0'>
 								<span className='text-slate-200 font-medium text-sm truncate'>
 									{getFileType(file) === 'image' ? 'Отправить изображение' : 'Отправить видео'}
-								</span>
+						</span>
 							</div>
 							<div className='flex items-center gap-2'>
 								{/* Кнопка смены файла */}
 								<label
-									className='flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700/50 text-gray-400 hover:text-white transition-colors cursor-pointer'
+									className='flex-shrink-0 w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg hover:bg-slate-700/50 active:bg-slate-700/70 text-gray-400 hover:text-white transition-colors cursor-pointer touch-manipulation'
 									title='Сменить файл'
 									aria-label='Сменить файл'
 								>
@@ -676,33 +697,32 @@ export default function MessageInput({
 								{/* Кнопка закрытия */}
 								<button
 									type='button'
+									className='flex-shrink-0 w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg hover:bg-slate-700/50 active:bg-slate-700/70 text-gray-400 hover:text-white transition-colors touch-manipulation'
 									onClick={() => {
-										if (!uploading) {
-											if (uploadXhrRef.current) {
-												uploadXhrRef.current.abort()
-												uploadXhrRef.current = null
-											}
-											setFile(null)
-											setFilePreview(null)
-											setUploadedFileId(null)
-											setUploadProgress(0)
-											setVideoPlaying(false)
-											setUploading(false)
-											setImageRotation(0)
-											setCaption('')
-											setShowCaptionEmojiPicker(false)
-											currentUploadingFileRef.current = null
-											if (videoPreviewRef.current) {
-												videoPreviewRef.current.pause()
-												videoPreviewRef.current.currentTime = 0
-											}
-											if (fileInputRef.current) {
-												fileInputRef.current.value = ''
-											}
+										// Отменяем загрузку если она идет
+										if (uploadXhrRef.current) {
+											uploadXhrRef.current.abort()
+											uploadXhrRef.current = null
+										}
+										// Очищаем состояние
+										setFile(null)
+										setFilePreview(null)
+										setUploadedFileId(null)
+										setUploadProgress(0)
+										setVideoPlaying(false)
+										setUploading(false)
+										setImageRotation(0)
+										setCaption('')
+										setShowCaptionEmojiPicker(false)
+										currentUploadingFileRef.current = null
+										if (videoPreviewRef.current) {
+											videoPreviewRef.current.pause()
+											videoPreviewRef.current.currentTime = 0
+										}
+										if (fileInputRef.current) {
+											fileInputRef.current.value = ''
 										}
 									}}
-									className='flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700/50 text-gray-400 hover:text-white transition-colors'
-									disabled={uploading}
 									aria-label='Закрыть'
 								>
 									<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -814,19 +834,37 @@ export default function MessageInput({
 								</div>
 								
 								{/* Прогресс-бар */}
-								{(uploading || uploadProgress > 0) && (
-									<div className='w-full bg-slate-700/40 rounded-full h-2 overflow-hidden'>
-										<div
-											className='h-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 rounded-full transition-all duration-300 ease-out shadow-sm'
-											style={{ width: `${uploadProgress}%` }}
-										/>
+								<div className='w-full bg-slate-700/40 rounded-full h-2 overflow-hidden mb-2'>
+									<div
+										className='h-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 rounded-full transition-all duration-300 ease-out shadow-sm'
+										style={{ width: `${uploadProgress}%` }}
+									/>
+								</div>
+								
+								{/* Текстовый статус загрузки */}
+								{uploading && (
+									<div className='text-xs text-emerald-400 font-medium flex items-center gap-1.5'>
+										<svg className='animate-spin w-3 h-3' fill='none' viewBox='0 0 24 24'>
+											<circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
+											<path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
+										</svg>
+										<span>Загрузка файла: {Math.round(uploadProgress)}%</span>
 									</div>
 								)}
-								
-								{/* Статус текста */}
-								{uploading && (
-									<div className='mt-2 text-xs text-gray-400'>
-										Загрузка файла на сервер...
+								{!uploading && uploadedFileId && (
+									<div className='text-xs text-emerald-400 font-medium flex items-center gap-1.5'>
+										<svg className='w-3 h-3' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+											<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+										</svg>
+										<span>Файл загружен и готов к отправке</span>
+									</div>
+								)}
+								{!uploading && !uploadedFileId && uploadProgress === 0 && (
+									<div className='text-xs text-gray-400 flex items-center gap-1.5'>
+										<svg className='w-3 h-3' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+											<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' />
+										</svg>
+										<span>Ожидание начала загрузки...</span>
 									</div>
 								)}
 							</div>
@@ -865,7 +903,7 @@ export default function MessageInput({
 								<button
 									type='button'
 									onClick={() => setShowCaptionEmojiPicker(prev => !prev)}
-									className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-700/60 hover:bg-slate-700/80 text-lg transition-colors ${
+									className={`flex-shrink-0 w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-slate-700/60 hover:bg-slate-700/80 active:bg-slate-700/90 text-lg transition-colors touch-manipulation ${
 										showCaptionEmojiPicker ? 'bg-emerald-500/20 border border-emerald-400/60' : ''
 									}`}
 									disabled={sending}
@@ -890,21 +928,22 @@ export default function MessageInput({
 									{/* Эмодзи пикер */}
 									<div
 										className='fixed z-[10001]'
-										style={{
-											bottom: '200px',
-											right: '20px',
-											width: '360px',
-											maxWidth: 'calc(100vw - 40px)',
-										}}
+							style={{
+								bottom: typeof window !== 'undefined' && window.innerWidth < 640 ? '250px' : '200px',
+								right: typeof window !== 'undefined' && window.innerWidth < 640 ? '10px' : '20px',
+								left: typeof window !== 'undefined' && window.innerWidth < 640 ? '10px' : 'auto',
+								width: typeof window !== 'undefined' && window.innerWidth < 640 ? 'calc(100vw - 20px)' : '360px',
+								maxWidth: 'calc(100vw - 20px)',
+							}}
 										onClick={(e) => e.stopPropagation()}
 									>
 										<div className='bg-slate-800/98 border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden animate-scaleFadeIn'>
 											{/* Заголовок с кнопкой закрытия */}
-											<div className='flex items-center justify-between px-4 py-3 bg-slate-700/30 border-b border-slate-700/50'>
-												<span className='text-sm font-semibold text-gray-200'>Выберите эмодзи для подписи</span>
+											<div className='flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-slate-700/30 border-b border-slate-700/50'>
+												<span className='text-xs sm:text-sm font-semibold text-gray-200'>Выберите эмодзи для подписи</span>
 												<button
 													onClick={() => setShowCaptionEmojiPicker(false)}
-													className='w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/60 text-gray-400 hover:text-white transition-all duration-200'
+													className='w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/60 active:bg-slate-700/70 text-gray-400 hover:text-white transition-all duration-200 touch-manipulation'
 													aria-label='Закрыть'
 												>
 													<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -913,7 +952,9 @@ export default function MessageInput({
 												</button>
 											</div>
 											{/* Эмодзи пикер */}
-											<div className='overflow-hidden' style={{ height: '380px' }}>
+											<div className='overflow-hidden' style={{ 
+												height: typeof window !== 'undefined' && window.innerWidth < 640 ? '240px' : '380px' 
+											}}>
 												<EmojiPicker
 													onEmojiClick={(emojiData) => {
 														// Вставляем emoji только в подпись
@@ -967,14 +1008,16 @@ export default function MessageInput({
 						</div>
 						
 						{/* Футер с действиями */}
-						<div className='px-4 py-3 flex items-center justify-between gap-3 border-t border-slate-700/50'>
+						<div className='px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-3 border-t border-slate-700/50'>
 							<button
 								type='button'
 								onClick={() => {
+									// Отменяем загрузку если она идет
 									if (uploadXhrRef.current) {
 										uploadXhrRef.current.abort()
 										uploadXhrRef.current = null
 									}
+									// Очищаем состояние
 									setFile(null)
 									setFilePreview(null)
 									setUploadedFileId(null)
@@ -993,8 +1036,8 @@ export default function MessageInput({
 										fileInputRef.current.value = ''
 									}
 								}}
-								className='px-4 py-2 rounded-xl bg-slate-700/50 hover:bg-slate-700/70 text-slate-200 text-sm font-medium transition-colors'
-								disabled={uploading || sending}
+								className='px-4 py-2.5 sm:py-2 rounded-xl bg-slate-700/50 hover:bg-slate-700/70 active:bg-slate-700/80 text-slate-200 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation'
+								disabled={sending}
 							>
 								Отмена
 							</button>
@@ -1003,14 +1046,16 @@ export default function MessageInput({
 								onClick={async (e) => {
 									if (!uploadedFileId || sending) return
 									
+									// Убеждаемся, что caption - это строка перед передачей
+									const captionText = typeof caption === 'string' ? caption : String(caption || '')
 									// Отправляем подпись напрямую в handleSubmit
-									await handleSubmit(e, caption.trim())
+									await handleSubmit(e, captionText.trim() || '')
 									// После успешной отправки модальное окно закроется через handleSubmit
 									setCaption('')
 									setShowCaptionEmojiPicker(false)
 								}}
 								disabled={!uploadedFileId || uploading || sending}
-								className='px-4 py-2 rounded-xl bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 text-white text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-emerald-500/20 disabled:hover:shadow-none'
+								className='px-4 py-2.5 sm:py-2 rounded-xl bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 active:from-emerald-600 active:to-emerald-700 text-white text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-emerald-500/20 active:scale-95 disabled:hover:shadow-none touch-manipulation'
 							>
 								{sending ? (
 									<span className='flex items-center gap-2'>
@@ -1038,20 +1083,20 @@ export default function MessageInput({
 							<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
 						</svg>
 					</div>
-					<div className='flex-1 min-w-0 overflow-hidden'>
+						<div className='flex-1 min-w-0 overflow-hidden'>
 						<div className='text-slate-100 truncate font-medium text-sm leading-tight'>
 							{file.name}
 							</div>
 						<div className='flex items-center gap-2 mt-0.5'>
 							<span className='text-gray-400 text-xs'>
 								{formatFileSize(file.size)}
-							</span>
+								</span>
 							{uploading && (
 								<span className='text-emerald-400 text-xs font-medium'>
 									{Math.round(uploadProgress)}%
 								</span>
 							)}
-						</div>
+							</div>
 						{(uploading || uploadProgress > 0) && (
 							<div className='mt-1.5 w-full bg-slate-700/40 rounded-full h-1 overflow-hidden'>
 								<div
@@ -1060,7 +1105,7 @@ export default function MessageInput({
 								/>
 							</div>
 						)}
-					</div>
+						</div>
 					<div className='flex items-center gap-1.5'>
 						{uploading ? (
 							<div className='w-6 h-6 flex items-center justify-center'>
@@ -1068,7 +1113,7 @@ export default function MessageInput({
 									<circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
 									<path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
 								</svg>
-							</div>
+					</div>
 						) : (
 					<button
 						type='button'
@@ -1103,7 +1148,7 @@ export default function MessageInput({
 			<div className='flex items-center gap-2.5'>
 				{/* Кнопка прикрепления файла */}
 				<label 
-					className='cursor-pointer flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:bg-slate-700/80 hover:border-emerald-400/50 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
+					className='cursor-pointer flex-shrink-0 w-11 h-11 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:bg-slate-700/80 hover:border-emerald-400/50 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
 					aria-label="Прикрепить файл"
 				>
 					<input
@@ -1140,20 +1185,21 @@ export default function MessageInput({
 						<div
 							className='fixed z-[9999]'
 							style={{
-								bottom: '80px',
-								right: '20px',
-								width: '360px',
-								maxWidth: 'calc(100vw - 40px)',
+								bottom: typeof window !== 'undefined' && window.innerWidth < 640 ? '140px' : '80px',
+								right: typeof window !== 'undefined' && window.innerWidth < 640 ? '10px' : '20px',
+								left: typeof window !== 'undefined' && window.innerWidth < 640 ? '10px' : 'auto',
+								width: typeof window !== 'undefined' && window.innerWidth < 640 ? 'calc(100vw - 20px)' : '360px',
+								maxWidth: 'calc(100vw - 20px)',
 							}}
 							onClick={(e) => e.stopPropagation()}
 						>
 							<div className='bg-slate-800/98 border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden animate-scaleFadeIn'>
 								{/* Заголовок с кнопкой закрытия */}
-								<div className='flex items-center justify-between px-4 py-3 bg-slate-700/30 border-b border-slate-700/50'>
-									<span className='text-sm font-semibold text-gray-200'>Выберите эмодзи</span>
+								<div className='flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-slate-700/30 border-b border-slate-700/50'>
+									<span className='text-xs sm:text-sm font-semibold text-gray-200'>Выберите эмодзи</span>
 					<button
 										onClick={() => setShowEmojiPicker(false)}
-										className='w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/60 text-gray-400 hover:text-white transition-all duration-200'
+										className='w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/60 active:bg-slate-700/70 text-gray-400 hover:text-white transition-all duration-200 touch-manipulation'
 										aria-label='Закрыть'
 									>
 										<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -1162,22 +1208,24 @@ export default function MessageInput({
 					</button>
 								</div>
 								{/* Эмодзи пикер */}
-								<div className='overflow-hidden' style={{ height: '380px' }}>
-									<EmojiPicker
+								<div className='overflow-hidden' style={{ 
+									height: typeof window !== 'undefined' && window.innerWidth < 640 ? '240px' : '380px' 
+								}}>
+							<EmojiPicker
 										onEmojiClick={(emojiData) => {
 											// Определяем, где открыт пикер - для подписи или основного сообщения
 											const isCaptionMode = !!(file && filePreview && (getFileType(file) === 'image' || getFileType(file) === 'video'))
 											handleEmojiClick(emojiData, isCaptionMode)
 										}}
-										width={360}
-										height={380}
+										width={typeof window !== 'undefined' && window.innerWidth < 640 ? Math.min(360, window.innerWidth - 20) : 360}
+										height={typeof window !== 'undefined' && window.innerWidth < 640 ? 240 : 380}
 										theme={'dark' as any}
 										searchPlaceholder='Поиск...'
-										previewConfig={{ showPreview: false }}
+								previewConfig={{ showPreview: false }}
 										skinTonesDisabled={false}
-									/>
-								</div>
-							</div>
+							/>
+						</div>
+				</div>
 						</div>
 					</>,
 					document.body

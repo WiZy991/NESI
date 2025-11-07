@@ -133,7 +133,8 @@ export async function POST(
 		if (contentType.includes('application/json')) {
 			// JSON запрос с fileId (файл уже загружен)
 			const body = await req.json().catch(() => null)
-			content = body?.content || ''
+			// Убеждаемся, что content - это строка
+			content = typeof body?.content === 'string' ? body.content : (body?.content ? String(body.content) : '')
 			fileId = body?.fileId || null
 			replyToId = body?.replyToId || null
 		} else {
@@ -240,7 +241,7 @@ export async function POST(
 				content,
 				taskId,
 				senderId: user.id,
-				fileId: savedFile ? savedFile.id : null,
+				fileId: savedFile ? savedFile.id : (fileId || null), // Используем savedFile.id или переданный fileId
 			}
 
 			// Добавляем replyToId напрямую в объект (Prisma Client должен поддерживать после перегенерации)

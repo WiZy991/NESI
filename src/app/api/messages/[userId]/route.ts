@@ -128,6 +128,7 @@ export async function GET(
 			createdAt: msg.createdAt,
 			editedAt: msg.editedAt,
 			sender: msg.sender,
+			fileId: msg.file?.id || null, // Добавляем fileId для совместимости
 			fileUrl: msg.fileUrl || (msg.file ? `/api/files/${msg.file.id}` : null),
 			fileName: msg.fileName || msg.file?.filename || null,
 			fileMimetype: msg.mimeType || msg.file?.mimetype || null,

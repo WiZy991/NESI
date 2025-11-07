@@ -31,6 +31,7 @@ type Props = {
     createdAt: string
     editedAt?: string | null // Дата редактирования
     fileId?: string
+    fileUrl?: string // URL файла (может быть готовым или построенным из fileId)
     fileName?: string
     fileMimetype?: string
     replyTo?: {
@@ -75,6 +76,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [showExtendedReactions, setShowExtendedReactions] = useState(false)
   const [reactions, setReactions] = useState(message.reactions || [])
+  const [showImageModal, setShowImageModal] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
   const [reactionPickerPosition, setReactionPickerPosition] = useState({ x: 0, y: 0 })
   const menuRef = useRef<HTMLDivElement>(null)
@@ -89,12 +91,61 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
     setReactions(message.reactions || [])
   }, [message.reactions])
   
-  const fileUrl = message.fileId ? `/api/files/${message.fileId}` : null
-  const isImage = message.fileMimetype?.startsWith('image/')
-  const isVideo = message.fileMimetype?.startsWith('video/')
+  // Используем fileUrl напрямую, если он есть, иначе строим из fileId
+  const fileUrl = message.fileUrl || (message.fileId ? `/api/files/${message.fileId}` : null)
+  
+  // Определяем тип файла по MIME-типу или по расширению
+  const getFileType = () => {
+    if (message.fileMimetype) {
+      if (message.fileMimetype.startsWith('image/')) return 'image'
+      if (message.fileMimetype.startsWith('video/')) return 'video'
+    }
+    // Если MIME-тип не определен, проверяем по расширению
+    if (message.fileName) {
+      const ext = message.fileName.split('.').pop()?.toLowerCase()
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext || '')) return 'image'
+      if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'wmv', 'm4v', 'flv'].includes(ext || '')) return 'video'
+    }
+    return 'file'
+  }
+  
+  const fileType = getFileType()
+  const isImage = fileType === 'image'
+  const isVideo = fileType === 'video'
   const isOwnMessage = user?.id === message.sender.id
   const isDeleted = message.content === '[Сообщение удалено]'
   const isEdited = message.editedAt && message.editedAt !== message.createdAt
+  
+  // Закрытие модального окна по Escape
+  useEffect(() => {
+    if (!showImageModal) return
+    
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowImageModal(false)
+      }
+    }
+    
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [showImageModal])
+  
+  // Логирование для отладки файлов
+  useEffect(() => {
+    if (fileUrl || message.fileId) {
+      console.log('📎 Данные файла в сообщении:', {
+        messageId: message.id,
+        fileId: message.fileId,
+        fileUrl: message.fileUrl,
+        builtFileUrl: fileUrl,
+        fileName: message.fileName,
+        fileMimetype: message.fileMimetype,
+        fileType: fileType,
+        isImage,
+        isVideo,
+      })
+    }
+  }, [message.id, fileUrl, message.fileId, message.fileUrl, message.fileName, message.fileMimetype, fileType, isImage, isVideo])
 
   // Проверка, состоит ли сообщение только из эмодзи
   const isOnlyEmoji = (text: string): boolean => {
@@ -622,7 +673,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
         )}
       
         <div 
-          className={containsOnlyEmoji ? 'relative' : `relative px-3 py-2 sm:px-3 sm:py-2 ${getBorderRadius()} shadow-lg backdrop-blur-sm ${
+          className={containsOnlyEmoji ? 'relative' : `relative px-2.5 py-2 sm:px-3 sm:py-2 md:px-4 md:py-2.5 ${getBorderRadius()} shadow-lg backdrop-blur-sm ${
             isDeleted 
               ? 'bg-gray-800/50 border border-gray-700/30'
               : isOwnMessage 
@@ -681,11 +732,11 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                 })
               }
             }}
-            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[100] min-w-[160px] overflow-hidden animate-fadeIn"
+            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[100] min-w-[160px] sm:min-w-[180px] overflow-hidden animate-fadeIn"
             style={{
               left: `${menuPosition.x}px`,
               top: `${menuPosition.y}px`,
-              maxWidth: '90vw',
+              maxWidth: 'calc(100vw - 20px)',
               maxHeight: '90vh',
               animation: 'slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
             }}
@@ -701,7 +752,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                       onReply(message.id)
                     }
                   }}
-                  className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group"
+                  className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
                 >
                   <Reply className="w-4 h-4 group-hover:scale-110 transition-transform" />
                   <span>Ответить</span>
@@ -724,7 +775,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                       }
                       setShowReactionPicker(!showReactionPicker)
                     }}
-                    className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group"
+                    className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
                   >
                     <Smile className="w-4 h-4 group-hover:scale-110 transition-transform" />
                     <span>Реакция</span>
@@ -736,7 +787,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                       e.stopPropagation()
                       handleCopyText()
                     }}
-                    className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group"
+                    className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
                   >
                     <Copy className="w-4 h-4 group-hover:scale-110 transition-transform" />
                     <span>Копировать</span>
@@ -753,7 +804,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                         setIsEditing(true)
                         setShowMenu(false)
                       }}
-                      className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group"
+                      className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
                     >
                       <Edit className="w-4 h-4 group-hover:scale-110 transition-transform" />
                       <span>Изменить</span>
@@ -780,20 +831,37 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
         {showReactionPicker && typeof window !== 'undefined' ? createPortal(
           <div 
             ref={reactionPickerRef}
-            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl p-2 z-[101]"
-            style={{
-              left: `${reactionPickerPosition.x}px`,
-              top: `${reactionPickerPosition.y}px`,
-              transform: isOwnMessage 
-                ? 'translate(-100%, -50%)'  // Для правых сообщений - правый край пикера вплотную к левому краю меню
-                : 'translate(0, -50%)',      // Для левых сообщений - левый край пикера справа от меню
-              animation: 'scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-              transformOrigin: isOwnMessage ? 'right center' : 'left center'
-            }}
+            className={`fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[101] ${
+              typeof window !== 'undefined' && window.innerWidth < 640 
+                ? 'p-3 bottom-20 left-1/2 -translate-x-1/2' 
+                : 'p-2'
+            }`}
+            style={
+              typeof window !== 'undefined' && window.innerWidth < 640
+                ? {
+                    animation: 'scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    maxWidth: 'calc(100vw - 40px)',
+                    width: 'auto',
+                    minWidth: '280px',
+                  }
+                : {
+                    left: `${reactionPickerPosition.x}px`,
+                    top: `${reactionPickerPosition.y}px`,
+                    transform: isOwnMessage 
+                      ? 'translate(-100%, -50%)'  // Для правых сообщений - правый край пикера вплотную к левому краю меню
+                      : 'translate(0, -50%)',      // Для левых сообщений - левый край пикера справа от меню
+                    animation: 'scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    transformOrigin: isOwnMessage ? 'right center' : 'left center'
+                  }
+            }
             onClick={(e) => e.stopPropagation()}
           >
             {/* Основные эмодзи в одну линию */}
-            <div className="flex gap-1 flex-wrap max-w-[280px]">
+            <div className={`flex gap-2 sm:gap-1.5 md:gap-1 flex-wrap ${
+              typeof window !== 'undefined' && window.innerWidth < 640 
+                ? 'max-w-full justify-center' 
+                : 'max-w-[280px] sm:max-w-[320px]'
+            }`}>
               {primaryEmojis.map(emoji => (
                 <button
                   key={emoji}
@@ -803,7 +871,11 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                     setShowReactionPicker(false)
                     setShowMenu(false)
                   }}
-                  className="w-9 h-9 rounded-full hover:bg-gray-700/50 flex items-center justify-center text-xl transition-all hover:scale-125 active:scale-95"
+                  className={`${
+                    typeof window !== 'undefined' && window.innerWidth < 640
+                      ? 'w-12 h-12 text-2xl'
+                      : 'w-10 h-10 sm:w-9 sm:h-9 text-xl'
+                  } rounded-full hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center transition-all hover:scale-125 active:scale-95 touch-manipulation`}
                 >
                   {emoji}
                 </button>
@@ -815,11 +887,17 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                   e.stopPropagation()
                   setShowExtendedReactions(!showExtendedReactions)
                 }}
-                className={`w-9 h-9 rounded-full hover:bg-gray-700/50 flex items-center justify-center text-lg transition-all hover:scale-125 active:scale-95 ${
+                className={`${
+                  typeof window !== 'undefined' && window.innerWidth < 640
+                    ? 'w-12 h-12'
+                    : 'w-9 h-9'
+                } rounded-full hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center text-lg transition-all hover:scale-125 active:scale-95 touch-manipulation ${
                   showExtendedReactions ? 'bg-gray-700/30' : ''
                 }`}
               >
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${
+                <ChevronDown className={`${
+                  typeof window !== 'undefined' && window.innerWidth < 640 ? 'w-5 h-5' : 'w-4 h-4'
+                } text-gray-400 transition-transform duration-300 ${
                   showExtendedReactions ? 'rotate-180' : ''
                 }`} />
               </button>
@@ -831,7 +909,11 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                 showExtendedReactions ? 'max-h-96 opacity-100 mt-2' : 'max-h-0 opacity-0'
               }`}
             >
-              <div className="flex gap-1 flex-wrap max-w-[280px] pt-2 border-t border-gray-700/50">
+              <div className={`flex gap-2 sm:gap-1 flex-wrap ${
+                typeof window !== 'undefined' && window.innerWidth < 640 
+                  ? 'max-w-full justify-center' 
+                  : 'max-w-[280px]'
+              } pt-2 border-t border-gray-700/50`}>
                 {extendedEmojis.map((emoji, index) => (
                   <button
                     key={emoji}
@@ -842,7 +924,11 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                       setShowMenu(false)
                       setShowExtendedReactions(false)
                     }}
-                    className={`w-9 h-9 rounded-full hover:bg-gray-700/50 flex items-center justify-center text-xl transition-all hover:scale-125 active:scale-95 ${
+                    className={`${
+                      typeof window !== 'undefined' && window.innerWidth < 640
+                        ? 'w-12 h-12 text-2xl'
+                        : 'w-9 h-9 text-xl'
+                    } rounded-full hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center transition-all hover:scale-125 active:scale-95 touch-manipulation ${
                       showExtendedReactions ? 'animate-fadeIn' : ''
                     }`}
                     style={
@@ -871,9 +957,10 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
             <textarea
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
-              className="w-full bg-gray-900/50 text-white px-3 py-2 rounded-lg border border-emerald-400/50 focus:border-emerald-400 focus:outline-none text-sm resize-none transition-all duration-200"
+              className="w-full bg-gray-900/50 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-emerald-400/50 focus:border-emerald-400 focus:outline-none text-sm resize-none transition-all duration-200"
               autoFocus
-              rows={3}
+              rows={2}
+              style={{ minHeight: '60px', maxHeight: '120px' }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -961,19 +1048,87 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
             {fileUrl && !isDeleted && (
               <div className={message.content ? 'mb-2' : ''}>
                 {isImage ? (
-                  <a
-                    href={fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded-lg overflow-hidden group"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <img
-                      src={fileUrl}
-                      alt={message.fileName || 'Изображение'}
-                      className="max-w-full max-h-80 rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02] cursor-pointer"
-                    />
-                  </a>
+                  <>
+                    <div
+                      className="relative block rounded-lg overflow-hidden group cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowImageModal(true)
+                      }}
+                    >
+                      <img
+                        src={fileUrl}
+                        alt={message.fileName || 'Изображение'}
+                        className="max-w-full max-h-64 sm:max-h-80 rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+                        onError={(e) => {
+                          // Если изображение не загружается, показываем как файл
+                          console.error('Ошибка загрузки изображения:', fileUrl)
+                        }}
+                      />
+                      {/* Кнопка скачивания - появляется при наведении */}
+                      <a
+                        href={`${fileUrl}?download=true`}
+                        download={message.fileName}
+                        className="absolute top-3 right-3 p-2.5 bg-black/70 hover:bg-black/90 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-30 backdrop-blur-sm"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Скачать изображение"
+                      >
+                        <Download className="w-4 h-4 text-white" />
+                      </a>
+                    </div>
+                    {/* Модальное окно для просмотра изображения */}
+                    {showImageModal && typeof window !== 'undefined' && createPortal(
+                      <div
+                        className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+                        style={{
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          zIndex: 99999 // z-index выше хедера (10002) для отображения поверх него
+                        }}
+                        onClick={() => setShowImageModal(false)}
+                      >
+                        {/* Кнопка закрытия */}
+                        <button
+                          onClick={() => setShowImageModal(false)}
+                          className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors"
+                          aria-label="Закрыть"
+                        >
+                          <X className="w-6 h-6" />
+                        </button>
+                        {/* Кнопка скачивания в модальном окне */}
+                        <a
+                          href={`${fileUrl}?download=true`}
+                          download={message.fileName}
+                          className="absolute top-4 right-16 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors"
+                          title="Скачать изображение"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Download className="w-5 h-5" />
+                        </a>
+                        {/* Изображение */}
+                        <div
+                          className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <img
+                            src={fileUrl}
+                            alt={message.fileName || 'Изображение'}
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                          />
+                        </div>
+                        {/* Название файла внизу */}
+                        {message.fileName && (
+                          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-black/70 backdrop-blur-sm rounded-lg">
+                            <p className="text-sm text-white/90 font-medium">{message.fileName}</p>
+                          </div>
+                        )}
+                      </div>,
+                      document.body
+                    )}
+                  </>
                 ) : isVideo ? (
                   <div 
                     className="max-w-full rounded-lg overflow-hidden relative group bg-black/20"

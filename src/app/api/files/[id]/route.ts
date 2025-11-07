@@ -122,9 +122,15 @@ export async function GET(
       inTask,
       inPortfolio,
     ] = await Promise.all([
-      // Файл в сообщениях задач
+      // Файл в сообщениях задач - проверяем через fileId и fileUrl
       prisma.message.findFirst({
-        where: { fileId: id },
+        where: {
+          OR: [
+            { fileId: id },
+            { fileUrl: { contains: id } },
+            { fileUrl: { contains: `/api/files/${id}` } },
+          ],
+        },
         include: {
           task: {
             select: {
@@ -134,9 +140,15 @@ export async function GET(
           },
         },
       }),
-      // Файл в приватных сообщениях
+      // Файл в приватных сообщениях - проверяем через fileId и fileUrl
       prisma.privateMessage.findFirst({
-        where: { fileId: id },
+        where: {
+          OR: [
+            { fileId: id },
+            { fileUrl: { contains: id } },
+            { fileUrl: { contains: `/api/files/${id}` } },
+          ],
+        },
         select: {
           senderId: true,
           recipientId: true,
@@ -201,6 +213,9 @@ export async function GET(
     // Если бинарь хранится в базе
     if (file.data) {
       const buffer = file.data as Buffer
+      
+      // Определяем типы файлов один раз
+      const isImage = file.mimetype?.startsWith('image/')
       const isVideo = file.mimetype?.startsWith('video/')
       
       // Поддержка Range requests для видео (необходимо для потоковой загрузки)
@@ -224,16 +239,26 @@ export async function GET(
         })
       }
       
-      return new NextResponse(buffer, {
-        headers: {
-          "Content-Type": file.mimetype || "application/octet-stream",
-          "Content-Length": buffer.length.toString(),
-          "Accept-Ranges": "bytes", // Поддержка range requests
-          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
-            file.filename
-          )}`,
-        },
-      });
+      // Проверяем, нужно ли принудительное скачивание (параметр ?download=true)
+      const url = new URL(req.url)
+      const forceDownload = url.searchParams.get('download') === 'true'
+      const headers: Record<string, string> = {
+        "Content-Type": file.mimetype || "application/octet-stream",
+        "Content-Length": buffer.length.toString(),
+        "Accept-Ranges": "bytes", // Поддержка range requests
+        "Cache-Control": "public, max-age=31536000", // Кешируем файлы
+      }
+      
+      // Используем attachment для скачивания, если:
+      // 1. Это не изображение и не видео (документы и т.д.)
+      // 2. Или запрошено принудительное скачивание (параметр ?download=true)
+      if ((!isImage && !isVideo) || forceDownload) {
+        headers["Content-Disposition"] = `attachment; filename*=UTF-8''${encodeURIComponent(
+          file.filename
+        )}`
+      }
+      
+      return new NextResponse(buffer, { headers });
     }
 
     

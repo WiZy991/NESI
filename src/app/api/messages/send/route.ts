@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
 		let recipientId: string | undefined
 		let content = ''
 
+		let fileId: string | null = null
 		let fileUrl: string | null = null
 		let fileName: string | null = null
 		let mimeType: string | null = null
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
 					},
 				})
 
+				fileId = created.id // Сохраняем fileId для связи с сообщением
 				fileUrl = `/api/files/${created.id}`
 				fileName = created.filename
 				mimeType = created.mimetype
@@ -100,7 +102,8 @@ export async function POST(req: NextRequest) {
 		} else if (ct.includes('application/json')) {
 			const body = await req.json().catch(() => null)
 			recipientId = body?.recipientId
-			content = body?.content ?? ''
+			// Убеждаемся, что content - это строка
+			content = typeof body?.content === 'string' ? body.content : (body?.content ? String(body.content) : '')
 			replyToId = body?.replyToId || null
 			
 			// Поддержка fileId для уже загруженных файлов
@@ -109,6 +112,7 @@ export async function POST(req: NextRequest) {
 					where: { id: body.fileId },
 				})
 				if (existingFile) {
+					fileId = existingFile.id // Сохраняем fileId для связи с сообщением
 					fileUrl = `/api/files/${existingFile.id}`
 					fileName = existingFile.filename
 					mimeType = existingFile.mimetype
@@ -136,17 +140,31 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Валидация и санитизация контента
+		// Если есть файл, content может быть пустой строкой - это нормально
 		const maxContentLength = 10000 // 10KB
-		const contentValidation = validateStringLength(content, maxContentLength, 'Сообщение')
-		if (!contentValidation.valid) {
+		
+		// Проверяем только если content не пустой и не является строкой
+		if (content && typeof content !== 'string') {
 			return NextResponse.json(
-				{ error: contentValidation.error },
+				{ error: 'Сообщение должен быть строкой' },
 				{ status: 400 }
 			)
 		}
+		
+		// Валидируем длину только если content не пустой (для файлов content может быть пустым)
+		if (content && content.trim().length > 0) {
+			const contentValidation = validateStringLength(content, maxContentLength, 'Сообщение')
+			if (!contentValidation.valid) {
+				return NextResponse.json(
+					{ error: contentValidation.error },
+					{ status: 400 }
+				)
+			}
+		}
 
 		// Санитизация контента (удаление потенциально опасного HTML)
-		const sanitizedContent = sanitizeText(content)
+		// Если content пустой (для файлов без подписи), просто используем пустую строку
+		const sanitizedContent = content && content.trim().length > 0 ? sanitizeText(content) : ''
 
 		// Валидация replyToId - если указан, проверяем что сообщение существует и принадлежит тому же диалогу
 		if (replyToId) {
@@ -194,6 +212,11 @@ export async function POST(req: NextRequest) {
 				fileName,
 				mimeType,
 				size,
+			}
+
+			// Добавляем fileId если файл был загружен
+			if (fileId) {
+				messageData.fileId = fileId
 			}
 
 			// Добавляем replyToId только если он валиден
@@ -364,6 +387,7 @@ export async function POST(req: NextRequest) {
 			createdAt: msg.createdAt,
 			editedAt: msg.editedAt,
 			sender: msg.sender,
+			fileId: msg.file?.id || null, // Добавляем fileId для корректного отображения
 			fileUrl: msg.fileUrl || (msg.file ? `/api/files/${msg.file.id}` : null),
 			fileName: msg.fileName || msg.file?.filename || null,
 			fileMimetype: msg.mimeType || msg.file?.mimetype || null,

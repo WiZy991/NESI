@@ -9,7 +9,7 @@ import {
 	Star,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { ToastContainer } from './ToastNotification'
 import { NotificationPolling } from './NotificationPolling'
@@ -44,6 +44,7 @@ let globalSetMenuOpen: ((value: boolean | ((prev: boolean) => boolean)) => void)
 export default function Header() {
 	const { user, token, logout, unreadCount, setUnreadCount } = useUser()
 	const router = useRouter()
+	const pathname = usePathname()
 	const [menuOpen, setMenuOpen] = useState(false)
 	const [achievementBadge, setAchievementBadge] = useState<{
 		id: string
@@ -76,6 +77,13 @@ export default function Header() {
 	const [usePolling, setUsePolling] = useState(false)
 	const [toastNotifications, setToastNotifications] = useState<any[]>([])
 	const [onlineCount, setOnlineCount] = useState<number | null>(null)
+	
+	// Отслеживаем открытый чат через события от страницы чатов
+	const [currentChatInfo, setCurrentChatInfo] = useState<{
+		chatType?: string
+		chatId?: string
+	} | null>(null)
+	
 	const menuRef = useRef<HTMLDivElement | null>(null)
 	const notifRef = useRef<HTMLDivElement | null>(null)
 	const mobileMenuRef = useRef<HTMLDivElement | null>(null)
@@ -314,6 +322,28 @@ export default function Header() {
 			}
 		}
 	}, [user, token])
+	
+	// Отслеживаем открытый чат через события от страницы чатов
+	useEffect(() => {
+		const handleChatOpened = (e: CustomEvent) => {
+			const { chatType, chatId } = e.detail
+			setCurrentChatInfo({ chatType, chatId })
+			console.log('📱 Чат открыт:', chatType, chatId)
+		}
+		
+		const handleChatClosed = () => {
+			setCurrentChatInfo(null)
+			console.log('📱 Чат закрыт')
+		}
+		
+		window.addEventListener('chatOpened', handleChatOpened as EventListener)
+		window.addEventListener('chatClosed', handleChatClosed)
+		
+		return () => {
+			window.removeEventListener('chatOpened', handleChatOpened as EventListener)
+			window.removeEventListener('chatClosed', handleChatClosed)
+		}
+	}, [])
 
 	// Функция показа уведомлений (вынесена до useEffect чтобы использовать в NotificationPolling)
 	const showNotification = useCallback((data: any) => {
@@ -340,6 +370,27 @@ export default function Header() {
 		if (shownNotificationsRef.current.size > 100) {
 			const firstKey = shownNotificationsRef.current.values().next().value
 			shownNotificationsRef.current.delete(firstKey)
+		}
+		
+		// Проверяем, находится ли пользователь в чате и это сообщение для открытого чата
+		const isInChatsPage = pathname === '/chats'
+		const isMessageNotification = data.type === 'message'
+		let isCurrentChatNotification = false
+		
+		if (isMessageNotification && currentChatInfo && data.chatType && data.senderId) {
+			// Проверяем, соответствует ли уведомление открытому чату
+			if (data.chatType === 'private' && currentChatInfo.chatType === 'private') {
+				isCurrentChatNotification = data.senderId === currentChatInfo.chatId
+			} else if (data.chatType === 'task' && currentChatInfo.chatType === 'task') {
+				const taskId = data.chatId?.replace('task_', '') || data.link?.match(/\/tasks\/([^\/]+)/)?.[1]
+				isCurrentChatNotification = taskId === currentChatInfo.chatId
+			}
+		}
+		
+		// Если пользователь в чате и это уведомление для открытого чата - не показываем toast и не увеличиваем счетчик
+		if (isInChatsPage && isCurrentChatNotification) {
+			console.log('⏭️ Пользователь в открытом чате, пропускаем уведомление')
+			return
 		}
 		
 		if (data.playSound) {
@@ -443,7 +494,7 @@ export default function Header() {
 				return newNotifications
 			})
 		}
-	}, [])
+	}, [pathname, currentChatInfo, setUnreadCount])
 
 	// Загрузка количества непрочитанных сообщений и SSE
 	useEffect(() => {

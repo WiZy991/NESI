@@ -26,6 +26,7 @@ export default function WelcomeOnboarding() {
   const overlayRef = useRef<HTMLDivElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
+  const onboardingTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Определяем высоту хедера для выреза в overlay
   useEffect(() => {
@@ -92,9 +93,7 @@ export default function WelcomeOnboarding() {
         const authToken = token || (typeof window !== 'undefined' ? (localStorage.getItem('token') || document.cookie.match(/token=([^;]+)/)?.[1] || '') : '')
         if (!authToken) {
           // Если токена нет, не показываем онбординг
-          return () => {
-            window.removeEventListener('restart-onboarding', handleRestartOnboarding)
-          }
+          return
         }
         
         const res = await fetch('/api/profile', {
@@ -111,9 +110,7 @@ export default function WelcomeOnboarding() {
             if (hoursSinceCreation > 24) {
               // Старый пользователь - сохраняем флаг, чтобы не показывать онбординг
               localStorage.setItem(onboardingKey, 'true')
-              return () => {
-                window.removeEventListener('restart-onboarding', handleRestartOnboarding)
-              }
+              return
             }
           }
         }
@@ -121,26 +118,28 @@ export default function WelcomeOnboarding() {
         console.error('Ошибка проверки возраста пользователя:', err)
         // При ошибке тоже не показываем онбординг
         localStorage.setItem(onboardingKey, 'true')
-        return () => {
-          window.removeEventListener('restart-onboarding', handleRestartOnboarding)
-        }
+        return
       }
       
       // Показываем онбординг только новым пользователям
       // Небольшая задержка перед показом
-      const timer = setTimeout(() => {
+      onboardingTimerRef.current = setTimeout(() => {
         setShowWelcomeModal(true)
       }, 1500)
-      
-      return () => {
-        clearTimeout(timer)
-        window.removeEventListener('restart-onboarding', handleRestartOnboarding)
-      }
     }
     
-    const cleanup = checkUserAge()
-    return cleanup
-  }, [user, loading, pathname])
+    // Вызываем async функцию
+    checkUserAge()
+    
+    // Возвращаем функцию очистки
+    return () => {
+      if (onboardingTimerRef.current) {
+        clearTimeout(onboardingTimerRef.current)
+        onboardingTimerRef.current = null
+      }
+      window.removeEventListener('restart-onboarding', handleRestartOnboarding)
+    }
+  }, [user, loading, pathname, token])
 
   // Получаем шаги онбординга
   const getSteps = (): OnboardingStep[] => {

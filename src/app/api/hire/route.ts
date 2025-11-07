@@ -1,9 +1,25 @@
 // src/app/api/hire/route.ts
-import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
-import { getUserFromRequest } from '@/lib/auth'
+import { getUserFromRequest, hashPassword } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { Decimal } from '@prisma/client/runtime/library'
+
+// Динамический импорт для избежания проблем при импорте модуля
+let sendNotificationToUser: ((userId: string, notification: any) => boolean) | null = null
+
+// Функция для безопасной отправки уведомлений
+async function safeSendNotification(userId: string, notification: any) {
+	try {
+		if (!sendNotificationToUser) {
+			const module = await import('@/app/api/notifications/stream/route')
+			sendNotificationToUser = module.sendNotificationToUser
+		}
+		return sendNotificationToUser(userId, notification)
+	} catch (error) {
+		console.warn('⚠️ Не удалось импортировать или вызвать sendNotificationToUser:', error)
+		return false
+	}
+}
 
 const HIRE_COST = 1990
 
@@ -54,30 +70,75 @@ export async function GET(req: NextRequest) {
 			} else {
 				return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 })
 			}
-		} catch (e) {
-			console.error('❌ /api/hire GET error:', e)
+		} catch (e: any) {
+			console.error('❌ /api/hire GET error (inner):', e)
+			
+			const isSchemaError = 
+				e?.name === 'DatabaseSchemaError' ||
+				e?.code === 'P2021' ||
+				e?.message?.includes('does not exist')
+			
+			const isConnectionError = 
+				e?.name === 'DatabaseConnectionError' ||
+				e?.code === 'P1017' ||
+				e?.code === 'P1001'
+			
+			if (isSchemaError || isConnectionError) {
+				return NextResponse.json(
+					{ error: 'Ошибка базы данных. Пожалуйста, попробуйте позже.' },
+					{ status: 503 }
+				)
+			}
+			
 			return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 		}
-	} catch (err) {
-		console.error('Ошибка /api/hire GET:', err)
+	} catch (err: any) {
+		console.error('❌ Ошибка /api/hire GET (outer):', err)
+		
+		const isSchemaError = 
+			err?.name === 'DatabaseSchemaError' ||
+			err?.code === 'P2021' ||
+			err?.message?.includes('does not exist')
+		
+		const isConnectionError = 
+			err?.name === 'DatabaseConnectionError' ||
+			err?.code === 'P1017' ||
+			err?.code === 'P1001'
+		
+		if (isSchemaError || isConnectionError) {
+			return NextResponse.json(
+				{ error: 'Ошибка базы данных. Пожалуйста, попробуйте позже.' },
+				{ status: 503 }
+			)
+		}
+		
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }
 
 export async function POST(req: NextRequest) {
 	try {
+		console.log('📥 POST /api/hire: начало обработки запроса')
 		const me = await getUserFromRequest(req)
 		if (!me) {
 			console.warn('/api/hire: пользователь не найден по токену')
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
+		console.log('✅ Пользователь авторизован:', me.id, me.role)
 
 		if (me.role !== 'customer') {
 			console.warn(`/api/hire: роль не customer (role=${me.role})`)
 			return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
 		}
 
-		const body = await req.json().catch(() => null)
+		let body
+		try {
+			body = await req.json()
+			console.log('✅ Тело запроса получено:', { executorId: body?.executorId, messageLength: body?.message?.length })
+		} catch (e) {
+			console.error('❌ Ошибка парсинга JSON:', e)
+			body = null
+		}
 		const executorId = body?.executorId as string | undefined
 		const message = body?.message as string | undefined
 
@@ -103,10 +164,18 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Проверяем баланс заказчика
-		const customer = await prisma.user.findUnique({
-			where: { id: me.id },
-			select: { balance: true, fullName: true, email: true },
-		})
+		console.log('💳 Проверка баланса заказчика:', me.id)
+		let customer
+		try {
+			customer = await prisma.user.findUnique({
+				where: { id: me.id },
+				select: { balance: true, fullName: true, email: true },
+			})
+			console.log('✅ Баланс заказчика:', customer?.balance)
+		} catch (dbError: any) {
+			console.error('❌ Ошибка при получении данных заказчика:', dbError)
+			throw dbError
+		}
 
 		if (!customer) {
 			return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
@@ -127,10 +196,17 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Проверяем, что исполнитель существует
-		const executor = await prisma.user.findUnique({
-			where: { id: executorId },
-			select: { id: true, role: true, fullName: true, email: true },
-		})
+		console.log('👤 Проверка исполнителя:', executorId)
+		let executor
+		try {
+			executor = await prisma.user.findUnique({
+				where: { id: executorId },
+				select: { id: true, role: true, fullName: true, email: true },
+			})
+		} catch (dbError: any) {
+			console.error('❌ Ошибка при получении данных исполнителя:', dbError)
+			throw dbError
+		}
 
 		if (!executor || executor.role !== 'executor') {
 			return NextResponse.json(
@@ -140,14 +216,22 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Проверяем существующий запрос
-		const existing = await prisma.hireRequest.findFirst({
-			where: {
-				customerId: me.id,
-				executorId,
-				status: { in: ['pending', 'accepted'] },
-			},
-			select: { id: true, status: true, createdAt: true },
-		})
+		console.log('🔍 Проверка существующего запроса найма')
+		let existing
+		try {
+			existing = await prisma.hireRequest.findFirst({
+				where: {
+					customerId: me.id,
+					executorId,
+					status: { in: ['pending', 'accepted'] },
+				},
+				select: { id: true, status: true, createdAt: true },
+			})
+		} catch (dbError: any) {
+			console.error('❌ Ошибка при проверке существующего запроса:', dbError)
+			// Если таблица не существует, это будет обработано в общем catch
+			throw dbError
+		}
 
 		if (existing) {
 			return NextResponse.json(
@@ -165,98 +249,148 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
-		// Находим владельца платформы (админ)
-		const platformOwner = await prisma.user.findFirst({
-			where: { role: 'admin' },
-			select: { id: true },
-			orderBy: { createdAt: 'asc' },
-		})
-
-		if (!platformOwner) {
-			console.error('Не найден владелец платформы (admin)')
-			return NextResponse.json({ error: 'Системная ошибка' }, { status: 500 })
+		// Находим владельца платформы (админ) или создаём его
+		console.log('👑 Поиск владельца платформы (admin)')
+		let platformOwner
+		try {
+			platformOwner = await prisma.user.findFirst({
+				where: { role: 'admin' },
+				select: { id: true },
+				orderBy: { createdAt: 'asc' },
+			})
+			
+			// Если админа нет, создаём его автоматически
+			if (!platformOwner) {
+				console.log('⚠️ Админ не найден, создаём системного администратора')
+				// Создаём хеш пароля для системного аккаунта (пароль не будет использоваться)
+				const systemPassword = await hashPassword(`system_admin_${Date.now()}_${Math.random()}`)
+				platformOwner = await prisma.user.create({
+					data: {
+						email: 'admin@nesi.platform',
+						fullName: 'Системный администратор',
+						role: 'admin',
+						verified: true,
+						balance: 0,
+						password: systemPassword,
+					},
+					select: { id: true },
+				})
+				console.log('✅ Системный администратор создан:', platformOwner.id)
+			}
+		} catch (dbError: any) {
+			console.error('❌ Ошибка при поиске/создании владельца платформы:', dbError)
+			throw dbError
 		}
 
 		// Транзакция: создаём запрос, списываем средства, отправляем владельцу
-		const hire = await prisma.$transaction(async (tx) => {
-			// 1. Создаём запрос на найм
-			const hireRequest = await tx.hireRequest.create({
-				data: {
-					customerId: me.id,
-					executorId,
-					message,
-					amount: hireCost,
-					paid: true,
-					status: 'pending',
-				},
-			})
-
-			// 2. Списываем средства с заказчика
-			await tx.user.update({
-				where: { id: me.id },
-				data: {
-					balance: {
-						decrement: hireCost,
+		console.log('💰 Начало транзакции найма')
+		let hire
+		try {
+			hire = await prisma.$transaction(async (tx) => {
+				// 1. Создаём запрос на найм
+				const hireRequest = await tx.hireRequest.create({
+					data: {
+						customerId: me.id,
+						executorId,
+						message,
+						amount: hireCost,
+						paid: true,
+						status: 'pending',
 					},
-				},
-			})
+				})
 
-			// 3. Добавляем средства владельцу платформы
-			await tx.user.update({
-				where: { id: platformOwner.id },
-				data: {
-					balance: {
-						increment: hireCost,
+				// 2. Списываем средства с заказчика
+				await tx.user.update({
+					where: { id: me.id },
+					data: {
+						balance: {
+							decrement: hireCost,
+						},
 					},
-				},
-			})
+				})
 
-			// 4. Создаём транзакцию
-			await tx.transaction.create({
-				data: {
-					userId: me.id,
-					amount: hireCost,
-					type: 'expense',
-					reason: `Оплата запроса найма исполнителя`,
-					status: 'completed',
-				},
-			})
+				// 3. Добавляем средства владельцу платформы
+				await tx.user.update({
+					where: { id: platformOwner.id },
+					data: {
+						balance: {
+							increment: hireCost,
+						},
+					},
+				})
 
-			// 5. Создаём транзакцию для владельца
-			await tx.transaction.create({
-				data: {
-					userId: platformOwner.id,
-					amount: hireCost,
-					type: 'income',
-					reason: `Оплата найма исполнителя`,
-					status: 'completed',
-				},
-			})
+				// 4. Создаём транзакцию
+				await tx.transaction.create({
+					data: {
+						userId: me.id,
+						amount: hireCost,
+						type: 'expense',
+						reason: `Оплата запроса найма исполнителя`,
+						status: 'completed',
+					},
+				})
 
-			return hireRequest
-		})
+				// 5. Создаём транзакцию для владельца
+				await tx.transaction.create({
+					data: {
+						userId: platformOwner.id,
+						amount: hireCost,
+						type: 'income',
+						reason: `Оплата найма исполнителя`,
+						status: 'completed',
+					},
+				})
+
+				return hireRequest
+			})
+			console.log('✅ Транзакция завершена, hireId:', hire.id)
+		} catch (txError: any) {
+			console.error('❌ Ошибка в транзакции найма:', txError)
+			console.error('❌ Детали ошибки транзакции:', {
+				name: txError?.name,
+				message: txError?.message,
+				code: txError?.code,
+				meta: txError?.meta,
+			})
+			throw txError
+		}
 
 		// Создаём приватное сообщение исполнителю
-		await prisma.privateMessage.create({
-			data: {
-				senderId: me.id,
-				recipientId: executorId,
-				content: `Здравствуйте! Я хочу пригласить вас к сотрудничеству.\n\n${message}`,
-			},
-		})
+		console.log('💬 Создание приватного сообщения')
+		try {
+			await prisma.privateMessage.create({
+				data: {
+					senderId: me.id,
+					recipientId: executorId,
+					content: `Здравствуйте! Я хочу пригласить вас к сотрудничеству.\n\n${message}`,
+				},
+			})
+			console.log('✅ Приватное сообщение создано')
+		} catch (msgError: any) {
+			console.error('❌ Ошибка при создании приватного сообщения:', msgError)
+			// Это не критично, продолжаем
+		}
 
 		// Создаём уведомление исполнителю
-		await prisma.notification.create({
-			data: {
-				userId: executorId,
-				type: 'hire_request',
-				message: `Заказчик ${customer.fullName || customer.email} хочет нанять вас. Проверьте чат!`,
-				link: `/chats?open=${me.id}`,
-			},
-		})
+		console.log('🔔 Создание уведомления в БД')
+		try {
+			await prisma.notification.create({
+				data: {
+					userId: executorId,
+					type: 'hire_request',
+					message: `Заказчик ${customer.fullName || customer.email} хочет нанять вас. Проверьте чат!`,
+					link: `/chats?open=${me.id}`,
+				},
+			})
+			console.log('✅ Уведомление создано')
+		} catch (notifError: any) {
+			console.error('❌ Ошибка при создании уведомления:', notifError)
+			// Это не критично, продолжаем
+		}
 
 		// Отправляем уведомление в реальном времени
-		sendNotificationToUser(executorId, {
+		console.log('📤 Отправка уведомления через SSE')
+		await safeSendNotification(executorId, {
 			type: 'hire',
 			title: 'Запрос найма',
 			message: `Заказчик ${customer.fullName || customer.email} хочет нанять вас`,
@@ -270,8 +404,49 @@ export async function POST(req: NextRequest) {
 			{ ok: true, already: false, hireId: hire.id, status: hire.status },
 			{ status: 201 }
 		)
-	} catch (err) {
-		console.error('Ошибка /api/hire:', err)
-		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+	} catch (err: any) {
+		console.error('❌ Ошибка /api/hire POST:', err)
+		console.error('❌ Stack trace:', err?.stack)
+		console.error('❌ Error details:', {
+			name: err?.name,
+			message: err?.message,
+			code: err?.code,
+			meta: err?.meta,
+		})
+		
+		// Проверяем, является ли это ошибкой схемы БД
+		const isSchemaError = 
+			err?.name === 'DatabaseSchemaError' ||
+			err?.code === 'P2021' ||
+			err?.message?.includes('does not exist')
+		
+		const isConnectionError = 
+			err?.name === 'DatabaseConnectionError' ||
+			err?.code === 'P1017' ||
+			err?.code === 'P1001'
+		
+		if (isSchemaError) {
+			return NextResponse.json(
+				{ error: 'Ошибка схемы базы данных. Пожалуйста, обратитесь к администратору.' },
+				{ status: 503 }
+			)
+		}
+		
+		if (isConnectionError) {
+			return NextResponse.json(
+				{ error: 'Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.' },
+				{ status: 503 }
+			)
+		}
+		
+		// Для других ошибок возвращаем общее сообщение
+		return NextResponse.json(
+			{ 
+				error: 'Ошибка сервера', 
+				details: process.env.NODE_ENV === 'development' ? err?.message : undefined,
+				stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined,
+			},
+			{ status: 500 }
+		)
 	}
 }

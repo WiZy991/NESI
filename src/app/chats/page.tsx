@@ -352,6 +352,73 @@ function ChatsPageContent() {
 										return chat
 									})
 								)
+								
+								// Если пользователь находится в этом чате, помечаем уведомления как прочитанные
+								// и обновляем счетчик уведомлений
+								if (data.messageId && token) {
+									// Помечаем уведомления связанные с этим сообщением как прочитанные
+									fetch('/api/notifications/read', {
+										method: 'POST',
+										headers: {
+											'Content-Type': 'application/json',
+											Authorization: `Bearer ${token}`,
+										},
+										body: JSON.stringify({
+											messageId: data.messageId,
+											chatType: data.chatType,
+											chatId: data.chatId,
+										}),
+									})
+										.then(() => {
+											// Обновляем счетчик непрочитанных уведомлений после пометки как прочитанных
+											return fetch('/api/notifications/unread-count', {
+												headers: {
+													Authorization: `Bearer ${token}`,
+												},
+											})
+										})
+										.then(res => res.json())
+										.then(unreadData => {
+											if (unreadData.count !== undefined) {
+												setUnreadCount(unreadData.count)
+											}
+										})
+										.catch(err => {
+											console.error('Ошибка обработки уведомлений:', err)
+										})
+								}
+								
+								// Автоматически прокручиваем вниз при новом сообщении в открытом чате (плавно)
+								setTimeout(() => {
+									const container = messagesContainerRef.current
+									if (container) {
+										// Плавная прокрутка до самого низа
+										const targetScrollTop = container.scrollHeight - container.clientHeight
+										const startScrollTop = container.scrollTop
+										const distance = targetScrollTop - startScrollTop
+										const duration = 300 // Длительность анимации в мс
+										const startTime = Date.now()
+										
+										const animateScroll = () => {
+											const elapsed = Date.now() - startTime
+											const progress = Math.min(elapsed / duration, 1)
+											// Используем easing функцию для плавности
+											const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+											const currentScrollTop = startScrollTop + (distance * easeOutCubic)
+											
+											container.scrollTop = currentScrollTop
+											
+											if (progress < 1) {
+												requestAnimationFrame(animateScroll)
+											} else {
+												// Финальная проверка - убеждаемся что прокрутили до самого низа
+												container.scrollTop = container.scrollHeight
+											}
+										}
+										
+										requestAnimationFrame(animateScroll)
+									}
+								}, 100)
 							}
 						}
 
@@ -507,6 +574,38 @@ function ChatsPageContent() {
 						}
 					}
 					setMessages(messagesData)
+					
+					// Прокручиваем вниз после загрузки сообщений (плавно)
+					setTimeout(() => {
+						const container = messagesContainerRef.current
+						if (container) {
+							// Плавная прокрутка до самого низа
+							const targetScrollTop = container.scrollHeight - container.clientHeight
+							const startScrollTop = container.scrollTop
+							const distance = targetScrollTop - startScrollTop
+							const duration = 400 // Длительность анимации в мс
+							const startTime = Date.now()
+							
+							const animateScroll = () => {
+								const elapsed = Date.now() - startTime
+								const progress = Math.min(elapsed / duration, 1)
+								// Используем easing функцию для плавности
+								const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+								const currentScrollTop = startScrollTop + (distance * easeOutCubic)
+								
+								container.scrollTop = currentScrollTop
+								
+								if (progress < 1) {
+									requestAnimationFrame(animateScroll)
+								} else {
+									// Финальная проверка - убеждаемся что прокрутили до самого низа
+									container.scrollTop = container.scrollHeight
+								}
+							}
+							
+							requestAnimationFrame(animateScroll)
+						}
+					}, 200)
 				} else {
 					// Если это ошибка, но есть данные, все равно пытаемся их использовать
 					if (data && typeof data === 'object' && (data.messages || Array.isArray(data))) {
@@ -557,15 +656,53 @@ function ChatsPageContent() {
 			return
 		}
 		
-		if (messages.length > 0 && messagesEndRef.current && !messagesLoading && !isMessageSearchOpen) {
+		if (messages.length > 0 && !messagesLoading && !isMessageSearchOpen) {
 			console.log('📜 Автоскролл к последнему сообщению')
-			// Используем setTimeout чтобы дать время на рендер
-			setTimeout(() => {
-				messagesEndRef.current?.scrollIntoView({
-					behavior: 'smooth',
-					block: 'end',
-				})
-			}, 100)
+			// Используем плавную прокрутку до самого низа
+			const container = messagesContainerRef.current
+			if (container) {
+				// Функция для плавной прокрутки до самого низа
+				const smoothScrollToBottom = () => {
+					const targetScrollTop = container.scrollHeight - container.clientHeight
+					const startScrollTop = container.scrollTop
+					const distance = targetScrollTop - startScrollTop
+					const duration = 300 // Длительность анимации в мс
+					const startTime = Date.now()
+					
+					const animateScroll = () => {
+						const elapsed = Date.now() - startTime
+						const progress = Math.min(elapsed / duration, 1)
+						// Используем easing функцию для плавности
+						const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+						const currentScrollTop = startScrollTop + (distance * easeOutCubic)
+						
+						container.scrollTop = currentScrollTop
+						
+						if (progress < 1) {
+							requestAnimationFrame(animateScroll)
+						} else {
+							// Финальная проверка - убеждаемся что прокрутили до самого низа
+							container.scrollTop = container.scrollHeight
+						}
+					}
+					
+					requestAnimationFrame(animateScroll)
+				}
+				
+				// Первая попытка - через небольшую задержку для рендера
+				setTimeout(() => {
+					smoothScrollToBottom()
+					// Дополнительная проверка через задержку на случай если контент еще загружается
+					setTimeout(() => {
+						if (container.scrollHeight > container.clientHeight) {
+							const targetScrollTop = container.scrollHeight - container.clientHeight
+							if (Math.abs(container.scrollTop - targetScrollTop) > 10) {
+								container.scrollTop = container.scrollHeight
+							}
+						}
+					}, 400)
+				}, 100)
+			}
 		}
 	}, [messages.length, messagesLoading, isMessageSearchOpen])
 
@@ -591,11 +728,21 @@ function ChatsPageContent() {
 	}, [messages.length, isMessageSearchOpen])
 
 	// Функция прокрутки вниз
-	const scrollToBottom = () => {
-		messagesEndRef.current?.scrollIntoView({
-			behavior: 'smooth',
-			block: 'end',
-		})
+	const scrollToBottom = (instant = false) => {
+		const container = messagesContainerRef.current
+		if (container) {
+			// Прокручиваем контейнер напрямую до самого низа
+			container.scrollTo({
+				top: container.scrollHeight,
+				behavior: instant ? 'auto' : 'smooth',
+			})
+		} else {
+			// Fallback на scrollIntoView
+			messagesEndRef.current?.scrollIntoView({
+				behavior: instant ? 'auto' : 'smooth',
+				block: 'end',
+			})
+		}
 	}
 
 	// Автоматическое открытие чата при наличии параметра open или taskId
@@ -775,6 +922,14 @@ function ChatsPageContent() {
 		setSelectedChat(chat)
 		setMessages([])
 		setMessagesLoading(true)
+		
+		// Отправляем событие о том, что чат открыт (для Header)
+		if (typeof window !== 'undefined') {
+			const chatInfo = chat.type === 'private' 
+				? { chatType: 'private', chatId: chat.otherUser?.id }
+				: { chatType: 'task', chatId: chat.task?.id }
+			window.dispatchEvent(new CustomEvent('chatOpened', { detail: chatInfo }))
+		}
 
 		// Сбрасываем счетчик непрочитанных сообщений для этого чата
 		if (chat.unreadCount > 0) {
@@ -839,6 +994,13 @@ function ChatsPageContent() {
 
 	// Обработка нового сообщения
 	const handleNewMessage = async (newMessage: any) => {
+		console.log('📨 handleNewMessage вызван с данными:', newMessage)
+		console.log('📎 Файл в сообщении:', {
+			fileId: newMessage.fileId,
+			fileName: newMessage.fileName,
+			fileMimetype: newMessage.fileMimetype,
+			fileUrl: newMessage.fileUrl
+		})
 		// Добавляем новое сообщение в список
 		setMessages(prev => [...prev, newMessage])
 
@@ -1017,7 +1179,6 @@ function ChatsPageContent() {
 		userId?: string
 	}) => {
 		const [imageError, setImageError] = useState(false)
-		const [imageLoaded, setImageLoaded] = useState(false)
 		const [isOnline, setIsOnline] = useState<boolean | null>(null)
 
 		// Проверяем онлайн статус пользователя
@@ -1103,12 +1264,11 @@ function ChatsPageContent() {
 					height={size}
 					className='rounded-full object-cover'
 					onError={() => {
-						console.error('❌ Ошибка загрузки аватарки из API:', apiAvatarUrl)
+						// Отсутствие аватарки - нормальная ситуация, не логируем как ошибку
 						setImageError(true)
 					}}
 					onLoad={() => {
-						console.log('✅ Аватарка загружена из API:', apiAvatarUrl)
-						setImageLoaded(true)
+						// Аватарка успешно загружена
 					}}
 				/>
 				{/* Индикатор онлайн статуса */}
@@ -1242,12 +1402,20 @@ function ChatsPageContent() {
 
 	return (
 		<div 
-			className='fixed inset-x-0 px-3 sm:px-6'
+			className='fixed inset-x-0 px-2 sm:px-3 md:px-6'
 			style={{ 
-				top: 'calc(0.5rem - 1px)',
-				height: 'calc(100vh - 2rem + 1px)',
-				maxHeight: 'calc(100vh - 6rem + 1px)',
-				minHeight: 'calc(100vh - 6rem + 1px)',
+				top: typeof window !== 'undefined' && window.innerWidth < 768 
+					? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
+					: 'calc(0.5rem - 1px)',
+				height: typeof window !== 'undefined' && window.innerWidth < 768
+					? 'calc(100vh - 80px)'
+					: 'calc(100vh - 2rem + 1px)',
+				maxHeight: typeof window !== 'undefined' && window.innerWidth < 768
+					? 'calc(100vh - 80px)'
+					: 'calc(100vh - 6rem + 1px)',
+				minHeight: typeof window !== 'undefined' && window.innerWidth < 768
+					? 'calc(100vh - 80px)'
+					: 'calc(100vh - 6rem + 1px)',
 				paddingTop: 0
 			}}
 		>
@@ -1383,28 +1551,35 @@ function ChatsPageContent() {
 						{selectedChat ? (
 							<>
 								{/* Заголовок чата - фиксированный */}
-								<div className='flex-shrink-0 px-5 sm:px-8 py-5 border-b border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgba(15,118,110,0.22)] backdrop-blur-md relative'>
+								<div className='flex-shrink-0 px-3 sm:px-5 md:px-8 py-3 sm:py-4 md:py-5 border-b border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgba(15,118,110,0.22)] backdrop-blur-md relative'>
 									{/* Кнопка поиска в сообщениях */}
 									{selectedChat && messages.length > 0 && (
 										<button
 											onClick={() =>
 												setIsMessageSearchOpen(!isMessageSearchOpen)
 											}
-											className='absolute top-4 right-4 p-2 bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition'
+											className='absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
 											aria-label='Поиск в сообщениях (Ctrl+F)'
 											title='Поиск в сообщениях (Ctrl+F)'
 										>
-											🔍
+											<span className='text-base sm:text-lg'>🔍</span>
 										</button>
 									)}
-									<div className='flex items-center space-x-3 sm:space-x-4'>
+									<div className='flex items-center space-x-2 sm:space-x-3 md:space-x-4 pr-12 sm:pr-14 md:pr-16'>
 										{/* Кнопка "Назад" для мобильных */}
 										<button
-											onClick={() => setSelectedChat(null)}
-											className='md:hidden flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-gray-600/60 to-gray-700/60 border border-gray-500/30 hover:border-emerald-400/50 active:bg-gray-600 ios-transition hover-scale touch-manipulation shadow-lg'
+											onClick={() => {
+												setSelectedChat(null)
+												// Отправляем событие о том, что чат закрыт (для Header)
+												if (typeof window !== 'undefined') {
+													window.dispatchEvent(new CustomEvent('chatClosed'))
+												}
+											}}
+											className='md:hidden flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-gray-600/60 to-gray-700/60 border border-gray-500/30 hover:border-emerald-400/50 active:bg-gray-600 active:scale-95 ios-transition hover-scale touch-manipulation shadow-lg transition-transform'
+											aria-label='Вернуться к списку чатов'
 										>
 											<svg
-												className='w-6 h-6 text-white'
+												className='w-5 h-5 sm:w-6 sm:h-6 text-white'
 												fill='none'
 												stroke='currentColor'
 												viewBox='0 0 24 24'
@@ -1412,7 +1587,7 @@ function ChatsPageContent() {
 												<path
 													strokeLinecap='round'
 													strokeLinejoin='round'
-													strokeWidth={2}
+													strokeWidth={2.5}
 													d='M15 19l-7-7 7-7'
 												/>
 											</svg>
@@ -1471,7 +1646,7 @@ function ChatsPageContent() {
 								{/* Сообщения - растягиваемая область */}
 								<div
 									ref={messagesContainerRef}
-									className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar relative min-h-0'
+									className='flex-1 overflow-y-auto px-3 sm:px-5 md:px-8 lg:px-10 xl:px-16 pt-4 sm:pt-6 pb-4 sm:pb-10 custom-scrollbar relative min-h-0'
 									style={{
 										touchAction: 'pan-y',
 										WebkitOverflowScrolling: 'touch',
@@ -1512,7 +1687,7 @@ function ChatsPageContent() {
 											description='Отправьте первое сообщение!'
 										/>
 									) : (
-										<div className='max-w-4xl w-full mx-auto space-y-3 sm:space-y-4'>
+										<div className='max-w-4xl w-full mx-auto space-y-2 sm:space-y-3 md:space-y-4'>
 											{messages
 												.map((msg, index) => {
 													// Проверяем, что sender существует
@@ -1640,13 +1815,13 @@ function ChatsPageContent() {
 								{/* Кнопка прокрутки вниз */}
 								{showScrollToBottom && !isMessageSearchOpen && (
 									<button
-										onClick={scrollToBottom}
-										className='fixed bottom-24 right-6 sm:right-8 z-40 w-9 h-9 bg-slate-700/90 hover:bg-slate-600/90 text-gray-300 hover:text-white rounded-full shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-200 animate-scaleFadeIn border border-slate-600/50 hover:border-slate-500/70 hover:scale-105 active:scale-95'
+										onClick={() => scrollToBottom()}
+										className='fixed bottom-20 sm:bottom-24 right-4 sm:right-6 md:right-8 z-40 w-10 h-10 sm:w-9 sm:h-9 bg-slate-700/90 hover:bg-slate-600/90 active:bg-slate-600/95 text-gray-300 hover:text-white rounded-full shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-200 animate-scaleFadeIn border border-slate-600/50 hover:border-slate-500/70 hover:scale-105 active:scale-95 touch-manipulation'
 										aria-label='Прокрутить вниз'
 										title='Прокрутить вниз'
 									>
 										<svg
-											className='w-4 h-4'
+											className='w-5 h-5 sm:w-4 sm:h-4'
 											fill='none'
 											stroke='currentColor'
 											viewBox='0 0 24 24'

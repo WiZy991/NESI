@@ -15,90 +15,115 @@ export async function GET(req: NextRequest) {
 	const token = url.searchParams.get('token')
 
 	if (!token) {
-		return new Response('Unauthorized', { status: 401 })
+		return new Response('Unauthorized: No token provided', { status: 401 })
 	}
 
 	// Проверяем токен
-	const user = await getUserFromToken(token)
-	if (!user) {
-		return new Response('Unauthorized', { status: 401 })
-	}
+	try {
+		const user = await getUserFromToken(token)
+		if (!user) {
+			console.error('❌ getUserFromToken вернул null для токена. Возможные причины:')
+			console.error('   - Пользователь не найден в базе данных (возможно, БД была очищена)')
+			console.error('   - Токен невалидный или истек')
+			console.error('   - Ошибка подключения к базе данных')
+			return new Response('Unauthorized: Invalid token or user not found', { status: 401 })
+		}
 
-	console.log('🔔 SSE подключение для пользователя:', user.id)
+		console.log('🔔 SSE подключение для пользователя:', user.id)
 
-	// Создаем поток для Server-Sent Events
-	const stream = new ReadableStream({
-		start(controller) {
-			// Отправляем начальное сообщение о подключении
-			const data = JSON.stringify({
-				type: 'connected',
-				message: 'Подключено к уведомлениям',
-				timestamp: new Date().toISOString(),
-			})
+		// Сохраняем userId в переменную для использования в замыканиях
+		const userId = user.id
 
-			controller.enqueue(`data: ${data}\n\n`)
+		// Создаем поток для Server-Sent Events
+		const stream = new ReadableStream({
+			start(controller) {
+				// Отправляем начальное сообщение о подключении
+				const data = JSON.stringify({
+					type: 'connected',
+					message: 'Подключено к уведомлениям',
+					timestamp: new Date().toISOString(),
+				})
 
-			// Сохраняем контроллер для отправки сообщений
-			globalThis.sseConnections = globalThis.sseConnections || new Map()
-			globalThis.sseConnections.set(user.id, controller)
+				controller.enqueue(`data: ${data}\n\n`)
 
-			// Отправляем heartbeat каждые 30 секунд
-			const heartbeatInterval = setInterval(() => {
-				try {
-					const heartbeatData = JSON.stringify({
-						type: 'heartbeat',
-						timestamp: new Date().toISOString(),
-					})
-					controller.enqueue(`data: ${heartbeatData}\n\n`)
-				} catch (error) {
-					console.error('Ошибка отправки heartbeat:', error)
+				// Сохраняем контроллер для отправки сообщений
+				globalThis.sseConnections = globalThis.sseConnections || new Map()
+				globalThis.sseConnections.set(userId, controller)
+
+				// Отправляем heartbeat каждые 30 секунд
+				const heartbeatInterval = setInterval(() => {
+					try {
+						const heartbeatData = JSON.stringify({
+							type: 'heartbeat',
+							timestamp: new Date().toISOString(),
+						})
+						controller.enqueue(`data: ${heartbeatData}\n\n`)
+					} catch (error) {
+						console.error('Ошибка отправки heartbeat:', error)
+						clearInterval(heartbeatInterval)
+						globalThis.sseConnections?.delete(userId)
+					}
+				}, 30000)
+
+				// Очистка при закрытии соединения
+				req.signal.addEventListener('abort', () => {
+					console.log('🔌 SSE соединение закрыто для пользователя:', userId)
 					clearInterval(heartbeatInterval)
-					globalThis.sseConnections?.delete(user.id)
-				}
-			}, 30000)
+					globalThis.sseConnections?.delete(userId)
+					controller.close()
+				})
+			},
+			cancel() {
+				console.log('🔌 SSE соединение отменено для пользователя:', userId)
+				globalThis.sseConnections?.delete(userId)
+			},
+		})
 
-			// Очистка при закрытии соединения
-			req.signal.addEventListener('abort', () => {
-				console.log('🔌 SSE соединение закрыто для пользователя:', user.id)
-				clearInterval(heartbeatInterval)
-				globalThis.sseConnections?.delete(user.id)
-				controller.close()
-			})
-		},
-		cancel() {
-			console.log('🔌 SSE соединение отменено для пользователя:', user.id)
-			globalThis.sseConnections?.delete(user.id)
-		},
-	})
+		// Безопасные CORS настройки
+		const origin = req.headers.get('origin')
+		const allowedOrigins = [
+			process.env.NEXT_PUBLIC_BASE_URL,
+			process.env.NEXT_PUBLIC_APP_URL,
+			'http://localhost:3000',
+			'https://localhost:3000',
+		].filter(Boolean) as string[]
 
-	// Безопасные CORS настройки
-	const origin = req.headers.get('origin')
-	const allowedOrigins = [
-		process.env.NEXT_PUBLIC_BASE_URL,
-		process.env.NEXT_PUBLIC_APP_URL,
-		'http://localhost:3000',
-		'https://localhost:3000',
-	].filter(Boolean) as string[]
+		const corsOrigin =
+			origin && allowedOrigins.some(allowed => origin.startsWith(allowed))
+				? origin
+				: allowedOrigins[0] || '*'
 
-	const corsOrigin =
-		origin && allowedOrigins.some(allowed => origin.startsWith(allowed))
-			? origin
-			: allowedOrigins[0] || '*'
-
-	return new Response(stream, {
-		headers: {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache, no-transform',
-			'X-Accel-Buffering': 'no', // Отключаем буферизацию в nginx
-			Connection: 'keep-alive',
-			'Access-Control-Allow-Origin': corsOrigin,
-			'Access-Control-Allow-Credentials': 'true',
-			'Access-Control-Allow-Headers': 'Cache-Control, Authorization, Content-Type',
-			'Access-Control-Allow-Methods': 'GET, OPTIONS',
-			// Убираем строгие CSP заголовки для SSE
-			'X-Content-Type-Options': 'nosniff',
-		},
-	})
+		return new Response(stream, {
+			headers: {
+				'Content-Type': 'text/event-stream',
+				'Cache-Control': 'no-cache, no-transform',
+				'X-Accel-Buffering': 'no', // Отключаем буферизацию в nginx
+				Connection: 'keep-alive',
+				'Access-Control-Allow-Origin': corsOrigin,
+				'Access-Control-Allow-Credentials': 'true',
+				'Access-Control-Allow-Headers': 'Cache-Control, Authorization, Content-Type',
+				'Access-Control-Allow-Methods': 'GET, OPTIONS',
+				// Убираем строгие CSP заголовки для SSE
+				'X-Content-Type-Options': 'nosniff',
+			},
+		})
+	} catch (error: any) {
+		// Обрабатываем ошибки авторизации
+		console.error('❌ Ошибка авторизации в SSE:', error)
+		
+		// Проверяем, является ли это ошибкой схемы БД
+		const isSchemaError = 
+			error?.name === 'DatabaseSchemaError' ||
+			error?.code === 'P2021' ||
+			error?.message?.includes('does not exist')
+		
+		if (isSchemaError) {
+			return new Response('Service Unavailable: Database schema error', { status: 503 })
+		}
+		
+		// Для других ошибок возвращаем 401
+		return new Response('Unauthorized: Authentication failed', { status: 401 })
+	}
 }
 
 // Обработка OPTIONS запросов для CORS preflight

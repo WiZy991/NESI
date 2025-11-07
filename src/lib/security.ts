@@ -48,8 +48,14 @@ export function validateStringLength(
   maxLength: number,
   fieldName: string
 ): { valid: boolean; error?: string } {
-  if (!text || typeof text !== 'string') {
+  // Проверяем тип - пустая строка это валидная строка
+  if (typeof text !== 'string') {
     return { valid: false, error: `${fieldName} должен быть строкой` }
+  }
+  
+  // Пустая строка - валидна (для файлов может быть пустая подпись)
+  if (text.length === 0) {
+    return { valid: true }
   }
   
   if (text.length > maxLength) {

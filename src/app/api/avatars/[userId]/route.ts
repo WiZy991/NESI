@@ -4,10 +4,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { userId: string } }
+	{ params }: { params: Promise<{ userId: string }> }
 ) {
 	try {
-		const { userId } = params
+		const { userId } = await params
 
 		// Получаем пользователя с аватаркой
 		const user = await prisma.user.findUnique({
