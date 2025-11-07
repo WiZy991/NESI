@@ -107,6 +107,18 @@ function ChatsPageContent() {
 	const [isTyping, setIsTyping] = useState(false)
 	const [typingUser, setTypingUser] = useState<string | null>(null)
 	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
+	const [isMobile, setIsMobile] = useState(false)
+	
+	// Отслеживание размера окна для адаптивности
+	useEffect(() => {
+		const checkMobile = () => {
+			setIsMobile(window.innerWidth < 768)
+		}
+		
+		checkMobile()
+		window.addEventListener('resize', checkMobile)
+		return () => window.removeEventListener('resize', checkMobile)
+	}, [])
 	const [replyTo, setReplyTo] = useState<Message['replyTo']>(null)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -1404,16 +1416,16 @@ function ChatsPageContent() {
 		<div 
 			className='fixed inset-x-0 px-2 sm:px-3 md:px-6'
 			style={{ 
-				top: typeof window !== 'undefined' && window.innerWidth < 768 
+				top: isMobile 
 					? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
 					: 'calc(0.5rem - 1px)',
-				height: typeof window !== 'undefined' && window.innerWidth < 768
+				height: isMobile
 					? 'calc(100vh - 80px)'
 					: 'calc(100vh - 2rem + 1px)',
-				maxHeight: typeof window !== 'undefined' && window.innerWidth < 768
+				maxHeight: isMobile
 					? 'calc(100vh - 80px)'
 					: 'calc(100vh - 6rem + 1px)',
-				minHeight: typeof window !== 'undefined' && window.innerWidth < 768
+				minHeight: isMobile
 					? 'calc(100vh - 80px)'
 					: 'calc(100vh - 6rem + 1px)',
 				paddingTop: 0
@@ -1643,15 +1655,16 @@ function ChatsPageContent() {
 									</div>
 								</div>
 
-								{/* Сообщения - растягиваемая область */}
-								<div
-									ref={messagesContainerRef}
-									className='flex-1 overflow-y-auto px-3 sm:px-5 md:px-8 lg:px-10 xl:px-16 pt-4 sm:pt-6 pb-4 sm:pb-10 custom-scrollbar relative min-h-0'
-									style={{
-										touchAction: 'pan-y',
-										WebkitOverflowScrolling: 'touch',
-									}}
-								>
+                     {/* Сообщения - растягиваемая область */}
+                     <div
+                       ref={messagesContainerRef}
+                       data-chat-container
+                       className='flex-1 overflow-y-auto px-3 sm:px-5 md:px-8 lg:px-10 xl:px-16 pt-4 sm:pt-6 pb-4 sm:pb-10 custom-scrollbar relative min-h-0'
+                       style={{
+                         touchAction: 'pan-y',
+                         WebkitOverflowScrolling: 'touch',
+                       }}
+                     >
 									{/* Поиск по сообщениям */}
 									{selectedChat && (
 										<ChatMessageSearch

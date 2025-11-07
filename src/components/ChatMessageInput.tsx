@@ -46,7 +46,19 @@ export default function MessageInput({
 	const [isTyping, setIsTyping] = useState(false)
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 	const [showCaptionEmojiPicker, setShowCaptionEmojiPicker] = useState(false)
+	const [isMobile, setIsMobile] = useState(false)
 	const captionTextareaRef = useRef<HTMLTextAreaElement>(null)
+	
+	// Отслеживание размера окна для адаптивности
+	useEffect(() => {
+		const checkMobile = () => {
+			setIsMobile(window.innerWidth < 640)
+		}
+		
+		checkMobile()
+		window.addEventListener('resize', checkMobile)
+		return () => window.removeEventListener('resize', checkMobile)
+	}, [])
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -929,76 +941,55 @@ export default function MessageInput({
 									<div
 										className='fixed z-[10001]'
 							style={{
-								bottom: typeof window !== 'undefined' && window.innerWidth < 640 ? '250px' : '200px',
-								right: typeof window !== 'undefined' && window.innerWidth < 640 ? '10px' : '20px',
-								left: typeof window !== 'undefined' && window.innerWidth < 640 ? '10px' : 'auto',
-								width: typeof window !== 'undefined' && window.innerWidth < 640 ? 'calc(100vw - 20px)' : '360px',
+								bottom: isMobile ? '250px' : '200px',
+								right: isMobile ? '10px' : '20px',
+								left: isMobile ? '10px' : 'auto',
+								width: isMobile ? 'calc(100vw - 20px)' : '280px',
 								maxWidth: 'calc(100vw - 20px)',
 							}}
 										onClick={(e) => e.stopPropagation()}
 									>
-										<div className='bg-slate-800/98 border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden animate-scaleFadeIn'>
-											{/* Заголовок с кнопкой закрытия */}
-											<div className='flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-slate-700/30 border-b border-slate-700/50'>
-												<span className='text-xs sm:text-sm font-semibold text-gray-200'>Выберите эмодзи для подписи</span>
-												<button
-													onClick={() => setShowCaptionEmojiPicker(false)}
-													className='w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/60 active:bg-slate-700/70 text-gray-400 hover:text-white transition-all duration-200 touch-manipulation'
-													aria-label='Закрыть'
-												>
-													<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-														<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2.5} d='M6 18L18 6M6 6l12 12' />
-													</svg>
-												</button>
-											</div>
-											{/* Эмодзи пикер */}
-											<div className='overflow-hidden' style={{ 
-												height: typeof window !== 'undefined' && window.innerWidth < 640 ? '240px' : '380px' 
-											}}>
-												<EmojiPicker
-													onEmojiClick={(emojiData) => {
-														// Вставляем emoji только в подпись
-														let emoji: string = ''
-														
-														if (emojiData.emoji) {
-															emoji = emojiData.emoji
-														} else if (emojiData.unified) {
-															try {
-																const codes = emojiData.unified.split('-').map((hex: string) => parseInt(hex, 16))
-																emoji = String.fromCodePoint(...codes)
-															} catch (e) {
-																console.error('Ошибка конвертации unified кода:', e)
-																return
-															}
-														}
-														
-														if (emoji) {
-															const textarea = captionTextareaRef.current
-															if (textarea) {
-																const start = textarea.selectionStart || 0
-																const end = textarea.selectionEnd || 0
-																const textBefore = caption.substring(0, start)
-																const textAfter = caption.substring(end)
-																setCaption(textBefore + emoji + textAfter)
-																
-																// Устанавливаем курсор после вставленного emoji
-																setTimeout(() => {
-																	textarea.focus()
-																	textarea.setSelectionRange(start + emoji.length, start + emoji.length)
-																}, 0)
-															} else {
-																setCaption(prev => prev + emoji)
-															}
-														}
-														setShowCaptionEmojiPicker(false)
-													}}
-													width={360}
-													height={380}
-													theme={'dark' as any}
-													searchPlaceholder='Поиск...'
-													previewConfig={{ showPreview: false }}
-													skinTonesDisabled={false}
-												/>
+										<div className='bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl p-2 animate-scaleFadeIn'>
+											{/* Компактный список эмодзи со скроллом */}
+											<div 
+												className='overflow-y-auto custom-scrollbar'
+												style={{ 
+													maxHeight: isMobile ? '200px' : '280px',
+													WebkitOverflowScrolling: 'touch'
+												}}
+											>
+												<div className='grid grid-cols-7 sm:grid-cols-8 gap-1.5 sm:gap-2'>
+													{/* Все популярные эмодзи */}
+													{['👍', '❤️', '😂', '😮', '😢', '🔥', '👏', '🎉', '🤔', '👎', '😊', '😍', '🤣', '😱', '😭', '🤗', '🙏', '💪', '🎊', '✅', '❌', '⭐', '💯', '💖', '💕', '🤝', '🙌', '👌', '🤯', '🥳', '😎', '🤩', '😇', '🎯', '🚀', '👀', '🔥', '💯', '✨', '🎨', '🎭', '🎪', '🎬', '🎤', '🎧', '🎮', '🎯', '🎲', '🎳', '🎸', '🎺', '🎻', '🥁', '🎹', '🎼', '🎵', '🎶'].map((emoji) => (
+														<button
+															key={emoji}
+															onClick={(e) => {
+																e.stopPropagation()
+																const textarea = captionTextareaRef.current
+																if (textarea) {
+																	const start = textarea.selectionStart || 0
+																	const end = textarea.selectionEnd || 0
+																	const textBefore = caption.substring(0, start)
+																	const textAfter = caption.substring(end)
+																	setCaption(textBefore + emoji + textAfter)
+																	
+																	// Устанавливаем курсор после вставленного emoji
+																	setTimeout(() => {
+																		textarea.focus()
+																		textarea.setSelectionRange(start + emoji.length, start + emoji.length)
+																	}, 0)
+																} else {
+																	setCaption(prev => prev + emoji)
+																}
+																setShowCaptionEmojiPicker(false)
+															}}
+															className='w-8 h-8 sm:w-9 sm:h-9 rounded-lg hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center text-lg sm:text-xl transition-all hover:scale-125 active:scale-95 touch-manipulation'
+															aria-label={`Эмодзи ${emoji}`}
+														>
+															{emoji}
+														</button>
+													))}
+												</div>
 											</div>
 										</div>
 									</div>
@@ -1181,51 +1172,48 @@ export default function MessageInput({
 							className='fixed inset-0 z-[9998] bg-transparent'
 							onClick={() => setShowEmojiPicker(false)}
 						/>
-						{/* Контейнер эмодзи пикера - стильное всплывающее окно */}
+						{/* Контейнер эмодзи пикера - компактный как реакция, но со скроллом */}
 						<div
 							className='fixed z-[9999]'
 							style={{
-								bottom: typeof window !== 'undefined' && window.innerWidth < 640 ? '140px' : '80px',
-								right: typeof window !== 'undefined' && window.innerWidth < 640 ? '10px' : '20px',
-								left: typeof window !== 'undefined' && window.innerWidth < 640 ? '10px' : 'auto',
-								width: typeof window !== 'undefined' && window.innerWidth < 640 ? 'calc(100vw - 20px)' : '360px',
+								bottom: isMobile ? '140px' : '80px',
+								right: isMobile ? '10px' : '20px',
+								left: isMobile ? '10px' : 'auto',
+								width: isMobile ? 'calc(100vw - 20px)' : '280px',
 								maxWidth: 'calc(100vw - 20px)',
 							}}
 							onClick={(e) => e.stopPropagation()}
 						>
-							<div className='bg-slate-800/98 border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden animate-scaleFadeIn'>
-								{/* Заголовок с кнопкой закрытия */}
-								<div className='flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-slate-700/30 border-b border-slate-700/50'>
-									<span className='text-xs sm:text-sm font-semibold text-gray-200'>Выберите эмодзи</span>
-					<button
-										onClick={() => setShowEmojiPicker(false)}
-										className='w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/60 active:bg-slate-700/70 text-gray-400 hover:text-white transition-all duration-200 touch-manipulation'
-										aria-label='Закрыть'
-									>
-										<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-											<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2.5} d='M6 18L18 6M6 6l12 12' />
-										</svg>
-					</button>
+							<div className='bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl p-2 animate-scaleFadeIn'>
+								{/* Компактный список эмодзи со скроллом */}
+								<div 
+									className='overflow-y-auto custom-scrollbar'
+									style={{ 
+										maxHeight: isMobile ? '200px' : '280px',
+										WebkitOverflowScrolling: 'touch'
+									}}
+								>
+									<div className='grid grid-cols-7 sm:grid-cols-8 gap-1 sm:gap-1.5'>
+										{/* Все популярные эмодзи */}
+										{['👍', '❤️', '😂', '😮', '😢', '🔥', '👏', '🎉', '🤔', '👎', '😊', '😍', '🤣', '😱', '😭', '🤗', '🙏', '💪', '🎊', '✅', '❌', '⭐', '💯', '💖', '💕', '🤝', '🙌', '👌', '🤯', '🥳', '😎', '🤩', '😇', '🎯', '🚀', '👀', '🔥', '💯', '✨', '🎨', '🎭', '🎪', '🎬', '🎤', '🎧', '🎮', '🎯', '🎲', '🎳', '🎸', '🎺', '🎻', '🥁', '🎹', '🎼', '🎵', '🎶'].map((emoji) => (
+											<button
+												key={emoji}
+												onClick={(e) => {
+													e.stopPropagation()
+													const isCaptionMode = !!(file && filePreview && (getFileType(file) === 'image' || getFileType(file) === 'video'))
+													// Имитируем структуру EmojiClickData
+													handleEmojiClick({ emoji, unified: '' }, isCaptionMode)
+													setShowEmojiPicker(false)
+												}}
+												className='w-9 h-9 sm:w-10 sm:h-10 rounded-lg hover:bg-gray-700/50 active:bg-gray-700/70 flex items-center justify-center text-xl sm:text-2xl transition-all hover:scale-125 active:scale-95 touch-manipulation'
+												aria-label={`Эмодзи ${emoji}`}
+											>
+												{emoji}
+											</button>
+										))}
+									</div>
 								</div>
-								{/* Эмодзи пикер */}
-								<div className='overflow-hidden' style={{ 
-									height: typeof window !== 'undefined' && window.innerWidth < 640 ? '240px' : '380px' 
-								}}>
-							<EmojiPicker
-										onEmojiClick={(emojiData) => {
-											// Определяем, где открыт пикер - для подписи или основного сообщения
-											const isCaptionMode = !!(file && filePreview && (getFileType(file) === 'image' || getFileType(file) === 'video'))
-											handleEmojiClick(emojiData, isCaptionMode)
-										}}
-										width={typeof window !== 'undefined' && window.innerWidth < 640 ? Math.min(360, window.innerWidth - 20) : 360}
-										height={typeof window !== 'undefined' && window.innerWidth < 640 ? 240 : 380}
-										theme={'dark' as any}
-										searchPlaceholder='Поиск...'
-								previewConfig={{ showPreview: false }}
-										skinTonesDisabled={false}
-							/>
-						</div>
-				</div>
+							</div>
 						</div>
 					</>,
 					document.body
