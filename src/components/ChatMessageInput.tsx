@@ -2,6 +2,7 @@
 
 import { useUser } from '@/context/UserContext'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
@@ -34,13 +35,26 @@ export default function MessageInput({
 	const { token } = useUser()
 	const [message, setMessage] = useState('')
 	const [file, setFile] = useState<File | null>(null)
+	const [filePreview, setFilePreview] = useState<string | null>(null)
+	const [uploadedFileId, setUploadedFileId] = useState<string | null>(null)
+	const [uploadProgress, setUploadProgress] = useState<number>(0)
+	const [uploading, setUploading] = useState(false)
+	const [videoPlaying, setVideoPlaying] = useState(false)
 	const [sending, setSending] = useState(false)
+	const [imageRotation, setImageRotation] = useState<number>(0)
+	const [caption, setCaption] = useState<string>('')
 	const [isTyping, setIsTyping] = useState(false)
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+	const [showCaptionEmojiPicker, setShowCaptionEmojiPicker] = useState(false)
+	const captionTextareaRef = useRef<HTMLTextAreaElement>(null)
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 	const emojiPickerRef = useRef<HTMLDivElement>(null)
+	const emojiButtonRef = useRef<HTMLButtonElement>(null)
+	const videoPreviewRef = useRef<HTMLVideoElement>(null)
+	const uploadXhrRef = useRef<XMLHttpRequest | null>(null)
+	const currentUploadingFileRef = useRef<File | null>(null)
 
 	// КРИТИЧНО: Убираем квадратную обводку outline - она всегда квадратная!
 	useEffect(() => {
@@ -109,7 +123,7 @@ export default function MessageInput({
 		if (textarea) {
 			// Если сообщение пустое, устанавливаем минимальную высоту
 			if (!message.trim()) {
-				textarea.style.height = '48px'
+				textarea.style.height = '44px'
 				return
 			}
 			
@@ -117,7 +131,7 @@ export default function MessageInput({
 			textarea.style.height = 'auto'
 			
 			// Вычисляем новую высоту на основе содержимого
-			const newHeight = Math.max(48, Math.min(textarea.scrollHeight, 150))
+			const newHeight = Math.max(44, Math.min(textarea.scrollHeight, 150))
 			textarea.style.height = `${newHeight}px`
 		}
 	}, [message])
@@ -147,9 +161,10 @@ export default function MessageInput({
 		}, 1000)
 	}
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent, captionText?: string) => {
 		e.preventDefault()
-		if (!message.trim() && !file) return
+		const messageToSend = captionText !== undefined ? captionText : message
+		if (!messageToSend.trim() && !file) return
 
 		// Останавливаем набор при отправке
 		if (isTyping) {
@@ -158,20 +173,25 @@ export default function MessageInput({
 		}
 
 		setSending(true)
+		
 		try {
-			const formData = new FormData()
-			formData.append('content', message)
-			if (file) {
-				formData.append('file', file)
+			// Используем JSON для отправки, так как файл уже загружен
+			const body: any = {
+				content: messageToSend.trim() || '', // Отправляем подпись или обычное сообщение
 			}
+
+			if (uploadedFileId) {
+				body.fileId = uploadedFileId
+			}
+
 			if (replyTo?.id) {
-				formData.append('replyToId', replyTo.id)
+				body.replyToId = replyTo.id
 			}
 
 			let url = ''
 			if (chatType === 'private') {
 				url = `/api/messages/send`
-				formData.append('recipientId', otherUserId!)
+				body.recipientId = otherUserId!
 			} else {
 				url = `/api/tasks/${taskId}/messages`
 			}
@@ -179,9 +199,10 @@ export default function MessageInput({
 			const res = await fetch(url, {
 				method: 'POST',
 				headers: {
+					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
-				body: formData,
+				body: JSON.stringify(body),
 			})
 
 			// Проверяем, есть ли содержимое в ответе
@@ -208,7 +229,23 @@ export default function MessageInput({
 				const newMessage = chatType === 'private' ? data : data.message || data
 				onMessageSent(newMessage)
 				setMessage('')
+				setCaption('')
+				setShowCaptionEmojiPicker(false)
 				setFile(null)
+				setFilePreview(null)
+				setUploadedFileId(null)
+				setUploadProgress(0)
+				setVideoPlaying(false)
+				setImageRotation(0)
+				currentUploadingFileRef.current = null
+				if (uploadXhrRef.current) {
+					uploadXhrRef.current.abort()
+					uploadXhrRef.current = null
+				}
+				if (videoPreviewRef.current) {
+					videoPreviewRef.current.pause()
+					videoPreviewRef.current.currentTime = 0
+				}
 				
 				// Отменяем ответ после отправки
 				if (onCancelReply) {
@@ -217,7 +254,7 @@ export default function MessageInput({
 				
 				// Сбрасываем высоту textarea к начальному размеру
 				if (textareaRef.current) {
-					textareaRef.current.style.height = '48px'
+					textareaRef.current.style.height = '44px'
 				}
 				
 				if (fileInputRef.current) {
@@ -254,11 +291,186 @@ export default function MessageInput({
 		}
 	}
 
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const selectedFile = e.target.files?.[0]
-		if (selectedFile) {
-			setFile(selectedFile)
+		if (!selectedFile || !token) return
+
+		// Отменяем предыдущую загрузку если она идет
+		if (uploadXhrRef.current) {
+			uploadXhrRef.current.abort()
+			uploadXhrRef.current = null
 		}
+
+		// Останавливаем предыдущее видео если было
+		if (videoPreviewRef.current) {
+			videoPreviewRef.current.pause()
+			videoPreviewRef.current.currentTime = 0
+		}
+
+		// Сбрасываем состояние перед загрузкой нового файла
+		setCaption('')
+		setShowCaptionEmojiPicker(false)
+		setImageRotation(0)
+		setVideoPlaying(false)
+
+		// Обновляем текущий загружаемый файл
+		currentUploadingFileRef.current = selectedFile
+		setFile(selectedFile)
+		setUploadProgress(0)
+		setUploading(true)
+		setUploadedFileId(null)
+		
+		// Создаем предпросмотр для изображений и видео
+		const fileType = selectedFile.type
+		if (fileType.startsWith('image/')) {
+			const reader = new FileReader()
+			reader.onloadend = () => {
+				setFilePreview(reader.result as string)
+			}
+			reader.readAsDataURL(selectedFile)
+		} else if (fileType.startsWith('video/')) {
+			const reader = new FileReader()
+			reader.onloadend = () => {
+				setFilePreview(reader.result as string)
+			}
+			reader.readAsDataURL(selectedFile)
+		} else {
+			setFilePreview(null)
+		}
+
+		// Сразу начинаем загрузку файла на сервер
+		try {
+			const formData = new FormData()
+			formData.append('file', selectedFile)
+
+			const xhr = new XMLHttpRequest()
+			uploadXhrRef.current = xhr
+			
+			// Отслеживаем прогресс загрузки
+			xhr.upload.addEventListener('progress', (e) => {
+				if (e.lengthComputable) {
+					const percentComplete = (e.loaded / e.total) * 100
+					setUploadProgress(percentComplete)
+				}
+			})
+
+			const uploadResult = await new Promise<{ id: string; url: string }>((resolve, reject) => {
+				xhr.addEventListener('load', () => {
+					uploadXhrRef.current = null
+					if (xhr.status === 200) {
+						try {
+							const responseText = xhr.responseText || xhr.response
+							if (!responseText || responseText.trim() === '') {
+								reject(new Error('Пустой ответ от сервера'))
+								return
+							}
+							const data = JSON.parse(responseText)
+							if (data.id) {
+								resolve({ id: data.id, url: data.url || '' })
+							} else {
+								reject(new Error('Неверный формат ответа: отсутствует id файла'))
+							}
+						} catch (e) {
+							console.error('Ошибка парсинга ответа:', e, 'Ответ:', xhr.responseText?.substring(0, 200))
+							reject(new Error('Ошибка парсинга ответа от сервера'))
+						}
+					} else {
+						// Обработка ошибок HTTP
+						try {
+							const responseText = xhr.responseText || xhr.response || ''
+							let errorMessage = `Ошибка загрузки файла (${xhr.status} ${xhr.statusText || ''})`
+							
+							if (responseText && typeof responseText === 'string' && responseText.trim() !== '') {
+								try {
+									const error = JSON.parse(responseText)
+									errorMessage = error.error || error.message || error.details || errorMessage
+								} catch (parseError) {
+									// Если не JSON, попробуем использовать как текст
+									if (responseText.length < 200) {
+										errorMessage = responseText
+									}
+								}
+							}
+							
+							reject(new Error(errorMessage))
+						} catch (parseError) {
+							console.error('Неожиданная ошибка при обработке ответа об ошибке:', parseError)
+							reject(new Error(`Ошибка загрузки файла (${xhr.status} ${xhr.statusText || 'Неизвестная ошибка'})`))
+						}
+					}
+				})
+
+				xhr.addEventListener('error', (e) => {
+					uploadXhrRef.current = null
+					console.error('Ошибка сети при загрузке файла:', e)
+					reject(new Error('Ошибка сети при загрузке файла'))
+				})
+
+				xhr.addEventListener('abort', () => {
+					uploadXhrRef.current = null
+					// Отклоняем промис с особым сообщением, которое мы потом будем игнорировать
+					const abortError = new Error('UPLOAD_ABORTED')
+					abortError.name = 'UploadAborted'
+					reject(abortError)
+				})
+
+				xhr.open('POST', '/api/upload/chat-file')
+				xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+				xhr.send(formData)
+			})
+
+			// Проверяем, что файл еще актуален (не был заменен другим)
+			if (currentUploadingFileRef.current === selectedFile) {
+				setUploadedFileId(uploadResult.id)
+				setUploadProgress(100)
+			}
+		} catch (error: any) {
+			// Игнорируем ошибку если загрузка была отменена из-за выбора нового файла
+			// или если файл уже был заменен другим
+			const wasAborted = error?.message === 'UPLOAD_ABORTED' || 
+							   error?.name === 'UploadAborted' ||
+							   error?.message === 'Загрузка отменена' ||
+							   currentUploadingFileRef.current !== selectedFile
+			
+			if (!wasAborted && currentUploadingFileRef.current === selectedFile) {
+				console.error('Ошибка загрузки файла:', error)
+				const errorMessage = error?.message || 'Ошибка загрузки файла'
+				alert(errorMessage)
+				setFile(null)
+				setFilePreview(null)
+				setUploadProgress(0)
+				setUploading(false)
+				setVideoPlaying(false)
+				setUploadedFileId(null)
+				currentUploadingFileRef.current = null
+				if (videoPreviewRef.current) {
+					videoPreviewRef.current.pause()
+					videoPreviewRef.current.currentTime = 0
+				}
+				if (fileInputRef.current) {
+					fileInputRef.current.value = ''
+				}
+			} else {
+				// Загрузка была отменена или файл заменен, просто сбрасываем состояние
+				if (currentUploadingFileRef.current === selectedFile) {
+					setUploading(false)
+				}
+			}
+		}
+	}
+	
+	// Функция определения типа файла
+	const getFileType = (file: File): 'image' | 'video' | 'document' => {
+		if (file.type.startsWith('image/')) return 'image'
+		if (file.type.startsWith('video/')) return 'video'
+		return 'document'
+	}
+	
+	// Функция форматирования размера файла
+	const formatFileSize = (bytes: number): string => {
+		if (bytes < 1024) return bytes + ' B'
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+		return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
 	}
 
 	// Функция для сокращения имени файла
@@ -276,30 +488,76 @@ export default function MessageInput({
 	}
 
 	// Обработчик выбора эмоджи
-	const handleEmojiClick = (emojiData: any) => {
-		setMessage(prev => prev + emojiData.emoji)
+	const handleEmojiClick = (emojiData: any, isCaption: boolean = false) => {
+		// emoji-picker-react возвращает эмодзи в разных форматах
+		// Приоритет: emoji > unified (конвертируем) > native
+		let emoji: string = ''
+		
+		if (emojiData.emoji) {
+			emoji = emojiData.emoji
+		} else if (emojiData.unified) {
+			// Конвертируем unified код (например, "1F600" или "1F600-1F5FF") в символ
+			try {
+				const codes = emojiData.unified.split('-').map((hex: string) => parseInt(hex, 16))
+				emoji = String.fromCodePoint(...codes)
+			} catch (e) {
+				console.error('Ошибка конвертации unified кода:', e)
+				emoji = emojiData.native || ''
+			}
+		} else if (emojiData.native) {
+			emoji = emojiData.native
+		}
+		
+		if (emoji) {
+			if (isCaption) {
+				// Вставляем emoji в подпись
+				setCaption(prev => prev + emoji)
+			} else {
+				// Вставляем emoji в основное поле сообщения
+				const textarea = textareaRef.current
+				if (textarea) {
+					const start = textarea.selectionStart || 0
+					const end = textarea.selectionEnd || 0
+					const textBefore = message.substring(0, start)
+					const textAfter = message.substring(end)
+					setMessage(textBefore + emoji + textAfter)
+					
+					// Устанавливаем курсор после вставленного emoji
+					setTimeout(() => {
+						textarea.focus()
+						textarea.setSelectionRange(start + emoji.length, start + emoji.length)
+					}, 0)
+				} else {
+					setMessage(prev => prev + emoji)
+				}
+			}
+		} else {
+			console.warn('Не удалось извлечь эмодзи из:', emojiData)
+		}
+		
 		setShowEmojiPicker(false)
 	}
 
-	// Закрытие emoji picker при клике вне его
+	// Закрытие emoji picker при нажатии Escape
 	useEffect(() => {
-		const handleClickOutside = (event: MouseEvent) => {
-			if (
-				emojiPickerRef.current &&
-				!emojiPickerRef.current.contains(event.target as Node)
-			) {
-				setShowEmojiPicker(false)
+		const handleEscape = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') {
+				if (showCaptionEmojiPicker) {
+					setShowCaptionEmojiPicker(false)
+				} else if (showEmojiPicker) {
+					setShowEmojiPicker(false)
+				}
 			}
 		}
 
-		if (showEmojiPicker) {
-			document.addEventListener('mousedown', handleClickOutside)
+		if (showEmojiPicker || showCaptionEmojiPicker) {
+			document.addEventListener('keydown', handleEscape)
 		}
 
 		return () => {
-			document.removeEventListener('mousedown', handleClickOutside)
+			document.removeEventListener('keydown', handleEscape)
 		}
-	}, [showEmojiPicker])
+	}, [showEmojiPicker, showCaptionEmojiPicker])
 
 	// Очистка таймаута при размонтировании
 	useEffect(() => {
@@ -311,16 +569,16 @@ export default function MessageInput({
 	}, [])
 
 	return (
-		<form onSubmit={handleSubmit} className='px-2 py-2 sm:px-4 sm:py-3'>
+		<form onSubmit={handleSubmit} className='px-3 py-3 sm:px-4 sm:py-4'>
 			{/* Информация об ответе на сообщение */}
 			{replyTo && (
-				<div className='mb-2 px-3 py-2 bg-emerald-500/20 border border-emerald-400/30 rounded-xl flex items-start gap-2 text-xs sm:text-sm transition-all duration-200 ease-out animate-in fade-in-0 slide-in-from-top-2'>
+				<div className='mb-3 px-4 py-2.5 bg-slate-700/40 backdrop-blur-sm border border-slate-600/50 rounded-xl flex items-start gap-3 text-xs sm:text-sm transition-all duration-200 ease-out animate-in fade-in-0 slide-in-from-top-2 shadow-lg'>
 					<div className='flex-1 min-w-0'>
-						<div className='text-emerald-300 font-medium mb-0.5 flex items-center gap-1.5'>
-							<span className='text-emerald-400'>↩️</span>
+						<div className='text-slate-200 font-medium mb-1 flex items-center gap-2'>
+							<span className='text-emerald-400/80'>↩️</span>
 							<span>{replyTo.sender.fullName || replyTo.sender.email}</span>
 						</div>
-						<div className='text-gray-300 line-clamp-2 pl-5 border-l-2 border-emerald-400/40'>
+						<div className='text-gray-400 line-clamp-2 pl-6 border-l-2 border-emerald-400/30'>
 							{replyTo.content || '📎 Файл'}
 						</div>
 					</div>
@@ -328,56 +586,524 @@ export default function MessageInput({
 						<button
 							type='button'
 							onClick={onCancelReply}
-							className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-emerald-500/30 text-gray-400 hover:text-white transition-all duration-150 ease-out'
+							className='flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-600/60 text-gray-400 hover:text-white transition-all duration-150 ease-out'
 							aria-label='Отменить ответ'
 						>
-							✕
+							<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+								<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+							</svg>
 						</button>
 					)}
 				</div>
 			)}
 
-			{/* Информация о прикрепленном файле */}
-			{file && (
-				<div className='mb-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-700/50 rounded-lg flex items-center gap-2 text-xs sm:text-sm'>
-					<div className='flex items-center gap-2 flex-1 min-w-0 overflow-hidden'>
-						<span className='flex-shrink-0 text-emerald-400 text-base sm:text-lg'>
-							📎
-						</span>
-						<div className='flex-1 min-w-0 overflow-hidden'>
-							<div className='text-emerald-400 truncate font-medium leading-tight'>
-								<span className='hidden sm:inline'>
-									{getTruncatedFileName(file.name, 35)}
-								</span>
-								<span className='inline sm:hidden'>
-									{getTruncatedFileName(file.name, 20)}
+			{/* Модальное окно предпросмотра файла - центрировано на экране */}
+			{file && filePreview && (getFileType(file) === 'image' || getFileType(file) === 'video') && typeof window !== 'undefined' && createPortal(
+				<div 
+					className='fixed inset-0 z-[9999] flex items-center justify-center p-4'
+					style={{ 
+						position: 'fixed',
+						top: 0,
+						left: 0,
+						right: 0,
+						bottom: 0,
+						zIndex: 9999
+					}}
+				>
+					{/* Затемненный фон */}
+					<div 
+						className='absolute inset-0 bg-black/60 backdrop-blur-sm'
+						onClick={() => {
+							if (!uploading) {
+								if (uploadXhrRef.current) {
+									uploadXhrRef.current.abort()
+									uploadXhrRef.current = null
+								}
+								setFile(null)
+								setFilePreview(null)
+								setUploadedFileId(null)
+								setUploadProgress(0)
+								setVideoPlaying(false)
+								setUploading(false)
+								setImageRotation(0)
+								setCaption('')
+								setShowCaptionEmojiPicker(false)
+								currentUploadingFileRef.current = null
+								if (videoPreviewRef.current) {
+									videoPreviewRef.current.pause()
+									videoPreviewRef.current.currentTime = 0
+								}
+								if (fileInputRef.current) {
+									fileInputRef.current.value = ''
+								}
+							}
+						}}
+					/>
+					
+					{/* Модальное окно с предпросмотром */}
+					<div className='relative w-full max-w-[420px] bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl animate-scaleFadeIn overflow-hidden z-10'>
+						{/* Заголовок */}
+						<div className='px-4 py-3 flex items-center justify-between border-b border-slate-700/50'>
+							<div className='flex items-center gap-2 flex-1 min-w-0'>
+								<span className='text-slate-200 font-medium text-sm truncate'>
+									{getFileType(file) === 'image' ? 'Отправить изображение' : 'Отправить видео'}
 								</span>
 							</div>
-							<div className='text-gray-400 text-[10px] sm:text-xs'>
-								{(file.size / 1024).toFixed(1)} KB
+							<div className='flex items-center gap-2'>
+								{/* Кнопка смены файла */}
+								<label
+									className='flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700/50 text-gray-400 hover:text-white transition-colors cursor-pointer'
+									title='Сменить файл'
+									aria-label='Сменить файл'
+								>
+									<input
+										type='file'
+										onChange={(e) => {
+											// Обрабатываем новый файл (handleFileChange уже отменяет предыдущую загрузку и сбрасывает состояние)
+											handleFileChange(e)
+											// Сбрасываем значение input, чтобы можно было выбрать тот же файл снова
+											if (e.target) {
+												e.target.value = ''
+											}
+										}}
+										accept={getFileType(file) === 'image' ? 'image/*' : '.mp4,.webm,.mov,.avi,.mkv,.wmv,.m4v,.flv'}
+										className='hidden'
+									/>
+									<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+										<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' />
+									</svg>
+								</label>
+								{/* Кнопка закрытия */}
+								<button
+									type='button'
+									onClick={() => {
+										if (!uploading) {
+											if (uploadXhrRef.current) {
+												uploadXhrRef.current.abort()
+												uploadXhrRef.current = null
+											}
+											setFile(null)
+											setFilePreview(null)
+											setUploadedFileId(null)
+											setUploadProgress(0)
+											setVideoPlaying(false)
+											setUploading(false)
+											setImageRotation(0)
+											setCaption('')
+											setShowCaptionEmojiPicker(false)
+											currentUploadingFileRef.current = null
+											if (videoPreviewRef.current) {
+												videoPreviewRef.current.pause()
+												videoPreviewRef.current.currentTime = 0
+											}
+											if (fileInputRef.current) {
+												fileInputRef.current.value = ''
+											}
+										}
+									}}
+									className='flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700/50 text-gray-400 hover:text-white transition-colors'
+									disabled={uploading}
+									aria-label='Закрыть'
+								>
+									<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+										<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+									</svg>
+								</button>
 							</div>
 						</div>
+						
+						{/* Предпросмотр файла */}
+						<div className='relative bg-slate-900/30'>
+							<div 
+								className='relative w-full aspect-square max-h-[400px] overflow-hidden bg-slate-900/50 flex items-center justify-center'
+								onClick={() => {
+									if (getFileType(file) === 'video' && videoPreviewRef.current) {
+										if (videoPlaying) {
+											videoPreviewRef.current.pause()
+											setVideoPlaying(false)
+										} else {
+											videoPreviewRef.current.play()
+											setVideoPlaying(true)
+										}
+									}
+								}}
+							>
+								{getFileType(file) === 'image' ? (
+									<img
+										src={filePreview}
+										alt='Предпросмотр'
+										className='w-full h-full object-contain transition-transform duration-300'
+										style={{ transform: `rotate(${imageRotation}deg)` }}
+									/>
+								) : (
+									<>
+										<video
+											ref={videoPreviewRef}
+											src={filePreview}
+											className='w-full h-full object-contain'
+											controls={videoPlaying}
+											muted={false}
+											onClick={(e) => e.stopPropagation()}
+											onPlay={() => setVideoPlaying(true)}
+											onPause={() => setVideoPlaying(false)}
+										/>
+										{!videoPlaying && (
+											<div className='absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer'>
+												<div className='w-16 h-16 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center shadow-2xl hover:scale-110 transition-transform'>
+													<svg className='w-8 h-8 text-white ml-1' fill='currentColor' viewBox='0 0 24 24'>
+														<path d='M8 5v14l11-7z' />
+													</svg>
+												</div>
+											</div>
+										)}
+									</>
+								)}
+								
+								{/* Кнопки действий поверх предпросмотра */}
+								{!uploading && (
+									<div className='absolute top-3 right-3 flex gap-2'>
+									{getFileType(file) === 'image' && (
+										<button
+											type='button'
+											onClick={(e) => {
+												e.stopPropagation()
+												setImageRotation(prev => (prev + 90) % 360)
+											}}
+											className='w-9 h-9 rounded-xl bg-black/70 backdrop-blur-sm flex items-center justify-center hover:bg-black/90 transition-colors shadow-lg'
+											aria-label='Повернуть изображение'
+											title='Повернуть изображение'
+										>
+											<svg className='w-5 h-5 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+												<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' />
+											</svg>
+										</button>
+									)}
+									</div>
+								)}
+							</div>
+							
+							{/* Статус-бар загрузки - расширенный */}
+							<div className='px-4 py-3 bg-slate-900/50 border-t border-slate-700/50'>
+								{/* Информация о файле */}
+								<div className='flex items-center justify-between mb-2'>
+									<div className='flex-1 min-w-0'>
+										<div className='text-slate-200 text-sm font-medium truncate'>
+											{file.name}
+										</div>
+										<div className='text-gray-400 text-xs mt-0.5'>
+											{formatFileSize(file.size)}
+										</div>
+									</div>
+									{uploading && (
+										<div className='flex items-center gap-2 flex-shrink-0 ml-3'>
+											<svg className='animate-spin w-4 h-4 text-emerald-400' fill='none' viewBox='0 0 24 24'>
+												<circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
+												<path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
+											</svg>
+											<span className='text-emerald-400 text-sm font-medium'>{Math.round(uploadProgress)}%</span>
+										</div>
+									)}
+									{!uploading && uploadedFileId && (
+										<div className='flex items-center gap-1 flex-shrink-0 ml-3 text-emerald-400'>
+											<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+												<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+											</svg>
+											<span className='text-xs font-medium'>Готово</span>
+										</div>
+									)}
+								</div>
+								
+								{/* Прогресс-бар */}
+								{(uploading || uploadProgress > 0) && (
+									<div className='w-full bg-slate-700/40 rounded-full h-2 overflow-hidden'>
+										<div
+											className='h-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 rounded-full transition-all duration-300 ease-out shadow-sm'
+											style={{ width: `${uploadProgress}%` }}
+										/>
+									</div>
+								)}
+								
+								{/* Статус текста */}
+								{uploading && (
+									<div className='mt-2 text-xs text-gray-400'>
+										Загрузка файла на сервер...
+									</div>
+								)}
+							</div>
+						</div>
+						
+						{/* Поле ввода подписи к файлу */}
+						<div className='px-4 py-3 border-t border-slate-700/50 bg-slate-900/30 relative'>
+							<div className='flex items-center gap-2'>
+								<textarea
+									ref={captionTextareaRef}
+									value={caption}
+									onChange={(e) => setCaption(e.target.value)}
+									placeholder='Добавьте подпись к файлу...'
+									rows={2}
+									className='flex-1 px-3 py-2 bg-slate-800/60 border border-slate-700/50 rounded-xl text-white text-sm placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-800/80 resize-none custom-scrollbar transition-all duration-200'
+									disabled={sending}
+									style={{
+										minHeight: '44px',
+										maxHeight: '100px',
+										lineHeight: '1.5',
+									}}
+									onKeyDown={(e) => {
+										// Enter без Shift - отправка (если файл загружен)
+										if (e.key === 'Enter' && !e.shiftKey && uploadedFileId && !uploading && !sending) {
+											e.preventDefault()
+											const originalMessage = message
+											setMessage(caption.trim())
+											setTimeout(async () => {
+												await handleSubmit(new Event('submit') as any)
+												setMessage(originalMessage)
+											}, 10)
+										}
+									}}
+								/>
+								{/* Кнопка эмодзи для подписи - отдельная */}
+								<button
+									type='button'
+									onClick={() => setShowCaptionEmojiPicker(prev => !prev)}
+									className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-700/60 hover:bg-slate-700/80 text-lg transition-colors ${
+										showCaptionEmojiPicker ? 'bg-emerald-500/20 border border-emerald-400/60' : ''
+									}`}
+									disabled={sending}
+									aria-label='Эмодзи для подписи'
+								>
+									😊
+								</button>
+							</div>
+							{/* Счетчик символов */}
+							<div className='mt-1.5 text-xs text-gray-500 text-right'>
+								{caption.length > 0 && `${caption.length} символов`}
+							</div>
+							
+							{/* Отдельный эмодзи-пикер для подписи */}
+							{showCaptionEmojiPicker && typeof window !== 'undefined' && createPortal(
+								<>
+									{/* Overlay для закрытия при клике вне */}
+									<div
+										className='fixed inset-0 z-[10000] bg-transparent'
+										onClick={() => setShowCaptionEmojiPicker(false)}
+									/>
+									{/* Эмодзи пикер */}
+									<div
+										className='fixed z-[10001]'
+										style={{
+											bottom: '200px',
+											right: '20px',
+											width: '360px',
+											maxWidth: 'calc(100vw - 40px)',
+										}}
+										onClick={(e) => e.stopPropagation()}
+									>
+										<div className='bg-slate-800/98 border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden animate-scaleFadeIn'>
+											{/* Заголовок с кнопкой закрытия */}
+											<div className='flex items-center justify-between px-4 py-3 bg-slate-700/30 border-b border-slate-700/50'>
+												<span className='text-sm font-semibold text-gray-200'>Выберите эмодзи для подписи</span>
+												<button
+													onClick={() => setShowCaptionEmojiPicker(false)}
+													className='w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/60 text-gray-400 hover:text-white transition-all duration-200'
+													aria-label='Закрыть'
+												>
+													<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+														<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2.5} d='M6 18L18 6M6 6l12 12' />
+													</svg>
+												</button>
+											</div>
+											{/* Эмодзи пикер */}
+											<div className='overflow-hidden' style={{ height: '380px' }}>
+												<EmojiPicker
+													onEmojiClick={(emojiData) => {
+														// Вставляем emoji только в подпись
+														let emoji: string = ''
+														
+														if (emojiData.emoji) {
+															emoji = emojiData.emoji
+														} else if (emojiData.unified) {
+															try {
+																const codes = emojiData.unified.split('-').map((hex: string) => parseInt(hex, 16))
+																emoji = String.fromCodePoint(...codes)
+															} catch (e) {
+																console.error('Ошибка конвертации unified кода:', e)
+																return
+															}
+														}
+														
+														if (emoji) {
+															const textarea = captionTextareaRef.current
+															if (textarea) {
+																const start = textarea.selectionStart || 0
+																const end = textarea.selectionEnd || 0
+																const textBefore = caption.substring(0, start)
+																const textAfter = caption.substring(end)
+																setCaption(textBefore + emoji + textAfter)
+																
+																// Устанавливаем курсор после вставленного emoji
+																setTimeout(() => {
+																	textarea.focus()
+																	textarea.setSelectionRange(start + emoji.length, start + emoji.length)
+																}, 0)
+															} else {
+																setCaption(prev => prev + emoji)
+															}
+														}
+														setShowCaptionEmojiPicker(false)
+													}}
+													width={360}
+													height={380}
+													theme={'dark' as any}
+													searchPlaceholder='Поиск...'
+													previewConfig={{ showPreview: false }}
+													skinTonesDisabled={false}
+												/>
+											</div>
+										</div>
+									</div>
+								</>,
+								document.body
+							)}
+						</div>
+						
+						{/* Футер с действиями */}
+						<div className='px-4 py-3 flex items-center justify-between gap-3 border-t border-slate-700/50'>
+							<button
+								type='button'
+								onClick={() => {
+									if (uploadXhrRef.current) {
+										uploadXhrRef.current.abort()
+										uploadXhrRef.current = null
+									}
+									setFile(null)
+									setFilePreview(null)
+									setUploadedFileId(null)
+									setUploadProgress(0)
+									setVideoPlaying(false)
+									setUploading(false)
+									setImageRotation(0)
+									setCaption('')
+									setShowCaptionEmojiPicker(false)
+									currentUploadingFileRef.current = null
+									if (videoPreviewRef.current) {
+										videoPreviewRef.current.pause()
+										videoPreviewRef.current.currentTime = 0
+									}
+									if (fileInputRef.current) {
+										fileInputRef.current.value = ''
+									}
+								}}
+								className='px-4 py-2 rounded-xl bg-slate-700/50 hover:bg-slate-700/70 text-slate-200 text-sm font-medium transition-colors'
+								disabled={uploading || sending}
+							>
+								Отмена
+							</button>
+							<button
+								type='button'
+								onClick={async (e) => {
+									if (!uploadedFileId || sending) return
+									
+									// Отправляем подпись напрямую в handleSubmit
+									await handleSubmit(e, caption.trim())
+									// После успешной отправки модальное окно закроется через handleSubmit
+									setCaption('')
+									setShowCaptionEmojiPicker(false)
+								}}
+								disabled={!uploadedFileId || uploading || sending}
+								className='px-4 py-2 rounded-xl bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 text-white text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-emerald-500/20 disabled:hover:shadow-none'
+							>
+								{sending ? (
+									<span className='flex items-center gap-2'>
+										<svg className='animate-spin w-4 h-4' fill='none' viewBox='0 0 24 24'>
+											<circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
+											<path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
+										</svg>
+										Отправка...
+									</span>
+								) : (
+									'Отправить'
+								)}
+							</button>
+						</div>
 					</div>
+				</div>,
+				document.body
+			)}
+			
+			{/* Компактный индикатор для документов (не изображения/видео) */}
+			{file && (!filePreview || (getFileType(file) !== 'image' && getFileType(file) !== 'video')) && (
+				<div className='mb-2 bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl px-3 py-2.5 flex items-center gap-3 shadow-lg animate-scaleFadeIn'>
+					<div className='flex-shrink-0 w-10 h-10 rounded-lg bg-slate-700/60 flex items-center justify-center'>
+						<svg className='w-5 h-5 text-emerald-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+							<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
+						</svg>
+					</div>
+					<div className='flex-1 min-w-0 overflow-hidden'>
+						<div className='text-slate-100 truncate font-medium text-sm leading-tight'>
+							{file.name}
+							</div>
+						<div className='flex items-center gap-2 mt-0.5'>
+							<span className='text-gray-400 text-xs'>
+								{formatFileSize(file.size)}
+							</span>
+							{uploading && (
+								<span className='text-emerald-400 text-xs font-medium'>
+									{Math.round(uploadProgress)}%
+								</span>
+							)}
+						</div>
+						{(uploading || uploadProgress > 0) && (
+							<div className='mt-1.5 w-full bg-slate-700/40 rounded-full h-1 overflow-hidden'>
+								<div
+									className='h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-200'
+									style={{ width: `${uploadProgress}%` }}
+								/>
+							</div>
+						)}
+					</div>
+					<div className='flex items-center gap-1.5'>
+						{uploading ? (
+							<div className='w-6 h-6 flex items-center justify-center'>
+								<svg className='animate-spin w-4 h-4 text-emerald-400' fill='none' viewBox='0 0 24 24'>
+									<circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
+									<path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
+								</svg>
+							</div>
+						) : (
 					<button
 						type='button'
 						onClick={() => {
+									if (uploadXhrRef.current) {
+										uploadXhrRef.current.abort()
+										uploadXhrRef.current = null
+									}
 							setFile(null)
+									setFilePreview(null)
+									setUploadedFileId(null)
+									setUploadProgress(0)
+									setVideoPlaying(false)
+									setUploading(false)
+									currentUploadingFileRef.current = null
 							if (fileInputRef.current) {
 								fileInputRef.current.value = ''
 							}
 						}}
-						className='flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-600/50 text-gray-400 hover:text-red-400 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-0'
+								className='w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-all duration-200'
 						aria-label='Удалить файл'
 					>
-						<span aria-hidden="true">✕</span>
+								<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+									<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+								</svg>
 					</button>
+						)}
+					</div>
 				</div>
 			)}
 
-			<div className='flex items-end gap-3'>
+			<div className='flex items-center gap-2.5'>
 				{/* Кнопка прикрепления файла */}
 				<label 
-					className='cursor-pointer flex-shrink-0 w-12 h-12 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-gradient-to-br from-gray-600/50 to-gray-700/50 border border-gray-500/30 hover:border-emerald-400/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] ios-button touch-manipulation'
+					className='cursor-pointer flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:bg-slate-700/80 hover:border-emerald-400/50 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
 					aria-label="Прикрепить файл"
 				>
 					<input
@@ -385,10 +1111,10 @@ export default function MessageInput({
 						type='file'
 						onChange={handleFileChange}
 						className='hidden'
-						accept='image/*,.pdf,.doc,.docx,.txt'
+						accept='.mp4,.webm,.mov,.avi,.mkv,.wmv,.m4v,.flv,image/*,.pdf,.doc,.docx,.txt'
 					/>
 					<svg
-						className='w-5 h-5 text-gray-300 group-hover:text-emerald-400'
+						className='w-5 h-5 text-gray-300 group-hover:text-emerald-400 transition-colors duration-200'
 						fill='none'
 						stroke='currentColor'
 						viewBox='0 0 24 24'
@@ -402,28 +1128,60 @@ export default function MessageInput({
 					</svg>
 				</label>
 
-				{/* Кнопка эмоджи */}
-				<div className='relative' ref={emojiPickerRef}>
+				{/* Эмодзи пикер через Portal - стильное всплывающее окно без размытия фона */}
+				{showEmojiPicker && typeof window !== 'undefined' && createPortal(
+					<>
+						{/* Overlay для закрытия при клике вне - прозрачный, без размытия */}
+						<div
+							className='fixed inset-0 z-[9998] bg-transparent'
+							onClick={() => setShowEmojiPicker(false)}
+						/>
+						{/* Контейнер эмодзи пикера - стильное всплывающее окно */}
+						<div
+							className='fixed z-[9999]'
+							style={{
+								bottom: '80px',
+								right: '20px',
+								width: '360px',
+								maxWidth: 'calc(100vw - 40px)',
+							}}
+							onClick={(e) => e.stopPropagation()}
+						>
+							<div className='bg-slate-800/98 border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden animate-scaleFadeIn'>
+								{/* Заголовок с кнопкой закрытия */}
+								<div className='flex items-center justify-between px-4 py-3 bg-slate-700/30 border-b border-slate-700/50'>
+									<span className='text-sm font-semibold text-gray-200'>Выберите эмодзи</span>
 					<button
-						type='button'
-						onClick={() => setShowEmojiPicker(prev => !prev)}
-						className='flex-shrink-0 w-12 h-12 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-gradient-to-br from-gray-600/50 to-gray-700/50 border border-gray-500/30 hover:border-emerald-400/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] ios-button text-2xl sm:text-xl touch-manipulation'
-					>
-						😊
+										onClick={() => setShowEmojiPicker(false)}
+										className='w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/60 text-gray-400 hover:text-white transition-all duration-200'
+										aria-label='Закрыть'
+									>
+										<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+											<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2.5} d='M6 18L18 6M6 6l12 12' />
+										</svg>
 					</button>
-					{showEmojiPicker && (
-						<div className='absolute bottom-full mb-2 right-0 z-50'>
-							<EmojiPicker
-								onEmojiClick={handleEmojiClick}
-								width={280}
-								height={350}
-								theme='dark' as any
-								searchPlaceholder='Поиск эмоджи...'
-								previewConfig={{ showPreview: false }}
-							/>
+								</div>
+								{/* Эмодзи пикер */}
+								<div className='overflow-hidden' style={{ height: '380px' }}>
+									<EmojiPicker
+										onEmojiClick={(emojiData) => {
+											// Определяем, где открыт пикер - для подписи или основного сообщения
+											const isCaptionMode = !!(file && filePreview && (getFileType(file) === 'image' || getFileType(file) === 'video'))
+											handleEmojiClick(emojiData, isCaptionMode)
+										}}
+										width={360}
+										height={380}
+										theme={'dark' as any}
+										searchPlaceholder='Поиск...'
+										previewConfig={{ showPreview: false }}
+										skinTonesDisabled={false}
+									/>
+								</div>
+							</div>
 						</div>
+					</>,
+					document.body
 					)}
-				</div>
 
 				{/* Поле ввода сообщения */}
 				<div className='flex-1 relative'>
@@ -440,34 +1198,52 @@ export default function MessageInput({
 						}}
 						placeholder='Напишите сообщение...'
 						rows={1}
-						className='w-full px-5 py-3.5 bg-gradient-to-r from-gray-600/40 to-gray-700/40 border-2 border-gray-500/30 rounded-full text-white text-base placeholder-gray-400 focus:border-emerald-400 focus:outline-none focus:bg-gray-600/50 focus-visible:outline-none focus-visible:ring-0 resize-none custom-scrollbar shadow-inner hover:border-emerald-500/40 transition-all duration-200 ease-out'
+						className='w-full px-4 py-3 bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 rounded-2xl text-white text-base placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-700/80 focus-visible:outline-none focus-visible:ring-0 resize-none custom-scrollbar shadow-md hover:border-slate-500/70 transition-all duration-200 ease-out'
 						disabled={sending}
 						style={{ 
-							height: '48px',
-							minHeight: '48px', 
+							height: '44px',
+							minHeight: '44px', 
 							maxHeight: '150px',
 							lineHeight: '1.5',
 							overflow: 'auto',
-							transition: 'border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+							transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 							outline: 'none',
 							outlineOffset: '0',
-							boxShadow: 'none',
+							boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.05)',
 							WebkitAppearance: 'none',
-							appearance: 'none'
+							appearance: 'none',
+							fontFamily: "'Inter', 'Poppins', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif"
 						} as React.CSSProperties}
 					/>
+				</div>
+
+				{/* Кнопка эмоджи */}
+				<div className='relative' ref={emojiPickerRef}>
+					<button
+						ref={emojiButtonRef}
+						type='button'
+						onClick={() => setShowEmojiPicker(prev => !prev)}
+						className={`flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border ${
+							showEmojiPicker ? 'border-emerald-400/60 bg-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.2)]' : 'border-slate-600/50'
+						} hover:border-emerald-400/50 hover:bg-slate-700/80 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button text-2xl touch-manipulation transition-all duration-200 active:scale-95`}
+						style={{ minHeight: '44px', minWidth: '44px' }}
+						aria-label="Эмодзи"
+					>
+						😊
+					</button>
 				</div>
 
 				{/* Кнопка отправки */}
 				<button
 					type='submit'
-					disabled={sending || (!message.trim() && !file)}
-					className='flex-shrink-0 w-12 h-12 sm:w-11 sm:h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-400 hover:to-emerald-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ios-button shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] flex items-center justify-center touch-manipulation border border-emerald-400/20'
-					title={sending ? 'Отправка...' : 'Отправить'}
+					disabled={!!(sending || (!message.trim() && !uploadedFileId) || uploading || (file && !uploadedFileId))}
+					className='flex-shrink-0 w-11 h-11 bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-xl active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ios-button shadow-md hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center touch-manipulation border border-emerald-400/30 transition-all duration-200'
+					style={{ minHeight: '44px', minWidth: '44px' }}
+					title={uploading ? 'Загрузка файла...' : sending ? 'Отправка...' : (file && !uploadedFileId) ? 'Ожидание загрузки файла' : 'Отправить'}
 				>
 					{sending ? (
 						<svg
-							className='animate-spin w-3.5 h-3.5 sm:w-5 sm:h-5'
+							className='animate-spin w-5 h-5'
 							fill='none'
 							viewBox='0 0 24 24'
 						>
@@ -487,7 +1263,7 @@ export default function MessageInput({
 						</svg>
 					) : (
 						<svg
-							className='w-3.5 h-3.5 sm:w-5 sm:h-5'
+							className='w-5 h-5'
 							fill='currentColor'
 							viewBox='0 0 24 24'
 						>

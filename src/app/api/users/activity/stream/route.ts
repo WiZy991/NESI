@@ -143,6 +143,10 @@ let lastKnownOnlineCount: number | null = null
  * Функция для broadcast обновления онлайн счетчика всем подключенным клиентам
  * Отправляет обновление только если счетчик изменился
  */
+// Переменная для отслеживания последнего логирования ошибки БД
+let lastBroadcastDbErrorLog = 0
+const BROADCAST_DB_ERROR_LOG_INTERVAL = 60000 // Логируем ошибку БД не чаще раза в минуту
+
 export async function broadcastOnlineCountUpdate() {
 	if (!globalThis.onlineCountSSEConnections || globalThis.onlineCountSSEConnections.size === 0) {
 		return
@@ -199,8 +203,26 @@ export async function broadcastOnlineCountUpdate() {
 		})
 
 		console.log(`📢 Broadcast онлайн счетчика: ${onlineCount} пользователей (${globalThis.onlineCountSSEConnections.size} подключений)`)
-	} catch (error) {
-		console.error('Ошибка broadcast онлайн счетчика:', error)
+	} catch (error: any) {
+		// Проверяем, является ли это ошибкой подключения к БД
+		const isConnectionError = 
+			error?.code === 'P1017' || // Server has closed the connection
+			error?.code === 'P1001' || // Can't reach database server
+			error?.message?.includes('could not write init file') ||
+			error?.message?.includes('FATAL') ||
+			error?.message?.includes('Error in connector')
+		
+		if (isConnectionError) {
+			// Логируем ошибку БД не чаще раза в минуту, чтобы не спамить консоль
+			const now = Date.now()
+			if (now - lastBroadcastDbErrorLog > BROADCAST_DB_ERROR_LOG_INTERVAL) {
+				console.error('❌ Ошибка подключения к БД при broadcast онлайн счетчика. Проверьте доступность PostgreSQL.')
+				lastBroadcastDbErrorLog = now
+			}
+		} else {
+			// Для других ошибок логируем всегда
+			console.error('Ошибка broadcast онлайн счетчика:', error)
+		}
 	}
 }
 

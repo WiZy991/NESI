@@ -103,11 +103,14 @@ function ChatsPageContent() {
 	const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
 	const [messageSearchMatches, setMessageSearchMatches] = useState<number[]>([])
 	const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
+	const previousSearchQueryRef = useRef<string>('')
 	const [isTyping, setIsTyping] = useState(false)
 	const [typingUser, setTypingUser] = useState<string | null>(null)
 	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
 	const [replyTo, setReplyTo] = useState<Message['replyTo']>(null)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
+	const messagesContainerRef = useRef<HTMLDivElement>(null)
+	const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 	const eventSourceRef = useRef<EventSource | null>(null)
 	const messageSearchRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 	const searchInputRef = useRef<HTMLInputElement>(null)
@@ -536,9 +539,25 @@ function ChatsPageContent() {
 		fetchMessages()
 	}, [selectedChat, token])
 
-	// Автоскролл к последнему сообщению при открытии чата
+	// Автоскролл к последнему сообщению при открытии чата (только если поиск не открыт)
+	// НЕ прокручиваем после закрытия поиска
+	const preventAutoScrollRef = useRef(false)
+	
 	useEffect(() => {
-		if (messages.length > 0 && messagesEndRef.current && !messagesLoading) {
+		// Если поиск был открыт и теперь закрыт, предотвращаем прокрутку
+		if (!isMessageSearchOpen && preventAutoScrollRef.current) {
+			preventAutoScrollRef.current = false
+			return
+		}
+	}, [isMessageSearchOpen])
+	
+	useEffect(() => {
+		// Не прокручиваем если поиск только что закрыли
+		if (preventAutoScrollRef.current) {
+			return
+		}
+		
+		if (messages.length > 0 && messagesEndRef.current && !messagesLoading && !isMessageSearchOpen) {
 			console.log('📜 Автоскролл к последнему сообщению')
 			// Используем setTimeout чтобы дать время на рендер
 			setTimeout(() => {
@@ -548,7 +567,36 @@ function ChatsPageContent() {
 				})
 			}, 100)
 		}
-	}, [messages.length, messagesLoading])
+	}, [messages.length, messagesLoading, isMessageSearchOpen])
+
+	// Отслеживание позиции прокрутки для кнопки "вниз"
+	useEffect(() => {
+		const container = messagesContainerRef.current
+		if (!container) return
+
+		const handleScroll = () => {
+			// Проверяем, прокручен ли контейнер не до самого низа (с небольшим отступом в 100px)
+			const isScrolledUp = 
+				container.scrollHeight - container.scrollTop - container.clientHeight > 100
+			setShowScrollToBottom(isScrolledUp)
+		}
+
+		container.addEventListener('scroll', handleScroll)
+		// Проверяем при монтировании
+		handleScroll()
+
+		return () => {
+			container.removeEventListener('scroll', handleScroll)
+		}
+	}, [messages.length, isMessageSearchOpen])
+
+	// Функция прокрутки вниз
+	const scrollToBottom = () => {
+		messagesEndRef.current?.scrollIntoView({
+			behavior: 'smooth',
+			block: 'end',
+		})
+	}
 
 	// Автоматическое открытие чата при наличии параметра open или taskId
 	useEffect(() => {
@@ -1119,14 +1167,19 @@ function ChatsPageContent() {
 		setMessageSearchMatches(matches)
 		setCurrentMatchIndex(matches.length > 0 ? 0 : -1)
 
-		// Прокрутка к первому совпадению
-		if (matches.length > 0) {
+		// Прокрутка к первому совпадению только если запрос изменился (не при первом открытии)
+		const queryChanged = previousSearchQueryRef.current !== messageSearchQuery
+		if (matches.length > 0 && messageSearchQuery.trim() !== '' && queryChanged) {
 			const firstMatch = messages[matches[0]]
 			if (firstMatch) {
-				const element = messageSearchRefs.current.get(firstMatch.id)
-				element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+				setTimeout(() => {
+					const element = messageSearchRefs.current.get(firstMatch.id)
+					element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+				}, 50)
 			}
 		}
+		
+		previousSearchQueryRef.current = messageSearchQuery
 	}, [messageSearchQuery, messages])
 
 	// Навигация по совпадениям
@@ -1191,10 +1244,10 @@ function ChatsPageContent() {
 		<div 
 			className='fixed inset-x-0 px-3 sm:px-6'
 			style={{ 
-				top: 'calc(4rem - 1px)',
-				height: 'calc(100vh - 4rem + 1px)',
-				maxHeight: 'calc(100vh - 4rem + 1px)',
-				minHeight: 'calc(100vh - 4rem + 1px)',
+				top: 'calc(0.5rem - 1px)',
+				height: 'calc(100vh - 2rem + 1px)',
+				maxHeight: 'calc(100vh - 6rem + 1px)',
+				minHeight: 'calc(100vh - 6rem + 1px)',
 				paddingTop: 0
 			}}
 		>
@@ -1384,24 +1437,40 @@ function ChatsPageContent() {
 										)}
 										<div className='flex-1 min-w-0'>
 											<h2 className='text-white font-semibold text-sm sm:text-lg truncate'>
-												{getChatTitle(selectedChat)}
+												{selectedChat.type === 'private' 
+													? (selectedChat.otherUser?.fullName || selectedChat.otherUser?.email || 'Неизвестный пользователь')
+													: getChatTitle(selectedChat)
+												}
 											</h2>
-											{selectedChat.type === 'task' &&
-												selectedChat.task?.id && (
-													<Link
-														href={`/tasks/${selectedChat.task.id}`}
-														className='text-[10px] sm:text-sm text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/40 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full inline-block mt-1 truncate max-w-full transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/20'
-														title='Перейти к задаче'
-													>
-														📋 {selectedChat.task.title}
-													</Link>
+											<div className='flex items-center gap-2 mt-1 flex-wrap'>
+												{selectedChat.type === 'task' ? (
+													<>
+														<span className='text-[10px] sm:text-xs text-emerald-300 bg-emerald-900/30 border border-emerald-500/30 px-2 py-0.5 rounded-full'>
+															💼 Чат по задаче
+														</span>
+														{selectedChat.task?.id && (
+															<Link
+																href={`/tasks/${selectedChat.task.id}`}
+																className='text-[10px] sm:text-xs text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/40 px-2 py-0.5 rounded-full inline-block truncate max-w-full transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/20'
+																title='Перейти к задаче'
+															>
+																📋 {selectedChat.task.title}
+															</Link>
+														)}
+													</>
+												) : (
+													<span className='text-[10px] sm:text-xs text-blue-300 bg-blue-900/30 border border-blue-500/30 px-2 py-0.5 rounded-full'>
+														👤 По запросу найма
+													</span>
 												)}
+											</div>
 										</div>
 									</div>
 								</div>
 
 								{/* Сообщения - растягиваемая область */}
 								<div
+									ref={messagesContainerRef}
 									className='flex-1 overflow-y-auto px-5 pt-6 pb-10 sm:px-10 xl:px-16 custom-scrollbar relative min-h-0'
 									style={{
 										touchAction: 'pan-y',
@@ -1415,6 +1484,11 @@ function ChatsPageContent() {
 											onClose={() => {
 												setIsMessageSearchOpen(false)
 												setMessageSearchQuery('')
+												setMessageSearchMatches([])
+												setCurrentMatchIndex(0)
+												previousSearchQueryRef.current = ''
+												// Предотвращаем автоматическую прокрутку после закрытия поиска
+												preventAutoScrollRef.current = true
 											}}
 											searchQuery={messageSearchQuery}
 											onSearchChange={setMessageSearchQuery}
@@ -1467,6 +1541,10 @@ function ChatsPageContent() {
 															.includes(messageSearchQuery.toLowerCase()) &&
 														messageSearchMatches.includes(index) &&
 														messageSearchMatches[currentMatchIndex] === index
+													const isSearchMatch =
+														messageSearchQuery &&
+														messageSearchMatches.includes(index) &&
+														!isHighlighted
 
 													return (
 														<div
@@ -1481,8 +1559,10 @@ function ChatsPageContent() {
 															}}
 															className={
 																isHighlighted
-																	? 'ring-2 ring-emerald-500 rounded-lg p-1 -m-1 transition-all animate-pulse'
-																	: ''
+																	? 'bg-emerald-500/25 rounded-lg px-2 -mx-2 py-1 -my-1 transition-all duration-200'
+																	: isSearchMatch
+																		? 'bg-emerald-500/10 rounded-lg px-2 -mx-2 py-1 -my-1'
+																		: ''
 															}
 														>
 															<ChatMessage
@@ -1556,9 +1636,33 @@ function ChatsPageContent() {
 
 									<div ref={messagesEndRef} />
 								</div>
+								
+								{/* Кнопка прокрутки вниз */}
+								{showScrollToBottom && !isMessageSearchOpen && (
+									<button
+										onClick={scrollToBottom}
+										className='fixed bottom-24 right-6 sm:right-8 z-40 w-9 h-9 bg-slate-700/90 hover:bg-slate-600/90 text-gray-300 hover:text-white rounded-full shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-200 animate-scaleFadeIn border border-slate-600/50 hover:border-slate-500/70 hover:scale-105 active:scale-95'
+										aria-label='Прокрутить вниз'
+										title='Прокрутить вниз'
+									>
+										<svg
+											className='w-4 h-4'
+											fill='none'
+											stroke='currentColor'
+											viewBox='0 0 24 24'
+										>
+											<path
+												strokeLinecap='round'
+												strokeLinejoin='round'
+												strokeWidth={2}
+												d='M19 14l-7 7m0 0l-7-7m7 7V3'
+											/>
+										</svg>
+									</button>
+								)}
 
 								{/* Поле ввода сообщения - закреплённое внизу колонки */}
-								<div className='flex-shrink-0 border-t border-emerald-300/25 bg-slate-900/40 md:bg-slate-900/32 backdrop-blur-lg shadow-[0_-10px_22px_rgba(15,118,110,0.2)] relative z-10'>
+								<div className='flex-shrink-0 border-t border-slate-700/50 bg-slate-800/60 md:bg-slate-800/50 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.3)] relative z-10'>
 									<div className='px-4 py-2 sm:px-5 sm:px-3'>
 										<MessageInput
 											chatType={selectedChat.type}

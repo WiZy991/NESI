@@ -4,6 +4,8 @@ import { getUserFromRequest } from '@/lib/auth'
 import { createNotification } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
+import { validateFile } from '@/lib/fileValidation'
+import { normalizeFileName, isValidFileName } from '@/lib/security'
 
 // GET /api/tasks/[id]/messages
 export async function GET(
@@ -121,11 +123,26 @@ export async function POST(
 		}
 
 		const { id: taskId } = await params
-		const formData = await req.formData()
-
-		const content = formData.get('content')?.toString() || ''
-		const file = formData.get('file') as File | null
-		const replyToId = formData.get('replyToId')?.toString() || null
+		const contentType = req.headers.get('content-type') || ''
+		
+		let content = ''
+		let file: File | null = null
+		let fileId: string | null = null
+		let replyToId: string | null = null
+		
+		if (contentType.includes('application/json')) {
+			// JSON запрос с fileId (файл уже загружен)
+			const body = await req.json().catch(() => null)
+			content = body?.content || ''
+			fileId = body?.fileId || null
+			replyToId = body?.replyToId || null
+		} else {
+			// Multipart запрос с файлом
+			const formData = await req.formData()
+			content = formData.get('content')?.toString() || ''
+			file = formData.get('file') as File | null
+			replyToId = formData.get('replyToId')?.toString() || null
+		}
 
 		// Валидация replyToId - если указан, проверяем что сообщение существует и принадлежит той же задаче
 		if (replyToId) {
@@ -158,14 +175,50 @@ export async function POST(
 		}
 
 		let savedFile = null
-		if (file && file.size > 0) {
+		
+		// Если файл уже загружен (fileId), используем его
+		if (fileId) {
+			savedFile = await prisma.file.findUnique({
+				where: { id: fileId },
+			})
+			if (!savedFile) {
+				return NextResponse.json(
+					{ error: 'Файл не найден' },
+					{ status: 404 }
+				)
+			}
+		} else if (file && file.size > 0) {
 			try {
+				// Защита от path traversal
+				const fileName = file.name || 'file'
+				if (!isValidFileName(fileName)) {
+					return NextResponse.json(
+						{ error: 'Недопустимое имя файла' },
+						{ status: 400 }
+					)
+				}
+
+				// Нормализация имени файла
+				const safeFileName = normalizeFileName(fileName)
+
+				// Полная валидация файла (magic bytes, размер, тип)
+				const validation = await validateFile(file, true)
+				if (!validation.valid) {
+					return NextResponse.json(
+						{ error: validation.error },
+						{ status: 400 }
+					)
+				}
+
 				const buffer = Buffer.from(await file.arrayBuffer())
+
+				// Используем определенный MIME тип из валидации
+				const detectedMimeType = validation.detectedMimeType || file.type
 
 				savedFile = await prisma.file.create({
 					data: {
-						filename: file.name,
-						mimetype: file.type,
+						filename: safeFileName,
+						mimetype: detectedMimeType,
 						size: file.size,
 						data: buffer,
 					},

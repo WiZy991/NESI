@@ -33,10 +33,20 @@ export default function ChatMessageSearch({
     }
   })
 
+  // Фокусируем поле ввода при открытии (без прокрутки)
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      // Небольшая задержка чтобы избежать прокрутки
+      setTimeout(() => {
+        searchInputRef.current?.focus({ preventScroll: true })
+      }, 100)
+    }
+  }, [isOpen])
+
   // КРИТИЧНО: Убираем квадратную обводку outline для поля поиска сообщений
   useEffect(() => {
     const input = searchInputRef.current
-    if (!input) return
+    if (!input || !isOpen) return
 
     const removeOutline = () => {
       input.style.setProperty('outline', 'none', 'important')
@@ -70,10 +80,10 @@ export default function ChatMessageSearch({
   if (!isOpen) return null
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-r from-emerald-900/95 to-teal-900/95 border-b border-emerald-500/30 p-4 shadow-[0_4px_20px_rgba(16,185,129,0.3)] backdrop-blur-md">
-      <div className="flex items-center gap-3 max-w-4xl mx-auto">
+    <div className="sticky top-0 left-0 right-0 z-50 bg-slate-800/98 backdrop-blur-xl border-b border-slate-700/50 p-3 shadow-lg">
+      <div className="flex items-center gap-2 max-w-4xl mx-auto">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400/80" />
           <input
             ref={searchInputRef}
             type="text"
@@ -89,7 +99,7 @@ export default function ChatMessageSearch({
                 onPrevious()
               }
             }}
-            className="w-full pl-10 pr-12 py-2.5 bg-black/40 border-2 border-emerald-500/50 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-emerald-400 transition-all"
+            className="w-full pl-11 pr-10 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500/60 focus:bg-slate-700/70 transition-all duration-200"
             style={{ 
               outline: 'none',
               outlineOffset: '0',
@@ -97,13 +107,13 @@ export default function ChatMessageSearch({
               WebkitAppearance: 'none',
               appearance: 'none'
             } as React.CSSProperties}
-            autoFocus
+            autoFocus={false}
             aria-label="Поиск в сообщениях"
           />
           {searchQuery && (
             <button
               onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-slate-600/50"
               aria-label="Очистить поиск"
             >
               <X className="w-4 h-4" />
@@ -113,16 +123,16 @@ export default function ChatMessageSearch({
 
         {searchQuery && matchCount > 0 && (
           <>
-            <div className="flex items-center gap-2 text-sm text-emerald-300">
-              <span>
-                {currentMatch} из {matchCount}
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/40 rounded-lg border border-slate-600/30">
+              <span className="text-sm font-medium text-emerald-300 whitespace-nowrap">
+                {currentMatch} / {matchCount}
               </span>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               <button
                 onClick={onPrevious}
                 disabled={matchCount === 0}
-                className="p-2 bg-black/40 border border-emerald-500/50 rounded-lg text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="p-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 aria-label="Предыдущее совпадение"
                 title="Предыдущее (Shift+Enter)"
               >
@@ -131,7 +141,7 @@ export default function ChatMessageSearch({
               <button
                 onClick={onNext}
                 disabled={matchCount === 0}
-                className="p-2 bg-black/40 border border-emerald-500/50 rounded-lg text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="p-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 aria-label="Следующее совпадение"
                 title="Следующее (Enter)"
               >
@@ -142,12 +152,12 @@ export default function ChatMessageSearch({
         )}
 
         {searchQuery && matchCount === 0 && (
-          <div className="text-sm text-gray-400">Ничего не найдено</div>
+          <div className="text-sm text-gray-400 px-3">Ничего не найдено</div>
         )}
 
         <button
           onClick={onClose}
-          className="p-2 bg-black/40 border border-emerald-500/50 rounded-lg text-gray-400 hover:text-white hover:bg-emerald-500/20 transition"
+          className="p-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-gray-400 hover:text-white hover:bg-slate-600/70 transition-all duration-200"
           aria-label="Закрыть поиск"
           title="Закрыть (Esc)"
         >

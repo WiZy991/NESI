@@ -101,6 +101,20 @@ export async function POST(req: NextRequest) {
 			const body = await req.json().catch(() => null)
 			recipientId = body?.recipientId
 			content = body?.content ?? ''
+			replyToId = body?.replyToId || null
+			
+			// Поддержка fileId для уже загруженных файлов
+			if (body?.fileId) {
+				const existingFile = await prisma.file.findUnique({
+					where: { id: body.fileId },
+				})
+				if (existingFile) {
+					fileUrl = `/api/files/${existingFile.id}`
+					fileName = existingFile.filename
+					mimeType = existingFile.mimetype
+					size = existingFile.size
+				}
+			}
 		} else {
 			const body = await req.json().catch(() => null)
 			if (body) {

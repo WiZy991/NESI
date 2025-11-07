@@ -18,17 +18,41 @@ export async function getUserFromToken(token: string) {
     throw new Error('Token does not contain userId')
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
-  })
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+    })
 
-  // 🟢 если пользователь найден, но флаги не выставлены — просто предупреждаем, но не ломаем
-  if (user && (!user.emailVerified || !user.verified)) {
-    console.warn('⚠️ Пользователь без подтверждения:', user.email)
+    // 🟢 если пользователь найден, но флаги не выставлены — просто предупреждаем, но не ломаем
+    if (user && (!user.emailVerified || !user.verified)) {
+      console.warn('⚠️ Пользователь без подтверждения:', user.email)
+    }
+
+    return user
+  } catch (error: any) {
+    // Проверяем, является ли это ошибкой подключения к БД
+    const isConnectionError = 
+      error?.code === 'P1017' || // Server has closed the connection
+      error?.code === 'P1001' || // Can't reach database server
+      error?.message?.includes('could not write init file') ||
+      error?.message?.includes('FATAL') ||
+      error?.message?.includes('Error in connector')
+    
+    if (isConnectionError) {
+      // Для ошибок подключения выбрасываем специальную ошибку
+      const dbError = new Error('Database connection error')
+      dbError.name = 'DatabaseConnectionError'
+      throw dbError
+    }
+    
+    // Для других ошибок просто пробрасываем
+    throw error
   }
-
-  return user
 }
+
+// Переменная для отслеживания последнего логирования ошибки БД
+let lastDbErrorLog = 0
+const DB_ERROR_LOG_INTERVAL = 30000 // Логируем ошибку БД не чаще раза в 30 секунд
 
 export async function getUserFromRequest(req: Request) {
   const token = getTokenFromRequest(req)
@@ -53,19 +77,53 @@ export async function getUserFromRequest(req: Request) {
         return null
       } else {
         // Блокировка истекла, снимаем её
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { blocked: false, blockedUntil: null, blockedReason: null },
-        })
-        console.log(`✅ Временная блокировка снята: ${user.email}`)
-        user.blocked = false
-        user.blockedUntil = null
-        user.blockedReason = null
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { blocked: false, blockedUntil: null, blockedReason: null },
+          })
+          console.log(`✅ Временная блокировка снята: ${user.email}`)
+          user.blocked = false
+          user.blockedUntil = null
+          user.blockedReason = null
+        } catch (updateError: any) {
+          // Игнорируем ошибки БД при попытке снятия блокировки
+          const isConnectionError = 
+            updateError?.code === 'P1017' ||
+            updateError?.code === 'P1001' ||
+            updateError?.message?.includes('could not write init file') ||
+            updateError?.message?.includes('FATAL')
+          
+          if (!isConnectionError) {
+            console.error('Ошибка при снятии блокировки:', updateError)
+          }
+        }
       }
     }
 
     return user
-  } catch (error) {
+  } catch (error: any) {
+    // Проверяем, является ли это ошибкой подключения к БД
+    const isConnectionError = 
+      error?.name === 'DatabaseConnectionError' ||
+      error?.code === 'P1017' ||
+      error?.code === 'P1001' ||
+      error?.message?.includes('could not write init file') ||
+      error?.message?.includes('FATAL') ||
+      error?.message?.includes('Error in connector')
+    
+    if (isConnectionError) {
+      // Логируем ошибку БД не чаще раза в 30 секунд, чтобы не спамить консоль
+      const now = Date.now()
+      if (now - lastDbErrorLog > DB_ERROR_LOG_INTERVAL) {
+        console.error('❌ Ошибка подключения к базе данных. Проверьте доступность PostgreSQL.')
+        console.error('Детали:', error?.message || error)
+        lastDbErrorLog = now
+      }
+      return null
+    }
+    
+    // Для других ошибок (не связанных с БД) логируем всегда
     console.error('❌ Ошибка при декодировании токена:', error)
     return null
   }

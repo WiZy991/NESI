@@ -33,7 +33,7 @@ html {
 body {
 	color: var(--foreground);
 	background-color: #111827;
-	font-family: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
+	font-family: 'Inter', 'Poppins', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
 	font-weight: 400;
 	letter-spacing: 0.02em;
 	position: relative;
@@ -142,8 +142,46 @@ body {
 	}
 }
 
+/* Анимации для чата */
+@keyframes slideDownFade {
+	0% {
+		opacity: 0;
+		transform: translateY(-8px) scale(0.95);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes scaleFadeIn {
+	0% {
+		opacity: 0;
+		transform: scale(0.9);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes fadeInUp {
+	0% {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 .animate-fadeIn {
 	animation: fadeIn 0.15s ease-out forwards;
+}
+
+.animate-scaleFadeIn {
+	animation: scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-fadeOut {

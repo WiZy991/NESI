@@ -4,6 +4,25 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useUser } from '@/context/UserContext'
 import { toast } from 'sonner'
+import Link from 'next/link'
+import VideoPlayer from './VideoPlayer'
+import { 
+  Reply, 
+  Smile, 
+  Edit, 
+  Trash2, 
+  Copy, 
+  Check, 
+  X,
+  ChevronDown,
+  File,
+  FileText,
+  FileImage,
+  FileVideo,
+  FileAudio,
+  Archive,
+  Download
+} from 'lucide-react'
 
 type Props = {
   message: {
@@ -54,6 +73,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   const [editedContent, setEditedContent] = useState(message.content)
   const [showMenu, setShowMenu] = useState(false)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [showExtendedReactions, setShowExtendedReactions] = useState(false)
   const [reactions, setReactions] = useState(message.reactions || [])
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
   const [reactionPickerPosition, setReactionPickerPosition] = useState({ x: 0, y: 0 })
@@ -62,6 +82,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const touchTimerRef = useRef<NodeJS.Timeout | null>(null)
   const messageRef = useRef<HTMLDivElement>(null)
+  const reactionsContainerRef = useRef<HTMLDivElement>(null)
   
   // Обновляем реакции при изменении сообщения
   useEffect(() => {
@@ -70,9 +91,193 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   
   const fileUrl = message.fileId ? `/api/files/${message.fileId}` : null
   const isImage = message.fileMimetype?.startsWith('image/')
+  const isVideo = message.fileMimetype?.startsWith('video/')
   const isOwnMessage = user?.id === message.sender.id
   const isDeleted = message.content === '[Сообщение удалено]'
   const isEdited = message.editedAt && message.editedAt !== message.createdAt
+
+  // Проверка, состоит ли сообщение только из эмодзи
+  const isOnlyEmoji = (text: string): boolean => {
+    if (!text || !text.trim()) return false
+    const trimmed = text.trim()
+    
+    // Убираем все пробелы для проверки
+    const withoutSpaces = trimmed.replace(/\s/g, '')
+    if (withoutSpaces.length === 0) return false
+    
+    // ИСКЛЮЧАЕМ: если есть цифры, буквы или другие не-эмодзи символы - это НЕ только эмодзи
+    // Проверяем наличие обычных символов (цифры, буквы, знаки препинания)
+    const hasRegularChars = /[0-9a-zA-Zа-яА-ЯёЁ.,!?;:()\-_=+*&%$#@<>[\]{}|\\\/"'`~]/u.test(withoutSpaces)
+    if (hasRegularChars) {
+      return false
+    }
+    
+    // Если текст очень короткий (1-10 символов), проверяем что это эмодзи
+    if (withoutSpaces.length <= 10) {
+      try {
+        // Проверка через Unicode property escapes - самый надежный способ
+        // Используем более строгий паттерн, который проверяет что ВСЕ символы - эмодзи
+        const emojiRegex = /\p{Emoji}/gu
+        const allChars = [...withoutSpaces]
+        const emojiMatches = allChars.filter(char => {
+          // Проверяем каждый символ отдельно
+          return /\p{Emoji}/u.test(char)
+        })
+        
+        // ВСЕ символы должны быть эмодзи, без исключений
+        if (emojiMatches.length === allChars.length && allChars.length > 0 && allChars.length <= 10) {
+          return true
+        }
+      } catch (e) {
+        // Fallback для браузеров без поддержки Unicode property escapes
+      }
+      
+      // Альтернативная проверка через кодпоинты
+      // ИСКЛЮЧАЕМ обычные символы (цифры, буквы)
+      const codePoints = [...withoutSpaces].map(c => c.codePointAt(0) || 0)
+      
+      // Проверяем что НЕТ обычных символов
+      const hasRegularCodePoints = codePoints.some(cp => 
+        (cp >= 0x30 && cp <= 0x39) || // Цифры 0-9
+        (cp >= 0x41 && cp <= 0x5A) || // Латинские заглавные A-Z
+        (cp >= 0x61 && cp <= 0x7A) || // Латинские строчные a-z
+        (cp >= 0x410 && cp <= 0x44F) || // Кириллица
+        (cp >= 0x400 && cp <= 0x4FF)    // Доп. кириллица
+      )
+      
+      if (hasRegularCodePoints) {
+        return false
+      }
+      
+      // Проверяем что ВСЕ символы - эмодзи
+      const emojiCodePoints = codePoints.filter(cp => 
+        (cp >= 0x1F300 && cp <= 0x1F9FF) || // Emoticons & Symbols
+        (cp >= 0x2600 && cp <= 0x26FF) ||   // Miscellaneous Symbols
+        (cp >= 0x2700 && cp <= 0x27BF) ||   // Dingbats
+        (cp >= 0x1F600 && cp <= 0x1F64F) || // Emoticons (faces)
+        (cp >= 0x1F900 && cp <= 0x1F9FF) || // Supplemental Symbols and Pictographs
+        (cp === 0xFE0F) ||                   // Variation Selector-16
+        (cp >= 0x1F1E6 && cp <= 0x1F1FF)     // Regional Indicator Symbols (флаги)
+      )
+      
+      // ВСЕ символы должны быть эмодзи
+      return emojiCodePoints.length === codePoints.length && codePoints.length > 0 && codePoints.length <= 10
+    }
+    
+    return false
+  }
+
+  const containsOnlyEmoji = Boolean(message.content && !fileUrl && !message.replyTo && !isDeleted && isOnlyEmoji(message.content))
+
+  // Функция для форматирования размера файла
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return `${bytes} Б`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
+  }
+
+  // Функция для определения типа файла и получения иконки
+  const getFileIcon = (mimetype?: string, fileName?: string) => {
+    if (!mimetype && !fileName) return File
+    
+    const extension = fileName?.split('.').pop()?.toLowerCase() || ''
+    
+    if (mimetype?.startsWith('image/')) return FileImage
+    if (mimetype?.startsWith('video/')) return FileVideo
+    if (mimetype?.startsWith('audio/')) return FileAudio
+    if (mimetype === 'application/pdf' || extension === 'pdf') return FileText
+    if (
+      mimetype?.includes('zip') || 
+      mimetype?.includes('rar') || 
+      mimetype?.includes('7z') ||
+      ['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)
+    ) return Archive
+    if (
+      mimetype?.includes('word') || 
+      mimetype?.includes('document') ||
+      ['doc', 'docx', 'odt'].includes(extension)
+    ) return FileText
+    if (
+      mimetype?.includes('excel') || 
+      mimetype?.includes('spreadsheet') ||
+      ['xls', 'xlsx', 'ods'].includes(extension)
+    ) return FileText
+    
+    return File
+  }
+
+  // Функция для парсинга ссылок в тексте
+  const parseLinks = (text: string) => {
+    if (!text) return []
+    
+    // Регулярное выражение для поиска URL (с протоколом и без)
+    const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}[^\s]*/g
+    const parts: Array<{ type: 'text' | 'link'; content: string }> = []
+    let lastIndex = 0
+    let match
+    
+    while ((match = urlRegex.exec(text)) !== null) {
+      // Добавляем текст до ссылки
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: text.substring(lastIndex, match.index)
+        })
+      }
+      
+      // Формируем полный URL
+      let url = match[0]
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url
+      }
+      
+      // Добавляем ссылку
+      parts.push({
+        type: 'link',
+        content: url
+      })
+      
+      lastIndex = match.index + match[0].length
+    }
+    
+    // Добавляем оставшийся текст
+    if (lastIndex < text.length) {
+      parts.push({
+        type: 'text',
+        content: text.substring(lastIndex)
+      })
+    }
+    
+    return parts.length > 0 ? parts : [{ type: 'text', content: text }]
+  }
+
+  // Рендер текста с ссылками
+  const renderTextWithLinks = (text: string) => {
+    const parts = parseLinks(text)
+    
+    return parts.map((part, index) => {
+      if (part.type === 'link') {
+        // Показываем оригинальный текст ссылки без протокола для красоты
+        const displayText = part.content.replace(/^https?:\/\//, '').replace(/\/$/, '')
+        return (
+          <a
+            key={index}
+            href={part.content}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline break-all hover:opacity-80 transition-opacity ${
+              isOwnMessage ? 'text-blue-200' : 'text-blue-400'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {displayText}
+          </a>
+        )
+      }
+      return <span key={index}>{part.content}</span>
+    })
+  }
 
   // Логирование для отладки ответов
   useEffect(() => {
@@ -90,8 +295,34 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    // Используем координаты относительно viewport
-    setMenuPosition({ x: e.clientX, y: e.clientY })
+    
+    // Предполагаемая высота меню (примерно 200px для всех пунктов)
+    const menuHeight = 200
+    const viewportHeight = window.innerHeight
+    const clickY = e.clientY
+    
+    // Если меню не помещается внизу, позиционируем его выше курсора
+    let finalY = clickY
+    if (clickY + menuHeight > viewportHeight) {
+      finalY = clickY - menuHeight
+      // Не даем меню уйти за верхний край
+      if (finalY < 10) {
+        finalY = 10
+      }
+    }
+    
+    // Также проверяем горизонтальную позицию
+    const menuWidth = 180
+    const clickX = e.clientX
+    let finalX = clickX
+    if (clickX + menuWidth > window.innerWidth) {
+      finalX = window.innerWidth - menuWidth - 10
+    }
+    if (finalX < 10) {
+      finalX = 10
+    }
+    
+    setMenuPosition({ x: finalX, y: finalY })
     setShowMenu(true)
   }
 
@@ -100,8 +331,34 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
     touchTimerRef.current = setTimeout(() => {
       e.preventDefault()
       const touch = e.touches[0] || e.changedTouches[0]
-      // Используем координаты относительно viewport
-      setMenuPosition({ x: touch.clientX, y: touch.clientY })
+      
+      // Предполагаемая высота меню (примерно 200px для всех пунктов)
+      const menuHeight = 200
+      const viewportHeight = window.innerHeight
+      const touchY = touch.clientY
+      
+      // Если меню не помещается внизу, позиционируем его выше точки касания
+      let finalY = touchY
+      if (touchY + menuHeight > viewportHeight) {
+        finalY = touchY - menuHeight
+        // Не даем меню уйти за верхний край
+        if (finalY < 10) {
+          finalY = 10
+        }
+      }
+      
+      // Также проверяем горизонтальную позицию
+      const menuWidth = 180
+      const touchX = touch.clientX
+      let finalX = touchX
+      if (touchX + menuWidth > window.innerWidth) {
+        finalX = window.innerWidth - menuWidth - 10
+      }
+      if (finalX < 10) {
+        finalX = 10
+      }
+      
+      setMenuPosition({ x: finalX, y: finalY })
       setShowMenu(true)
     }, 500) // 500ms для долгого нажатия
   }
@@ -146,8 +403,11 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   }, [showMenu, showReactionPicker])
 
   // Обработчик реакции
-  const handleReaction = async (emoji: string) => {
+  const handleReaction = async (emoji: string, e?: React.MouseEvent) => {
     if (!token) return
+    
+    // Предотвращаем всплытие события, чтобы реакция не добавлялась дважды
+    e?.stopPropagation()
 
     try {
       const res = await fetch('/api/messages/reactions', {
@@ -165,22 +425,29 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
 
       const data = await res.json()
       if (res.ok) {
-        // Обновляем реакции локально
+        // Обновляем реакции локально - это достаточно для UI
+        // Родительский компонент получит обновления при следующей загрузке с сервера
         if (data.action === 'added') {
-          setReactions(prev => [...prev, { emoji, userId: user!.id }])
+          setReactions(prev => {
+            // Проверяем, нет ли уже такой реакции от этого пользователя
+            const exists = prev.some(r => r.emoji === emoji && r.userId === user!.id)
+            if (!exists) {
+              return [...prev, { emoji, userId: user!.id }]
+            }
+            return prev
+          })
         } else {
-          setReactions(prev => prev.filter(r => !(r.emoji === emoji && r.userId === user!.id)))
-        }
-        
-        // Обновляем сообщение через callback
-        if (onMessageUpdate) {
-          const updatedMessage = { ...message, reactions }
-          onMessageUpdate(updatedMessage)
+          setReactions(prev => {
+            // Удаляем реакцию
+            return prev.filter(r => !(r.emoji === emoji && r.userId === user!.id))
+          })
         }
       }
       setShowReactionPicker(false)
+      setShowExtendedReactions(false)
     } catch (error) {
       console.error('Ошибка при добавлении реакции:', error)
+      toast.error('Ошибка при добавлении реакции')
     }
   }
 
@@ -202,7 +469,19 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
     return acc
   }, [] as Array<{ emoji: string; count: number; hasUser: boolean }>)
 
-  const commonEmojis = ['👍', '❤️', '😂', '😮', '😢', '🔥', '👏', '🎉']
+  // Основные эмодзи (показываются первыми)
+  const primaryEmojis = ['👍', '❤️', '😂', '😮', '😢', '🔥']
+  
+  // Дополнительные эмодзи (раскрываются по клику)
+  const extendedEmojis = [
+    '👏', '🎉', '🤔', '👎', '😊', '😍', '🤣', '😱', 
+    '😭', '🤗', '🙏', '💪', '🎊', '✅', '❌', '⭐',
+    '💯', '💖', '💕', '🤝', '🙌', '👌', '👍🏻',
+    '❤️‍🔥', '🤯', '🥳', '😎', '🤩', '😇', '🎯', '🚀'
+  ]
+  
+  // Все эмодзи вместе
+  const allEmojis = [...primaryEmojis, ...extendedEmojis]
 
 	const handleEdit = async () => {
 		if (!editedContent.trim() || editedContent === message.content) {
@@ -264,6 +543,18 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
 		}
 	}
 
+	const handleCopyText = async () => {
+		if (!message.content) return
+		
+		try {
+			await navigator.clipboard.writeText(message.content)
+			toast.success('Текст скопирован')
+			setShowMenu(false)
+		} catch (error) {
+			toast.error('Ошибка копирования')
+		}
+	}
+
   // Определяем отступ снизу: между группами больше, внутри группы меньше
   const marginBottom = isLastInGroup ? 'mb-3' : 'mb-1'
   
@@ -307,10 +598,11 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   }
 
   return (
-    <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} ${marginBottom}`}>
+    <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} ${marginBottom}`} style={{ overflow: 'visible' }}>
       <div 
         ref={messageRef}
         className={`relative max-w-[85%] sm:max-w-[75%] min-w-[80px] group`}
+        style={{ overflow: 'visible' }}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -318,31 +610,84 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
       >
         {/* Имя отправителя (только для чужих сообщений и если showSenderName=true) */}
         {!isOwnMessage && showSenderName && (
-          <div className="text-xs text-emerald-400 font-medium mb-1 px-2">
-            {message.sender.fullName || message.sender.email}
+          <div className="text-xs font-medium mb-1 px-2">
+            <Link
+              href={`/users/${message.sender.id}`}
+              className="text-emerald-400 hover:text-emerald-300 hover:underline transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {message.sender.fullName || message.sender.email}
+            </Link>
           </div>
         )}
       
-        <div className={`relative px-3 py-2 sm:px-3 sm:py-2 ${getBorderRadius()} ${
-          isDeleted 
-            ? 'bg-gray-800/50 border border-gray-700/30' // Удаленные сообщения
-            : isOwnMessage 
-              ? 'bg-emerald-600 text-white' // Свои сообщения - зеленый
-              : 'bg-gray-700 text-white' // Чужие сообщения - серый
-        }`}>
+        <div 
+          className={containsOnlyEmoji ? 'relative' : `relative px-3 py-2 sm:px-3 sm:py-2 ${getBorderRadius()} shadow-lg backdrop-blur-sm ${
+            isDeleted 
+              ? 'bg-gray-800/50 border border-gray-700/30'
+              : isOwnMessage 
+                ? 'bg-gradient-to-br from-emerald-800/75 via-teal-800/75 to-emerald-900/75 text-white border border-emerald-700/20'
+                : 'bg-slate-700/85 text-white border border-slate-600/25'
+          }`}
+          style={containsOnlyEmoji ? {
+            padding: 0,
+            margin: 0,
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
+            borderRadius: 0
+          } : {}}
+        >
         
         {/* Контекстное меню (открывается по ПКМ или долгому нажатию) - рендерим через Portal */}
         {!isDeleted && showMenu && typeof window !== 'undefined' ? createPortal(
           <div 
-            ref={menuRef}
-            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[100] min-w-[140px] sm:min-w-[130px] overflow-hidden"
+            ref={(node) => {
+              if (node && menuRef.current !== node) {
+                menuRef.current = node
+                // После рендеринга проверяем, не выходит ли меню за границы экрана
+                requestAnimationFrame(() => {
+                  if (menuRef.current) {
+                    const rect = menuRef.current.getBoundingClientRect()
+                    const viewportWidth = window.innerWidth
+                    const viewportHeight = window.innerHeight
+                    
+                    let newX = menuPosition.x
+                    let newY = menuPosition.y
+                    
+                    // Проверка по вертикали
+                    if (rect.bottom > viewportHeight - 10) {
+                      // Меню выходит снизу, перемещаем выше
+                      newY = menuPosition.y - rect.height
+                      // Если и выше не помещается, прижимаем к верхнему краю
+                      if (newY < 10) {
+                        newY = 10
+                      }
+                    }
+                    
+                    // Проверка по горизонтали
+                    if (rect.right > viewportWidth - 10) {
+                      newX = viewportWidth - rect.width - 10
+                    }
+                    if (rect.left < 10) {
+                      newX = 10
+                    }
+                    
+                    // Обновляем позицию только если нужно
+                    if (newX !== menuPosition.x || newY !== menuPosition.y) {
+                      setMenuPosition({ x: newX, y: newY })
+                    }
+                  }
+                })
+              }
+            }}
+            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl z-[100] min-w-[160px] overflow-hidden animate-fadeIn"
             style={{
               left: `${menuPosition.x}px`,
               top: `${menuPosition.y}px`,
               maxWidth: '90vw',
               maxHeight: '90vh',
-              animation: 'slideDownWave 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-              transformOrigin: 'top left'
+              animation: 'slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
             }}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.preventDefault()}
@@ -356,9 +701,10 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                       onReply(message.id)
                     }
                   }}
-                  className="block w-full text-left px-4 py-2.5 sm:px-3 sm:py-2 hover:bg-gray-800/80 text-sm sm:text-xs text-gray-300 hover:text-white transition-all duration-150 ease-out"
+                  className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group"
                 >
-                  ↩️ Ответить
+                  <Reply className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span>Ответить</span>
                 </button>
                 <div className="relative">
                   <button
@@ -378,36 +724,51 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                       }
                       setShowReactionPicker(!showReactionPicker)
                     }}
-                    className="block w-full text-left px-4 py-2.5 sm:px-3 sm:py-2 hover:bg-gray-800/80 text-sm sm:text-xs text-gray-300 hover:text-white transition-all duration-150 ease-out"
+                    className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group"
                   >
-                    😊 Реакция
+                    <Smile className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <span>Реакция</span>
                   </button>
                 </div>
+                {message.content && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleCopyText()
+                    }}
+                    className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group"
+                  >
+                    <Copy className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <span>Копировать</span>
+                  </button>
+                )}
                 
                 {/* Опции только для своих сообщений */}
                 {isOwnMessage && (
                   <>
-                    <div className="border-t border-gray-700/50"></div>
+                    <div className="border-t border-gray-700/50 my-1"></div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         setIsEditing(true)
                         setShowMenu(false)
                       }}
-                      className="block w-full text-left px-4 py-2.5 sm:px-3 sm:py-2 hover:bg-gray-800/80 text-sm sm:text-xs text-gray-300 hover:text-white transition-all duration-150 ease-out"
+                      className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group"
                     >
-                      ✏️ Изменить
+                      <Edit className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      <span>Изменить</span>
                     </button>
-                    <div className="border-t border-gray-700/50"></div>
+                    <div className="border-t border-gray-700/50 my-1"></div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         setShowMenu(false)
                         handleDelete()
                       }}
-                      className="block w-full text-left px-4 py-2.5 sm:px-3 sm:py-2 hover:bg-gray-800/80 text-sm sm:text-xs text-red-400 hover:text-red-300 transition-colors"
+                      className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-800/80 text-sm text-red-400 hover:text-red-300 transition-all duration-150 ease-out group"
                     >
-                      🗑️ Удалить
+                      <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      <span>Удалить</span>
                     </button>
                   </>
                 )}
@@ -419,43 +780,98 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
         {showReactionPicker && typeof window !== 'undefined' ? createPortal(
           <div 
             ref={reactionPickerRef}
-            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl p-2 flex gap-1 z-[101]"
+            className="fixed bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-2xl p-2 z-[101]"
             style={{
               left: `${reactionPickerPosition.x}px`,
               top: `${reactionPickerPosition.y}px`,
               transform: isOwnMessage 
                 ? 'translate(-100%, -50%)'  // Для правых сообщений - правый край пикера вплотную к левому краю меню
                 : 'translate(0, -50%)',      // Для левых сообщений - левый край пикера справа от меню
-              animation: 'slideDownWave 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+              animation: 'scaleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               transformOrigin: isOwnMessage ? 'right center' : 'left center'
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {commonEmojis.map(emoji => (
+            {/* Основные эмодзи в одну линию */}
+            <div className="flex gap-1 flex-wrap max-w-[280px]">
+              {primaryEmojis.map(emoji => (
+                <button
+                  key={emoji}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleReaction(emoji, e)
+                    setShowReactionPicker(false)
+                    setShowMenu(false)
+                  }}
+                  className="w-9 h-9 rounded-full hover:bg-gray-700/50 flex items-center justify-center text-xl transition-all hover:scale-125 active:scale-95"
+                >
+                  {emoji}
+                </button>
+              ))}
+              
+              {/* Кнопка раскрытия дополнительных реакций */}
               <button
-                key={emoji}
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleReaction(emoji)
-                  setShowReactionPicker(false)
-                  setShowMenu(false)
+                  setShowExtendedReactions(!showExtendedReactions)
                 }}
-                className="w-8 h-8 rounded-full hover:bg-gray-700/50 flex items-center justify-center text-lg transition-all hover:scale-125"
+                className={`w-9 h-9 rounded-full hover:bg-gray-700/50 flex items-center justify-center text-lg transition-all hover:scale-125 active:scale-95 ${
+                  showExtendedReactions ? 'bg-gray-700/30' : ''
+                }`}
               >
-                {emoji}
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${
+                  showExtendedReactions ? 'rotate-180' : ''
+                }`} />
               </button>
-            ))}
+            </div>
+            
+            {/* Дополнительные эмодзи с анимацией раскрытия */}
+            <div 
+              className={`overflow-hidden transition-all duration-300 ease-out ${
+                showExtendedReactions ? 'max-h-96 opacity-100 mt-2' : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="flex gap-1 flex-wrap max-w-[280px] pt-2 border-t border-gray-700/50">
+                {extendedEmojis.map((emoji, index) => (
+                  <button
+                    key={emoji}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleReaction(emoji, e)
+                      setShowReactionPicker(false)
+                      setShowMenu(false)
+                      setShowExtendedReactions(false)
+                    }}
+                    className={`w-9 h-9 rounded-full hover:bg-gray-700/50 flex items-center justify-center text-xl transition-all hover:scale-125 active:scale-95 ${
+                      showExtendedReactions ? 'animate-fadeIn' : ''
+                    }`}
+                    style={
+                      showExtendedReactions
+                        ? {
+                            animationDelay: `${index * 0.01}s`,
+                            animationFillMode: 'forwards'
+                          }
+                        : undefined
+                    }
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>,
           document.body
         ) : null}
 
         {/* Редактор */}
         {isEditing ? (
-          <div className="space-y-2">
+          <div 
+            className="space-y-2 animate-fadeIn"
+          >
             <textarea
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
-              className="w-full bg-gray-900/50 text-white px-3 py-2 rounded-lg border border-emerald-400/50 focus:border-emerald-400 focus:outline-none text-sm resize-none"
+              className="w-full bg-gray-900/50 text-white px-3 py-2 rounded-lg border border-emerald-400/50 focus:border-emerald-400 focus:outline-none text-sm resize-none transition-all duration-200"
               autoFocus
               rows={3}
               onKeyDown={(e) => {
@@ -472,18 +888,20 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
             <div className="flex gap-2">
               <button
                 onClick={handleEdit}
-                className="flex-1 sm:flex-none px-4 sm:px-3 py-2 sm:py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm sm:text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 flex-1 sm:flex-none px-4 sm:px-3 py-2 sm:py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm sm:text-xs font-medium transition-all duration-150 hover:scale-105 active:scale-95"
               >
-                ✓ Сохранить
+                <Check className="w-4 h-4" />
+                <span>Сохранить</span>
               </button>
               <button
                 onClick={() => {
                   setIsEditing(false)
                   setEditedContent(message.content)
                 }}
-                className="flex-1 sm:flex-none px-4 sm:px-3 py-2 sm:py-1.5 bg-black/20 hover:bg-black/30 text-white rounded-lg text-sm sm:text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 flex-1 sm:flex-none px-4 sm:px-3 py-2 sm:py-1.5 bg-black/20 hover:bg-black/30 text-white rounded-lg text-sm sm:text-xs font-medium transition-all duration-150 hover:scale-105 active:scale-95"
               >
-                ✕ Отмена
+                <X className="w-4 h-4" />
+                <span>Отмена</span>
               </button>
             </div>
           </div>
@@ -492,10 +910,10 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
             {/* Ответ на сообщение - как в Telegram */}
             {message.replyTo && (
               <div 
-                className={`mb-2 px-3 py-2 rounded-lg border-l-[3px] cursor-pointer transition-all duration-200 hover:opacity-90 hover:scale-[1.01] ${
+                className={`mb-2 px-3 py-2 rounded-lg border-l-[3px] cursor-pointer transition-all duration-300 ease-out hover:opacity-90 hover:scale-[1.01] animate-fadeIn ${
                   isOwnMessage 
-                    ? 'bg-white/10 border-white/30 hover:bg-white/15 hover:border-white/40' 
-                    : 'bg-gray-600/30 border-gray-400/50 hover:bg-gray-600/40 hover:border-gray-400/60'
+                    ? 'bg-white/15 border-white/40 hover:bg-white/20 hover:border-white/50 shadow-sm' 
+                    : 'bg-slate-600/40 border-slate-400/60 hover:bg-slate-600/50 hover:border-slate-400/70 shadow-sm'
                 }`}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -517,7 +935,13 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                   <span className={`text-[10px] ${
                     isOwnMessage ? 'text-white/60' : 'text-gray-400'
                   }`}>↩️</span>
-                  <span>{message.replyTo.sender.fullName || message.replyTo.sender.email}</span>
+                  <Link
+                    href={`/users/${message.replyTo.sender.id}`}
+                    className="hover:underline transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {message.replyTo.sender.fullName || message.replyTo.sender.email}
+                  </Link>
                 </div>
                 <div className={`text-xs line-clamp-2 break-words pl-4 ${
                   isOwnMessage ? 'text-white/70' : 'text-gray-300'
@@ -533,86 +957,194 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
               </div>
             )}
 
-            {/* Текст сообщения */}
-            {message.content && (
-              <div 
-                className={`text-sm sm:text-sm leading-relaxed whitespace-pre-wrap ${
-                  isDeleted ? 'italic text-gray-500 text-center' : ''
-                }`}
-                style={{
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word',
-                  wordWrap: 'break-word'
-                }}
-              >
-                {message.content}
-              </div>
-            )}
-
-            {/* Файл */}
+            {/* Файл - отображается первым, если есть */}
             {fileUrl && !isDeleted && (
-              <div className="mt-2">
+              <div className={message.content ? 'mb-2' : ''}>
                 {isImage ? (
-                  <img
-                    src={fileUrl}
-                    alt={message.fileName || 'Вложение'}
-                    className="max-w-full max-h-64 rounded-lg"
-                  />
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-lg overflow-hidden group"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <img
+                      src={fileUrl}
+                      alt={message.fileName || 'Изображение'}
+                      className="max-w-full max-h-80 rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02] cursor-pointer"
+                    />
+                  </a>
+                ) : isVideo ? (
+                  <div 
+                    className="max-w-full rounded-lg overflow-hidden relative group bg-black/20"
+                    style={{ maxHeight: '320px', aspectRatio: '16/9' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <VideoPlayer
+                      src={fileUrl}
+                      className="w-full h-full rounded-lg shadow-lg object-contain"
+                    />
+                    {/* Кнопка скачивания видео - появляется при наведении */}
+                    <a
+                      href={fileUrl}
+                      download={message.fileName}
+                      className="absolute top-3 right-3 p-2.5 bg-black/70 hover:bg-black/90 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-30 backdrop-blur-sm"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Скачать видео"
+                    >
+                      <Download className="w-4 h-4 text-white" />
+                    </a>
+                    {/* Название файла - показываем всегда внизу */}
+                    {message.fileName && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-3 py-2 z-20 pointer-events-none">
+                        <p className="text-xs text-white/90 truncate font-medium">{message.fileName}</p>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <a
                     href={fileUrl}
                     download={message.fileName}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 hover:scale-[1.02] group ${
                       isOwnMessage
-                        ? 'bg-white/20 hover:bg-white/30'
-                        : 'bg-emerald-500/20 hover:bg-emerald-500/30'
+                        ? 'bg-white/15 hover:bg-white/20 border border-white/30 shadow-sm'
+                        : 'bg-slate-600/40 hover:bg-slate-600/50 border border-slate-500/40 shadow-sm'
                     }`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <span className="text-lg">📎</span>
-                    <span className="text-sm">{message.fileName || 'Файл'}</span>
+                    {/* Иконка файла */}
+                    <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
+                      isOwnMessage
+                        ? 'bg-white/25 group-hover:bg-white/30 shadow-sm'
+                        : 'bg-slate-500/40 group-hover:bg-slate-500/50 shadow-sm'
+                    } transition-colors`}>
+                      {(() => {
+                        const FileIcon = getFileIcon(message.fileMimetype, message.fileName)
+                        return <FileIcon className={`w-6 h-6 ${
+                          isOwnMessage ? 'text-white' : 'text-gray-200'
+                        }`} />
+                      })()}
+                    </div>
+                    
+                    {/* Информация о файле */}
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-medium truncate ${
+                        isOwnMessage ? 'text-white' : 'text-gray-100'
+                      }`}>
+                        {message.fileName || 'Файл'}
+                      </div>
+                      <div className={`text-xs mt-0.5 ${
+                        isOwnMessage ? 'text-white/70' : 'text-gray-400'
+                      }`}>
+                        {message.fileMimetype?.split('/')[1]?.toUpperCase() || 'ФАЙЛ'}
+                        {/* Размер файла можно будет добавить, когда API будет возвращать size */}
+                      </div>
+                    </div>
+                    
+                    {/* Иконка скачивания */}
+                    <div className="flex-shrink-0">
+                      <Download className={`w-5 h-5 ${
+                        isOwnMessage ? 'text-white/70' : 'text-gray-400'
+                      } group-hover:scale-110 transition-transform`} />
+                    </div>
                   </a>
                 )}
               </div>
             )}
 
+            {/* Текст сообщения */}
+            {message.content && (
+              <div 
+                className={containsOnlyEmoji 
+                  ? 'text-center block' 
+                  : `whitespace-pre-wrap ${isDeleted ? 'italic text-gray-500 text-center' : ''}`
+                }
+                style={{
+                  ...(containsOnlyEmoji ? {
+                    fontSize: '3.5rem', // 56px - большой размер для эмодзи
+                    lineHeight: '1',
+                    fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', system-ui, sans-serif",
+                    display: 'block',
+                    wordBreak: 'normal',
+                    overflowWrap: 'normal',
+                  } : {
+                    fontSize: '0.875rem',
+                    lineHeight: '1.5',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    wordWrap: 'break-word',
+                    fontFamily: "'Inter', 'Poppins', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif"
+                  })
+                }}
+              >
+                {containsOnlyEmoji ? message.content.trim() : renderTextWithLinks(message.content)}
+              </div>
+            )}
+
             {/* Время и статус редактирования */}
-            <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-              isOwnMessage ? 'text-white/70' : 'text-gray-400'
-            }`}>
-              {isEdited && (
-                <span className="italic">изменено</span>
-              )}
-              <span>
-                {new Date(message.createdAt).toLocaleTimeString('ru-RU', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </span>
-            </div>
+            {!containsOnlyEmoji && (
+              <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
+                isOwnMessage ? 'text-white/70' : 'text-gray-400'
+              }`}>
+                {isEdited && (
+                  <span className="italic">изменено</span>
+                )}
+                <span>
+                  {new Date(message.createdAt).toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+            )}
+            {/* Время для эмодзи сообщений - показываем под эмодзи, но меньше */}
+            {containsOnlyEmoji && (
+              <div className={`flex items-center justify-center gap-1 mt-1 text-[9px] opacity-60 ${
+                isOwnMessage ? 'text-white/50' : 'text-gray-500'
+              }`}>
+                {isEdited && (
+                  <span className="italic">изменено</span>
+                )}
+                <span>
+                  {new Date(message.createdAt).toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+            )}
           </>
         )}
         </div>
         
-        {/* Реакции - под блоком сообщения */}
+        {/* Реакции - под сообщением для всех типов сообщений */}
         {groupedReactions.length > 0 && (
-          <div className={`flex gap-1 flex-wrap mt-1 ${
-            isOwnMessage ? 'justify-end' : 'justify-start'
-          }`}>
+          <div 
+            ref={reactionsContainerRef}
+            className={`flex gap-1 items-center mt-1 animate-fadeIn flex-wrap ${
+              isOwnMessage ? 'justify-end' : 'justify-start'
+            }`}
+            style={{ overflow: 'visible' }}
+          >
             {groupedReactions.map((reaction, idx) => (
               <button
                 key={idx}
-                onClick={() => handleReaction(reaction.emoji)}
-                className={`px-1.5 py-0.5 rounded-full text-xs flex items-center gap-1 transition-all ${
+                onClick={(e) => handleReaction(reaction.emoji, e)}
+                className={`px-1.5 py-0.5 rounded-full text-xs flex items-center gap-1 transition-all duration-150 flex-shrink-0 relative z-10 ${
                   reaction.hasUser
                     ? 'bg-emerald-500/30 border border-emerald-400/50'
                     : 'bg-gray-600/30 border border-gray-500/30'
-                } hover:scale-110`}
+                } hover:scale-110 active:scale-95 shadow-sm`}
+                style={{ 
+                  overflow: 'visible',
+                  transformOrigin: 'center'
+                }}
               >
                 <span>{reaction.emoji}</span>
                 {reaction.count > 1 && (
-                  <span className="text-[10px]">{reaction.count}</span>
+                  <span className="text-[10px] font-medium">{reaction.count}</span>
                 )}
               </button>
             ))}
