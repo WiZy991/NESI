@@ -5,12 +5,19 @@ import MessageInput from '@/components/ChatMessageInput'
 import ChatMessageSearch from '@/components/ChatMessageSearch'
 import ChatSkeleton from '@/components/ChatSkeleton'
 import EmptyState from '@/components/EmptyState'
+import AttachmentsModal from '@/components/AttachmentsModal'
 import { useUser } from '@/context/UserContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+type ChatPresence = {
+	lastReadAt: string | null
+	lastActivityAt: string | null
+	typingAt: string | null
+}
 
 type Chat = {
 	id: string
@@ -50,6 +57,7 @@ type Chat = {
 		}
 	}
 	unreadCount: number
+	presence?: ChatPresence | null
 }
 
 type Message = {
@@ -87,6 +95,80 @@ type Message = {
 	}
 }
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat('ru', {
+	numeric: 'auto',
+})
+
+const DEFAULT_PRESENCE: ChatPresence = {
+	lastReadAt: null,
+	lastActivityAt: null,
+	typingAt: null,
+}
+
+function isPresenceEqual(a?: ChatPresence | null, b?: ChatPresence | null) {
+	return (
+		(a?.lastReadAt ?? null) === (b?.lastReadAt ?? null) &&
+		(a?.lastActivityAt ?? null) === (b?.lastActivityAt ?? null) &&
+		(a?.typingAt ?? null) === (b?.typingAt ?? null)
+	)
+}
+
+function parseTimestamp(value?: string | null) {
+	if (!value) return null
+	const timestamp = Date.parse(value)
+	return Number.isNaN(timestamp) ? null : timestamp
+}
+
+function formatRelativeTime(value?: string | null) {
+	const timestamp = parseTimestamp(value)
+	if (!timestamp) return null
+
+	const now = Date.now()
+	const diffMs = timestamp - now
+	const diffSeconds = Math.round(diffMs / 1000)
+	const diffMinutes = Math.round(diffSeconds / 60)
+	const diffHours = Math.round(diffMinutes / 60)
+	const diffDays = Math.round(diffHours / 24)
+
+	if (Math.abs(diffSeconds) < 30) {
+		return 'только что'
+	}
+
+	if (Math.abs(diffMinutes) < 60) {
+		return relativeTimeFormatter.format(diffMinutes, 'minute')
+	}
+
+	if (Math.abs(diffHours) < 24) {
+		return relativeTimeFormatter.format(diffHours, 'hour')
+	}
+
+	if (Math.abs(diffDays) < 7) {
+		return relativeTimeFormatter.format(diffDays, 'day')
+	}
+
+	return new Date(timestamp).toLocaleDateString('ru-RU', {
+		day: '2-digit',
+		month: 'long',
+	})
+}
+
+function formatAbsoluteTime(value?: string | null) {
+	const timestamp = parseTimestamp(value)
+	if (!timestamp) return undefined
+	return new Date(timestamp).toLocaleString('ru-RU', {
+		day: '2-digit',
+		month: 'long',
+		hour: '2-digit',
+		minute: '2-digit',
+	})
+}
+
+type PresenceDisplay = {
+	text: string
+	tooltip?: string
+	indicatorClass: string
+}
+
 function ChatsPageContent() {
 	const { user, token, setUnreadCount } = useUser()
 	const searchParams = useSearchParams()
@@ -104,6 +186,8 @@ function ChatsPageContent() {
 	const [messageSearchMatches, setMessageSearchMatches] = useState<number[]>([])
 	const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
 	const previousSearchQueryRef = useRef<string>('')
+	const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false)
+	const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 	const [isTyping, setIsTyping] = useState(false)
 	const [typingUser, setTypingUser] = useState<string | null>(null)
 	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
@@ -124,8 +208,133 @@ function ChatsPageContent() {
 	const messagesContainerRef = useRef<HTMLDivElement>(null)
 	const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 	const eventSourceRef = useRef<EventSource | null>(null)
+	const selectedChatRef = useRef<Chat | null>(null)
 	const messageSearchRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 	const searchInputRef = useRef<HTMLInputElement>(null)
+	const hasInitializedChatsRef = useRef(false)
+	const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+	const mergePresence = useCallback(
+		(prevPresence: ChatPresence | null | undefined, updates: Partial<ChatPresence>) => {
+			const prev = prevPresence ?? DEFAULT_PRESENCE
+			let changed = false
+			const result: ChatPresence = { ...prev }
+
+			if (updates.lastReadAt !== undefined) {
+				const nextValue = updates.lastReadAt ?? null
+				const incomingTs = parseTimestamp(nextValue)
+				const currentTs = parseTimestamp(prev.lastReadAt)
+
+				if (prev.lastReadAt !== nextValue && (!currentTs || !incomingTs || incomingTs >= currentTs)) {
+					result.lastReadAt = nextValue
+					changed = true
+				}
+			}
+
+			if (updates.lastActivityAt !== undefined) {
+				const nextValue = updates.lastActivityAt ?? null
+				const incomingTs = parseTimestamp(nextValue)
+				const currentTs = parseTimestamp(prev.lastActivityAt)
+
+				if (prev.lastActivityAt !== nextValue && (!currentTs || !incomingTs || incomingTs >= currentTs)) {
+					result.lastActivityAt = nextValue
+					changed = true
+				}
+			}
+
+			if (updates.typingAt !== undefined) {
+				const nextValue = updates.typingAt ?? null
+				if (prev.typingAt !== nextValue) {
+					result.typingAt = nextValue
+					changed = true
+				}
+			}
+
+			return changed ? result : prevPresence ?? prev
+		},
+		[]
+	)
+
+	const updateChatPresence = useCallback(
+		(chatId: string, updates: Partial<ChatPresence>) => {
+			setChats(prevChats =>
+				prevChats.map(chat => {
+					if (chat.id !== chatId) return chat
+					const merged = mergePresence(chat.presence, updates)
+					if (merged === chat.presence || isPresenceEqual(merged, chat.presence)) {
+						return chat
+					}
+					return {
+						...chat,
+						presence: merged,
+					}
+				})
+			)
+
+			setSelectedChat(prevSelected => {
+				if (!prevSelected || prevSelected.id !== chatId) {
+					return prevSelected
+				}
+
+				const merged = mergePresence(prevSelected.presence, updates)
+				if (merged === prevSelected.presence || isPresenceEqual(merged, prevSelected.presence)) {
+					return prevSelected
+				}
+
+				return {
+					...prevSelected,
+					presence: merged,
+				}
+			})
+		},
+		[mergePresence]
+	)
+
+	useEffect(() => {
+		if (!selectedChat) return
+		const updated = chats.find(chat => chat.id === selectedChat.id)
+		if (updated && updated !== selectedChat) {
+			setSelectedChat(updated)
+		}
+	}, [chats, selectedChat])
+
+	useEffect(() => {
+		selectedChatRef.current = selectedChat
+	}, [selectedChat])
+
+	useEffect(() => {
+		setIsTyping(false)
+		setTypingUser(null)
+		setIsAttachmentsOpen(false)
+	}, [selectedChat?.id])
+
+	useEffect(() => {
+		return () => {
+			if (highlightTimeoutRef.current) {
+				clearTimeout(highlightTimeoutRef.current)
+			}
+		}
+	}, [])
+
+	const scrollToMessageById = useCallback(
+		(messageId: string) => {
+			const element = messageSearchRefs.current.get(messageId)
+			if (element) {
+				element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+				setHighlightedMessageId(messageId)
+				if (highlightTimeoutRef.current) {
+					clearTimeout(highlightTimeoutRef.current)
+				}
+				highlightTimeoutRef.current = setTimeout(() => {
+					setHighlightedMessageId(prev => (prev === messageId ? null : prev))
+					highlightTimeoutRef.current = null
+				}, 2000)
+			} else {
+				console.warn('Не удалось найти сообщение для вложения:', messageId)
+			}
+		},
+		[]
+	)
 
 	// КРИТИЧНО: Убираем квадратную обводку outline для поля поиска чатов
 	useEffect(() => {
@@ -183,7 +392,21 @@ function ChatsPageContent() {
 
 	// Загрузка списка чатов и подключение к SSE
 	useEffect(() => {
-		if (!token) return
+		if (!token) {
+			hasInitializedChatsRef.current = false
+			if (eventSourceRef.current) {
+				eventSourceRef.current.close()
+				eventSourceRef.current = null
+			}
+			return
+		}
+
+		if (hasInitializedChatsRef.current) {
+			return
+		}
+		hasInitializedChatsRef.current = true
+
+		let isMounted = true
 
 		const fetchChats = async () => {
 			try {
@@ -289,12 +512,15 @@ function ChatsPageContent() {
 						data: data,
 						error: data?.error || 'Неизвестная ошибка'
 					})
+					if (!isMounted) return
 					setChats([])
 				}
 			} catch (error: any) {
 				console.error('❌ Ошибка загрузки чатов:', error)
+				if (!isMounted) return
 				setChats([])
 			} finally {
+				if (!isMounted) return
 				setLoading(false)
 			}
 		}
@@ -314,20 +540,30 @@ function ChatsPageContent() {
 			}
 
 			eventSource.onmessage = event => {
+				if (!isMounted) return
 				try {
 					const data = JSON.parse(event.data)
-					console.log('📨 Получено новое сообщение в чатах:', data)
+					console.log('📨 Получено событие SSE для чатов:', data.type)
+
+					const currentSelectedChat = selectedChatRef.current
 
 					if (data.type === 'message') {
+						if (data.chatId) {
+							updateChatPresence(data.chatId, {
+								lastActivityAt: data.timestamp ?? new Date().toISOString(),
+								typingAt: null,
+							})
+						}
+
 						// Добавляем новое сообщение в текущий чат, если оно относится к нему
-						if (selectedChat) {
+						if (currentSelectedChat) {
 							const isCurrentChat =
 								(data.chatType === 'private' &&
-									selectedChat.type === 'private' &&
-									selectedChat.otherUser?.id === data.senderId) ||
+									currentSelectedChat.type === 'private' &&
+									currentSelectedChat.otherUser?.id === data.senderId) ||
 								(data.chatType === 'task' &&
-									selectedChat.type === 'task' &&
-									selectedChat.task?.id === data.chatId.replace('task_', ''))
+									currentSelectedChat.type === 'task' &&
+									currentSelectedChat.task?.id === data.chatId.replace('task_', ''))
 
 							if (isCurrentChat) {
 								const newMessage: Message = {
@@ -354,7 +590,7 @@ function ChatsPageContent() {
 								// Обновляем список чатов с новым последним сообщением
 								setChats(prev =>
 									prev.map(chat => {
-										if (chat.id === selectedChat.id) {
+										if (chat.id === currentSelectedChat.id) {
 											return {
 												...chat,
 												lastMessage: newMessage,
@@ -448,34 +684,51 @@ function ChatsPageContent() {
 									return {
 										...chat,
 										unreadCount:
-											chat.id === selectedChat?.id ? 0 : chat.unreadCount + 1,
+											chat.id === currentSelectedChat?.id ? 0 : chat.unreadCount + 1,
 									}
 								}
 								return chat
 							})
 						)
 					} else if (data.type === 'typing') {
-						// Обрабатываем событие набора сообщения
-						if (selectedChat) {
-							const isCurrentChat =
-								(data.chatType === 'private' &&
-									selectedChat.type === 'private' &&
-									selectedChat.otherUser?.id === data.senderId) ||
-								(data.chatType === 'task' &&
-									selectedChat.type === 'task' &&
-									selectedChat.task?.id === data.chatId.replace('task_', ''))
+						const chatId: string | undefined = data.chatId
+						if (chatId) {
+							updateChatPresence(chatId, { typingAt: new Date().toISOString() })
+						}
 
-							if (isCurrentChat) {
-								setIsTyping(data.isTyping)
-								setTypingUser(data.isTyping ? data.sender : null)
+						if (currentSelectedChat && chatId === currentSelectedChat.id) {
+							setIsTyping(true)
+							setTypingUser(data.sender || 'Собеседник')
+						}
+					} else if (data.type === 'stoppedTyping') {
+						const chatId: string | undefined = data.chatId
+						if (chatId) {
+							updateChatPresence(chatId, { typingAt: null })
+						}
 
-								// Автоматически скрываем индикатор через 3 секунды
-								if (data.isTyping) {
-									setTimeout(() => {
+						if (currentSelectedChat && chatId === currentSelectedChat.id) {
 										setIsTyping(false)
 										setTypingUser(null)
-									}, 3000)
-								}
+						}
+					} else if (data.type === 'chatPresence') {
+						const chatId: string | undefined = data.chatId
+						if (chatId) {
+							const updates: Partial<ChatPresence> = {}
+
+							if (data.lastReadAt !== undefined) {
+								updates.lastReadAt = data.lastReadAt ?? null
+							}
+
+							if (data.lastActivityAt !== undefined) {
+								updates.lastActivityAt = data.lastActivityAt ?? null
+							}
+
+							if (data.typingAt !== undefined) {
+								updates.typingAt = data.typingAt ?? null
+							}
+
+							if (Object.keys(updates).length > 0) {
+								updateChatPresence(chatId, updates)
 							}
 						}
 					}
@@ -502,11 +755,14 @@ function ChatsPageContent() {
 		connectSSE()
 
 		return () => {
+			isMounted = false
 			if (eventSourceRef.current) {
 				eventSourceRef.current.close()
+				eventSourceRef.current = null
 			}
+			hasInitializedChatsRef.current = false
 		}
-	}, [token, selectedChat])
+	}, [token, updateChatPresence, setUnreadCount])
 
 	// Сбрасываем ответ при смене чата
 	useEffect(() => {
@@ -517,11 +773,16 @@ function ChatsPageContent() {
 	useEffect(() => {
 		if (!selectedChat || !token) return
 
+		const chatId = selectedChat.id
+		const chatType = selectedChat.type
+		const otherUserId = selectedChat.otherUser?.id
+		const taskId = selectedChat.task?.id
+
 		const fetchMessages = async () => {
 			setMessagesLoading(true)
 			try {
 				// Если это временный чат (только что созданный), просто показываем пустой список
-				if (selectedChat.id.startsWith('temp_')) {
+				if (chatId.startsWith('temp_')) {
 					console.log('📝 Временный чат, показываем пустой список сообщений')
 					setMessages([])
 					setMessagesLoading(false)
@@ -529,15 +790,13 @@ function ChatsPageContent() {
 				}
 
 				let url = ''
-				if (selectedChat.type === 'private') {
-					const otherUserId = selectedChat.otherUser?.id
+				if (chatType === 'private') {
 					url = `/api/messages/${otherUserId}`
 				} else {
-					const taskId = selectedChat.task?.id
 					url = `/api/tasks/${taskId}/messages`
 				}
 
-				console.log('🔍 Загружаем сообщения для чата:', selectedChat.type, url)
+				console.log('🔍 Загружаем сообщения для чата:', chatType, url)
 				const res = await fetch(url, {
 					headers: { Authorization: `Bearer ${token}` },
 				})
@@ -648,7 +907,13 @@ function ChatsPageContent() {
 		}
 
 		fetchMessages()
-	}, [selectedChat, token])
+	}, [
+		selectedChat?.id,
+		selectedChat?.type,
+		selectedChat?.otherUser?.id,
+		selectedChat?.task?.id,
+		token,
+	])
 
 	// Автоскролл к последнему сообщению при открытии чата (только если поиск не открыт)
 	// НЕ прокручиваем после закрытия поиска
@@ -979,6 +1244,15 @@ function ChatsPageContent() {
 						`✅ Прочитано, удалено уведомлений: ${data.deletedNotifications}`
 					)
 
+					const nowIso =
+						data.lastReadAt ||
+						new Date().toISOString()
+					updateChatPresence(chat.id, {
+						lastReadAt: nowIso,
+						lastActivityAt: nowIso,
+						typingAt: null,
+					})
+
 					// Обновляем счетчик непрочитанных уведомлений
 					if (data.deletedNotifications > 0) {
 						// Получаем актуальное количество непрочитанных уведомлений
@@ -1105,6 +1379,13 @@ function ChatsPageContent() {
 						body: JSON.stringify({ taskId: selectedChat.task.id }),
 					})
 				}
+
+				const nowIso = new Date().toISOString()
+				updateChatPresence(selectedChat.id, {
+					lastReadAt: nowIso,
+					lastActivityAt: nowIso,
+					typingAt: null,
+				})
 
 				// Уведомляем хедер об изменении счетчика
 				window.dispatchEvent(new CustomEvent('messageSent'))
@@ -1382,6 +1663,71 @@ function ChatsPageContent() {
 		}
 	}
 
+	const presenceDisplay = useMemo<PresenceDisplay | null>(() => {
+		if (!selectedChat) return null
+
+		const presence = selectedChat.presence ?? null
+		const now = Date.now()
+		const typingTimestamp = parseTimestamp(
+			isTyping
+				? new Date().toISOString()
+				: presence?.typingAt
+		)
+		const typingWindowMs = 5 * 1000
+
+		if (
+			(isTyping && typingUser) ||
+			(typingTimestamp && now - typingTimestamp <= typingWindowMs)
+		) {
+			const name =
+				typingUser ||
+				selectedChat.otherUser?.fullName ||
+				selectedChat.otherUser?.email ||
+				'Собеседник'
+
+			return {
+				text: `${name} печатает…`,
+				indicatorClass: 'bg-emerald-400 animate-pulse',
+				tooltip: undefined,
+			}
+		}
+
+		const lastActivityTs = parseTimestamp(presence?.lastActivityAt)
+		const lastReadTs = parseTimestamp(presence?.lastReadAt)
+
+		if (lastActivityTs && now - lastActivityTs <= 2 * 60 * 1000) {
+			return {
+				text: 'В сети',
+				indicatorClass: 'bg-emerald-400',
+				tooltip: formatAbsoluteTime(presence?.lastActivityAt),
+			}
+		}
+
+		const readRelative = formatRelativeTime(presence?.lastReadAt)
+		if (presence?.lastReadAt && readRelative) {
+			return {
+				text: `Прочитано ${readRelative}`,
+				indicatorClass: 'bg-sky-400',
+				tooltip: formatAbsoluteTime(presence.lastReadAt),
+			}
+		}
+
+		const activityRelative = formatRelativeTime(presence?.lastActivityAt)
+		if (presence?.lastActivityAt && activityRelative) {
+			return {
+				text: `Был онлайн ${activityRelative}`,
+				indicatorClass: 'bg-gray-500',
+				tooltip: formatAbsoluteTime(presence.lastActivityAt),
+			}
+		}
+
+		return {
+			text: 'Статус недоступен',
+			indicatorClass: 'bg-gray-600',
+			tooltip: undefined,
+		}
+	}, [selectedChat, isTyping, typingUser])
+
 	// Горячая клавиша Ctrl+F для поиска в сообщениях
 	useKeyboardShortcuts([
 		{
@@ -1564,20 +1910,39 @@ function ChatsPageContent() {
 							<>
 								{/* Заголовок чата - фиксированный */}
 								<div className='flex-shrink-0 px-3 sm:px-5 md:px-8 py-3 sm:py-4 md:py-5 border-b border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgba(15,118,110,0.22)] backdrop-blur-md relative'>
-									{/* Кнопка поиска в сообщениях */}
-									{selectedChat && messages.length > 0 && (
+									{selectedChat && (
+										<div className='absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 flex items-center gap-2'>
+											{messages.length > 0 && (
 										<button
-											onClick={() =>
-												setIsMessageSearchOpen(!isMessageSearchOpen)
-											}
-											className='absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
+													onClick={() => setIsMessageSearchOpen(prev => !prev)}
+													className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
 											aria-label='Поиск в сообщениях (Ctrl+F)'
 											title='Поиск в сообщениях (Ctrl+F)'
 										>
 											<span className='text-base sm:text-lg'>🔍</span>
 										</button>
 									)}
-									<div className='flex items-center space-x-2 sm:space-x-3 md:space-x-4 pr-12 sm:pr-14 md:pr-16'>
+											<button
+												onClick={() => setIsAttachmentsOpen(true)}
+												className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-200 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
+												title='Открыть вложения'
+											>
+												<span className='text-base sm:text-lg'>📎</span>
+											</button>
+											<button
+												onClick={() => {
+													if (typeof window !== 'undefined') {
+														window.dispatchEvent(new CustomEvent('openMessageTemplates'))
+													}
+												}}
+												className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-200 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
+												title='Шаблоны сообщений'
+											>
+												<span className='text-base sm:text-lg'>📄</span>
+											</button>
+										</div>
+									)}
+									<div className='flex items-center space-x-2 sm:space-x-3 md:space-x-4 pr-20 sm:pr-24 md:pr-28'>
 										{/* Кнопка "Назад" для мобильных */}
 										<button
 											onClick={() => {
@@ -1651,6 +2016,19 @@ function ChatsPageContent() {
 													</span>
 												)}
 											</div>
+											{presenceDisplay && (
+												<div
+													className='mt-1 text-[11px] sm:text-xs text-slate-300 flex items-center gap-2'
+													title={presenceDisplay.tooltip}
+												>
+													<span className='inline-flex items-center gap-2'>
+														<span
+															className={`w-2 h-2 rounded-full ${presenceDisplay.indicatorClass}`}
+														/>
+														<span>{presenceDisplay.text}</span>
+													</span>
+												</div>
+											)}
 										</div>
 									</div>
 								</div>
@@ -1733,6 +2111,24 @@ function ChatsPageContent() {
 														messageSearchQuery &&
 														messageSearchMatches.includes(index) &&
 														!isHighlighted
+													const isAttachmentHighlight = highlightedMessageId === msg.id
+
+													const wrapperClasses: string[] = []
+													if (isHighlighted) {
+														wrapperClasses.push(
+															'bg-emerald-500/25 rounded-lg px-2 -mx-2 py-1 -my-1 transition-all duration-200'
+														)
+													} else if (isSearchMatch) {
+														wrapperClasses.push(
+															'bg-emerald-500/10 rounded-lg px-2 -mx-2 py-1 -my-1'
+														)
+													}
+
+													if (isAttachmentHighlight) {
+														wrapperClasses.push(
+															'ring-2 ring-emerald-400/70 rounded-lg px-2 -mx-2 py-1 -my-1 animate-pulse shadow-[0_0_18px_rgba(16,185,129,0.35)]'
+														)
+													}
 
 													return (
 														<div
@@ -1745,13 +2141,7 @@ function ChatsPageContent() {
 																	messageSearchRefs.current.delete(msg.id)
 																}
 															}}
-															className={
-																isHighlighted
-																	? 'bg-emerald-500/25 rounded-lg px-2 -mx-2 py-1 -my-1 transition-all duration-200'
-																	: isSearchMatch
-																		? 'bg-emerald-500/10 rounded-lg px-2 -mx-2 py-1 -my-1'
-																		: ''
-															}
+															className={wrapperClasses.join(' ')}
 														>
 															<ChatMessage
 																message={msg}
@@ -1875,6 +2265,7 @@ function ChatsPageContent() {
 											onMessageSent={handleNewMessage}
 											replyTo={replyTo}
 											onCancelReply={() => setReplyTo(null)}
+											showTemplatesButton={false}
 										/>
 									</div>
 									{/* Безопасная зона для iOS */}
@@ -1883,6 +2274,24 @@ function ChatsPageContent() {
 										style={{ height: 'env(safe-area-inset-bottom, 0px)' }}
 									/>
 								</div>
+
+								<AttachmentsModal
+									isOpen={isAttachmentsOpen}
+									onClose={() => setIsAttachmentsOpen(false)}
+									chatId={selectedChat.id}
+									chatType={selectedChat.type}
+									chatTitle={
+										selectedChat.type === 'private'
+											? selectedChat.otherUser?.fullName ||
+												selectedChat.otherUser?.email ||
+												'Неизвестный пользователь'
+											: getChatTitle(selectedChat)
+									}
+									onLocateMessage={messageId => {
+										setIsAttachmentsOpen(false)
+										setTimeout(() => scrollToMessageById(messageId), 200)
+									}}
+								/>
 							</>
 						) : (
 							<div className='hidden md:flex flex-1 items-center justify-center'>

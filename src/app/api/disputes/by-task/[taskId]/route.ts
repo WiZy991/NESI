@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
 	req: Request,
-	{ params }: { params: { taskId: string } }
+	{ params }: { params: Promise<{ taskId: string }> }
 ) {
 	try {
 		const JWT_SECRET = process.env.JWT_SECRET
@@ -27,7 +27,7 @@ export async function GET(
 			)
 		}
 
-		const { taskId } = params
+		const { taskId } = await params
 
 		const dispute = await (prisma as any).dispute.findFirst({
 			where: { taskId },

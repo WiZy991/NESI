@@ -6,11 +6,14 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import ReportTaskModal from '@/components/ReportTaskModal'
-import { AlertTriangle, ClipboardList } from 'lucide-react'
+import { AlertTriangle, ClipboardList, Link as LinkIcon, X, Clock, ChevronDown } from 'lucide-react'
+import FavoriteTaskButton from '@/components/FavoriteTaskButton'
+import { toast } from 'sonner'
 import TaskSkeleton from '@/components/TaskSkeleton'
 import EmptyState from '@/components/EmptyState'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useSearchHistory } from '@/hooks/useSearchHistory'
 import DateFilter from '@/components/DateFilter'
 import ErrorDisplay from '@/components/ErrorDisplay'
 import { fetchWithRetry, getErrorMessage, logError } from '@/utils/errorHandler'
@@ -30,6 +33,29 @@ type Task = {
 	}
 }
 
+type RecommendationTag =
+	| 'skill_match'
+	| 'subcategory_match'
+	| 'fresh'
+	| 'low_responses'
+	| 'favorite_match'
+
+type RecommendedTask = {
+	task: Task & {
+		price?: number | null
+		status?: string
+		responseCount?: number
+		favoritesCount?: number
+	}
+	score: number
+	reasons: string[]
+	tags: RecommendationTag[]
+	meta: {
+		isFavorite: boolean
+		lowResponses: boolean
+	}
+}
+
 type Category = {
 	id: string
 	name: string
@@ -38,6 +64,7 @@ type Category = {
 
 export default function TaskCatalogPage() {
 	const { user, token, loading: userLoading } = useUser()
+	const isExecutor = user?.role === 'executor'
 	const [tasks, setTasks] = useState<Task[]>([])
 	const [categories, setCategories] = useState<Category[]>([])
 	const [loading, setLoading] = useState(true)
@@ -46,6 +73,10 @@ export default function TaskCatalogPage() {
 	const [isFiltersOpen, setIsFiltersOpen] = useState(false)
 	const [reportTaskId, setReportTaskId] = useState<string | null>(null)
 	const [reportTaskTitle, setReportTaskTitle] = useState<string>('')
+	const [recommendedTasks, setRecommendedTasks] = useState<RecommendedTask[]>([])
+	const [recommendedLoading, setRecommendedLoading] = useState(true)
+	const [recommendedError, setRecommendedError] = useState<string | null>(null)
+	const [activeReasonId, setActiveReasonId] = useState<string | null>(null)
 
 	const searchParams = useSearchParams()
 	const router = useRouter()
@@ -59,10 +90,52 @@ export default function TaskCatalogPage() {
 	const [totalPages, setTotalPages] = useState(1)
 	const [isSortOpen, setIsSortOpen] = useState(false)
 	const [dateFilter, setDateFilter] = useState('')
+	const [minRating, setMinRating] = useState('')
+	const [hasFiles, setHasFiles] = useState('')
+	const [minResponses, setMinResponses] = useState('')
+	const [showSearchHistory, setShowSearchHistory] = useState(false)
 	const searchInputRef = useRef<HTMLInputElement>(null)
+	const searchHistoryContainerRef = useRef<HTMLDivElement>(null)
+	const { history, addToHistory, removeFromHistory, clearHistory } = useSearchHistory()
+	const hasFilesDropdownRef = useRef<HTMLDivElement>(null)
+
+	const hasFilesOptions = [
+		{ value: '', label: 'Не важно' },
+		{ value: 'true', label: 'С файлами' },
+		{ value: 'false', label: 'Без файлов' },
+	]
+	const [isHasFilesOpen, setIsHasFilesOpen] = useState(false)
 
 	// Debounce для поиска
 	const debouncedSearch = useDebounce(search, 500)
+	
+	// Добавляем в историю при успешном поиске
+	useEffect(() => {
+		if (debouncedSearch && debouncedSearch.trim()) {
+			addToHistory(debouncedSearch)
+		}
+	}, [debouncedSearch, addToHistory])
+
+	useEffect(() => {
+		if (!isFiltersOpen) {
+			setIsHasFilesOpen(false)
+			setIsSortOpen(false)
+		}
+	}, [isFiltersOpen])
+
+	useEffect(() => {
+		if (!isHasFilesOpen) return
+		const handleClick = (event: MouseEvent) => {
+			if (!hasFilesDropdownRef.current) return
+			if (!hasFilesDropdownRef.current.contains(event.target as Node)) {
+				setIsHasFilesOpen(false)
+			}
+		}
+		document.addEventListener('mousedown', handleClick)
+		return () => {
+			document.removeEventListener('mousedown', handleClick)
+		}
+	}, [isHasFilesOpen])
 
 	// Горячие клавиши для поиска
 	useKeyboardShortcuts([
@@ -95,6 +168,9 @@ export default function TaskCatalogPage() {
 			if (sort) query.set('sort', sort)
 			if (subcategory) query.set('subcategory', subcategory)
 			if (dateFilter) query.set('dateFilter', dateFilter)
+			if (minRating) query.set('minRating', minRating)
+			if (hasFiles) query.set('hasFiles', hasFiles)
+			if (minResponses) query.set('minResponses', minResponses)
 			query.set('page', page.toString())
 			query.set('limit', '20')
 
@@ -124,7 +200,7 @@ export default function TaskCatalogPage() {
 			setTasks(visibleTasks)
 			setTotalPages(data.pagination?.totalPages || 1)
 			setRetryCount(0) // Сбрасываем счетчик при успехе
-		} catch (err: any) {
+		} catch (err: unknown) {
 			const errorMessage = getErrorMessage(err)
 			logError(err, 'fetchTasks')
 			setError(errorMessage)
@@ -132,7 +208,44 @@ export default function TaskCatalogPage() {
 		} finally {
 			setLoading(false)
 		}
-	}, [debouncedSearch, sort, subcategory, dateFilter, token, page])
+	}, [debouncedSearch, sort, subcategory, dateFilter, minRating, hasFiles, minResponses, token, page])
+
+	const fetchRecommendations = useCallback(async () => {
+		if (!token || !isExecutor) {
+			setRecommendedTasks([])
+			setRecommendedLoading(false)
+			return
+		}
+		setRecommendedLoading(true)
+		setRecommendedError(null)
+		try {
+			const res = await fetchWithRetry(
+				'/api/tasks/recommendations?limit=6',
+				{
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+				},
+				{
+					maxRetries: 2,
+					retryDelay: 800,
+				}
+			)
+
+			const data = await res.json()
+			if (!res.ok) {
+				throw { message: data.error || 'Ошибка рекомендаций', status: res.status }
+			}
+			setRecommendedTasks(data.recommendations || [])
+		} catch (err: unknown) {
+			const errorMessage = getErrorMessage(err)
+			setRecommendedError(errorMessage)
+			setRecommendedTasks([])
+		} finally {
+			setRecommendedLoading(false)
+		}
+	}, [token, isExecutor])
 
 	const fetchCategories = useCallback(async () => {
 		try {
@@ -153,12 +266,20 @@ export default function TaskCatalogPage() {
 	}, [userLoading, user, token, fetchCategories])
 
 	// Загрузка задач при изменении параметров
-	useEffect(() => {
-		if (!userLoading && user && token) {
-			fetchTasks()
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [debouncedSearch, sort, subcategory, dateFilter, page, userLoading, user, token])
+useEffect(() => {
+	if (!userLoading && user && token) {
+		fetchTasks()
+	}
+}, [userLoading, user, token, fetchTasks])
+
+useEffect(() => {
+	if (!userLoading && user && token && isExecutor) {
+		fetchRecommendations()
+	} else if (!isExecutor) {
+		setRecommendedTasks([])
+		setRecommendedLoading(false)
+	}
+}, [userLoading, user, token, isExecutor, fetchRecommendations])
 
 	const applyFilters = useCallback(() => {
 		const query = new URLSearchParams()
@@ -169,10 +290,25 @@ export default function TaskCatalogPage() {
 		setPage(1)
 	}, [debouncedSearch, sort, subcategory, router])
 
+	const recommendationTagLabels: Record<
+		RecommendationTag,
+		{ label: string; emoji: string }
+	> = {
+		skill_match: { label: 'Навык', emoji: '🎯' },
+		subcategory_match: { label: 'Ваш опыт', emoji: '🧩' },
+		fresh: { label: 'Новинка', emoji: '✨' },
+		low_responses: { label: 'Мало откликов', emoji: '🚀' },
+		favorite_match: { label: 'Похоже на избранное', emoji: '⭐' },
+	}
+
 	const resetFilters = useCallback(() => {
 		setSearch('')
 		setSort('new')
 		setSubcategory('')
+		setDateFilter('')
+		setMinRating('')
+		setHasFiles('')
+		setMinResponses('')
 		setPage(1)
 		router.push('/tasks')
 	}, [router])
@@ -188,7 +324,7 @@ export default function TaskCatalogPage() {
 	)
 
 	return (
-		<div className='space-y-4 sm:space-y-6 md:space-y-8'>
+		<div className='max-w-6xl mx-auto px-3 sm:px-4 lg:px-6 space-y-4 sm:space-y-6 md:space-y-8'>
 			{/* Заголовок */}
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
 				<h1 className='text-2xl sm:text-3xl md:text-4xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]'>
@@ -210,30 +346,185 @@ export default function TaskCatalogPage() {
 				onSelectSubcategory={handleSubcategorySelect}
 			/>
 
-			<div className='flex flex-col lg:flex-row gap-6 lg:gap-8'>
+			<div className='flex flex-col lg:flex-row gap-5 sm:gap-6 lg:gap-7 xl:gap-8'>
 				{/* Фильтры */}
 				<div
 					className={`${
 						isFiltersOpen ? 'block' : 'hidden'
-					} lg:block w-full lg:w-72 lg:sticky lg:top-28 lg:self-start p-4 sm:p-6 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-4 sm:space-y-5 backdrop-blur-md`}
+					} lg:block w-full lg:w-64 xl:w-72 lg:sticky lg:top-24 xl:top-28 lg:self-start p-4 sm:p-5 bg-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-4 sm:space-y-5 backdrop-blur-md`}
 				>
-					{/* Поле поиска */}
-					<div className='space-y-2'>
+					{/* Поле поиска с историей */}
+					<div className='space-y-2 relative'>
 						<label className='text-emerald-400 text-sm font-medium'>
 							Поиск задач
 						</label>
-						<input
-							ref={searchInputRef}
-							type='text'
-							placeholder='Введите запрос... (Ctrl+K или / для фокуса)'
-							className='w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder-gray-500 hover:border-emerald-400 transition-all'
-							value={search}
-							onChange={e => setSearch(e.target.value)}
-						/>
+						<div className='relative'>
+							<input
+								ref={searchInputRef}
+								type='text'
+								placeholder='Введите запрос... (Ctrl+K или / для фокуса)'
+								className='w-full p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder-gray-500 hover:border-emerald-400 transition-all pr-10'
+								value={search}
+								onChange={e => {
+									setSearch(e.target.value)
+									setShowSearchHistory(true)
+								}}
+								onFocus={() => {
+									if (history.length > 0) {
+										setShowSearchHistory(true)
+									}
+								}}
+								onBlur={(e) => {
+									// Закрываем историю только если клик был вне компонента
+									if (!searchHistoryContainerRef.current?.contains(e.relatedTarget as Node)) {
+										setShowSearchHistory(false)
+									}
+								}}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' && search.trim()) {
+										setShowSearchHistory(false)
+										addToHistory(search.trim())
+									}
+								}}
+							/>
+							{/* Кнопка очистки истории (показывается при фокусе и наличии истории) */}
+							{showSearchHistory && history.length > 0 && (
+								<button
+									onClick={(e) => {
+										e.stopPropagation()
+										clearHistory()
+										setShowSearchHistory(false)
+									}}
+									className='absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-400 transition-colors'
+									title='Очистить историю'
+								>
+									<X className='w-4 h-4' />
+								</button>
+							)}
+							{/* Выпадающий список истории поиска */}
+							{showSearchHistory && history.length > 0 && (
+								<div
+									ref={searchHistoryContainerRef}
+									className='absolute z-50 w-full mt-1 bg-gray-900/95 backdrop-blur-sm border border-emerald-500/30 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar'
+									onMouseDown={(e) => e.preventDefault()} // Предотвращаем blur при клике
+								>
+									<div className='p-2'>
+										<div className='flex items-center justify-between px-2 py-1 mb-1'>
+											<span className='text-xs text-gray-400 font-medium'>История поиска</span>
+											<button
+												onClick={() => clearHistory()}
+												className='text-xs text-gray-500 hover:text-red-400 transition-colors'
+											>
+												Очистить
+											</button>
+										</div>
+										{history.map((item, index) => (
+											<button
+												key={index}
+												onClick={() => {
+													setSearch(item)
+													setShowSearchHistory(false)
+													searchInputRef.current?.focus()
+												}}
+												className='w-full text-left px-3 py-2 hover:bg-emerald-500/10 rounded-lg text-sm text-gray-300 hover:text-white transition-colors flex items-center justify-between group'
+											>
+												<span className='flex items-center gap-2'>
+													<Clock className='w-4 h-4 text-gray-500' />
+													{item}
+												</span>
+												<button
+													onClick={(e) => {
+														e.stopPropagation()
+														removeFromHistory(item)
+													}}
+													className='opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all'
+												>
+													<X className='w-3 h-3 text-red-400' />
+												</button>
+											</button>
+										))}
+									</div>
+								</div>
+							)}
+						</div>
 					</div>
 
 					{/* Фильтр по дате */}
 					<DateFilter value={dateFilter} onChange={setDateFilter} />
+
+					{/* Расширенные фильтры */}
+					<div className='space-y-4 pt-2 border-t border-emerald-500/20'>
+						<p className='text-emerald-400 text-sm font-medium'>Расширенные фильтры</p>
+						
+						{/* Фильтр по рейтингу заказчика */}
+						<div className='space-y-2'>
+							<label className='text-gray-400 text-xs font-medium'>
+								Минимальный рейтинг заказчика
+							</label>
+							<input
+								type='number'
+								min='0'
+								max='5'
+								step='0.1'
+								placeholder='0.0'
+								value={minRating}
+								onChange={e => setMinRating(e.target.value)}
+								className='w-full p-2 bg-black/60 border border-emerald-500/30 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder-gray-500 hover:border-emerald-400 transition-all'
+							/>
+						</div>
+
+						{/* Фильтр по наличию файлов */}
+						<div className='space-y-2'>
+							<label className='text-gray-400 text-xs font-medium'>
+								Наличие файлов
+							</label>
+							<div className='relative' ref={hasFilesDropdownRef}>
+								<button
+									type='button'
+									onClick={() => setIsHasFilesOpen(open => !open)}
+									className='w-full flex justify-between items-center p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white text-sm hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all'
+								>
+									<span>{hasFilesOptions.find(opt => opt.value === hasFiles)?.label ?? 'Не важно'}</span>
+									<ChevronDown className={`w-4 h-4 transition-transform ${isHasFilesOpen ? 'rotate-180 text-emerald-200' : 'text-emerald-300/80'}`} />
+								</button>
+								{isHasFilesOpen && (
+									<div className='absolute z-30 mt-2 w-full bg-black/85 border border-emerald-500/30 rounded-lg shadow-[0_0_20px_rgба(16,185,129,0.4)] backdrop-blur-md overflow-hidden'>
+										{hasFilesOptions.map(option => (
+											<button
+												key={option.value}
+												onClick={() => {
+													setHasFiles(option.value)
+													setIsHasFilesOpen(false)
+												}}
+												className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+													hasFiles === option.value
+														? 'bg-emerald-700/40 text-emerald-100'
+														: 'text-emerald-200 hover:bg-emerald-500/20 hover:text-emerald-100'
+												}`}
+											>
+												{option.label}
+											</button>
+										))}
+									</div>
+								)}
+							</div>
+						</div>
+
+						{/* Фильтр по количеству откликов */}
+						<div className='space-y-2'>
+							<label className='text-gray-400 text-xs font-medium'>
+								Минимум откликов
+							</label>
+							<input
+								type='number'
+								min='0'
+								placeholder='0'
+								value={minResponses}
+								onChange={e => setMinResponses(e.target.value)}
+								className='w-full p-2 bg-black/60 border border-emerald-500/30 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder-gray-500 hover:border-emerald-400 transition-all'
+							/>
+						</div>
+					</div>
 
 					{/* Кастомный селект сортировки */}
 					<div className='space-y-2 relative'>
@@ -330,25 +621,242 @@ export default function TaskCatalogPage() {
 						/>
 					) : (
 						<>
+							{isExecutor && (
+								recommendedLoading ? (
+									<div className='p-5 sm:p-6 bg-slate-900/60 border border-emerald-500/30 rounded-2xl text-slate-300 text-sm'>
+										Загружаем персональные рекомендации…
+									</div>
+								) : recommendedError ? (
+									<div className='p-5 sm:p-6 bg-red-900/40 border border-red-500/40 rounded-2xl text-red-200 text-sm'>
+										<span className='font-semibold'>Не удалось получить рекомендации.</span>{' '}
+										{recommendedError}
+									</div>
+								) : recommendedTasks.length > 0 ? (
+									<section className='p-4 sm:p-5 lg:p-6 bg-gradient-to-br from-emerald-900/20 via-slate-900/40 to-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.18)] space-y-4'>
+										<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+											<div>
+												<h2 className='text-lg sm:text-xl font-semibold text-emerald-300'>
+													Рекомендуем для вас
+												</h2>
+												<p className='text-sm text-slate-300/80'>
+													Подбор на основе ваших навыков, избранного и истории откликов
+												</p>
+											</div>
+											<button
+												onClick={() => fetchRecommendations()}
+												className='self-start sm:self-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 transition-colors text-xs'
+											>
+												Обновить рекомендации
+											</button>
+										</div>
+
+										<div className='grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+											{recommendedTasks.map(recommendation => {
+												const task = recommendation.task
+												const reasonsKey = `recommended-${task.id}`
+												const showReasons = activeReasonId === reasonsKey
+
+												return (
+													<div
+														key={task.id}
+														className='group relative p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3'
+													>
+														<div className='flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3'>
+															<div>
+																<Link href={`/tasks/${task.id}`}>
+																	<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 line-clamp-2 transition-colors'>
+																		{task.title}
+																	</h3>
+																</Link>
+																<p className='text-xs text-slate-400 mt-1'>
+																	{new Date(task.createdAt).toLocaleDateString('ru-RU', {
+																		day: '2-digit',
+																		month: 'long',
+																	})}
+																</p>
+															</div>
+
+															<div
+																className='relative flex flex-col items-stretch sm:items-end text-right gap-1 w-full sm:w-auto sm:min-w-[150px] mt-2 sm:mt-0'
+																onMouseLeave={() => {
+																	if (activeReasonId === reasonsKey) {
+																		setActiveReasonId(null)
+																	}
+																}}
+															>
+																<span className='text-[10px] uppercase tracking-[0.18em] text-emerald-300/60'>
+																	Рейтинг релевантности
+																</span>
+																<div className='flex items-baseline gap-2'>
+																	<span className='text-xl font-semibold text-emerald-100 leading-none'>
+																		{recommendation.score}
+																	</span>
+																	<span className='text-[11px] text-emerald-300/60'>/ 100</span>
+																</div>
+																<div className='relative w-24 h-[6px] rounded-full bg-emerald-500/5 border border-emerald-500/20 overflow-hidden shadow-[0_0_10px_rgba(16,185,129,0.18)]'>
+																	<div
+																		className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
+																		style={{
+																			width: `${Math.min(100, Math.max(0, recommendation.score * 5))}%`,
+																		}}
+																	/>
+																</div>
+																{recommendation.reasons?.length ? (
+																	<>
+																		<button
+																			type='button'
+																			className='text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none'
+																			onMouseEnter={() => setActiveReasonId(reasonsKey)}
+																			onFocus={() => setActiveReasonId(reasonsKey)}
+																			onBlur={() => {
+																				if (activeReasonId === reasonsKey) {
+																					setActiveReasonId(null)
+																				}
+																			}}
+																			onClick={() => setActiveReasonId(prev => (prev === reasonsKey ? null : reasonsKey))}
+																		>
+																			Почему подобрали
+																		</button>
+																		<div
+																			onMouseEnter={() => setActiveReasonId(reasonsKey)}
+																			onMouseLeave={() => {
+																				if (activeReasonId === reasonsKey) {
+																					setActiveReasonId(null)
+																				}
+																			}}
+																			className={`absolute z-30 top-[calc(100%+0.5rem)] right-0 w-60 rounded-xl border border-emerald-500/25 bg-slate-950/95 px-3 py-3 text-left shadow-[0_18px_40px_rgba(16,185,129,0.25)] transition-all duration-150 ${
+																				showReasons ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'
+																			}`}
+																		>
+																			<div className='text-[10px] uppercase tracking-[0.12em] text-emerald-300/60 mb-2'>
+																				Почему подобрали
+																			</div>
+																			{recommendation.reasons.slice(0, 3).map(reason => (
+																				<div key={`${task.id}-popover-${reason}`} className='flex gap-2 text-[11px] text-emerald-100/85'>
+																					<span className='text-emerald-400/80'>•</span>
+																					<span className='flex-1'>{reason}</span>
+																				</div>
+																			))}
+																			{recommendation.reasons.length > 3 ? (
+																				<div className='text-[10px] text-emerald-300/45 mt-2'>
+																					и ещё {recommendation.reasons.length - 3} фактора
+																				</div>
+																			) : null}
+																		</div>
+																	</>
+																) : null}
+															</div>
+
+														</div>
+
+														<p className='text-sm text-slate-300/90 line-clamp-3 min-h-[3.5rem]'>
+															{task.description || 'Описание отсутствует'}
+														</p>
+
+														{task.price && (
+															<p className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm font-semibold'>
+																<span>💰</span>
+																<span>{task.price} ₽</span>
+															</p>
+														)}
+
+														<div className='flex flex-wrap gap-2'>
+															{recommendation.tags.slice(0, 3).map(tag => (
+																<span
+																	key={`${task.id}-${tag}`}
+																	className='inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 border border-emerald-500/30 text-[11px] text-emerald-200'
+																>
+																	<span>{recommendationTagLabels[tag].emoji}</span>
+																	{recommendationTagLabels[tag].label}
+																</span>
+															))}
+														</div>
+
+														<div className='flex items-center justify-between gap-2 pt-2 border-t border-slate-700/50'>
+															<Link
+																href={`/tasks/${task.id}`}
+																className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-600/30 transition-colors text-sm'
+															>
+																Подробнее
+															</Link>
+															{isExecutor && (
+																<FavoriteTaskButton
+																	taskId={task.id}
+																	size='sm'
+																	className='p-2 hover:bg-emerald-500/20 rounded-lg'
+																/>
+															)}
+														</div>
+													</div>
+												)
+											})}
+										</div>
+									</section>
+								) : (
+									<section className='p-4 sm:p-5 lg:p-6 bg-black/35 border border-emerald-500/20 rounded-2xl text-sm text-emerald-200/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+										<div>
+											<h3 className='text-base font-semibold text-emerald-200'>Персональные рекомендации появятся позже</h3>
+											<p className='mt-1 text-emerald-200/70'>Заполните навыки, откликайтесь на задачи или добавляйте избранное — и мы начнем подбирать подходящие предложения.</p>
+										</div>
+										<Link
+											href='/profile'
+											className='inline-flex items-center justify-center text-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/30 text-emerald-100 hover:bg-emerald-500/10 transition-colors text-xs font-semibold'
+										>
+											Настроить профиль
+										</Link>
+									</section>
+								)
+							)}
+
 							{tasks.map(task => (
 								<div
 									key={task.id}
-									className='group relative p-5 sm:p-6 border border-emerald-500/30 rounded-2xl bg-gradient-to-br from-black/60 via-slate-900/40 to-black/60 backdrop-blur-sm shadow-[0_4px_20px_rgba(16,185,129,0.15)] hover:shadow-[0_8px_40px_rgba(16,185,129,0.4)] hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-1 space-y-4 overflow-hidden'
+									className='group relative p-4 sm:p-5 border border-emerald-500/30 rounded-2xl bg-gradient-to-br from-black/60 via-slate-900/40 to-black/60 backdrop-blur-sm shadow-[0_4px_18px_rgba(16,185,129,0.14)] hover:shadow-[0_8px_32px_rgba(16,185,129,0.35)] hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[3px] space-y-3 sm:space-y-4 overflow-hidden'
 								>
 									{/* Декоративный градиент при наведении */}
 									<div className='absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10'></div>
 									
-									{/* Кнопка жалобы */}
-									<button
-										onClick={() => {
-											setReportTaskId(task.id)
-											setReportTaskTitle(task.title)
-										}}
-										className='absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-all group-hover:scale-110'
-										title='Пожаловаться на задачу'
-									>
-										<AlertTriangle className='w-4 h-4 sm:w-5 sm:h-5' />
-									</button>
+									{/* Кнопки действий */}
+									<div className='absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-2'>
+										{/* Кнопка закладки */}
+										{isExecutor && (
+											<FavoriteTaskButton 
+												taskId={task.id}
+												size='sm'
+												className='p-2 hover:bg-emerald-500/20 rounded-lg'
+											/>
+										)}
+										{/* Кнопка копирования ссылки */}
+										<button
+											onClick={async (e) => {
+												e.stopPropagation()
+												const url = `${window.location.origin}/tasks/${task.id}`
+												const { copyToClipboard } = await import('@/lib/copyToClipboard')
+												const success = await copyToClipboard(url)
+												if (success) {
+													toast.success('Ссылка скопирована')
+												} else {
+													toast.error('Не удалось скопировать ссылку')
+												}
+											}}
+											className='p-2 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-all group-hover:scale-110'
+											title='Копировать ссылку на задачу'
+											aria-label='Копировать ссылку'
+										>
+											<LinkIcon className='w-4 h-4 sm:w-5 sm:h-5' />
+										</button>
+										{/* Кнопка жалобы */}
+										<button
+											onClick={() => {
+												setReportTaskId(task.id)
+												setReportTaskTitle(task.title)
+											}}
+											className='p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-all group-hover:scale-110'
+											title='Пожаловаться на задачу'
+										>
+											<AlertTriangle className='w-4 h-4 sm:w-5 sm:h-5' />
+										</button>
+									</div>
 
 									{/* Категория */}
 									{task.subcategory && (
@@ -366,15 +874,15 @@ export default function TaskCatalogPage() {
 
 									{/* Заголовок */}
 									<Link href={`/tasks/${task.id}`}>
-										<h2 className='text-lg sm:text-xl font-bold text-emerald-200 group-hover:text-emerald-100 cursor-pointer line-clamp-2 pr-10 transition-colors duration-200'>
-											{task.title}
-										</h2>
-									</Link>
-
-									{/* Описание */}
-									<p className='text-sm sm:text-base text-gray-300 leading-relaxed line-clamp-3'>
-										{task.description}
-									</p>
+										<h2 className='text-lg sm:text-xl font-bold text-emerald-200 group-hover:text-emerald-100 cursor-pointer line-clamp-2 pr-10 transition-colors duration-200 flex items-center gap-2 flex-wrap'>
+ 									{task.title}
+ 								</h2>
+ 							</Link>
+ 
+ 							{/* Описание */}
+ 							<p className='text-sm sm:text-base text-gray-300 leading-relaxed line-clamp-3'>
+ 								{task.description}
+ 							</p>
 
 									{/* Цена и информация */}
 									<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-gradient-to-r from-transparent via-emerald-500/30 to-transparent'>
@@ -416,7 +924,7 @@ export default function TaskCatalogPage() {
 									aria-label="Следующая страница"
 								>
 									Далее →
-								</button>
+							</button>
 							</nav>
 							</div>
 						</>
@@ -438,3 +946,4 @@ export default function TaskCatalogPage() {
 		</div>
 	)
 }
+

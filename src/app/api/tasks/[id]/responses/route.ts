@@ -1,7 +1,8 @@
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { getUserFromRequest } from '@/lib/auth'
-import { createNotification } from '@/lib/notify'
+import { createNotificationWithSettings } from '@/lib/notify'
 import prisma from '@/lib/prisma'
+import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -61,17 +62,27 @@ export async function POST(req: NextRequest) {
 		)
 	}
 
-	const response = await prisma.taskResponse.create({
-		data: {
-			taskId,
-			userId: user.id,
-			message,
-			price,
-		},
+	const response = await prisma.$transaction(async tx => {
+		const created = await tx.taskResponse.create({
+			data: {
+				taskId,
+				userId: user.id,
+				message,
+				price,
+			},
+		})
+
+		await recordTaskResponseStatus(created.id, 'pending', {
+			changedById: user.id,
+			note: 'Отклик отправлен',
+			tx,
+		})
+
+		return created
 	})
 
 	// 🔔 Создаём уведомление для заказчика задачи
-	const dbNotification = await createNotification({
+	const dbNotification = await createNotificationWithSettings({
 		userId: task.customerId,
 		message: `${user.fullName || user.email} откликнулся на задачу "${
 			task.title
@@ -80,20 +91,23 @@ export async function POST(req: NextRequest) {
 		type: 'response',
 	})
 
-	// Отправляем уведомление в реальном времени
-	sendNotificationToUser(task.customerId, {
-		id: dbNotification.id, // Включаем ID из БД для дедупликации
-		type: 'response',
-		title: 'Новый отклик на задачу',
-		message: `${user.fullName || user.email} откликнулся на задачу "${
-			task.title
-		}"`,
-		link: `/tasks/${task.id}`,
-		taskTitle: task.title,
-		senderId: user.id,
-		sender: user.fullName || user.email,
-		playSound: true,
-	})
+	// Если уведомление отключено в настройках, не отправляем SSE
+	if (dbNotification) {
+		// Отправляем уведомление в реальном времени
+		sendNotificationToUser(task.customerId, {
+			id: dbNotification.id, // Включаем ID из БД для дедупликации
+			type: 'response',
+			title: 'Новый отклик на задачу',
+			message: `${user.fullName || user.email} откликнулся на задачу "${
+				task.title
+			}"`,
+			link: `/tasks/${task.id}`,
+			taskTitle: task.title,
+			senderId: user.id,
+			sender: user.fullName || user.email,
+			playSound: true,
+		})
+	}
 
 	return NextResponse.json({ response })
 }

@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
-import { createNotification } from '@/lib/notify'
+import { createNotificationWithSettings } from '@/lib/notify'
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 
 export async function POST(
@@ -74,15 +74,17 @@ export async function POST(
     const actorName = user.fullName || user.email
     const notifyMsg = `${actorName} оставил отзыв (${rating}⭐) по задаче «${task.title}»`
 
-    const dbNotification = await createNotification({
+    const dbNotification = await createNotificationWithSettings({
       userId: toUserId,
       message: notifyMsg,
       link: `/tasks/${taskId}`,
       type: 'review',
     })
 
-    sendNotificationToUser(toUserId, {
-      id: dbNotification.id, // Включаем ID из БД для дедупликации
+    // Если уведомление отключено в настройках, не отправляем SSE
+    if (dbNotification) {
+      sendNotificationToUser(toUserId, {
+        id: dbNotification.id, // Включаем ID из БД для дедупликации
       type: 'review',
       title: 'Новый отзыв',
       message: notifyMsg,
@@ -93,6 +95,7 @@ export async function POST(
       sender: actorName,
       playSound: true,
     })
+    }
 
     // ✅ Начисляем XP за хороший отзыв (4+ звезды)
     if (rating >= 4 && toUserId) {

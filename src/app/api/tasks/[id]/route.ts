@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/tasks/[id]
@@ -11,7 +12,9 @@ export async function GET(
 ) {
   const { id } = await params
   try {
-    const task = await prisma.task.findUnique({
+    const user = await getUserFromRequest(req).catch(() => null)
+
+    let task = await prisma.task.findUnique({
       where: { id },
       include: {
         // автор
@@ -44,15 +47,78 @@ export async function GET(
                 reviewsReceived: { select: { rating: true } },
               },
             },
+            statusHistory: {
+              orderBy: { createdAt: 'asc' },
+              include: {
+                changedBy: { select: { id: true, fullName: true, email: true } },
+              },
+            },
           },
+          orderBy: { createdAt: 'desc' },
         },
         // 🔥 файлы задачи
         files: true,
       },
-    })
+    } as any)
 
     if (!task) {
       return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
+    }
+
+    if (user && task.customerId === user.id) {
+      const pendingResponses = (task.responses as any[]).filter(
+        response => response.status === 'pending'
+      )
+
+      if (pendingResponses.length > 0) {
+        await prisma.$transaction(async tx => {
+          for (const response of pendingResponses) {
+            await recordTaskResponseStatus(response.id, 'viewed', {
+              changedById: user.id,
+              note: 'Заказчик просмотрел отклик',
+              tx,
+            })
+          }
+        })
+
+        task =
+          ((await prisma.task.findUnique({
+            where: { id },
+            include: {
+              customer: { select: { id: true, fullName: true, email: true } },
+              executor: { select: { id: true, fullName: true, email: true } },
+              review: true,
+              subcategory: {
+                select: {
+                  id: true,
+                  name: true,
+                  minPrice: true,
+                  category: { select: { id: true, name: true } },
+                },
+              },
+              responses: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      fullName: true,
+                      email: true,
+                      reviewsReceived: { select: { rating: true } },
+                    },
+                  },
+                  statusHistory: {
+                    orderBy: { createdAt: 'asc' },
+                    include: {
+                      changedBy: { select: { id: true, fullName: true, email: true } },
+                    },
+                  },
+                },
+                orderBy: { createdAt: 'desc' },
+              },
+              files: true,
+            },
+          } as any)) ?? task)
+      }
     }
 
     return NextResponse.json({ task })

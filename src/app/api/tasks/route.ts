@@ -22,6 +22,9 @@ export async function GET(req: Request) {
 		const maxPrice = searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : undefined
 		const hasDeadline = searchParams.get('hasDeadline')
 		const dateFilter = searchParams.get('dateFilter') || ''
+		const minRating = searchParams.get('minRating') ? parseFloat(searchParams.get('minRating')!) : undefined
+		const hasFiles = searchParams.get('hasFiles')
+		const minResponses = searchParams.get('minResponses') ? parseInt(searchParams.get('minResponses')!, 10) : undefined
 		const page = parseInt(searchParams.get('page') || '1', 10)
 		const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50)
 		const skip = (page - 1) * limit
@@ -86,6 +89,29 @@ export async function GET(req: Request) {
 		} else if (hasDeadline === 'false') {
 			where.deadline = null
 		}
+
+		// Фильтр по рейтингу заказчика
+		if (minRating !== undefined) {
+			where.customer = {
+				avgRating: {
+					gte: minRating,
+				},
+			}
+		}
+
+		// Фильтр по наличию файлов
+		if (hasFiles === 'true') {
+			where.files = {
+				some: {},
+			}
+		} else if (hasFiles === 'false') {
+			where.files = {
+				none: {},
+			}
+		}
+
+		// Фильтр по количеству откликов будет применен после получения данных
+		// (Prisma не поддерживает фильтрацию по _count напрямую)
 
 		// Фильтр по категории через subcategory
 		if (categoryId && !subcategoryId) {
@@ -156,10 +182,16 @@ export async function GET(req: Request) {
 			prisma.task.count({ where }),
 		])
 
+		// Фильтруем по количеству откликов (после получения данных, так как Prisma не поддерживает фильтрацию по _count)
+		let filteredTasks = tasks
+		if (minResponses !== undefined) {
+			filteredTasks = tasks.filter(task => task._count.responses >= minResponses)
+		}
+
 		// Если нужна сортировка по откликам, делаем это на стороне сервера
-		let sortedTasks = tasks
+		let sortedTasks = filteredTasks
 		if (sortParam === 'responses') {
-			sortedTasks = [...tasks].sort((a, b) => b._count.responses - a._count.responses)
+			sortedTasks = [...filteredTasks].sort((a, b) => b._count.responses - a._count.responses)
 		}
 
 		const response = NextResponse.json({

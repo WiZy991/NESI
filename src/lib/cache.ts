@@ -105,6 +105,8 @@ export const cacheKeys = {
 	user: (id: string) => `user:${id}`,
 	task: (id: string) => `task:${id}`,
 	tasks: (params: string) => `tasks:${params}`,
+	taskRecommendations: (userId: string, limit: number = 6) =>
+		`task-reco:${userId}:${limit}`,
 	categories: () => 'categories:all',
 	notifications: (userId: string, page?: number) =>
 		`notifications:${userId}${page ? `:page:${page}` : ''}`,
@@ -121,6 +123,7 @@ export const cacheTTL = {
 
 	// Пользовательские данные - средне
 	tasks: 5 * 60 * 1000, // 5 минут
+	taskRecommendations: 2 * 60 * 1000, // 2 минуты
 	notifications: 30 * 1000, // 30 секунд
 
 	// Динамические данные - коротко

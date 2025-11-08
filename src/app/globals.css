@@ -2,8 +2,20 @@
 @import 'tailwindcss';
 @import '../styles/animations.css';
 
-/* 🎨 Основные переменные */
+/* 🎨 Основные переменные - светлая тема по умолчанию */
 :root {
+	--background: #ffffff;
+	--foreground: #171717;
+}
+
+/* 🌙 Тёмная тема */
+.dark {
+	--background: #0a0a0a;
+	--foreground: #ededed;
+}
+
+/* ☀️ Светлая тема */
+.light {
 	--background: #ffffff;
 	--foreground: #171717;
 }
@@ -15,14 +27,6 @@
 
 	--font-sans: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
 	--font-mono: 'JetBrains Mono', monospace;
-}
-
-/* 🌙 Тёмная тема */
-@media (prefers-color-scheme: dark) {
-	:root {
-		--background: #0a0a0a;
-		--foreground: #ededed;
-	}
 }
 
 /* 🧠 Базовый стиль html и body */
@@ -46,8 +50,15 @@ body {
 
 	/* View Transitions API поддержка - только на html */
 
-	/* 🌌 Новый минималистичный космический фон */
+	/* 🌌 Новый минималистичный космический фон - только для темной темы */
+}
+
+.dark body {
 	background: radial-gradient(circle at 50% 20%, #01150d 0%, #000000 100%);
+}
+
+.light body {
+	background: linear-gradient(to bottom, #f0f9f4 0%, #ffffff 100%);
 }
 
 /* 💫 — ЗВЁЗДНЫЙ ФОН убран! Теперь вместо него используется компонент Starfield.tsx */

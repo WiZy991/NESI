@@ -1,8 +1,10 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import MessageTemplatesModal from './MessageTemplatesModal'
+import { FileText } from 'lucide-react'
 
 type MessageInputProps = {
 	chatType: 'private' | 'task'
@@ -19,6 +21,14 @@ type MessageInputProps = {
 		}
 	} | null
 	onCancelReply?: () => void
+	showTemplatesButton?: boolean
+}
+
+type TypingContext = {
+	recipientId: string
+	chatType: 'private' | 'task'
+	chatId: string
+	taskId?: string
 }
 
 const emojiList = [
@@ -32,6 +42,7 @@ export default function MessageInput({
 	onMessageSent,
 	replyTo,
 	onCancelReply,
+	showTemplatesButton = true,
 }: MessageInputProps) {
 	const { token } = useUser()
 	const [message, setMessage] = useState('')
@@ -47,6 +58,7 @@ export default function MessageInput({
 	const [isTyping, setIsTyping] = useState(false)
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 	const [showCaptionEmojiPicker, setShowCaptionEmojiPicker] = useState(false)
+	const [showTemplatesModal, setShowTemplatesModal] = useState(false)
 	const captionTextareaRef = useRef<HTMLTextAreaElement>(null)
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -56,6 +68,29 @@ export default function MessageInput({
 	const videoPreviewRef = useRef<HTMLVideoElement>(null)
 	const uploadXhrRef = useRef<XMLHttpRequest | null>(null)
 	const currentUploadingFileRef = useRef<File | null>(null)
+
+	const typingContext = useMemo<TypingContext | null>(() => {
+		if (!otherUserId) return null
+
+		if (chatType === 'task') {
+			if (!taskId) return null
+			return {
+				recipientId: otherUserId,
+				chatType,
+				chatId: `task_${taskId}`,
+				taskId,
+			}
+		}
+
+		return {
+			recipientId: otherUserId,
+			chatType,
+			chatId: `private_${otherUserId}`,
+		}
+	}, [chatType, otherUserId, taskId])
+
+	const previousTypingContextRef = useRef<TypingContext | null>(null)
+
 	const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640
 const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 
@@ -97,8 +132,12 @@ const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 	}, [])
 
 	// Функция для отправки события набора
-	const sendTypingEvent = async (typing: boolean) => {
-		if (!token || !otherUserId) return
+	const sendTypingEvent = useCallback(
+		async (typing: boolean, contextOverride?: TypingContext | null) => {
+			if (!token) return
+
+			const context = contextOverride ?? typingContext
+			if (!context) return
 
 		try {
 			await fetch('/api/typing', {
@@ -108,17 +147,20 @@ const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({
-					recipientId: otherUserId,
-					chatType,
-					chatId:
-						chatType === 'task' ? `task_${taskId}` : `private_${otherUserId}`,
+						recipientId: context.recipientId,
+						chatType: context.chatType,
+						chatId: context.chatId,
+						taskId: context.taskId,
 					isTyping: typing,
 				}),
+					keepalive: true,
 			})
 		} catch (error) {
 			console.error('Ошибка отправки события набора:', error)
 		}
-	}
+		},
+		[token, typingContext]
+	)
 
 	// Автоматическое изменение высоты textarea при изменении текста
 	useEffect(() => {
@@ -144,6 +186,14 @@ const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 		const value = e.target.value
 		setMessage(value)
 
+		if (!typingContext) {
+			if (typingTimeoutRef.current) {
+				clearTimeout(typingTimeoutRef.current)
+				typingTimeoutRef.current = null
+			}
+			return
+		}
+
 		// Отправляем событие начала набора
 		if (value.trim() && !isTyping) {
 			setIsTyping(true)
@@ -163,6 +213,77 @@ const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 			}
 		}, 1000)
 	}
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return
+
+		const handleOpenTemplates = () => {
+			setShowTemplatesModal(true)
+		}
+
+		window.addEventListener('openMessageTemplates', handleOpenTemplates)
+		return () => {
+			window.removeEventListener('openMessageTemplates', handleOpenTemplates)
+		}
+	}, [])
+
+	useEffect(() => {
+		const previousContext = previousTypingContextRef.current
+
+		if (
+			previousContext &&
+			(!typingContext ||
+				previousContext.chatId !== typingContext.chatId ||
+				previousContext.recipientId !== typingContext.recipientId)
+		) {
+			if (isTyping) {
+				sendTypingEvent(false, previousContext)
+				setIsTyping(false)
+			}
+		}
+
+		previousTypingContextRef.current = typingContext
+	}, [typingContext, isTyping, sendTypingEvent])
+
+	useEffect(() => {
+		return () => {
+			if (typingTimeoutRef.current) {
+				clearTimeout(typingTimeoutRef.current)
+			}
+
+			const previousContext = previousTypingContextRef.current
+			if (previousContext && isTyping) {
+				sendTypingEvent(false, previousContext)
+			}
+		}
+	}, [isTyping, sendTypingEvent])
+
+	useEffect(() => {
+		const handleBeforeUnload = () => {
+			const previousContext = previousTypingContextRef.current
+			if (previousContext && isTyping) {
+				sendTypingEvent(false, previousContext)
+			}
+		}
+
+		const handleVisibilityChange = () => {
+			if (document.hidden) {
+				const previousContext = previousTypingContextRef.current
+				if (previousContext && isTyping) {
+					sendTypingEvent(false, previousContext)
+					setIsTyping(false)
+				}
+			}
+		}
+
+		window.addEventListener('beforeunload', handleBeforeUnload)
+		document.addEventListener('visibilitychange', handleVisibilityChange)
+
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload)
+			document.removeEventListener('visibilitychange', handleVisibilityChange)
+		}
+	}, [isTyping, sendTypingEvent])
 
 	const handleSubmit = async (e: React.FormEvent, captionText?: string) => {
 		e.preventDefault()
@@ -574,6 +695,7 @@ const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 	}, [])
 
 	return (
+	<>
 		<form 
 			onSubmit={handleSubmit} 
 			className='px-1.5 sm:px-2.5 md:px-3 py-1.5 sm:py-2.5 md:py-3'
@@ -1254,6 +1376,32 @@ const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 					</button>
 				</div>
 
+				{/* Кнопка шаблонов */}
+				{showTemplatesButton && (
+				<button
+					type='button'
+					onClick={(e) => {
+						e.stopPropagation()
+						setShowTemplatesModal(true)
+					}}
+					onTouchStart={(e) => {
+						e.stopPropagation()
+					}}
+					className='flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:border-emerald-400/50 hover:bg-slate-700/80 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
+					style={{ 
+						minHeight: '44px', 
+						minWidth: '44px',
+						touchAction: 'manipulation',
+						WebkitTapHighlightColor: 'transparent',
+						pointerEvents: 'auto',
+					}}
+					title="Шаблоны сообщений"
+					aria-label="Шаблоны сообщений"
+				>
+					<FileText className='w-5 h-5 text-emerald-400' />
+				</button>
+				)}
+
 				{/* Кнопка отправки */}
 				<button
 					type='submit'
@@ -1308,5 +1456,24 @@ const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 				</button>
 			</div>
 		</form>
+
+		{/* Модальное окно шаблонов */}
+		<MessageTemplatesModal
+			isOpen={showTemplatesModal}
+			onClose={() => setShowTemplatesModal(false)}
+			onSelectTemplate={(content) => {
+				setMessage(content)
+				// Фокусируем textarea после вставки шаблона
+				setTimeout(() => {
+					if (textareaRef.current) {
+						textareaRef.current.focus()
+						// Устанавливаем курсор в конец
+						const length = content.length
+						textareaRef.current.setSelectionRange(length, length)
+					}
+				}, 100)
+			}}
+		/>
+	</>
 	)
 }

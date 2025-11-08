@@ -7,6 +7,7 @@ import {
 	CheckCircle,
 	MessageSquare,
 	Star,
+	Heart,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
@@ -600,8 +601,12 @@ export default function Header() {
 						return
 					}
 
-					// Пропускаем события набора текста
-					if (data.type === 'typing') {
+					// Пропускаем события статусов чата
+					if (
+						data.type === 'typing' ||
+						data.type === 'stoppedTyping' ||
+						data.type === 'chatPresence'
+					) {
 						return
 					}
 
@@ -805,8 +810,38 @@ export default function Header() {
 												<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
 												<p className='text-sm'>Нет новых уведомлений</p>
 											</div>
-										) : (
-											notifications.map((notif, index) => (
+										) : (() => {
+											// Группируем уведомления по типу
+											const grouped = notifications.reduce((acc, notif) => {
+												const type = notif.type || 'other'
+												if (!acc[type]) {
+													acc[type] = []
+												}
+												acc[type].push(notif)
+												return acc
+											}, {} as Record<string, typeof notifications>)
+
+											const typeLabels: Record<string, string> = {
+												message: 'Сообщения',
+												review: 'Отзывы',
+												task: 'Задачи',
+												warning: 'Предупреждения',
+												other: 'Прочее',
+											}
+
+											return Object.entries(grouped).map(([type, groupNotifs]) => (
+												<div key={type} className='border-b border-gray-700/50 last:border-b-0'>
+													{Object.keys(grouped).length > 1 && (
+														<div className='px-3 py-2 bg-gray-800/40 border-b border-gray-700/30'>
+															<span className='text-xs font-semibold text-emerald-400 uppercase tracking-wider'>
+																{typeLabels[type] || type}
+															</span>
+															<span className='ml-2 text-xs text-gray-500'>
+																({groupNotifs.length})
+															</span>
+														</div>
+													)}
+													{groupNotifs.map((notif, index) => (
 												<div
 													key={index}
 													className='p-3 sm:p-4 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-700/80 transition cursor-pointer touch-manipulation select-none'
@@ -876,8 +911,10 @@ export default function Header() {
 														</div>
 													</div>
 												</div>
+													))}
+												</div>
 											))
-										)}
+										})()}
 									</div>
 									<div className='p-3 sm:p-4 border-t border-emerald-500/20 bg-black/40'>
 										<button
@@ -1010,6 +1047,14 @@ export default function Header() {
 														onClick={() => setMobileMenuOpen(false)}
 													>
 														Каталог задач
+													</Link>
+													<Link
+														href='/tasks/favorites'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95 flex items-center gap-2'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														<Heart className="w-4 h-4" />
+														Избранное
 													</Link>
 													<Link
 														href='/tasks/my'
@@ -1253,8 +1298,38 @@ export default function Header() {
 													<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
 													<p>Нет новых уведомлений</p>
 												</div>
-											) : (
-												notifications.map((notif, index) => (
+											) : (() => {
+												// Группируем уведомления по типу
+												const grouped = notifications.reduce((acc, notif) => {
+													const type = notif.type || 'other'
+													if (!acc[type]) {
+														acc[type] = []
+													}
+													acc[type].push(notif)
+													return acc
+												}, {} as Record<string, typeof notifications>)
+
+												const typeLabels: Record<string, string> = {
+													message: 'Сообщения',
+													review: 'Отзывы',
+													task: 'Задачи',
+													warning: 'Предупреждения',
+													other: 'Прочее',
+												}
+
+												return Object.entries(grouped).map(([type, groupNotifs]) => (
+													<div key={type} className='border-b border-gray-700/50 last:border-b-0'>
+														{Object.keys(grouped).length > 1 && (
+															<div className='px-3 py-2 bg-gray-800/40 border-b border-gray-700/30'>
+																<span className='text-xs font-semibold text-emerald-400 uppercase tracking-wider'>
+																	{typeLabels[type] || type}
+																</span>
+																<span className='ml-2 text-xs text-gray-500'>
+																	({groupNotifs.length})
+																</span>
+															</div>
+														)}
+														{groupNotifs.map((notif, index) => (
 													<div
 														key={index}
 														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-800 transition cursor-pointer touch-manipulation select-none'
@@ -1328,8 +1403,10 @@ export default function Header() {
 															</div>
 														</div>
 													</div>
+													))}
+													</div>
 												))
-											)}
+										})()}
 										</div>
 
 										{/* 📎 Ссылка внизу */}
@@ -1381,6 +1458,14 @@ export default function Header() {
 											</Link>
 											<Link href='/tasks' className={linkStyle} data-onboarding-target="nav-tasks">
 												Каталог задач
+											</Link>
+											<Link
+												href='/tasks/favorites'
+												className={`${linkStyle} px-3`}
+												title='Избранное'
+												aria-label='Избранное'
+											>
+												<Heart className='w-4 h-4' />
 											</Link>
 											<Link href='/tasks/my' className={linkStyle}>
 												Мои задачи

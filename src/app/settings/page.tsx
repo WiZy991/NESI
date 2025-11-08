@@ -2,14 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Save, Bell, Eye, EyeOff, BookOpen } from 'lucide-react'
+import { Lock, Save, Bell, Eye, EyeOff, BookOpen, Download, FileText, MessageSquare, Star } from 'lucide-react'
 import { ResetOnboardingButton } from '@/components/ResetOnboardingButton'
+import { AnimatedCheckbox } from '@/components/AnimatedCheckbox'
+import { useUser } from '@/context/UserContext'
+import { toast } from 'sonner'
+
+const DEFAULT_SETTINGS = {
+  emailNotifications: true,
+  pushNotifications: true,
+  notifyOnMessages: true,
+  notifyOnTasks: true,
+  notifyOnReviews: true,
+  notifyOnWarnings: true,
+  notifySound: true,
+  notifyDesktop: true,
+}
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
-    emailNotifications: true,
-    pushNotifications: false,
-  })
+  const { user, token } = useUser()
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   const [passwords, setPasswords] = useState({ old: '', new: '' })
   const [showPassword, setShowPassword] = useState({
@@ -17,6 +29,7 @@ export default function SettingsPage() {
     new: false,
   })
   const [status, setStatus] = useState<string | null>(null)
+  const [exporting, setExporting] = useState<string | null>(null)
 
   // === загрузка настроек ===
   useEffect(() => {
@@ -30,7 +43,13 @@ export default function SettingsPage() {
         if (res.ok) {
           setSettings({
             emailNotifications: data.emailNotifications ?? true,
-            pushNotifications: data.pushNotifications ?? false,
+            pushNotifications: data.pushNotifications ?? true,
+            notifyOnMessages: data.notifyOnMessages ?? true,
+            notifyOnTasks: data.notifyOnTasks ?? true,
+            notifyOnReviews: data.notifyOnReviews ?? true,
+            notifyOnWarnings: data.notifyOnWarnings ?? true,
+            notifySound: data.notifySound ?? true,
+            notifyDesktop: data.notifyDesktop ?? true,
           })
         } else {
           setStatus(`⚠️ ${data.error || 'Ошибка загрузки настроек'}`)
@@ -91,6 +110,58 @@ export default function SettingsPage() {
     }
   }
 
+  // === экспорт данных ===
+  const handleExport = async (type: 'tasks' | 'messages' | 'reviews', format: 'csv' | 'json') => {
+    if (!token) {
+      toast.error('Войдите для экспорта данных')
+      return
+    }
+
+    setExporting(`${type}-${format}`)
+    try {
+      const res = await fetch(`/api/export?type=${type}&format=${format}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error || 'Ошибка экспорта')
+      }
+
+      if (format === 'csv') {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${type}_export_${new Date().toISOString().split('T')[0]}.csv`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        toast.success('Данные экспортированы в CSV')
+      } else {
+        const data = await res.json()
+        const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${type}_export_${new Date().toISOString().split('T')[0]}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        toast.success('Данные экспортированы в JSON')
+      }
+    } catch (error: any) {
+      console.error('Ошибка экспорта:', error)
+      toast.error(error.message || 'Ошибка при экспорте данных')
+    } finally {
+      setExporting(null)
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto mt-16 p-6 text-white">
       <motion.h1
@@ -111,33 +182,115 @@ export default function SettingsPage() {
         <div className="flex flex-col gap-4 text-sm">
           <label className="flex justify-between items-center">
             <span>Email-уведомления</span>
-            <input
-              type="checkbox"
+            <AnimatedCheckbox
               checked={settings.emailNotifications}
-              onChange={(e) =>
+              onChange={(checked) =>
                 setSettings({
                   ...settings,
-                  emailNotifications: e.target.checked,
+                  emailNotifications: checked,
                 })
               }
-              className="accent-emerald-500 w-4 h-4"
             />
           </label>
 
           <label className="flex justify-between items-center">
             <span>Push-уведомления</span>
-            <input
-              type="checkbox"
+            <AnimatedCheckbox
               checked={settings.pushNotifications}
-              onChange={(e) =>
+              onChange={(checked) =>
                 setSettings({
                   ...settings,
-                  pushNotifications: e.target.checked,
+                  pushNotifications: checked,
                 })
               }
-              className="accent-emerald-500 w-4 h-4"
             />
           </label>
+
+          <div className="pt-4 border-t border-gray-700/50 mt-2">
+            <p className="text-emerald-400 font-semibold mb-3">Типы уведомлений</p>
+            
+            <label className="flex justify-between items-center mb-3">
+              <span>Уведомления о сообщениях</span>
+              <AnimatedCheckbox
+                checked={settings.notifyOnMessages}
+                onChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    notifyOnMessages: checked,
+                  })
+                }
+              />
+            </label>
+
+            <label className="flex justify-between items-center mb-3">
+              <span>Уведомления о задачах</span>
+              <AnimatedCheckbox
+                checked={settings.notifyOnTasks}
+                onChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    notifyOnTasks: checked,
+                  })
+                }
+              />
+            </label>
+
+            <label className="flex justify-between items-center mb-3">
+              <span>Уведомления об отзывах</span>
+              <AnimatedCheckbox
+                checked={settings.notifyOnReviews}
+                onChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    notifyOnReviews: checked,
+                  })
+                }
+              />
+            </label>
+
+            <label className="flex justify-between items-center mb-3">
+              <span>Уведомления-предупреждения</span>
+              <AnimatedCheckbox
+                checked={settings.notifyOnWarnings}
+                onChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    notifyOnWarnings: checked,
+                  })
+                }
+              />
+            </label>
+          </div>
+
+          <div className="pt-4 border-t border-gray-700/50 mt-2">
+            <p className="text-emerald-400 font-semibold mb-3">Дополнительно</p>
+            
+            <label className="flex justify-between items-center mb-3">
+              <span>Звук уведомлений</span>
+              <AnimatedCheckbox
+                checked={settings.notifySound}
+                onChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    notifySound: checked,
+                  })
+                }
+              />
+            </label>
+
+            <label className="flex justify-between items-center">
+              <span>Desktop-уведомления</span>
+              <AnimatedCheckbox
+                checked={settings.notifyDesktop}
+                onChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    notifyDesktop: checked,
+                  })
+                }
+              />
+            </label>
+          </div>
         </div>
 
         <button
@@ -225,6 +378,90 @@ export default function SettingsPage() {
           Хотите повторить интерактивный тур по платформе? Вы можете запустить его снова в любой момент.
         </p>
         <ResetOnboardingButton />
+      </section>
+
+      {/* 📥 Экспорт данных */}
+      <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm mt-8">
+        <h2 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+          <Download className="w-5 h-5" /> Экспорт данных
+        </h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Экспортируйте свои данные в формате CSV или JSON для резервного копирования или анализа
+        </p>
+
+        <div className="space-y-4">
+          {/* Экспорт задач */}
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="w-5 h-5 text-emerald-400" />
+              <h3 className="font-semibold text-white">Задачи</h3>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleExport('tasks', 'csv')}
+                disabled={!!exporting}
+                className="flex-1 px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {exporting === 'tasks-csv' ? 'Экспорт...' : 'CSV'}
+              </button>
+              <button
+                onClick={() => handleExport('tasks', 'json')}
+                disabled={!!exporting}
+                className="flex-1 px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {exporting === 'tasks-json' ? 'Экспорт...' : 'JSON'}
+              </button>
+            </div>
+          </div>
+
+          {/* Экспорт сообщений */}
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+            <div className="flex items-center gap-2 mb-3">
+              <MessageSquare className="w-5 h-5 text-emerald-400" />
+              <h3 className="font-semibold text-white">Сообщения</h3>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleExport('messages', 'csv')}
+                disabled={!!exporting}
+                className="flex-1 px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {exporting === 'messages-csv' ? 'Экспорт...' : 'CSV'}
+              </button>
+              <button
+                onClick={() => handleExport('messages', 'json')}
+                disabled={!!exporting}
+                className="flex-1 px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {exporting === 'messages-json' ? 'Экспорт...' : 'JSON'}
+              </button>
+            </div>
+          </div>
+
+          {/* Экспорт отзывов */}
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="w-5 h-5 text-emerald-400" />
+              <h3 className="font-semibold text-white">Отзывы</h3>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleExport('reviews', 'csv')}
+                disabled={!!exporting}
+                className="flex-1 px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {exporting === 'reviews-csv' ? 'Экспорт...' : 'CSV'}
+              </button>
+              <button
+                onClick={() => handleExport('reviews', 'json')}
+                disabled={!!exporting}
+                className="flex-1 px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {exporting === 'reviews-json' ? 'Экспорт...' : 'JSON'}
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* 💬 статус */}

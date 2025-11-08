@@ -9,6 +9,10 @@ import CompleteTaskButton from './CompleteTaskButton'
 import ResponseForm from './ResponseForm'
 import ReviewForm from './ReviewForm'
 import TaskActionsClient from './TaskActionsClient'
+import FavoriteTaskButton from './FavoriteTaskButton'
+import { Link as LinkIcon } from 'lucide-react'
+import { copyToClipboard, getTaskUrl } from '@/lib/copyToClipboard'
+import { toast } from 'sonner'
 
 function DisputeForm({
 	taskId,
@@ -323,9 +327,37 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 							<span className='text-2xl'>📋</span>
 						</div>
 						<div className='flex-1'>
-							<h1 className='text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 leading-tight'>
-								{task.title}
-							</h1>
+							<div className='flex items-start justify-between gap-4 mb-2'>
+								<h1 className='text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight flex-1'>
+									{task.title}
+								</h1>
+								{/* Кнопки действий */}
+								<div className='flex items-center gap-2 flex-shrink-0'>
+									{user?.role === 'executor' && (
+										<FavoriteTaskButton 
+											taskId={task.id}
+											size='md'
+											className='p-2 hover:bg-emerald-500/20 rounded-lg'
+										/>
+									)}
+									<button
+										onClick={async () => {
+											const url = getTaskUrl(task.id)
+											const success = await copyToClipboard(url)
+											if (success) {
+												toast.success('Ссылка скопирована')
+											} else {
+												toast.error('Не удалось скопировать ссылку')
+											}
+										}}
+										className='p-2 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-all'
+										title='Копировать ссылку на задачу'
+										aria-label='Копировать ссылку'
+									>
+										<LinkIcon className='w-5 h-5' />
+									</button>
+								</div>
+							</div>
 							<div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-400'>
 								<div className='flex items-center gap-2'>
 									<span className='w-2 h-2 rounded-full bg-emerald-400'></span>

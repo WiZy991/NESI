@@ -6,6 +6,7 @@ import { useUser } from '@/context/UserContext'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import VideoPlayer from './VideoPlayer'
+import { copyToClipboard, getChatMessageUrl } from '@/lib/copyToClipboard'
 import { 
   Reply, 
   Smile, 
@@ -22,7 +23,8 @@ import {
   FileVideo,
   FileAudio,
   Archive,
-  Download
+  Download,
+  Link as LinkIcon
 } from 'lucide-react'
 
 type Props = {
@@ -457,9 +459,9 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
       if (showReactionPicker) {
         // Если клик был вне пикера реакций и вне меню, закрываем только пикер (меню остается открытым)
         if (!clickedOnReactionPicker && !clickedOnMenu) {
-          setShowReactionPicker(false)
-          setShowExtendedReactions(false)
-          setExpandReactionsUpward(false)
+        setShowReactionPicker(false)
+        setShowExtendedReactions(false)
+        setExpandReactionsUpward(false)
           // Меню НЕ закрываем - оно должно остаться открытым
         }
         // Если клик был внутри пикера или меню, ничего не делаем
@@ -868,9 +870,38 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                     className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
                   >
                     <Copy className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    <span>Копировать</span>
+                    <span>Копировать текст</span>
                   </button>
                 )}
+                {/* Кнопка копирования ссылки на сообщение */}
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    // Формируем URL в зависимости от типа чата
+                    let url = ''
+                    if (chatType === 'private') {
+                      // Для приватных сообщений нужен otherUserId, но у нас есть только sender
+                      // Используем текущий URL и добавляем якорь
+                      url = `${window.location.origin}/messages/${message.sender.id}#message-${message.id}`
+                    } else {
+                      // Для задач используем taskId из пропсов (нужно будет передать)
+                      // Пока используем текущий URL
+                      const currentPath = window.location.pathname
+                      url = `${window.location.origin}${currentPath}#message-${message.id}`
+                    }
+                    const success = await copyToClipboard(url)
+                    if (success) {
+                      toast.success('Ссылка на сообщение скопирована')
+                      setShowMenu(false)
+                    } else {
+                      toast.error('Не удалось скопировать ссылку')
+                    }
+                  }}
+                  className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
+                >
+                  <LinkIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span>Копировать ссылку</span>
+                </button>
                 
                 {/* Опции только для своих сообщений */}
                 {isOwnMessage && (

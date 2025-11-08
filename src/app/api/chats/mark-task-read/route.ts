@@ -1,6 +1,8 @@
+import { getChatKey, updateChatActivity } from '@/lib/chatActivity'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { sendNotificationToUser } from '../../notifications/stream/route'
 
 export async function POST(req: NextRequest) {
 	const user = await getUserFromRequest(req)
@@ -38,18 +40,36 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
+		const now = new Date()
+
 		// Обновляем время последнего прочтения сообщений задачи
-		// Определяем, является ли пользователь заказчиком или исполнителем
 		const updateData: any = {}
+		let recipientId: string | null = null
 		if (task.customerId === user.id) {
-			updateData.customerLastReadAt = new Date()
+			updateData.customerLastReadAt = now
+			recipientId = task.executorId
 		} else if (task.executorId === user.id) {
-			updateData.executorLastReadAt = new Date()
+			updateData.executorLastReadAt = now
+			recipientId = task.customerId
 		}
 
 		await prisma.task.update({
 			where: { id: taskId },
 			data: updateData,
+		})
+
+		// Обновляем активность в чатах
+		const normalizedChatId = getChatKey('task', {
+			chatType: 'task',
+			taskId,
+		})
+
+		await updateChatActivity({
+			chatType: 'task',
+			chatId: normalizedChatId,
+			userId: user.id,
+			lastReadAt: now,
+			lastActivityAt: now,
 		})
 
 		// Удаляем уведомления о сообщениях в этой задаче
@@ -61,11 +81,27 @@ export async function POST(req: NextRequest) {
 			},
 		})
 
-		console.log(`✅ Сообщения задачи помечены как прочитанные, удалено уведомлений: ${deletedNotifications.count}`)
-		
-		return NextResponse.json({ 
+		// Уведомляем второго участника о прочтении
+		if (recipientId) {
+			sendNotificationToUser(recipientId, {
+				type: 'chatPresence',
+				event: 'read',
+				userId: user.id,
+				chatType: 'task',
+				chatId: `task_${taskId}`,
+				lastReadAt: now.toISOString(),
+				lastActivityAt: now.toISOString(),
+			})
+		}
+
+		console.log(
+			`✅ Сообщения задачи помечены как прочитанные, удалено уведомлений: ${deletedNotifications.count}`
+		)
+
+		return NextResponse.json({
 			success: true,
-			deletedNotifications: deletedNotifications.count
+			deletedNotifications: deletedNotifications.count,
+			lastReadAt: now.toISOString(),
 		})
 	} catch (error) {
 		console.error('Ошибка при пометке сообщений задачи как прочитанных:', error)

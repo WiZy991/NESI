@@ -15,7 +15,33 @@ export async function GET(req: Request) {
       include: {
         task: {
           include: {
-            customer: true,
+            customer: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
+            subcategory: {
+              select: {
+                id: true,
+                name: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        statusHistory: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            changedBy: {
+              select: { id: true, fullName: true, email: true },
+            },
           },
         },
       },

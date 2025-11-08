@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
-import { createNotification } from '@/lib/notify'
+import { createNotificationWithSettings } from '@/lib/notify'
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 
 export async function POST(req: Request, context: { params: { id: string } }) {
@@ -86,22 +86,25 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       const notificationMessage = `${executorName} откликнулся на вашу задачу "${task.title}"`
       
       // Создаем уведомление в БД
-      const dbNotification = await createNotification({
+      const dbNotification = await createNotificationWithSettings({
         userId: task.customerId,
         message: notificationMessage,
         link: `/tasks/${taskId}`,
         type: 'response'
       })
       
-      // Отправляем SSE уведомление
-      sendNotificationToUser(task.customerId, {
-        id: dbNotification.id, // Включаем ID из БД для дедупликации
+      // Если уведомление отключено в настройках, не отправляем SSE
+      if (dbNotification) {
+        // Отправляем SSE уведомление
+        sendNotificationToUser(task.customerId, {
+          id: dbNotification.id, // Включаем ID из БД для дедупликации
         type: 'response',
         title: 'Новый отклик на задачу',
         message: notificationMessage,
         link: `/tasks/${taskId}`,
         playSound: true
       })
+      }
       
       console.log('✅ Уведомление о новом отклике отправлено заказчику:', task.customerId)
     } catch (notifError) {

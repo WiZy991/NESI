@@ -1,3 +1,4 @@
+import { getChatKey } from '@/lib/chatActivity'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
@@ -116,8 +117,19 @@ export async function GET(req: NextRequest) {
 			select: { lastPrivateMessageReadAt: true },
 		})
 
+		const privateChatNormalizedMap = new Map<string, string>()
+		const privatePresenceKeys: Array<{ chatId: string; otherUserId: string }> = []
+
 		// Подсчитываем непрочитанные сообщения для приватных чатов
 		privateChats.forEach((chat, otherUserId) => {
+			const normalizedChatId = getChatKey('private', {
+				chatType: 'private',
+				userA: user.id,
+				userB: otherUserId,
+			})
+			privateChatNormalizedMap.set(otherUserId, normalizedChatId)
+			privatePresenceKeys.push({ chatId: normalizedChatId, otherUserId })
+
 			// Считаем только сообщения, которые НЕ отправил текущий пользователь
 			const otherUserMessages = chat.messages.filter(
 				(msg: any) => msg.senderId !== user.id
@@ -169,8 +181,26 @@ export async function GET(req: NextRequest) {
 		taskChats.get(taskId).messages.push(msg)
 	})
 
+		const taskChatNormalizedMap = new Map<string, string>()
+		const taskPresenceKeys: Array<{
+			chatId: string
+			taskId: string
+			otherUserId?: string
+		}> = []
+
 		// Подсчитываем непрочитанные сообщения для чатов задач
 		taskChats.forEach((chat, taskId) => {
+			const normalizedChatId = getChatKey('task', {
+				chatType: 'task',
+				taskId,
+			})
+			taskChatNormalizedMap.set(taskId, normalizedChatId)
+			taskPresenceKeys.push({
+				chatId: normalizedChatId,
+				taskId,
+				otherUserId: chat.otherUser?.id,
+			})
+
 			// Считаем только сообщения, которые НЕ отправил текущий пользователь
 			const otherUserMessages = chat.messages.filter(
 				(msg: any) => msg.senderId !== user.id
@@ -201,6 +231,99 @@ export async function GET(req: NextRequest) {
 				lastReadAt,
 				userRole: chat.task.customerId === user.id ? 'customer' : 'executor',
 			})
+		})
+
+		const presenceConditions: any[] = []
+		if (privatePresenceKeys.length > 0) {
+			presenceConditions.push({
+				chatType: 'private',
+				chatId: { in: privatePresenceKeys.map(item => item.chatId) },
+			})
+		}
+		if (taskPresenceKeys.length > 0) {
+			presenceConditions.push({
+				chatType: 'task',
+				chatId: { in: taskPresenceKeys.map(item => item.chatId) },
+			})
+		}
+
+		let activityRecords: any[] = []
+		if (presenceConditions.length > 0) {
+			try {
+				activityRecords = await prisma.chatActivity.findMany({
+					where: { OR: presenceConditions },
+				})
+			} catch (presenceError: any) {
+				const isSchemaIssue =
+					presenceError?.code === 'P2021' ||
+					presenceError?.message?.includes('ChatActivity')
+
+				if (isSchemaIssue) {
+					console.warn(
+						'⚠️ Таблица ChatActivity недоступна (вероятно, миграция не применена). Пропускаем данные присутствия.'
+					)
+				} else {
+					console.error('❌ Ошибка загрузки активности чатов:', presenceError)
+				}
+
+				activityRecords = []
+			}
+		}
+
+		const presenceLookup = new Map<string, (typeof activityRecords)[number]>()
+		for (const record of activityRecords) {
+			presenceLookup.set(
+				`${record.chatType}:${record.chatId}:${record.userId}`,
+				record
+			)
+		}
+
+		privateChats.forEach((chat, otherUserId) => {
+			const normalizedChatId = privateChatNormalizedMap.get(otherUserId)
+			if (!normalizedChatId) return
+
+			const presence = presenceLookup.get(
+				`private:${normalizedChatId}:${otherUserId}`
+			)
+
+			chat.presence = presence
+				? {
+						lastReadAt: presence.lastReadAt
+							? presence.lastReadAt.toISOString()
+							: null,
+						lastActivityAt: presence.lastActivityAt
+							? presence.lastActivityAt.toISOString()
+							: null,
+						typingAt: presence.typingAt
+							? presence.typingAt.toISOString()
+							: null,
+				  }
+				: null
+		})
+
+		taskChats.forEach((chat, taskId) => {
+			const normalizedChatId = taskChatNormalizedMap.get(taskId)
+			if (!normalizedChatId) return
+			const otherUserId = chat.otherUser?.id
+			if (!otherUserId) return
+
+			const presence = presenceLookup.get(
+				`task:${normalizedChatId}:${otherUserId}`
+			)
+
+			chat.presence = presence
+				? {
+						lastReadAt: presence.lastReadAt
+							? presence.lastReadAt.toISOString()
+							: null,
+						lastActivityAt: presence.lastActivityAt
+							? presence.lastActivityAt.toISOString()
+							: null,
+						typingAt: presence.typingAt
+							? presence.typingAt.toISOString()
+							: null,
+				  }
+				: null
 		})
 
 		// Объединяем все чаты и сортируем по последнему сообщению

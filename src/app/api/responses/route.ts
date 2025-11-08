@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { hasActiveTask } from '@/lib/guards'
+import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 
 export async function POST(req: NextRequest) {
   const me = await getUserFromRequest(req)
@@ -44,13 +45,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Вы уже откликались на эту задачу' }, { status: 409 })
   }
 
-  const created = await prisma.taskResponse.create({
-    data: {
-      taskId,
-      userId: me.id,
-      message: message ?? null,
-      price: price ?? null,
-    },
+  const created = await prisma.$transaction(async tx => {
+    const response = await tx.taskResponse.create({
+      data: {
+        taskId,
+        userId: me.id,
+        message: message ?? null,
+        price: price ?? null,
+      },
+    })
+
+    await recordTaskResponseStatus(response.id, 'pending', {
+      changedById: me.id,
+      note: 'Отклик отправлен',
+      tx,
+    })
+
+    return response
   })
 
   return NextResponse.json(created, { status: 201 })

@@ -14,6 +14,8 @@ import AriaLiveRegion from '@/components/AriaLiveRegion'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { initErrorMonitoring, trackWebVitals } from '@/lib/errorMonitoring'
 import WelcomeOnboarding from '@/components/WelcomeOnboarding'
+import CommandPalette from '@/components/CommandPalette'
+import { initOfflineDB, onOnlineStatusChange } from '@/lib/offlineStorage'
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -23,6 +25,25 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   // Инициализация мониторинга ошибок и Web Vitals
   useEffect(() => {
     initErrorMonitoring()
+    
+    // Инициализация офлайн хранилища
+    if (typeof window !== 'undefined') {
+      initOfflineDB().catch((error) => {
+        console.error('Ошибка инициализации офлайн хранилища:', error)
+      })
+
+      // Отслеживание изменений онлайн статуса
+      const cleanup = onOnlineStatusChange((isOnline) => {
+        if (isOnline) {
+          console.log('🌐 Онлайн - синхронизация данных...')
+          // Здесь можно добавить логику синхронизации
+        } else {
+          console.log('📴 Офлайн режим')
+        }
+      })
+
+      return cleanup
+    }
     
     // Отслеживание Web Vitals
     if (typeof window !== 'undefined') {
@@ -171,6 +192,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       
       {/* Онбординг для новых пользователей */}
       <WelcomeOnboarding />
+      
+      {/* Компонент быстрых действий (Cmd+K) */}
+      <CommandPalette />
       </UserProvider>
     </ErrorBoundary>
   )

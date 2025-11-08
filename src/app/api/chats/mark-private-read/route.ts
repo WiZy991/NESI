@@ -1,6 +1,8 @@
+import { getChatKey, updateChatActivity } from '@/lib/chatActivity'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { sendNotificationToUser } from '../../notifications/stream/route'
 
 export async function POST(req: NextRequest) {
 	const user = await getUserFromRequest(req)
@@ -18,15 +20,32 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
+		const now = new Date()
+
 		console.log('📖 Пометка приватных сообщений как прочитанных:', {
 			userId: user.id,
 			otherUserId,
 		})
 
-		// Обновляем время последнего прочтения приватных сообщений
+		// Обновляем время последнего прочтения приватных сообщений пользователя
 		await prisma.user.update({
 			where: { id: user.id },
-			data: { lastPrivateMessageReadAt: new Date() },
+			data: { lastPrivateMessageReadAt: now },
+		})
+
+		// Обновляем запись активности в чатах
+		const normalizedChatId = getChatKey('private', {
+			chatType: 'private',
+			userA: user.id,
+			userB: otherUserId,
+		})
+
+		await updateChatActivity({
+			chatType: 'private',
+			chatId: normalizedChatId,
+			userId: user.id,
+			lastReadAt: now,
+			lastActivityAt: now,
 		})
 
 		// Удаляем уведомления о сообщениях от этого пользователя
@@ -40,11 +59,25 @@ export async function POST(req: NextRequest) {
 			},
 		})
 
-		console.log(`✅ Приватные сообщения помечены как прочитанные, удалено уведомлений: ${deletedNotifications.count}`)
-		
-		return NextResponse.json({ 
+		// Уведомляем собеседника об обновлении статуса прочтения
+		sendNotificationToUser(otherUserId, {
+			type: 'chatPresence',
+			event: 'read',
+			userId: user.id,
+			chatType: 'private',
+			chatId: `private_${user.id}`,
+			lastReadAt: now.toISOString(),
+			lastActivityAt: now.toISOString(),
+		})
+
+		console.log(
+			`✅ Приватные сообщения помечены как прочитанные, удалено уведомлений: ${deletedNotifications.count}`
+		)
+
+		return NextResponse.json({
 			success: true,
-			deletedNotifications: deletedNotifications.count
+			deletedNotifications: deletedNotifications.count,
+			lastReadAt: now.toISOString(),
 		})
 	} catch (error) {
 		console.error(

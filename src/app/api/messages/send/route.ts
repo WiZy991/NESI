@@ -1,6 +1,7 @@
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
+import { getChatKey, updateChatActivity } from '@/lib/chatActivity'
 import { getUserFromRequest } from '@/lib/auth'
-import { createNotification } from '@/lib/notify'
+import { createNotificationWithSettings } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 import { validateFile } from '@/lib/fileValidation'
@@ -399,6 +400,33 @@ export async function POST(req: NextRequest) {
 			reactions: [],
 		}
 
+		const presenceNow = new Date()
+		if (recipientId) {
+			const normalizedChatId = getChatKey('private', {
+				chatType: 'private',
+				userA: me.id,
+				userB: recipientId,
+			})
+
+			await updateChatActivity({
+				chatType: 'private',
+				chatId: normalizedChatId,
+				userId: me.id,
+				lastActivityAt: presenceNow,
+				lastReadAt: presenceNow,
+			})
+
+			sendNotificationToUser(recipientId, {
+				type: 'chatPresence',
+				event: 'activity',
+				userId: me.id,
+				chatType: 'private',
+				chatId: `private_${me.id}`,
+				lastActivityAt: presenceNow.toISOString(),
+				lastReadAt: presenceNow.toISOString(),
+			})
+		}
+
 	console.log('🔔 Подготовка уведомления для получателя:', recipientId)
 	
 	// Создаем уведомление в базе данных
@@ -407,12 +435,19 @@ export async function POST(req: NextRequest) {
 	}`
 	
 	console.log('💾 Сохраняю уведомление в БД...')
-	const dbNotification = await createNotification({
+	const dbNotification = await createNotificationWithSettings({
 		userId: recipientId,
 		message: notificationMessage,
 		link: `/chats?open=${me.id}`,
 		type: 'message',
 	})
+	
+	// Если уведомление отключено в настройках, не отправляем SSE
+	if (!dbNotification) {
+		console.log('🔕 Уведомление отключено в настройках пользователя')
+		return NextResponse.json(result, { status: 201 })
+	}
+	
 	console.log('✅ Уведомление сохранено в БД, ID:', dbNotification.id)
 
 	// Отправляем уведомление получателю в реальном времени

@@ -2,11 +2,12 @@
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { getUserFromRequest } from '@/lib/auth'
 import { formatMoney, hasEnoughBalance, toNumber } from '@/lib/money'
-import { createNotification } from '@/lib/notify'
+import { createNotificationWithSettings } from '@/lib/notify'
 import prisma from '@/lib/prisma'
+import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
+import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
-import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 
 export async function POST(req: Request, context: { params: { id: string } }) {
 	try {
@@ -111,6 +112,11 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 			}),
 		])
 
+		await recordTaskResponseStatus(response.id, 'hired', {
+			changedById: user.id,
+			note: 'Исполнитель назначен на задачу',
+		})
+
 		// Отправляем уведомление исполнителю о назначении на задачу
 		try {
 			const customerName = user.fullName || user.email
@@ -119,16 +125,18 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 			}" (${formatMoney(price)})`
 
 			// Создаем уведомление в БД
-			const dbNotification = await createNotification({
+			const dbNotification = await createNotificationWithSettings({
 				userId: executorId,
 				message: notificationMessage,
 				link: `/tasks/${taskId}`,
 				type: 'assignment',
 			})
 
-			// Отправляем SSE уведомление
-			sendNotificationToUser(executorId, {
-				id: dbNotification.id, // Включаем ID из БД для дедупликации
+			// Если уведомление отключено в настройках, не отправляем SSE
+			if (dbNotification) {
+				// Отправляем SSE уведомление
+				sendNotificationToUser(executorId, {
+					id: dbNotification.id, // Включаем ID из БД для дедупликации
 				type: 'assignment',
 				title: 'Вас назначили на задачу',
 				message: notificationMessage,
@@ -140,6 +148,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 				'✅ Уведомление о назначении отправлено исполнителю:',
 				executorId
 			)
+			}
 		} catch (notifError) {
 			console.error('❌ Ошибка отправки уведомления о назначении:', notifError)
 		}
