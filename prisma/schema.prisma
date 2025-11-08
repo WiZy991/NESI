@@ -165,7 +165,7 @@ model TaskResponse {
   createdAt DateTime @default(now())
   price     Decimal? @db.Decimal(15, 2)
   status    TaskResponseStatus @default(pending)
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id])
   statusHistory TaskResponseStatusHistory[]

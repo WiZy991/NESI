@@ -24,6 +24,10 @@ YOOKASSA_SECRET_KEY="your_secret_key"
 # URL сайта (для возврата после оплаты)
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 # В продакшене: NEXT_PUBLIC_BASE_URL="https://yourdomain.com"
+
+# Cron / фоновые задания
+# Используется для доступа к служебным эндпоинтам (например, автонапоминания по откликам)
+CRON_SECRET="set-strong-cron-secret"
 ```
 
 ## Получение данных ЮKassa
