@@ -169,10 +169,6 @@ async function buildRecommendations(
 		(responses?.length ?? 0) > 0 ||
 		(executedTasks?.length ?? 0) > 0
 
-	if (!hasSignals) {
-		return []
-	}
-
 	const preferenceBySubcategory = new Map<string, number>()
 	const keywordWeights = new Map<string, number>()
 	const respondedTaskIds = new Set<string>()
@@ -226,6 +222,10 @@ async function buildRecommendations(
 			.filter(([, weight]) => weight >= 2)
 			.map(([word]) => word)
 	)
+
+	if (!hasSignals) {
+		return []
+	}
 
 	const candidateLimit = Math.max(
 		limit * CANDIDATE_POOL_MULTIPLIER,
@@ -422,6 +422,10 @@ function evaluateTask(
 		score += 3
 		tags.add('favorite_match')
 		reasons.push('Вы уже добавили задачу в избранное')
+	}
+
+	if (reasons.length === 0) {
+		reasons.push('Подбор свежих и перспективных задач из каталога')
 	}
 
 	return {
