@@ -742,6 +742,12 @@ function TaskCardContent({
 
 type ViewMode = 'kanban' | 'list' | 'timeline'
 
+type KanbanPersistPayload = {
+	nextColumns: Record<KanbanColumnType, ExecutorTask[]>
+	changedColumns: KanbanColumnType[]
+	updatedTasks: ExecutorTask[]
+}
+
 export default function ExecutorMyTasksPage() {
   const { token, user } = useUser()
 	const [tasks, setTasks] = useState<ExecutorTask[]>([])
@@ -895,11 +901,157 @@ export default function ExecutorMyTasksPage() {
 		return {
 			open: (stats.open / total) * 100,
 			inProgress: (stats.inProgress / total) * 100,
-    completed: (stats.completed / total) * 100,
-    cancelled: (stats.cancelled / total) * 100,
-  }
+			completed: (stats.completed / total) * 100,
+			cancelled: (stats.cancelled / total) * 100,
+		}
 	}, [stats])
 
+function prepareColumns(source: ExecutorTask[]): Record<KanbanColumnType, ExecutorTask[]> {
+	const columns = groupTasks(source)
+	for (const column of COLUMN_ORDER) {
+		columns[column] = columns[column].map(task => ({ ...task }))
+	}
+	return columns
+}
+
+function computeDragReorder(
+	source: ExecutorTask[],
+	activeId: string,
+	overId: string
+): KanbanPersistPayload | null {
+	const copy = prepareColumns(source)
+
+	let startColumn: KanbanColumnType | null = null
+	let startIndex = -1
+	for (const column of COLUMN_ORDER) {
+		const index = copy[column].findIndex(task => task.id === activeId)
+		if (index !== -1) {
+			startColumn = column
+			startIndex = index
+			break
+		}
+	}
+
+	if (!startColumn) return null
+
+	const startTasks = copy[startColumn]
+	const [movedTask] = startTasks.splice(startIndex, 1)
+	if (!movedTask) return null
+
+	let destinationColumn: KanbanColumnType | null = null
+	let destinationIndex = 0
+
+	if ((COLUMN_ORDER as readonly string[]).includes(overId)) {
+		destinationColumn = overId as KanbanColumnType
+		destinationIndex = copy[destinationColumn].length
+	} else {
+		for (const column of COLUMN_ORDER) {
+			const index = copy[column].findIndex(task => task.id === overId)
+			if (index !== -1) {
+				destinationColumn = column
+				destinationIndex = index
+				if (startColumn === destinationColumn && destinationIndex > startIndex) {
+					destinationIndex -= 1
+				}
+				break
+			}
+		}
+	}
+
+	if (!destinationColumn) return null
+
+	const changedColumns = new Set<KanbanColumnType>([startColumn, destinationColumn])
+
+	if (startColumn === destinationColumn) {
+		const reordered = arrayMove(copy[destinationColumn], startIndex, destinationIndex)
+		copy[destinationColumn] = reordered.map((task, index) => ({
+			...task,
+			executorKanbanColumn: destinationColumn!,
+			executorKanbanOrder: index,
+		}))
+	} else {
+		const destinationTasks = copy[destinationColumn]
+		const updatedTask = {
+			...movedTask,
+			executorKanbanColumn: destinationColumn,
+		}
+		destinationTasks.splice(destinationIndex, 0, updatedTask)
+
+		copy[startColumn] = copy[startColumn].map((task, index) => ({
+			...task,
+			executorKanbanOrder: index,
+		}))
+
+		copy[destinationColumn] = copy[destinationColumn].map((task, index) => ({
+			...task,
+			executorKanbanColumn: destinationColumn!,
+			executorKanbanOrder: index,
+		}))
+	}
+
+	for (const column of COLUMN_ORDER) {
+		copy[column] = copy[column].map((task, index) => ({
+			...task,
+			executorKanbanColumn: column,
+			executorKanbanOrder: index,
+		}))
+	}
+
+	const updatedTasks = COLUMN_ORDER.flatMap(column => copy[column])
+
+	return {
+		nextColumns: copy,
+		changedColumns: Array.from(changedColumns),
+		updatedTasks,
+	}
+}
+
+function computeQuickMove(
+	source: ExecutorTask[],
+	taskId: string,
+	targetColumn: KanbanColumnType
+): KanbanPersistPayload | null {
+	const copy = prepareColumns(source)
+
+	let currentColumn: KanbanColumnType | null = null
+	let currentIndex = -1
+	for (const column of COLUMN_ORDER) {
+		const index = copy[column].findIndex(task => task.id === taskId)
+		if (index !== -1) {
+			currentColumn = column
+			currentIndex = index
+			break
+		}
+	}
+
+	if (currentColumn === null) return null
+	const [task] = copy[currentColumn].splice(currentIndex, 1)
+	if (!task) return null
+
+	const changedColumns = new Set<KanbanColumnType>([currentColumn, targetColumn])
+
+	const destinationTasks = copy[targetColumn]
+	destinationTasks.push({
+		...task,
+		executorKanbanColumn: targetColumn,
+	})
+
+	for (const column of COLUMN_ORDER) {
+		copy[column] = copy[column].map((item, index) => ({
+			...item,
+			executorKanbanColumn: column,
+			executorKanbanOrder: index,
+		}))
+	}
+
+	const updatedTasks = COLUMN_ORDER.flatMap(column => copy[column])
+
+	return {
+		nextColumns: copy,
+		changedColumns: Array.from(changedColumns),
+		updatedTasks,
+	}
+}
 	const persistKanban = useCallback(
 		async (
 			nextColumns: Record<KanbanColumnType, ExecutorTask[]>,
@@ -961,115 +1113,14 @@ export default function ExecutorMyTasksPage() {
 			const activeId = active.id as string
 			const overId = over.id as string
 
-		type PersistPayload = {
-			nextColumns: Record<KanbanColumnType, ExecutorTask[]>
-			changedColumns: KanbanColumnType[]
-		}
-		let pendingPayload: PersistPayload | null = null
+			const result = computeDragReorder(tasks, activeId, overId)
+			if (!result) return
 
-		setTasks(prev => {
-				const currentColumns = groupTasks(prev)
-				const copy: Record<KanbanColumnType, ExecutorTask[]> = {
-					TODO: currentColumns.TODO.map(task => ({ ...task })),
-					IN_PROGRESS: currentColumns.IN_PROGRESS.map(task => ({ ...task })),
-					REVIEW: currentColumns.REVIEW.map(task => ({ ...task })),
-					DONE: currentColumns.DONE.map(task => ({ ...task })),
-				}
-
-				let startColumn: KanbanColumnType | null = null
-				let startIndex = -1
-				for (const column of COLUMN_ORDER) {
-					const index = copy[column].findIndex(task => task.id === activeId)
-					if (index !== -1) {
-						startColumn = column
-						startIndex = index
-						break
-					}
-				}
-
-				if (!startColumn) return prev
-				const startTasks = copy[startColumn]
-				const [movedTask] = startTasks.splice(startIndex, 1)
-				if (!movedTask) return prev
-
-				let destinationColumn: KanbanColumnType | null = null
-				let destinationIndex = 0
-
-				if ((COLUMN_ORDER as readonly string[]).includes(overId)) {
-					destinationColumn = overId as KanbanColumnType
-					destinationIndex = copy[destinationColumn].length
-				} else {
-					for (const column of COLUMN_ORDER) {
-						const index = copy[column].findIndex(task => task.id === overId)
-						if (index !== -1) {
-							destinationColumn = column
-							destinationIndex = index
-							if (startColumn === destinationColumn && destinationIndex > startIndex) {
-								destinationIndex -= 1
-							}
-							break
-						}
-					}
-				}
-
-				if (!destinationColumn) return prev
-
-				const changedColumns = new Set<KanbanColumnType>([startColumn, destinationColumn])
-
-				if (startColumn === destinationColumn) {
-					const reordered = arrayMove(copy[destinationColumn], startIndex, destinationIndex)
-					copy[destinationColumn] = reordered.map((task, index) => ({
-						...task,
-						executorKanbanColumn: destinationColumn!,
-						executorKanbanOrder: index,
-					}))
-				} else {
-					const destinationTasks = copy[destinationColumn]
-					const updatedTask = {
-						...movedTask,
-						executorKanbanColumn: destinationColumn,
-					}
-					destinationTasks.splice(destinationIndex, 0, updatedTask)
-
-					copy[startColumn] = copy[startColumn].map((task, index) => ({
-						...task,
-						executorKanbanOrder: index,
-					}))
-
-					copy[destinationColumn] = copy[destinationColumn].map((task, index) => ({
-						...task,
-						executorKanbanOrder: index,
-					}))
-				}
-
-				const updatedMap = new Map<string, ExecutorTask>()
-				for (const column of COLUMN_ORDER) {
-					copy[column] = copy[column].map((task, index) => ({
-						...task,
-						executorKanbanColumn: column,
-						executorKanbanOrder: index,
-					}))
-					for (const task of copy[column]) {
-						updatedMap.set(task.id, task)
-					}
-				}
-
-				pendingPayload = {
-					nextColumns: copy,
-					changedColumns: Array.from(changedColumns),
-				}
-
-				return prev.map(task => updatedMap.get(task.id) ?? task)
-			})
-
-			const payload = pendingPayload
-			if (payload) {
-				void persistKanban(payload.nextColumns, payload.changedColumns)
-			}
-		})
-	},
-	[persistKanban, tasks]
-)
+			setTasks(result.updatedTasks)
+			void persistKanban(result.nextColumns, result.changedColumns)
+		},
+		[persistKanban, tasks]
+	)
 
 	const handleDragCancel = useCallback(() => {
 		setActiveColumnId(null)
@@ -1101,71 +1152,13 @@ export default function ExecutorMyTasksPage() {
 
 	const handleQuickMove = useCallback(
 		(taskId: string, targetColumn: KanbanColumnType) => {
-			type PersistPayload = {
-				nextColumns: Record<KanbanColumnType, ExecutorTask[]>
-				changedColumns: KanbanColumnType[]
-			}
-			let pendingPayload: PersistPayload | null = null
+			const result = computeQuickMove(tasks, taskId, targetColumn)
+			if (!result) return
 
-			setTasks(prev => {
-				const currentColumns = groupTasks(prev)
-				const copy: Record<KanbanColumnType, ExecutorTask[]> = {
-					TODO: currentColumns.TODO.map(task => ({ ...task })),
-					IN_PROGRESS: currentColumns.IN_PROGRESS.map(task => ({ ...task })),
-					REVIEW: currentColumns.REVIEW.map(task => ({ ...task })),
-					DONE: currentColumns.DONE.map(task => ({ ...task })),
-				}
-
-				let currentColumn: KanbanColumnType | null = null
-				let currentIndex = -1
-				for (const column of COLUMN_ORDER) {
-					const index = copy[column].findIndex(task => task.id === taskId)
-					if (index !== -1) {
-						currentColumn = column
-						currentIndex = index
-						break
-					}
-				}
-
-				if (currentColumn === null) return prev
-				const [task] = copy[currentColumn].splice(currentIndex, 1)
-				const changedColumns = new Set<KanbanColumnType>([currentColumn, targetColumn])
-
-				const destinationTasks = copy[targetColumn]
-				destinationTasks.push({
-					...task,
-					executorKanbanColumn: targetColumn,
-				})
-
-				for (const column of COLUMN_ORDER) {
-					copy[column] = copy[column].map((item, index) => ({
-						...item,
-						executorKanbanColumn: column,
-						executorKanbanOrder: index,
-					}))
-				}
-
-				const updatedMap = new Map<string, ExecutorTask>()
-				for (const column of COLUMN_ORDER) {
-					for (const item of copy[column]) {
-						updatedMap.set(item.id, item)
-					}
-				}
-
-				pendingPayload = {
-					nextColumns: copy,
-					changedColumns: Array.from(changedColumns),
-				}
-
-				return prev.map(task => updatedMap.get(task.id) ?? task)
-			})
-
-			const payload = pendingPayload
-			if (payload) {
-				void persistKanban(payload.nextColumns, payload.changedColumns)
-			}
+			setTasks(result.updatedTasks)
+			void persistKanban(result.nextColumns, result.changedColumns)
 		},
-		[persistKanban]
+		[persistKanban, tasks]
 	)
 
 	const handleSavePreset = () => {
