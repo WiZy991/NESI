@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
@@ -30,18 +31,23 @@ export async function GET(req: Request) {
 		const skip = (page - 1) * limit
 
 		// Формируем условия where
-		const where: any = {
+		const where: Prisma.TaskWhereInput = {
 			...(mine ? { customerId: user.id } : {}),
-			...(search
-				? {
-						OR: [
-							{ title: { contains: search, mode: 'insensitive' } },
-							{ description: { contains: search, mode: 'insensitive' } },
-						],
-				  }
-				: {}),
-			...(status ? { status } : {}),
-			...(subcategoryId ? { subcategoryId } : {}),
+		}
+
+		if (search) {
+			where.OR = [
+				{ title: { contains: search, mode: 'insensitive' } },
+				{ description: { contains: search, mode: 'insensitive' } },
+			]
+		}
+
+		if (status) {
+			where.status = status
+		}
+
+		if (subcategoryId) {
+			where.subcategoryId = subcategoryId
 		}
 
 		// Фильтр по дате создания
@@ -78,9 +84,10 @@ export async function GET(req: Request) {
 
 		// Фильтр по цене
 		if (minPrice !== undefined || maxPrice !== undefined) {
-			where.price = {}
-			if (minPrice !== undefined) where.price.gte = minPrice
-			if (maxPrice !== undefined) where.price.lte = maxPrice
+			const priceFilter: Prisma.DecimalFilter = {}
+			if (minPrice !== undefined) priceFilter.gte = minPrice
+			if (maxPrice !== undefined) priceFilter.lte = maxPrice
+			where.price = priceFilter
 		}
 
 		// Фильтр по наличию дедлайна
@@ -93,8 +100,10 @@ export async function GET(req: Request) {
 		// Фильтр по рейтингу заказчика
 		if (minRating !== undefined) {
 			where.customer = {
-				avgRating: {
-					gte: minRating,
+				is: {
+					avgRating: {
+						gte: minRating,
+					},
 				},
 			}
 		}
@@ -116,12 +125,14 @@ export async function GET(req: Request) {
 		// Фильтр по категории через subcategory
 		if (categoryId && !subcategoryId) {
 			where.subcategory = {
-				categoryId,
+				is: {
+					categoryId,
+				},
 			}
 		}
 
 		// Определяем сортировку
-		let orderBy: any = { createdAt: 'desc' }
+		let orderBy: Prisma.TaskOrderByWithRelationInput = { createdAt: 'desc' }
 		
 		switch (sortParam) {
 			case 'old':
@@ -145,10 +156,14 @@ export async function GET(req: Request) {
 				orderBy = { createdAt: 'desc' }
 		}
 
+		const orderByClauses: Prisma.TaskOrderByWithRelationInput[] = mine
+			? [{ kanbanColumn: 'asc' }, { kanbanOrder: 'asc' }, orderBy]
+			: [orderBy]
+
 		const [tasks, total] = await Promise.all([
 			prisma.task.findMany({
 				where,
-				orderBy,
+				orderBy: orderByClauses,
 				skip,
 				take: limit,
 				select: {
@@ -159,12 +174,21 @@ export async function GET(req: Request) {
 					deadline: true,
 					status: true,
 					createdAt: true,
+					kanbanColumn: true,
+					kanbanOrder: true,
 					customer: { 
 						select: { 
 							id: true, 
 							fullName: true,
 							avgRating: true,
 						} 
+					},
+					executor: {
+						select: {
+							id: true,
+							fullName: true,
+							email: true,
+						},
 					},
 					subcategory: {
 						select: {
@@ -280,7 +304,7 @@ export async function POST(req: Request) {
 			}
 
 			// Валидация файла
-			const fileValidation = await (await import('@/lib/fileValidation')).validateFile(file, true)
+			const fileValidation = await validateFile(file, true)
 			if (!fileValidation.valid) {
 				return NextResponse.json(
 					{ error: fileValidation.error || 'Ошибка валидации файла' },
@@ -300,6 +324,13 @@ export async function POST(req: Request) {
 			})
 		}
 
+		const todoCount = await prisma.task.count({
+			where: {
+				customerId: user.id,
+				kanbanColumn: 'TODO',
+			},
+		})
+
 		const task = await prisma.task.create({
 			data: {
 				title: sanitizedTitle,
@@ -308,6 +339,8 @@ export async function POST(req: Request) {
 				deadline,
 				customerId: user.id,
 				subcategoryId,
+				kanbanColumn: 'TODO',
+				kanbanOrder: todoCount,
 				files: {
 					create: validatedFiles,
 				},

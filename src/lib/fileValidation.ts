@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer'
+
 /**
  * Расширенная валидация файлов с проверкой magic bytes
  */

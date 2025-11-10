@@ -1,8 +1,11 @@
+import { Buffer } from 'node:buffer'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
+
+export const runtime = 'nodejs'
 
 export async function GET(req: Request) {
   const user = await getUserFromRequest(req)

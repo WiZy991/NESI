@@ -33,10 +33,14 @@ export async function GET(req: Request) {
       },
       include: {
         customer: {
-          select: { fullName: true, email: true },
+          select: { id: true, fullName: true, email: true },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { executorKanbanColumn: 'asc' },
+        { executorKanbanOrder: 'asc' },
+        { createdAt: 'desc' },
+      ],
     })
 
     console.log(`📦 Найдено задач: ${tasks.length}`)
@@ -52,10 +56,13 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ tasks })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('💥 Ошибка при получении задач исполнителя:', err)
     return NextResponse.json(
-      { error: 'Ошибка при загрузке задач', details: err.message },
+      {
+        error: 'Ошибка при загрузке задач',
+        details: err instanceof Error ? err.message : undefined,
+      },
       { status: 500 }
     )
   }
