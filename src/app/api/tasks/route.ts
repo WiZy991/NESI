@@ -1,14 +1,12 @@
-import type { Prisma } from '@prisma/client'
 import { getUserFromRequest } from '@/lib/auth'
-import prisma from '@/lib/prisma'
-import { NextResponse } from 'next/server'
 import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
+import prisma from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
+import { NextResponse } from 'next/server'
 
 export async function GET(req: Request) {
-	const user = await getUserFromRequest(req)
-	if (!user) {
-		return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-	}
+	const user = await getUserFromRequest(req).catch(() => null)
+	// Разрешаем доступ для гостей (для просмотра задач)
 
 	try {
 		const { searchParams } = new URL(req.url)
@@ -19,20 +17,28 @@ export async function GET(req: Request) {
 		const subcategoryId = searchParams.get('subcategory') || undefined
 		const categoryId = searchParams.get('category') || undefined
 		const mine = searchParams.get('mine') === 'true'
-		const minPrice = searchParams.get('minPrice') ? parseFloat(searchParams.get('minPrice')!) : undefined
-		const maxPrice = searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : undefined
+		const minPrice = searchParams.get('minPrice')
+			? parseFloat(searchParams.get('minPrice')!)
+			: undefined
+		const maxPrice = searchParams.get('maxPrice')
+			? parseFloat(searchParams.get('maxPrice')!)
+			: undefined
 		const hasDeadline = searchParams.get('hasDeadline')
 		const dateFilter = searchParams.get('dateFilter') || ''
-		const minRating = searchParams.get('minRating') ? parseFloat(searchParams.get('minRating')!) : undefined
+		const minRating = searchParams.get('minRating')
+			? parseFloat(searchParams.get('minRating')!)
+			: undefined
 		const hasFiles = searchParams.get('hasFiles')
-		const minResponses = searchParams.get('minResponses') ? parseInt(searchParams.get('minResponses')!, 10) : undefined
+		const minResponses = searchParams.get('minResponses')
+			? parseInt(searchParams.get('minResponses')!, 10)
+			: undefined
 		const page = parseInt(searchParams.get('page') || '1', 10)
 		const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50)
 		const skip = (page - 1) * limit
 
 		// Формируем условия where
 		const where: Prisma.TaskWhereInput = {
-			...(mine ? { customerId: user.id } : {}),
+			...(mine && user ? { customerId: user.id } : {}),
 		}
 
 		if (search) {
@@ -133,7 +139,7 @@ export async function GET(req: Request) {
 
 		// Определяем сортировку
 		let orderBy: Prisma.TaskOrderByWithRelationInput = { createdAt: 'desc' }
-		
+
 		switch (sortParam) {
 			case 'old':
 				orderBy = { createdAt: 'asc' }
@@ -156,9 +162,10 @@ export async function GET(req: Request) {
 				orderBy = { createdAt: 'desc' }
 		}
 
-		const orderByClauses: Prisma.TaskOrderByWithRelationInput[] = mine
-			? [{ kanbanColumn: 'asc' }, { kanbanOrder: 'asc' }, orderBy]
-			: [orderBy]
+		const orderByClauses: Prisma.TaskOrderByWithRelationInput[] =
+			mine && user
+				? [{ kanbanColumn: 'asc' }, { kanbanOrder: 'asc' }, orderBy]
+				: [orderBy]
 
 		const [tasks, total] = await Promise.all([
 			prisma.task.findMany({
@@ -176,12 +183,12 @@ export async function GET(req: Request) {
 					createdAt: true,
 					kanbanColumn: true,
 					kanbanOrder: true,
-					customer: { 
-						select: { 
-							id: true, 
+					customer: {
+						select: {
+							id: true,
 							fullName: true,
 							avgRating: true,
-						} 
+						},
 					},
 					executor: {
 						select: {
@@ -209,13 +216,17 @@ export async function GET(req: Request) {
 		// Фильтруем по количеству откликов (после получения данных, так как Prisma не поддерживает фильтрацию по _count)
 		let filteredTasks = tasks
 		if (minResponses !== undefined) {
-			filteredTasks = tasks.filter(task => task._count.responses >= minResponses)
+			filteredTasks = tasks.filter(
+				task => task._count.responses >= minResponses
+			)
 		}
 
 		// Если нужна сортировка по откликам, делаем это на стороне сервера
 		let sortedTasks = filteredTasks
 		if (sortParam === 'responses') {
-			sortedTasks = [...filteredTasks].sort((a, b) => b._count.responses - a._count.responses)
+			sortedTasks = [...filteredTasks].sort(
+				(a, b) => b._count.responses - a._count.responses
+			)
 		}
 
 		const response = NextResponse.json({
@@ -228,7 +239,7 @@ export async function GET(req: Request) {
 			},
 		})
 
-		if (!mine && !search) {
+		if (!mine && !search && user) {
 			response.headers.set(
 				'Cache-Control',
 				'public, s-maxage=300, stale-while-revalidate=600'
@@ -253,7 +264,12 @@ export async function POST(req: Request) {
 	}
 
 	try {
-		const { sanitizeText, validateStringLength, normalizeFileName, isValidFileName } = await import('@/lib/security')
+		const {
+			sanitizeText,
+			validateStringLength,
+			normalizeFileName,
+			isValidFileName,
+		} = await import('@/lib/security')
 		const { validateFile } = await import('@/lib/fileValidation')
 
 		const formData = await req.formData()
@@ -276,7 +292,11 @@ export async function POST(req: Request) {
 		}
 
 		// Валидация описания
-		const descriptionValidation = validateStringLength(description.trim(), 5000, 'Описание')
+		const descriptionValidation = validateStringLength(
+			description.trim(),
+			5000,
+			'Описание'
+		)
 		if (!descriptionValidation.valid || !description.trim()) {
 			return NextResponse.json(
 				{ error: descriptionValidation.error || 'Заполни описание' },
@@ -351,29 +371,44 @@ export async function POST(req: Request) {
 		// ✅ Проверяем достижения для заказчика при создании задачи
 		// Важно: проверяем после сохранения задачи в БД
 		// ✅ Проверяем достижения после создания задачи (для заказчика)
-		let awardedBadges: Array<{ id: string; name: string; icon: string; description?: string }> = []
+		let awardedBadges: Array<{
+			id: string
+			name: string
+			icon: string
+			description?: string
+		}> = []
 		try {
-			console.log(`[Badges] 🎯 Проверка достижений для заказчика ${user.id} после создания задачи ${task.id}`)
+			console.log(
+				`[Badges] 🎯 Проверка достижений для заказчика ${user.id} после создания задачи ${task.id}`
+			)
 			const newBadges = await checkAndAwardBadges(user.id)
 			if (newBadges.length > 0) {
 				// Получаем полную информацию о достижениях (включая description)
 				const badgeIds = newBadges.map(b => b.id)
 				const fullBadges = await prisma.badge.findMany({
 					where: { id: { in: badgeIds } },
-					select: { id: true, name: true, icon: true, description: true }
+					select: { id: true, name: true, icon: true, description: true },
 				})
 				awardedBadges = fullBadges.map(badge => ({
 					id: badge.id,
 					name: badge.name,
 					icon: badge.icon,
-					description: badge.description
+					description: badge.description,
 				}))
-				console.log(`[Badges] ✅ Заказчик ${user.id} получил ${awardedBadges.length} достижений при создании задачи:`, awardedBadges.map(b => b.name))
+				console.log(
+					`[Badges] ✅ Заказчик ${user.id} получил ${awardedBadges.length} достижений при создании задачи:`,
+					awardedBadges.map(b => b.name)
+				)
 			} else {
-				console.log(`[Badges] ℹ️ Заказчик ${user.id} не получил новых достижений при создании задачи`)
+				console.log(
+					`[Badges] ℹ️ Заказчик ${user.id} не получил новых достижений при создании задачи`
+				)
 			}
 		} catch (badgeError) {
-			console.error('[Badges] ❌ Ошибка проверки достижений при создании задачи:', badgeError)
+			console.error(
+				'[Badges] ❌ Ошибка проверки достижений при создании задачи:',
+				badgeError
+			)
 		}
 
 		return NextResponse.json({ task, awardedBadges })

@@ -5,24 +5,20 @@ import {
 	AlertTriangle,
 	Bell,
 	CheckCircle,
+	Heart,
 	MessageSquare,
 	Star,
-	Heart,
 } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { ToastContainer } from './ToastNotification'
-import { NotificationPolling } from './NotificationPolling'
-import LevelIndicator from './LevelIndicator'
 import Image from 'next/image'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import AchievementModal from './AchievementModal'
+import LevelIndicator from './LevelIndicator'
+import { NotificationPolling } from './NotificationPolling'
+import { ToastContainer } from './ToastNotification'
 
-const FavoritesLink = ({
-	className,
-}: {
-	className?: string
-}) => (
+const FavoritesLink = ({ className }: { className?: string }) => (
 	<Link
 		href='/tasks/favorites'
 		className={className}
@@ -56,7 +52,9 @@ const formatNotificationTime = (timestamp: string) => {
 }
 
 // Глобальная переменная для доступа к setMenuOpen из онбординга
-let globalSetMenuOpen: ((value: boolean | ((prev: boolean) => boolean)) => void) | null = null
+let globalSetMenuOpen:
+	| ((value: boolean | ((prev: boolean) => boolean)) => void)
+	| null = null
 
 export default function Header() {
 	const { user, token, logout, unreadCount, setUnreadCount } = useUser()
@@ -69,7 +67,7 @@ export default function Header() {
 		icon: string
 		description?: string
 	} | null>(null)
-	
+
 	// Сохраняем функцию открытия меню в глобальную переменную для доступа из онбординга
 	useEffect(() => {
 		globalSetMenuOpen = setMenuOpen
@@ -126,20 +124,22 @@ export default function Header() {
 		}
 
 		window.addEventListener('click', handleFirstInteraction, { once: true })
-		window.addEventListener('touchstart', handleFirstInteraction, { once: true })
+		window.addEventListener('touchstart', handleFirstInteraction, {
+			once: true,
+		})
 
 		return () => {
 			window.removeEventListener('click', handleFirstInteraction)
 			window.removeEventListener('touchstart', handleFirstInteraction)
 		}
 	}, [])
-	
+
 	// Отслеживаем открытый чат через события от страницы чатов
 	const [currentChatInfo, setCurrentChatInfo] = useState<{
 		chatType?: string
 		chatId?: string
 	} | null>(null)
-	
+
 	const menuRef = useRef<HTMLDivElement | null>(null)
 	const notifRef = useRef<HTMLDivElement | null>(null)
 	const mobileMenuRef = useRef<HTMLDivElement | null>(null)
@@ -164,7 +164,7 @@ export default function Header() {
 			document.body.style.position = ''
 			document.body.style.width = ''
 		}
-		
+
 		return () => {
 			document.body.style.overflow = ''
 			document.body.style.position = ''
@@ -183,34 +183,37 @@ export default function Header() {
 				setMenuOpen(true)
 			}, 50)
 		}
-		
+
 		// Добавляем слушатель
 		window.addEventListener('openMoreMenu', handleOpenMoreMenu)
-		
+
 		// Также слушаем через capture для надежности
 		window.addEventListener('openMoreMenu', handleOpenMoreMenu, true)
-		
+
 		return () => {
 			window.removeEventListener('openMoreMenu', handleOpenMoreMenu)
 			window.removeEventListener('openMoreMenu', handleOpenMoreMenu, true)
 		}
 	}, [])
-	
+
 	// Закрытие меню при клике вне (НО НЕ во время онбординга!)
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
 			// Проверяем, активен ли онбординг
-			const isOnboardingActive = document.querySelector('.onboarding-highlighted') !== null
-			
+			const isOnboardingActive =
+				document.querySelector('.onboarding-highlighted') !== null
+
 			// Если активен онбординг И клик по overlay, НЕ закрываем меню
 			if (isOnboardingActive) {
 				const target = e.target as HTMLElement
-				if (target.closest('[class*="onboarding"]') || 
-				    target.closest('[style*="z-index: 10000"]')) {
+				if (
+					target.closest('[class*="onboarding"]') ||
+					target.closest('[style*="z-index: 10000"]')
+				) {
 					return // Не закрываем меню во время онбординга
 				}
 			}
-			
+
 			if (
 				menuRef.current &&
 				!menuRef.current.contains(e.target as Node) &&
@@ -267,14 +270,18 @@ export default function Header() {
 			try {
 				const res = await fetch('/api/users/activity', {
 					method: 'POST',
-					headers: { 
+					headers: {
 						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}` 
+						Authorization: `Bearer ${token}`,
 					},
 				})
 				if (!res.ok) {
 					const errorText = await res.text()
-					console.error('❌ Ошибка обновления активности:', res.status, errorText)
+					console.error(
+						'❌ Ошибка обновления активности:',
+						res.status,
+						errorText
+					)
 				} else {
 					console.log('✅ Активность обновлена')
 				}
@@ -306,12 +313,14 @@ export default function Header() {
 
 		// Подключаемся к SSE потоку для онлайн счетчика
 		let eventSource: EventSource | null = null
-		
+
 		try {
-			const sseUrl = `/api/users/activity/stream?token=${encodeURIComponent(token)}`
+			const sseUrl = `/api/users/activity/stream?token=${encodeURIComponent(
+				token
+			)}`
 			eventSource = new EventSource(sseUrl)
 
-			eventSource.onmessage = (event) => {
+			eventSource.onmessage = event => {
 				try {
 					const data = JSON.parse(event.data)
 					if (data.type === 'onlineCount') {
@@ -323,7 +332,7 @@ export default function Header() {
 				}
 			}
 
-			eventSource.onerror = (error) => {
+			eventSource.onerror = error => {
 				console.error('❌ Ошибка SSE соединения для онлайн счетчика:', error)
 				// Переподключаемся через 5 секунд
 				setTimeout(() => {
@@ -345,16 +354,19 @@ export default function Header() {
 						method: 'GET',
 						headers: { 'Content-Type': 'application/json' },
 					})
-					
+
 					if (res.ok) {
 						const data = await res.json()
 						setOnlineCount(data.onlineCount || 0)
 					}
 				} catch (fetchErr) {
-					console.error('❌ Ошибка fallback получения онлайн пользователей:', fetchErr)
+					console.error(
+						'❌ Ошибка fallback получения онлайн пользователей:',
+						fetchErr
+					)
 				}
 			}
-			
+
 			fetchOnlineCount()
 			const onlineInterval = setInterval(fetchOnlineCount, 30 * 1000)
 
@@ -378,7 +390,7 @@ export default function Header() {
 			}
 		}
 	}, [user, token])
-	
+
 	// Отслеживаем открытый чат через события от страницы чатов
 	useEffect(() => {
 		const handleChatOpened = (e: CustomEvent) => {
@@ -386,171 +398,210 @@ export default function Header() {
 			setCurrentChatInfo({ chatType, chatId })
 			console.log('📱 Чат открыт:', chatType, chatId)
 		}
-		
+
 		const handleChatClosed = () => {
 			setCurrentChatInfo(null)
 			console.log('📱 Чат закрыт')
 		}
-		
+
 		window.addEventListener('chatOpened', handleChatOpened as EventListener)
 		window.addEventListener('chatClosed', handleChatClosed)
-		
+
 		return () => {
-			window.removeEventListener('chatOpened', handleChatOpened as EventListener)
+			window.removeEventListener(
+				'chatOpened',
+				handleChatOpened as EventListener
+			)
 			window.removeEventListener('chatClosed', handleChatClosed)
 		}
 	}, [])
 
 	// Функция показа уведомлений (вынесена до useEffect чтобы использовать в NotificationPolling)
-	const showNotification = useCallback((data: any) => {
-		console.log('🎉 showNotification вызвана с data:', data)
-		
-		// Создаем уникальный ключ для уведомления
-		// Приоритет: id из БД > messageId > комбинация type+link+timestamp
-		const notificationKey = data.id 
-			? `db_${data.id}` 
-			: data.messageId 
-				? `msg_${data.messageId}` 
+	const showNotification = useCallback(
+		(data: any) => {
+			console.log('🎉 showNotification вызвана с data:', data)
+
+			// Создаем уникальный ключ для уведомления
+			// Приоритет: id из БД > messageId > комбинация type+link+timestamp
+			const notificationKey = data.id
+				? `db_${data.id}`
+				: data.messageId
+				? `msg_${data.messageId}`
 				: `${data.type}-${data.link || ''}-${data.timestamp || Date.now()}`
-		
-		// Проверяем, не показывали ли мы уже это уведомление
-		if (shownNotificationsRef.current.has(notificationKey)) {
-			console.log('⏭️ Пропускаем дубликат уведомления:', notificationKey)
-			return
-		}
-		
-		// Добавляем в список показанных
-		shownNotificationsRef.current.add(notificationKey)
-		
-		// Ограничиваем размер Set (храним последние 100 уведомлений)
-		if (shownNotificationsRef.current.size > 100) {
-			const firstKey = shownNotificationsRef.current.values().next().value
-			shownNotificationsRef.current.delete(firstKey)
-		}
-		
-		// Проверяем, находится ли пользователь в чате и это сообщение для открытого чата
-		const isInChatsPage = pathname === '/chats'
-		const isMessageNotification = data.type === 'message'
-		let isCurrentChatNotification = false
-		
-		if (isMessageNotification && currentChatInfo && data.chatType && data.senderId) {
-			// Проверяем, соответствует ли уведомление открытому чату
-			if (data.chatType === 'private' && currentChatInfo.chatType === 'private') {
-				isCurrentChatNotification = data.senderId === currentChatInfo.chatId
-			} else if (data.chatType === 'task' && currentChatInfo.chatType === 'task') {
-				const taskId = data.chatId?.replace('task_', '') || data.link?.match(/\/tasks\/([^\/]+)/)?.[1]
-				isCurrentChatNotification = taskId === currentChatInfo.chatId
-			}
-		}
-		
-		// Если пользователь в чате и это уведомление для открытого чата - не показываем toast и не увеличиваем счетчик
-		if (isInChatsPage && isCurrentChatNotification) {
-			console.log('⏭️ Пользователь в открытом чате, пропускаем уведомление')
-			return
-		}
-		
-		if (data.playSound) {
-			console.log('🔊 Попытка воспроизвести звук')
-			try {
-				const AudioContextClass =
-					window.AudioContext || (window as any).webkitAudioContext
-				const audioContext = new AudioContextClass()
-				const oscillator = audioContext.createOscillator()
-				const gainNode = audioContext.createGain()
-				oscillator.connect(gainNode)
-				gainNode.connect(audioContext.destination)
-				oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
-				gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-				gainNode.gain.linearRampToValueAtTime(
-					0.2,
-					audioContext.currentTime + 0.01
-				)
-				gainNode.gain.exponentialRampToValueAtTime(
-					0.01,
-					audioContext.currentTime + 0.3
-				)
-				oscillator.start(audioContext.currentTime)
-				oscillator.stop(audioContext.currentTime + 0.3)
-			} catch {}
-		}
 
-		// Обновляем уведомления и счетчик непрочитанных (используем функциональное обновление)
-		setNotifications(prev => {
-			// Проверяем, нет ли уже такого уведомления в списке (по ключу)
-			const existingKey = prev.find(n => {
-				const nKey = n.id 
-					? `db_${n.id}` 
-					: n.messageId 
-						? `msg_${n.messageId}` 
+			// Проверяем, не показывали ли мы уже это уведомление
+			if (shownNotificationsRef.current.has(notificationKey)) {
+				console.log('⏭️ Пропускаем дубликат уведомления:', notificationKey)
+				return
+			}
+
+			// Добавляем в список показанных
+			shownNotificationsRef.current.add(notificationKey)
+
+			// Ограничиваем размер Set (храним последние 100 уведомлений)
+			if (shownNotificationsRef.current.size > 100) {
+				const firstKey = shownNotificationsRef.current.values().next().value
+				shownNotificationsRef.current.delete(firstKey)
+			}
+
+			// Проверяем, находится ли пользователь в чате и это сообщение для открытого чата
+			const isInChatsPage = pathname === '/chats'
+			const isMessageNotification = data.type === 'message'
+			let isCurrentChatNotification = false
+
+			if (
+				isMessageNotification &&
+				currentChatInfo &&
+				data.chatType &&
+				data.senderId
+			) {
+				// Проверяем, соответствует ли уведомление открытому чату
+				if (
+					data.chatType === 'private' &&
+					currentChatInfo.chatType === 'private'
+				) {
+					isCurrentChatNotification = data.senderId === currentChatInfo.chatId
+				} else if (
+					data.chatType === 'task' &&
+					currentChatInfo.chatType === 'task'
+				) {
+					const taskId =
+						data.chatId?.replace('task_', '') ||
+						data.link?.match(/\/tasks\/([^\/]+)/)?.[1]
+					isCurrentChatNotification = taskId === currentChatInfo.chatId
+				}
+			}
+
+			// Если пользователь в чате и это уведомление для открытого чата - не показываем toast и не увеличиваем счетчик
+			if (isInChatsPage && isCurrentChatNotification) {
+				console.log('⏭️ Пользователь в открытом чате, пропускаем уведомление')
+				return
+			}
+
+			if (data.playSound) {
+				console.log('🔊 Попытка воспроизвести звук')
+				try {
+					const AudioContextClass =
+						window.AudioContext || (window as any).webkitAudioContext
+					const audioContext = new AudioContextClass()
+					const oscillator = audioContext.createOscillator()
+					const gainNode = audioContext.createGain()
+					oscillator.connect(gainNode)
+					gainNode.connect(audioContext.destination)
+					oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
+					gainNode.gain.setValueAtTime(0, audioContext.currentTime)
+					gainNode.gain.linearRampToValueAtTime(
+						0.2,
+						audioContext.currentTime + 0.01
+					)
+					gainNode.gain.exponentialRampToValueAtTime(
+						0.01,
+						audioContext.currentTime + 0.3
+					)
+					oscillator.start(audioContext.currentTime)
+					oscillator.stop(audioContext.currentTime + 0.3)
+				} catch {}
+			}
+
+			// Обновляем уведомления и счетчик непрочитанных (используем функциональное обновление)
+			setNotifications(prev => {
+				// Проверяем, нет ли уже такого уведомления в списке (по ключу)
+				const existingKey = prev.find(n => {
+					const nKey = n.id
+						? `db_${n.id}`
+						: n.messageId
+						? `msg_${n.messageId}`
 						: `${n.type}-${n.link || ''}-${n.timestamp || ''}`
-				return nKey === notificationKey
-			})
-			if (existingKey) {
-				console.log('⏭️ Уведомление уже в списке, не добавляем')
-				return prev
-			}
-			return [data, ...prev.slice(0, 4)]
-		})
-		setUnreadCount(prev => prev + 1)
-
-		// Для достижений показываем модальный попап вместо toast
-		if (data.type === 'badge' && data.badgeId && data.badgeName && data.badgeIcon) {
-			console.log('🏅 Показываем модальный попап для достижения:', data.badgeName)
-			setAchievementBadge({
-				id: data.badgeId,
-				name: data.badgeName,
-				icon: data.badgeIcon,
-				description: data.badgeDescription,
-			})
-			return // Не показываем toast для достижений
-		}
-
-		// Добавляем toast уведомление (но не для типа 'login')
-		if (data.type !== 'login') {
-			// Используем тот же ключ для toast, чтобы избежать дублирования
-			const toastId = data.id 
-				? `toast_db_${data.id}` 
-				: data.messageId 
-					? `toast_msg_${data.messageId}` 
-					: `toast_${Date.now()}-${Math.random()}`
-			
-			const toastNotification = {
-				id: toastId,
-				type: data.type || 'notification',
-				title: data.title || 'Новое уведомление',
-				message: data.message || '',
-				link: data.link,
-				userId: data.userId,
-				senderId: data.senderId,
-				timestamp: data.timestamp || new Date().toISOString(),
-			}
-			
-			console.log('🎉 Добавление toast уведомления:', toastNotification)
-			setToastNotifications(prev => {
-				// Проверяем, нет ли уже такого toast уведомления
-				const existingToast = prev.find(t => {
-					// Для toast с ID из БД
-					if (data.id && t.id.startsWith(`toast_db_${data.id}`)) return true
-					// Для toast с messageId
-					if (data.messageId && t.id.startsWith(`toast_msg_${data.messageId}`)) return true
-					// Для других - проверяем по содержимому
-					return t.type === toastNotification.type && 
-						t.link === toastNotification.link && 
-						t.message === toastNotification.message &&
-						Math.abs(new Date(t.timestamp).getTime() - new Date(toastNotification.timestamp).getTime()) < 5000
+					return nKey === notificationKey
 				})
-				
-				if (existingToast) {
-					console.log('⏭️ Toast уведомление уже существует, не добавляем:', existingToast.id)
+				if (existingKey) {
+					console.log('⏭️ Уведомление уже в списке, не добавляем')
 					return prev
 				}
-				
-				const newNotifications = [...prev, toastNotification]
-				console.log('📋 Текущие toast уведомления:', newNotifications.length)
-				return newNotifications
+				return [data, ...prev.slice(0, 4)]
 			})
-		}
-	}, [pathname, currentChatInfo, setUnreadCount])
+			setUnreadCount(prev => prev + 1)
+
+			// Для достижений показываем модальный попап вместо toast
+			if (
+				data.type === 'badge' &&
+				data.badgeId &&
+				data.badgeName &&
+				data.badgeIcon
+			) {
+				console.log(
+					'🏅 Показываем модальный попап для достижения:',
+					data.badgeName
+				)
+				setAchievementBadge({
+					id: data.badgeId,
+					name: data.badgeName,
+					icon: data.badgeIcon,
+					description: data.badgeDescription,
+				})
+				return // Не показываем toast для достижений
+			}
+
+			// Добавляем toast уведомление (но не для типа 'login')
+			if (data.type !== 'login') {
+				// Используем тот же ключ для toast, чтобы избежать дублирования
+				const toastId = data.id
+					? `toast_db_${data.id}`
+					: data.messageId
+					? `toast_msg_${data.messageId}`
+					: `toast_${Date.now()}-${Math.random()}`
+
+				const toastNotification = {
+					id: toastId,
+					type: data.type || 'notification',
+					title: data.title || 'Новое уведомление',
+					message: data.message || '',
+					link: data.link,
+					userId: data.userId,
+					senderId: data.senderId,
+					timestamp: data.timestamp || new Date().toISOString(),
+				}
+
+				console.log('🎉 Добавление toast уведомления:', toastNotification)
+				setToastNotifications(prev => {
+					// Проверяем, нет ли уже такого toast уведомления
+					const existingToast = prev.find(t => {
+						// Для toast с ID из БД
+						if (data.id && t.id.startsWith(`toast_db_${data.id}`)) return true
+						// Для toast с messageId
+						if (
+							data.messageId &&
+							t.id.startsWith(`toast_msg_${data.messageId}`)
+						)
+							return true
+						// Для других - проверяем по содержимому
+						return (
+							t.type === toastNotification.type &&
+							t.link === toastNotification.link &&
+							t.message === toastNotification.message &&
+							Math.abs(
+								new Date(t.timestamp).getTime() -
+									new Date(toastNotification.timestamp).getTime()
+							) < 5000
+						)
+					})
+
+					if (existingToast) {
+						console.log(
+							'⏭️ Toast уведомление уже существует, не добавляем:',
+							existingToast.id
+						)
+						return prev
+					}
+
+					const newNotifications = [...prev, toastNotification]
+					console.log('📋 Текущие toast уведомления:', newNotifications.length)
+					return newNotifications
+				})
+			}
+		},
+		[pathname, currentChatInfo, setUnreadCount]
+	)
 
 	// Загрузка количества непрочитанных сообщений и SSE
 	useEffect(() => {
@@ -561,7 +612,7 @@ export default function Header() {
 				const res = await fetch('/api/chats/unread-count', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
-				
+
 				// Проверяем, есть ли содержимое в ответе
 				const text = await res.text()
 				if (!text || text.trim() === '') {
@@ -586,7 +637,7 @@ export default function Header() {
 						status: res.status,
 						statusText: res.statusText,
 						data: data,
-						error: data?.error || 'Неизвестная ошибка'
+						error: data?.error || 'Неизвестная ошибка',
 					})
 					setUnreadMessagesCount(0)
 				}
@@ -598,7 +649,7 @@ export default function Header() {
 
 		// Проверяем окружение: в production сразу включаем polling
 		const isProduction = process.env.NODE_ENV === 'production'
-		
+
 		if (isProduction) {
 			console.log('🌐 Production окружение: используем polling вместо SSE')
 			setUsePolling(true)
@@ -616,8 +667,11 @@ export default function Header() {
 				eventSourceRef.current.close()
 			}
 
-			console.log('🔌 Подключение к SSE:', `/api/notifications/stream?token=${token.substring(0,10)}...`)
-			
+			console.log(
+				'🔌 Подключение к SSE:',
+				`/api/notifications/stream?token=${token.substring(0, 10)}...`
+			)
+
 			// Таймаут для определения что SSE не работает
 			const sseTimeout = setTimeout(() => {
 				console.log('⏰ SSE таймаут: подключение не установлено за 5 секунд')
@@ -628,7 +682,7 @@ export default function Header() {
 					eventSourceRef.current = null
 				}
 			}, 5000)
-			
+
 			const eventSource = new EventSource(
 				`/api/notifications/stream?token=${encodeURIComponent(token)}`
 			)
@@ -644,13 +698,13 @@ export default function Header() {
 				try {
 					console.log('📨 SSE сообщение:', event.data)
 					const data = JSON.parse(event.data)
-					
+
 					// Пропускаем служебные события
 					if (data.type === 'heartbeat') {
 						console.log('💓 Heartbeat')
 						return
 					}
-					
+
 					if (data.type === 'connected') {
 						console.log('✅ Подтверждение подключения')
 						return
@@ -676,37 +730,42 @@ export default function Header() {
 				}
 			}
 
-		eventSource.onerror = (error) => {
-			console.error('❌ Ошибка SSE подключения:', error)
-			console.log('📊 SSE readyState:', eventSource.readyState)
-			setSseConnected(false)
-			clearTimeout(sseTimeout)
-			
-			eventSourceRef.current = null
-			sseFailCountRef.current++
-			
-			console.log('⚠️ Количество ошибок SSE:', sseFailCountRef.current)
-			
-			// После 2 неудачных попыток переключаемся на polling (было 3, уменьшил до 2)
-			if (sseFailCountRef.current >= 2) {
-				console.log('🔄 SSE не работает, переключаюсь на polling')
-				setUsePolling(true)
-				return
+			eventSource.onerror = error => {
+				console.error('❌ Ошибка SSE подключения:', error)
+				console.log('📊 SSE readyState:', eventSource.readyState)
+				setSseConnected(false)
+				clearTimeout(sseTimeout)
+
+				eventSourceRef.current = null
+				sseFailCountRef.current++
+
+				console.log('⚠️ Количество ошибок SSE:', sseFailCountRef.current)
+
+				// После 2 неудачных попыток переключаемся на polling (было 3, уменьшил до 2)
+				if (sseFailCountRef.current >= 2) {
+					console.log('🔄 SSE не работает, переключаюсь на polling')
+					setUsePolling(true)
+					return
+				}
+
+				setTimeout(() => {
+					console.log('🔄 Попытка переподключения SSE...')
+					if (user && token) connectSSE()
+				}, 3000)
 			}
-			
-			setTimeout(() => {
-				console.log('🔄 Попытка переподключения SSE...')
-				if (user && token) connectSSE()
-			}, 3000)
-		}
 
 			eventSourceRef.current = eventSource
 			console.log('📡 SSE EventSource создан')
 		}
 
 		// Development окружение: используем SSE
-		console.log('🚀 Header: Инициализация с user:', user?.id, 'token:', token ? 'есть' : 'нет')
-		
+		console.log(
+			'🚀 Header: Инициализация с user:',
+			user?.id,
+			'token:',
+			token ? 'есть' : 'нет'
+		)
+
 		fetchUnreadMessages()
 		connectSSE()
 
@@ -738,20 +797,20 @@ export default function Header() {
 	const handleNotificationClick = async (notif: any) => {
 		setNotifOpen(false)
 		setMobileMenuOpen(false)
-		
+
 		// Не блокируем навигацию ожиданием markAllRead
 		markAllRead().catch(console.error)
-		
+
 		// Определяем URL для перехода
 		let targetUrl = '/notifications'
-		
+
 		if (notif.userId || notif.senderId) {
 			const targetId = notif.userId || notif.senderId
 			targetUrl = `/chats?open=${targetId}`
 		} else if (notif.link) {
 			targetUrl = notif.link
 		}
-		
+
 		// На мобильных используем прямой переход через window.location
 		if (typeof window !== 'undefined' && window.innerWidth < 768) {
 			window.location.href = targetUrl
@@ -830,11 +889,11 @@ export default function Header() {
 					{user && (
 						<div className='relative' ref={notifRef}>
 							<button
-								onClick={(e) => {
+								onClick={e => {
 									e.stopPropagation()
 									setNotifOpen(v => !v)
 								}}
-								onDoubleClick={(e) => {
+								onDoubleClick={e => {
 									// Двойной клик переходит на страницу уведомлений
 									e.preventDefault()
 									e.stopPropagation()
@@ -844,10 +903,12 @@ export default function Header() {
 									}, 100)
 								}}
 								className='text-lg flex items-center gap-1 relative p-2'
-								aria-label={`Уведомления${unreadCount > 0 ? ` (${unreadCount} непрочитанных)` : ''}`}
+								aria-label={`Уведомления${
+									unreadCount > 0 ? ` (${unreadCount} непрочитанных)` : ''
+								}`}
 								aria-expanded={notifOpen}
-								aria-haspopup="true"
-								data-onboarding-target="notifications-bell"
+								aria-haspopup='true'
+								data-onboarding-target='notifications-bell'
 							>
 								<Bell className='w-5 h-5 text-emerald-400' />
 								{unreadCount > 0 && (
@@ -865,116 +926,130 @@ export default function Header() {
 												<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
 												<p className='text-sm'>Нет новых уведомлений</p>
 											</div>
-										) : (() => {
-											// Группируем уведомления по типу
-											const grouped = notifications.reduce((acc, notif) => {
-												const type = notif.type || 'other'
-												if (!acc[type]) {
-													acc[type] = []
+										) : (
+											(() => {
+												// Группируем уведомления по типу
+												const grouped = notifications.reduce((acc, notif) => {
+													const type = notif.type || 'other'
+													if (!acc[type]) {
+														acc[type] = []
+													}
+													acc[type].push(notif)
+													return acc
+												}, {} as Record<string, typeof notifications>)
+
+												const typeLabels: Record<string, string> = {
+													message: 'Сообщения',
+													review: 'Отзывы',
+													task: 'Задачи',
+													warning: 'Предупреждения',
+													other: 'Прочее',
 												}
-												acc[type].push(notif)
-												return acc
-											}, {} as Record<string, typeof notifications>)
 
-											const typeLabels: Record<string, string> = {
-												message: 'Сообщения',
-												review: 'Отзывы',
-												task: 'Задачи',
-												warning: 'Предупреждения',
-												other: 'Прочее',
-											}
-
-											return Object.entries(grouped).map(([type, groupNotifs]) => (
-												<div key={type} className='border-b border-gray-700/50 last:border-b-0'>
-													{Object.keys(grouped).length > 1 && (
-														<div className='px-3 py-2 bg-gray-800/40 border-b border-gray-700/30'>
-															<span className='text-xs font-semibold text-emerald-400 uppercase tracking-wider'>
-																{typeLabels[type] || type}
-															</span>
-															<span className='ml-2 text-xs text-gray-500'>
-																({groupNotifs.length})
-															</span>
-														</div>
-													)}
-													{groupNotifs.map((notif, index) => (
-												<div
-													key={index}
-													className='p-3 sm:p-4 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-700/80 transition cursor-pointer touch-manipulation select-none'
-													onClick={(e) => {
-														e.stopPropagation()
-														handleNotificationClick(notif)
-													}}
-													onTouchStart={(e) => {
-														// Для мобильных устройств
-														e.currentTarget.classList.add('bg-gray-800/80')
-													}}
-													onTouchEnd={(e) => {
-														e.currentTarget.classList.remove('bg-gray-800/80')
-													}}
-													role="button"
-													tabIndex={0}
-													onKeyDown={(e) => {
-														if (e.key === 'Enter' || e.key === ' ') {
-															e.preventDefault()
-															handleNotificationClick(notif)
-														}
-													}}
-												>
-													<div className='flex items-start space-x-3'>
-														<div className='w-10 h-10 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-emerald-900/40 border border-emerald-500/30 flex-shrink-0'>
-															{notif.type === 'message' ? (
-																<MessageSquare className='w-5 h-5 sm:w-4 sm:h-4 text-blue-400' />
-															) : notif.type === 'review' ? (
-																<Star className='w-5 h-5 sm:w-4 sm:h-4 text-yellow-400' />
-															) : notif.type === 'task' ? (
-																<CheckCircle className='w-5 h-5 sm:w-4 sm:h-4 text-green-400' />
-															) : notif.type === 'warning' ? (
-																<AlertTriangle className='w-5 h-5 sm:w-4 sm:h-4 text-red-500' />
-															) : (
-																<Bell className='w-5 h-5 sm:w-4 sm:h-4 text-emerald-400' />
+												return Object.entries(grouped).map(
+													([type, groupNotifs]) => (
+														<div
+															key={type}
+															className='border-b border-gray-700/50 last:border-b-0'
+														>
+															{Object.keys(grouped).length > 1 && (
+																<div className='px-3 py-2 bg-gray-800/40 border-b border-gray-700/30'>
+																	<span className='text-xs font-semibold text-emerald-400 uppercase tracking-wider'>
+																		{typeLabels[type] || type}
+																	</span>
+																	<span className='ml-2 text-xs text-gray-500'>
+																		({groupNotifs.length})
+																	</span>
+																</div>
 															)}
+															{groupNotifs.map((notif, index) => (
+																<div
+																	key={index}
+																	className='p-3 sm:p-4 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-700/80 transition cursor-pointer touch-manipulation select-none'
+																	onClick={e => {
+																		e.stopPropagation()
+																		handleNotificationClick(notif)
+																	}}
+																	onTouchStart={e => {
+																		// Для мобильных устройств
+																		e.currentTarget.classList.add(
+																			'bg-gray-800/80'
+																		)
+																	}}
+																	onTouchEnd={e => {
+																		e.currentTarget.classList.remove(
+																			'bg-gray-800/80'
+																		)
+																	}}
+																	role='button'
+																	tabIndex={0}
+																	onKeyDown={e => {
+																		if (e.key === 'Enter' || e.key === ' ') {
+																			e.preventDefault()
+																			handleNotificationClick(notif)
+																		}
+																	}}
+																>
+																	<div className='flex items-start space-x-3'>
+																		<div className='w-10 h-10 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-emerald-900/40 border border-emerald-500/30 flex-shrink-0'>
+																			{notif.type === 'message' ? (
+																				<MessageSquare className='w-5 h-5 sm:w-4 sm:h-4 text-blue-400' />
+																			) : notif.type === 'review' ? (
+																				<Star className='w-5 h-5 sm:w-4 sm:h-4 text-yellow-400' />
+																			) : notif.type === 'task' ? (
+																				<CheckCircle className='w-5 h-5 sm:w-4 sm:h-4 text-green-400' />
+																			) : notif.type === 'warning' ? (
+																				<AlertTriangle className='w-5 h-5 sm:w-4 sm:h-4 text-red-500' />
+																			) : (
+																				<Bell className='w-5 h-5 sm:w-4 sm:h-4 text-emerald-400' />
+																			)}
+																		</div>
+																		<div className='flex-1 min-w-0'>
+																			<p className='text-sm sm:text-sm text-white font-medium line-clamp-2'>
+																				{notif.title}
+																			</p>
+																			<p className='text-xs text-gray-400 line-clamp-2'>
+																				{notif.sender ? (
+																					<>
+																						<strong className='text-gray-300'>
+																							{notif.sender}
+																						</strong>
+																						<span className='text-gray-500'>
+																							{' '}
+																							—{' '}
+																						</span>
+																						{notif.message}
+																					</>
+																				) : (
+																					notif.message
+																				)}
+																			</p>
+																			{notif.taskTitle && (
+																				<p className='text-xs text-emerald-400 mt-1'>
+																					📋 {notif.taskTitle}
+																				</p>
+																			)}
+																			{(notif.timestamp || notif.createdAt) && (
+																				<p className='text-xs text-gray-500 mt-1'>
+																					{formatNotificationTime(
+																						notif.timestamp || notif.createdAt
+																					)}
+																				</p>
+																			)}
+																		</div>
+																	</div>
+																</div>
+															))}
 														</div>
-														<div className='flex-1 min-w-0'>
-															<p className='text-sm sm:text-sm text-white font-medium line-clamp-2'>
-																{notif.title}
-															</p>
-															<p className='text-xs text-gray-400 line-clamp-2'>
-																{notif.sender ? (
-																	<>
-																		<strong className='text-gray-300'>
-																			{notif.sender}
-																		</strong>
-																		<span className='text-gray-500'> — </span>
-																		{notif.message}
-																	</>
-																) : (
-																	notif.message
-																)}
-															</p>
-															{notif.taskTitle && (
-																<p className='text-xs text-emerald-400 mt-1'>
-																	📋 {notif.taskTitle}
-																</p>
-															)}
-															{(notif.timestamp || notif.createdAt) && (
-																<p className='text-xs text-gray-500 mt-1'>
-																	{formatNotificationTime(
-																		notif.timestamp || notif.createdAt
-																	)}
-																</p>
-															)}
-														</div>
-													</div>
-												</div>
-													))}
-												</div>
-											))
-										})()}
+													)
+												)
+											})()
+										)}
 									</div>
 									<div className='p-3 sm:p-4 border-t border-emerald-500/20 bg-black/40'>
 										<button
-											type="button"
-											onClick={(e) => {
+											type='button'
+											onClick={e => {
 												e.preventDefault()
 												e.stopPropagation()
 												setNotifOpen(false)
@@ -984,7 +1059,7 @@ export default function Header() {
 													window.location.href = '/notifications'
 												}, 100)
 											}}
-											onTouchEnd={(e) => {
+											onTouchEnd={e => {
 												e.preventDefault()
 												e.stopPropagation()
 												setNotifOpen(false)
@@ -1045,25 +1120,57 @@ export default function Header() {
 						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-xl border-b border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.3)] md:hidden z-40 animate-slideInDown max-h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar'
 					>
 						<nav className='flex flex-col p-5 space-y-1.5 text-gray-200'>
-					{user ? (
-						<>
-							{/* Плашка с онлайн пользователями в мобильном меню */}
-							<div className='flex items-center justify-center gap-2 px-4 py-2 mx-4 mb-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm'>
-								<div className='w-2 h-2 bg-emerald-400 rounded-full animate-pulse'></div>
-								<span className='text-emerald-300 font-medium'>
-									Пользователей онлайн: <span className='text-emerald-400 font-bold'>{onlineCount ?? 0}</span>
-								</span>
-							</div>
-							
-							{user.role === 'admin' ? (
+							{user ? (
 								<>
-									<Link
-										href='/admin'
-										className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-										onClick={() => setMobileMenuOpen(false)}
-									>
-										Админ-панель
-									</Link>
+									{/* Навигация для страниц /business, /talents, /tasks, /specialists (для авторизованных пользователей) */}
+									{(pathname === '/business' ||
+										pathname === '/talents' ||
+										pathname === '/tasks' ||
+										pathname === '/specialists') && (
+										<>
+											<Link
+												href='/tasks'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												📋 Каталог задач
+											</Link>
+											<Link
+												href='/specialists'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												⚡ Подиум исполнителей
+											</Link>
+											<Link
+												href='/community'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												💬 Сообщества
+											</Link>
+										</>
+									)}
+									{/* Плашка с онлайн пользователями в мобильном меню */}
+									<div className='flex items-center justify-center gap-2 px-4 py-2 mx-4 mb-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm'>
+										<div className='w-2 h-2 bg-emerald-400 rounded-full animate-pulse'></div>
+										<span className='text-emerald-300 font-medium'>
+											Пользователей онлайн:{' '}
+											<span className='text-emerald-400 font-bold'>
+												{onlineCount ?? 0}
+											</span>
+										</span>
+									</div>
+
+									{user.role === 'admin' ? (
+										<>
+											<Link
+												href='/admin'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												Админ-панель
+											</Link>
 											{/* Иконка профиля для админа в мобильном меню */}
 											<Link
 												href='/profile'
@@ -1076,12 +1183,14 @@ export default function Header() {
 														alt={user.fullName || user.email || 'Профиль'}
 														width={32}
 														height={32}
-														className="w-8 h-8 rounded-full border border-emerald-500/30 object-cover"
+														className='w-8 h-8 rounded-full border border-emerald-500/30 object-cover'
 													/>
 												) : (
-													<div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-emerald-500/30">
-														<span className="text-emerald-400 font-semibold text-sm">
-															{user.fullName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+													<div className='w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-emerald-500/30'>
+														<span className='text-emerald-400 font-semibold text-sm'>
+															{user.fullName?.[0]?.toUpperCase() ||
+																user.email?.[0]?.toUpperCase() ||
+																'U'}
 														</span>
 													</div>
 												)}
@@ -1111,7 +1220,7 @@ export default function Header() {
 														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95 flex items-center gap-2'
 														onClick={() => setMobileMenuOpen(false)}
 													>
-														<Heart className="w-4 h-4" />
+														<Heart className='w-4 h-4' />
 														Избранное
 													</Link>
 													<Link
@@ -1182,12 +1291,14 @@ export default function Header() {
 														alt={user.fullName || user.email || 'Профиль'}
 														width={32}
 														height={32}
-														className="w-8 h-8 rounded-full border border-emerald-500/30 object-cover"
+														className='w-8 h-8 rounded-full border border-emerald-500/30 object-cover'
 													/>
 												) : (
-													<div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-emerald-500/30">
-														<span className="text-emerald-400 font-semibold text-sm">
-															{user.fullName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+													<div className='w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-emerald-500/30'>
+														<span className='text-emerald-400 font-semibold text-sm'>
+															{user.fullName?.[0]?.toUpperCase() ||
+																user.email?.[0]?.toUpperCase() ||
+																'U'}
 														</span>
 													</div>
 												)}
@@ -1195,16 +1306,16 @@ export default function Header() {
 											</Link>
 
 											<button
-												type="button"
+												type='button'
 												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition relative active:scale-95 block text-emerald-300 hover:text-emerald-100 w-full text-left'
-												onClick={(e) => {
+												onClick={e => {
 													e.preventDefault()
 													setMobileMenuOpen(false)
 													setTimeout(() => {
 														window.location.href = '/notifications'
 													}, 100)
 												}}
-												onTouchEnd={(e) => {
+												onTouchEnd={e => {
 													e.preventDefault()
 													setMobileMenuOpen(false)
 													setTimeout(() => {
@@ -1290,6 +1401,35 @@ export default function Header() {
 								</>
 							) : (
 								<>
+									{/* Навигация для страниц /business, /talents, /tasks, /specialists (для всех пользователей) */}
+									{(pathname === '/business' ||
+										pathname === '/talents' ||
+										pathname === '/tasks' ||
+										pathname === '/specialists') && (
+										<>
+											<Link
+												href='/tasks'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												📋 Каталог задач
+											</Link>
+											<Link
+												href='/specialists'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												⚡ Подиум исполнителей
+											</Link>
+											<Link
+												href='/community'
+												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+												onClick={() => setMobileMenuOpen(false)}
+											>
+												💬 Сообщества
+											</Link>
+										</>
+									)}
 									<Link
 										href='/login'
 										className='py-3 px-4 text-center border-2 border-emerald-400 text-emerald-400 rounded-lg ios-button hover:bg-emerald-400 hover:text-black'
@@ -1314,21 +1454,41 @@ export default function Header() {
 				<nav className='hidden md:flex gap-7 items-center text-gray-200 font-poppins'>
 					{user ? (
 						<>
-						{/* Плашка с онлайн пользователями */}
-						<div className='flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs'>
-							<div className='w-2 h-2 bg-emerald-400 rounded-full animate-pulse'></div>
-							<span className='text-emerald-300 font-medium'>
-								Онлайн: <span className='text-emerald-400 font-bold'>{onlineCount ?? 0}</span>
-							</span>
-						</div>
-						
-						{/* 🔔 Уведомления */}
-						<div className='relative' ref={notifRef}>
-							<button
-								onClick={() => setNotifOpen(v => !v)}
-								className={`${linkStyle} text-lg flex items-center gap-1 relative`}
-								data-onboarding-target="notifications-bell"
-							>
+							{/* Навигация для страниц /business, /talents, /tasks, /specialists (для авторизованных пользователей) */}
+							{(pathname === '/business' ||
+								pathname === '/talents' ||
+								pathname === '/tasks' ||
+								pathname === '/specialists') && (
+								<>
+									<Link href='/tasks' className={linkStyle}>
+										Каталог задач
+									</Link>
+									<Link href='/specialists' className={linkStyle}>
+										Подиум исполнителей
+									</Link>
+									<Link href='/community' className={linkStyle}>
+										Сообщества
+									</Link>
+								</>
+							)}
+							{/* Плашка с онлайн пользователями */}
+							<div className='flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs'>
+								<div className='w-2 h-2 bg-emerald-400 rounded-full animate-pulse'></div>
+								<span className='text-emerald-300 font-medium'>
+									Онлайн:{' '}
+									<span className='text-emerald-400 font-bold'>
+										{onlineCount ?? 0}
+									</span>
+								</span>
+							</div>
+
+							{/* 🔔 Уведомления */}
+							<div className='relative' ref={notifRef}>
+								<button
+									onClick={() => setNotifOpen(v => !v)}
+									className={`${linkStyle} text-lg flex items-center gap-1 relative`}
+									data-onboarding-target='notifications-bell'
+								>
 									<Bell className='w-5 h-5 text-emerald-400 transition-transform duration-300 group-hover:rotate-6' />
 
 									{/* 🔴 Счётчик уведомлений с плавным появлением */}
@@ -1356,122 +1516,133 @@ export default function Header() {
 													<Bell className='w-6 h-6 mx-auto mb-2 text-gray-500' />
 													<p>Нет новых уведомлений</p>
 												</div>
-											) : (() => {
-												// Группируем уведомления по типу
-												const grouped = notifications.reduce((acc, notif) => {
-													const type = notif.type || 'other'
-													if (!acc[type]) {
-														acc[type] = []
+											) : (
+												(() => {
+													// Группируем уведомления по типу
+													const grouped = notifications.reduce((acc, notif) => {
+														const type = notif.type || 'other'
+														if (!acc[type]) {
+															acc[type] = []
+														}
+														acc[type].push(notif)
+														return acc
+													}, {} as Record<string, typeof notifications>)
+
+													const typeLabels: Record<string, string> = {
+														message: 'Сообщения',
+														review: 'Отзывы',
+														task: 'Задачи',
+														warning: 'Предупреждения',
+														other: 'Прочее',
 													}
-													acc[type].push(notif)
-													return acc
-												}, {} as Record<string, typeof notifications>)
 
-												const typeLabels: Record<string, string> = {
-													message: 'Сообщения',
-													review: 'Отзывы',
-													task: 'Задачи',
-													warning: 'Предупреждения',
-													other: 'Прочее',
-												}
-
-												return Object.entries(grouped).map(([type, groupNotifs]) => (
-													<div key={type} className='border-b border-gray-700/50 last:border-b-0'>
-														{Object.keys(grouped).length > 1 && (
-															<div className='px-3 py-2 bg-gray-800/40 border-b border-gray-700/30'>
-																<span className='text-xs font-semibold text-emerald-400 uppercase tracking-wider'>
-																	{typeLabels[type] || type}
-																</span>
-																<span className='ml-2 text-xs text-gray-500'>
-																	({groupNotifs.length})
-																</span>
-															</div>
-														)}
-														{groupNotifs.map((notif, index) => (
-													<div
-														key={index}
-														className='p-3 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-800 transition cursor-pointer touch-manipulation select-none'
-														onClick={(e) => {
-															e.stopPropagation()
-															handleNotificationClick(notif)
-														}}
-														role="button"
-														tabIndex={0}
-														onKeyDown={(e) => {
-															if (e.key === 'Enter' || e.key === ' ') {
-																e.preventDefault()
-																handleNotificationClick(notif)
-															}
-														}}
-													>
-														<div className='flex items-start space-x-3'>
-															{/* 🎯 Иконка в зависимости от типа уведомления */}
+													return Object.entries(grouped).map(
+														([type, groupNotifs]) => (
 															<div
-																className='w-8 h-8 rounded-full flex items-center justify-center 
+																key={type}
+																className='border-b border-gray-700/50 last:border-b-0'
+															>
+																{Object.keys(grouped).length > 1 && (
+																	<div className='px-3 py-2 bg-gray-800/40 border-b border-gray-700/30'>
+																		<span className='text-xs font-semibold text-emerald-400 uppercase tracking-wider'>
+																			{typeLabels[type] || type}
+																		</span>
+																		<span className='ml-2 text-xs text-gray-500'>
+																			({groupNotifs.length})
+																		</span>
+																	</div>
+																)}
+																{groupNotifs.map((notif, index) => (
+																	<div
+																		key={index}
+																		className='p-3 border-b border-gray-700 hover:bg-gray-800/60 active:bg-gray-800 transition cursor-pointer touch-manipulation select-none'
+																		onClick={e => {
+																			e.stopPropagation()
+																			handleNotificationClick(notif)
+																		}}
+																		role='button'
+																		tabIndex={0}
+																		onKeyDown={e => {
+																			if (e.key === 'Enter' || e.key === ' ') {
+																				e.preventDefault()
+																				handleNotificationClick(notif)
+																			}
+																		}}
+																	>
+																		<div className='flex items-start space-x-3'>
+																			{/* 🎯 Иконка в зависимости от типа уведомления */}
+																			<div
+																				className='w-8 h-8 rounded-full flex items-center justify-center 
                                              bg-emerald-900/40 border border-emerald-500/30 
                                              shadow-[0_0_6px_rgba(16,185,129,0.3)] flex-shrink-0'
-															>
-																{notif.type === 'message' ? (
-																	<MessageSquare className='w-4 h-4 text-blue-400' />
-																) : notif.type === 'review' ? (
-																	<Star className='w-4 h-4 text-yellow-400' />
-																) : notif.type === 'task' ? (
-																	<CheckCircle className='w-4 h-4 text-green-400' />
-																) : notif.type === 'warning' ? (
-																	<AlertTriangle className='w-4 h-4 text-red-500' />
-																) : (
-																	<Bell className='w-4 h-4 text-emerald-400' />
-																)}
+																			>
+																				{notif.type === 'message' ? (
+																					<MessageSquare className='w-4 h-4 text-blue-400' />
+																				) : notif.type === 'review' ? (
+																					<Star className='w-4 h-4 text-yellow-400' />
+																				) : notif.type === 'task' ? (
+																					<CheckCircle className='w-4 h-4 text-green-400' />
+																				) : notif.type === 'warning' ? (
+																					<AlertTriangle className='w-4 h-4 text-red-500' />
+																				) : (
+																					<Bell className='w-4 h-4 text-emerald-400' />
+																				)}
+																			</div>
+
+																			{/* 💬 Текст уведомления */}
+																			<div className='flex-1 min-w-0'>
+																				<p className='text-sm text-white font-medium line-clamp-2'>
+																					{notif.title}
+																				</p>
+
+																				{/* ✅ Исправленный вывод имени и сообщения */}
+																				<p className='text-xs text-gray-400 line-clamp-2'>
+																					{notif.sender ? (
+																						<>
+																							<strong className='text-gray-300'>
+																								{notif.sender}
+																							</strong>
+																							<span className='text-gray-500'>
+																								{' '}
+																								—{' '}
+																							</span>
+																							{notif.message}
+																						</>
+																					) : (
+																						notif.message
+																					)}
+																				</p>
+
+																				{notif.taskTitle && (
+																					<p className='text-xs text-emerald-400 mt-1'>
+																						📋 {notif.taskTitle}
+																					</p>
+																				)}
+
+																				{(notif.timestamp ||
+																					notif.createdAt) && (
+																					<p className='text-xs text-gray-500 mt-1'>
+																						{formatNotificationTime(
+																							notif.timestamp || notif.createdAt
+																						)}
+																					</p>
+																				)}
+																			</div>
+																		</div>
+																	</div>
+																))}
 															</div>
-
-															{/* 💬 Текст уведомления */}
-															<div className='flex-1 min-w-0'>
-																<p className='text-sm text-white font-medium line-clamp-2'>
-																	{notif.title}
-																</p>
-
-																{/* ✅ Исправленный вывод имени и сообщения */}
-																<p className='text-xs text-gray-400 line-clamp-2'>
-																	{notif.sender ? (
-																		<>
-																			<strong className='text-gray-300'>
-																				{notif.sender}
-																			</strong>
-																			<span className='text-gray-500'> — </span>
-																			{notif.message}
-																		</>
-																	) : (
-																		notif.message
-																	)}
-																</p>
-
-																{notif.taskTitle && (
-																	<p className='text-xs text-emerald-400 mt-1'>
-																		📋 {notif.taskTitle}
-																	</p>
-																)}
-
-																{(notif.timestamp || notif.createdAt) && (
-																	<p className='text-xs text-gray-500 mt-1'>
-																		{formatNotificationTime(
-																			notif.timestamp || notif.createdAt
-																		)}
-																	</p>
-																)}
-															</div>
-														</div>
-													</div>
-													))}
-													</div>
-												))
-										})()}
+														)
+													)
+												})()
+											)}
 										</div>
 
 										{/* 📎 Ссылка внизу */}
 										<div className='p-3 border-t border-emerald-500/20 bg-black/40'>
 											<button
-												type="button"
-												onClick={(e) => {
+												type='button'
+												onClick={e => {
 													e.preventDefault()
 													e.stopPropagation()
 													setNotifOpen(false)
@@ -1480,7 +1651,7 @@ export default function Header() {
 														window.location.href = '/notifications'
 													}, 100)
 												}}
-												onTouchEnd={(e) => {
+												onTouchEnd={e => {
 													e.preventDefault()
 													e.stopPropagation()
 													setNotifOpen(false)
@@ -1514,10 +1685,18 @@ export default function Header() {
 								<>
 									{user.role === 'executor' && (
 										<>
-											<Link href='/specialists' className={linkStyle} data-onboarding-target="nav-specialists">
+											<Link
+												href='/specialists'
+												className={linkStyle}
+												data-onboarding-target='nav-specialists'
+											>
 												Подиум исполнителей
 											</Link>
-											<Link href='/tasks' className={linkStyle} data-onboarding-target="nav-tasks">
+											<Link
+												href='/tasks'
+												className={linkStyle}
+												data-onboarding-target='nav-tasks'
+											>
 												Каталог задач
 											</Link>
 											<Link href='/tasks/my' className={linkStyle}>
@@ -1530,16 +1709,32 @@ export default function Header() {
 									)}
 									{user.role === 'customer' && (
 										<>
-											<Link href='/specialists' className={linkStyle} data-onboarding-target="nav-specialists">
+											<Link
+												href='/specialists'
+												className={linkStyle}
+												data-onboarding-target='nav-specialists'
+											>
 												Подиум исполнителей
 											</Link>
-											<Link href='/tasks' className={linkStyle} data-onboarding-target="nav-tasks">
+											<Link
+												href='/tasks'
+												className={linkStyle}
+												data-onboarding-target='nav-tasks'
+											>
 												Каталог задач
 											</Link>
-											<Link href='/my-tasks' className={linkStyle} data-onboarding-target="nav-my-tasks">
+											<Link
+												href='/my-tasks'
+												className={linkStyle}
+												data-onboarding-target='nav-my-tasks'
+											>
 												Мои задачи
 											</Link>
-											<Link href='/tasks/new' className={linkStyle} data-onboarding-target="nav-create-task">
+											<Link
+												href='/tasks/new'
+												className={linkStyle}
+												data-onboarding-target='nav-create-task'
+											>
 												Создать задачу
 											</Link>
 										</>
@@ -1549,11 +1744,11 @@ export default function Header() {
 									{user.role === 'executor' && <LevelIndicator />}
 
 									{/* Иконка профиля с фотографией */}
-									<Link 
-										href='/profile' 
-										className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-emerald-500/30 hover:border-emerald-500/60 transition-all overflow-hidden bg-gray-800 hover:bg-gray-700" 
-										data-onboarding-target="nav-profile"
-										title="Профиль"
+									<Link
+										href='/profile'
+										className='flex items-center justify-center w-10 h-10 rounded-full border-2 border-emerald-500/30 hover:border-emerald-500/60 transition-all overflow-hidden bg-gray-800 hover:bg-gray-700'
+										data-onboarding-target='nav-profile'
+										title='Профиль'
 									>
 										{user.avatarUrl ? (
 											<Image
@@ -1561,11 +1756,13 @@ export default function Header() {
 												alt={user.fullName || user.email || 'Профиль'}
 												width={40}
 												height={40}
-												className="w-full h-full object-cover"
+												className='w-full h-full object-cover'
 											/>
 										) : (
-											<span className="text-emerald-400 font-semibold text-lg">
-												{user.fullName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+											<span className='text-emerald-400 font-semibold text-lg'>
+												{user.fullName?.[0]?.toUpperCase() ||
+													user.email?.[0]?.toUpperCase() ||
+													'U'}
 											</span>
 										)}
 									</Link>
@@ -1575,50 +1772,53 @@ export default function Header() {
 										<button
 											onClick={() => setMenuOpen(v => !v)}
 											className={linkStyle}
-											data-onboarding-target="more-menu"
+											data-onboarding-target='more-menu'
 										>
 											Ещё ▾
 										</button>
 										{menuOpen && (
-											<div className='absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-[10001] animate-fadeInDown overflow-hidden' data-onboarding-menu="more">
+											<div
+												className='absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] z-[10001] animate-fadeInDown overflow-hidden'
+												data-onboarding-menu='more'
+											>
 												<div className='py-2'>
-												<Link
-													href='/chats'
+													<Link
+														href='/chats'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400 relative'
-													onClick={() => setMenuOpen(false)}
-													data-onboarding-target="more-menu-chats"
-												>
-													💬 Чаты
-													{unreadMessagesCount > 0 && (
+														onClick={() => setMenuOpen(false)}
+														data-onboarding-target='more-menu-chats'
+													>
+														💬 Чаты
+														{unreadMessagesCount > 0 && (
 															<span className='absolute right-3 top-1/2 transform -translate-y-1/2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse'>
-															{unreadMessagesCount}
-														</span>
-													)}
-												</Link>
-												<Link
-													href='/community'
+																{unreadMessagesCount}
+															</span>
+														)}
+													</Link>
+													<Link
+														href='/community'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
-													onClick={() => setMenuOpen(false)}
-													data-onboarding-target="more-menu-community"
-												>
-													🏘️ Сообщество
-												</Link>
-												<Link
-													href='/hire'
+														onClick={() => setMenuOpen(false)}
+														data-onboarding-target='more-menu-community'
+													>
+														🏘️ Сообщество
+													</Link>
+													<Link
+														href='/hire'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
-													onClick={() => setMenuOpen(false)}
-													data-onboarding-target="more-menu-hire"
-												>
-													📑 Запросы найма
-												</Link>
+														onClick={() => setMenuOpen(false)}
+														data-onboarding-target='more-menu-hire'
+													>
+														📑 Запросы найма
+													</Link>
 												</div>
-												
+
 												<div className='border-t border-emerald-500/20 py-2'>
 													<Link
 														href='/analytics'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 														onClick={() => setMenuOpen(false)}
-														data-onboarding-target="more-menu-analytics"
+														data-onboarding-target='more-menu-analytics'
 													>
 														📊 Аналитика
 													</Link>
@@ -1628,7 +1828,7 @@ export default function Header() {
 															href='/portfolio'
 															className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 															onClick={() => setMenuOpen(false)}
-															data-onboarding-target="more-menu-portfolio"
+															data-onboarding-target='more-menu-portfolio'
 														>
 															💼 Портфолио
 														</Link>
@@ -1636,14 +1836,14 @@ export default function Header() {
 												</div>
 
 												<div className='border-t border-emerald-500/20 py-2'>
-												<Link
-													href='/settings'
+													<Link
+														href='/settings'
 														className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
 														onClick={() => setMenuOpen(false)}
-														data-onboarding-target="more-menu-settings"
-												>
-													⚙️ Настройки
-												</Link>
+														data-onboarding-target='more-menu-settings'
+													>
+														⚙️ Настройки
+													</Link>
 
 													<button
 														onClick={() => {

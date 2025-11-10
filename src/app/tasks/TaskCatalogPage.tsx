@@ -1,22 +1,29 @@
 'use client'
 
 import CategoryDropdown from '@/components/CategoryDropdown'
-import { useUser } from '@/context/UserContext'
-import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useState, useRef } from 'react'
-import ReportTaskModal from '@/components/ReportTaskModal'
-import { AlertTriangle, ClipboardList, Link as LinkIcon, X, Clock, ChevronDown } from 'lucide-react'
-import FavoriteTaskButton from '@/components/FavoriteTaskButton'
-import { toast } from 'sonner'
-import TaskSkeleton from '@/components/TaskSkeleton'
+import DateFilter from '@/components/DateFilter'
 import EmptyState from '@/components/EmptyState'
+import ErrorDisplay from '@/components/ErrorDisplay'
+import FavoriteTaskButton from '@/components/FavoriteTaskButton'
+import ReportTaskModal from '@/components/ReportTaskModal'
+import TaskSkeleton from '@/components/TaskSkeleton'
+import { useUser } from '@/context/UserContext'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useSearchHistory } from '@/hooks/useSearchHistory'
-import DateFilter from '@/components/DateFilter'
-import ErrorDisplay from '@/components/ErrorDisplay'
 import { fetchWithRetry, getErrorMessage, logError } from '@/utils/errorHandler'
+import {
+	AlertTriangle,
+	ChevronDown,
+	ClipboardList,
+	Clock,
+	Link as LinkIcon,
+	X,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 type Task = {
 	id: string
@@ -73,7 +80,9 @@ export default function TaskCatalogPage() {
 	const [isFiltersOpen, setIsFiltersOpen] = useState(false)
 	const [reportTaskId, setReportTaskId] = useState<string | null>(null)
 	const [reportTaskTitle, setReportTaskTitle] = useState<string>('')
-	const [recommendedTasks, setRecommendedTasks] = useState<RecommendedTask[]>([])
+	const [recommendedTasks, setRecommendedTasks] = useState<RecommendedTask[]>(
+		[]
+	)
 	const [recommendedLoading, setRecommendedLoading] = useState(true)
 	const [recommendedError, setRecommendedError] = useState<string | null>(null)
 	const [activeReasonId, setActiveReasonId] = useState<string | null>(null)
@@ -96,7 +105,8 @@ export default function TaskCatalogPage() {
 	const [showSearchHistory, setShowSearchHistory] = useState(false)
 	const searchInputRef = useRef<HTMLInputElement>(null)
 	const searchHistoryContainerRef = useRef<HTMLDivElement>(null)
-	const { history, addToHistory, removeFromHistory, clearHistory } = useSearchHistory()
+	const { history, addToHistory, removeFromHistory, clearHistory } =
+		useSearchHistory()
 	const hasFilesDropdownRef = useRef<HTMLDivElement>(null)
 
 	const hasFilesOptions = [
@@ -108,7 +118,7 @@ export default function TaskCatalogPage() {
 
 	// Debounce для поиска
 	const debouncedSearch = useDebounce(search, 500)
-	
+
 	// Добавляем в историю при успешном поиске
 	useEffect(() => {
 		if (debouncedSearch && debouncedSearch.trim()) {
@@ -179,7 +189,7 @@ export default function TaskCatalogPage() {
 				{
 					headers: {
 						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
+						...(token ? { Authorization: `Bearer ${token}` } : {}),
 					},
 				},
 				{
@@ -204,11 +214,21 @@ export default function TaskCatalogPage() {
 			const errorMessage = getErrorMessage(err)
 			logError(err, 'fetchTasks')
 			setError(errorMessage)
-			setRetryCount((prev) => prev + 1)
+			setRetryCount(prev => prev + 1)
 		} finally {
 			setLoading(false)
 		}
-	}, [debouncedSearch, sort, subcategory, dateFilter, minRating, hasFiles, minResponses, token, page])
+	}, [
+		debouncedSearch,
+		sort,
+		subcategory,
+		dateFilter,
+		minRating,
+		hasFiles,
+		minResponses,
+		token,
+		page,
+	])
 
 	const fetchRecommendations = useCallback(async () => {
 		if (!token || !isExecutor) {
@@ -235,7 +255,10 @@ export default function TaskCatalogPage() {
 
 			const data = await res.json()
 			if (!res.ok) {
-				throw { message: data.error || 'Ошибка рекомендаций', status: res.status }
+				throw {
+					message: data.error || 'Ошибка рекомендаций',
+					status: res.status,
+				}
 			}
 			setRecommendedTasks(data.recommendations || [])
 		} catch (err: unknown) {
@@ -260,26 +283,26 @@ export default function TaskCatalogPage() {
 	}, [])
 
 	useEffect(() => {
-		if (!userLoading && user && token) {
+		if (!userLoading) {
 			fetchCategories()
 		}
-	}, [userLoading, user, token, fetchCategories])
+	}, [userLoading, fetchCategories])
 
 	// Загрузка задач при изменении параметров
-useEffect(() => {
-	if (!userLoading && user && token) {
-		fetchTasks()
-	}
-}, [userLoading, user, token, fetchTasks])
+	useEffect(() => {
+		if (!userLoading) {
+			fetchTasks()
+		}
+	}, [userLoading, fetchTasks])
 
-useEffect(() => {
-	if (!userLoading && user && token && isExecutor) {
-		fetchRecommendations()
-	} else if (!isExecutor) {
-		setRecommendedTasks([])
-		setRecommendedLoading(false)
-	}
-}, [userLoading, user, token, isExecutor, fetchRecommendations])
+	useEffect(() => {
+		if (!userLoading && user && token && isExecutor) {
+			fetchRecommendations()
+		} else if (!isExecutor) {
+			setRecommendedTasks([])
+			setRecommendedLoading(false)
+		}
+	}, [userLoading, user, token, isExecutor, fetchRecommendations])
 
 	const applyFilters = useCallback(() => {
 		const query = new URLSearchParams()
@@ -374,13 +397,17 @@ useEffect(() => {
 										setShowSearchHistory(true)
 									}
 								}}
-								onBlur={(e) => {
+								onBlur={e => {
 									// Закрываем историю только если клик был вне компонента
-									if (!searchHistoryContainerRef.current?.contains(e.relatedTarget as Node)) {
+									if (
+										!searchHistoryContainerRef.current?.contains(
+											e.relatedTarget as Node
+										)
+									) {
 										setShowSearchHistory(false)
 									}
 								}}
-								onKeyDown={(e) => {
+								onKeyDown={e => {
 									if (e.key === 'Enter' && search.trim()) {
 										setShowSearchHistory(false)
 										addToHistory(search.trim())
@@ -390,7 +417,7 @@ useEffect(() => {
 							{/* Кнопка очистки истории (показывается при фокусе и наличии истории) */}
 							{showSearchHistory && history.length > 0 && (
 								<button
-									onClick={(e) => {
+									onClick={e => {
 										e.stopPropagation()
 										clearHistory()
 										setShowSearchHistory(false)
@@ -406,11 +433,13 @@ useEffect(() => {
 								<div
 									ref={searchHistoryContainerRef}
 									className='absolute z-50 w-full mt-1 bg-gray-900/95 backdrop-blur-sm border border-emerald-500/30 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar'
-									onMouseDown={(e) => e.preventDefault()} // Предотвращаем blur при клике
+									onMouseDown={e => e.preventDefault()} // Предотвращаем blur при клике
 								>
 									<div className='p-2'>
 										<div className='flex items-center justify-between px-2 py-1 mb-1'>
-											<span className='text-xs text-gray-400 font-medium'>История поиска</span>
+											<span className='text-xs text-gray-400 font-medium'>
+												История поиска
+											</span>
 											<button
 												onClick={() => clearHistory()}
 												className='text-xs text-gray-500 hover:text-red-400 transition-colors'
@@ -433,7 +462,7 @@ useEffect(() => {
 													{item}
 												</span>
 												<button
-													onClick={(e) => {
+													onClick={e => {
 														e.stopPropagation()
 														removeFromHistory(item)
 													}}
@@ -454,8 +483,10 @@ useEffect(() => {
 
 					{/* Расширенные фильтры */}
 					<div className='space-y-4 pt-2 border-t border-emerald-500/20'>
-						<p className='text-emerald-400 text-sm font-medium'>Расширенные фильтры</p>
-						
+						<p className='text-emerald-400 text-sm font-medium'>
+							Расширенные фильтры
+						</p>
+
 						{/* Фильтр по рейтингу заказчика */}
 						<div className='space-y-2'>
 							<label className='text-gray-400 text-xs font-medium'>
@@ -484,8 +515,17 @@ useEffect(() => {
 									onClick={() => setIsHasFilesOpen(open => !open)}
 									className='w-full flex justify-between items-center p-3 bg-black/60 border border-emerald-500/30 rounded-lg text-white text-sm hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all'
 								>
-									<span>{hasFilesOptions.find(opt => opt.value === hasFiles)?.label ?? 'Не важно'}</span>
-									<ChevronDown className={`w-4 h-4 transition-transform ${isHasFilesOpen ? 'rotate-180 text-emerald-200' : 'text-emerald-300/80'}`} />
+									<span>
+										{hasFilesOptions.find(opt => opt.value === hasFiles)
+											?.label ?? 'Не важно'}
+									</span>
+									<ChevronDown
+										className={`w-4 h-4 transition-transform ${
+											isHasFilesOpen
+												? 'rotate-180 text-emerald-200'
+												: 'text-emerald-300/80'
+										}`}
+									/>
 								</button>
 								{isHasFilesOpen && (
 									<div className='absolute z-30 mt-2 w-full bg-black/85 border border-emerald-500/30 rounded-lg shadow-[0_0_20px_rgба(16,185,129,0.4)] backdrop-blur-md overflow-hidden'>
@@ -587,7 +627,7 @@ useEffect(() => {
 				{/* Задачи */}
 				<div className='flex-1 space-y-4 sm:space-y-6'>
 					{loading || userLoading ? (
-						<div className="space-y-4">
+						<div className='space-y-4'>
 							{[...Array(6)].map((_, i) => (
 								<TaskSkeleton key={i} />
 							))}
@@ -614,21 +654,25 @@ useEffect(() => {
 					) : tasks.length === 0 ? (
 						<EmptyState
 							icon={ClipboardList}
-							title="Задач пока нет"
-							description="Попробуйте изменить фильтры или создать новую задачу"
-							actionLabel={user?.role === 'customer' ? 'Создать задачу' : undefined}
+							title='Задач пока нет'
+							description='Попробуйте изменить фильтры или создать новую задачу'
+							actionLabel={
+								user?.role === 'customer' ? 'Создать задачу' : undefined
+							}
 							actionHref={user?.role === 'customer' ? '/tasks/new' : undefined}
 						/>
 					) : (
 						<>
-							{isExecutor && (
-								recommendedLoading ? (
+							{isExecutor &&
+								(recommendedLoading ? (
 									<div className='p-5 sm:p-6 bg-slate-900/60 border border-emerald-500/30 rounded-2xl text-slate-300 text-sm'>
 										Загружаем персональные рекомендации…
 									</div>
 								) : recommendedError ? (
 									<div className='p-5 sm:p-6 bg-red-900/40 border border-red-500/40 rounded-2xl text-red-200 text-sm'>
-										<span className='font-semibold'>Не удалось получить рекомендации.</span>{' '}
+										<span className='font-semibold'>
+											Не удалось получить рекомендации.
+										</span>{' '}
 										{recommendedError}
 									</div>
 								) : recommendedTasks.length > 0 ? (
@@ -639,7 +683,8 @@ useEffect(() => {
 													Рекомендуем для вас
 												</h2>
 												<p className='text-sm text-slate-300/80'>
-													Подбор на основе ваших навыков, избранного и истории откликов
+													Подбор на основе ваших навыков, избранного и истории
+													откликов
 												</p>
 											</div>
 											<button
@@ -669,10 +714,13 @@ useEffect(() => {
 																	</h3>
 																</Link>
 																<p className='text-xs text-slate-400 mt-1'>
-																	{new Date(task.createdAt).toLocaleDateString('ru-RU', {
-																		day: '2-digit',
-																		month: 'long',
-																	})}
+																	{new Date(task.createdAt).toLocaleDateString(
+																		'ru-RU',
+																		{
+																			day: '2-digit',
+																			month: 'long',
+																		}
+																	)}
 																</p>
 															</div>
 
@@ -691,13 +739,18 @@ useEffect(() => {
 																	<span className='text-xl font-semibold text-emerald-100 leading-none'>
 																		{recommendation.score}
 																	</span>
-																	<span className='text-[11px] text-emerald-300/60'>/ 100</span>
+																	<span className='text-[11px] text-emerald-300/60'>
+																		/ 100
+																	</span>
 																</div>
 																<div className='relative w-24 h-[6px] rounded-full bg-emerald-500/5 border border-emerald-500/20 overflow-hidden shadow-[0_0_10px_rgba(16,185,129,0.18)]'>
 																	<div
 																		className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
 																		style={{
-																			width: `${Math.min(100, Math.max(0, recommendation.score * 5))}%`,
+																			width: `${Math.min(
+																				100,
+																				Math.max(0, recommendation.score * 5)
+																			)}%`,
 																		}}
 																	/>
 																</div>
@@ -706,47 +759,71 @@ useEffect(() => {
 																		<button
 																			type='button'
 																			className='text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none'
-																			onMouseEnter={() => setActiveReasonId(reasonsKey)}
-																			onFocus={() => setActiveReasonId(reasonsKey)}
+																			onMouseEnter={() =>
+																				setActiveReasonId(reasonsKey)
+																			}
+																			onFocus={() =>
+																				setActiveReasonId(reasonsKey)
+																			}
 																			onBlur={() => {
 																				if (activeReasonId === reasonsKey) {
 																					setActiveReasonId(null)
 																				}
 																			}}
-																			onClick={() => setActiveReasonId(prev => (prev === reasonsKey ? null : reasonsKey))}
+																			onClick={() =>
+																				setActiveReasonId(prev =>
+																					prev === reasonsKey
+																						? null
+																						: reasonsKey
+																				)
+																			}
 																		>
 																			Почему подобрали
 																		</button>
 																		<div
-																			onMouseEnter={() => setActiveReasonId(reasonsKey)}
+																			onMouseEnter={() =>
+																				setActiveReasonId(reasonsKey)
+																			}
 																			onMouseLeave={() => {
 																				if (activeReasonId === reasonsKey) {
 																					setActiveReasonId(null)
 																				}
 																			}}
 																			className={`absolute z-30 top-[calc(100%+0.5rem)] right-0 w-60 rounded-xl border border-emerald-500/25 bg-slate-950/95 px-3 py-3 text-left shadow-[0_18px_40px_rgba(16,185,129,0.25)] transition-all duration-150 ${
-																				showReasons ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'
+																				showReasons
+																					? 'opacity-100 visible pointer-events-auto'
+																					: 'opacity-0 invisible pointer-events-none'
 																			}`}
 																		>
 																			<div className='text-[10px] uppercase tracking-[0.12em] text-emerald-300/60 mb-2'>
 																				Почему подобрали
 																			</div>
-																			{recommendation.reasons.slice(0, 3).map(reason => (
-																				<div key={`${task.id}-popover-${reason}`} className='flex gap-2 text-[11px] text-emerald-100/85'>
-																					<span className='text-emerald-400/80'>•</span>
-																					<span className='flex-1'>{reason}</span>
-																				</div>
-																			))}
+																			{recommendation.reasons
+																				.slice(0, 3)
+																				.map(reason => (
+																					<div
+																						key={`${task.id}-popover-${reason}`}
+																						className='flex gap-2 text-[11px] text-emerald-100/85'
+																					>
+																						<span className='text-emerald-400/80'>
+																							•
+																						</span>
+																						<span className='flex-1'>
+																							{reason}
+																						</span>
+																					</div>
+																				))}
 																			{recommendation.reasons.length > 3 ? (
 																				<div className='text-[10px] text-emerald-300/45 mt-2'>
-																					и ещё {recommendation.reasons.length - 3} фактора
+																					и ещё{' '}
+																					{recommendation.reasons.length - 3}{' '}
+																					фактора
 																				</div>
 																			) : null}
 																		</div>
 																	</>
 																) : null}
 															</div>
-
 														</div>
 
 														<p className='text-sm text-slate-300/90 line-clamp-3 min-h-[3.5rem]'>
@@ -766,7 +843,9 @@ useEffect(() => {
 																	key={`${task.id}-${tag}`}
 																	className='inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 border border-emerald-500/30 text-[11px] text-emerald-200'
 																>
-																	<span>{recommendationTagLabels[tag].emoji}</span>
+																	<span>
+																		{recommendationTagLabels[tag].emoji}
+																	</span>
 																	{recommendationTagLabels[tag].label}
 																</span>
 															))}
@@ -795,8 +874,14 @@ useEffect(() => {
 								) : (
 									<section className='p-4 sm:p-5 lg:p-6 bg-black/35 border border-emerald-500/20 rounded-2xl text-sm text-emerald-200/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
 										<div>
-											<h3 className='text-base font-semibold text-emerald-200'>Персональные рекомендации появятся позже</h3>
-											<p className='mt-1 text-emerald-200/70'>Заполните навыки, откликайтесь на задачи или добавляйте избранное — и мы начнем подбирать подходящие предложения.</p>
+											<h3 className='text-base font-semibold text-emerald-200'>
+												Персональные рекомендации появятся позже
+											</h3>
+											<p className='mt-1 text-emerald-200/70'>
+												Заполните навыки, откликайтесь на задачи или добавляйте
+												избранное — и мы начнем подбирать подходящие
+												предложения.
+											</p>
 										</div>
 										<Link
 											href='/profile'
@@ -805,8 +890,7 @@ useEffect(() => {
 											Настроить профиль
 										</Link>
 									</section>
-								)
-							)}
+								))}
 
 							{tasks.map(task => (
 								<div
@@ -815,12 +899,12 @@ useEffect(() => {
 								>
 									{/* Декоративный градиент при наведении */}
 									<div className='absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10'></div>
-									
+
 									{/* Кнопки действий */}
 									<div className='absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-2'>
 										{/* Кнопка закладки */}
 										{isExecutor && (
-											<FavoriteTaskButton 
+											<FavoriteTaskButton
 												taskId={task.id}
 												size='sm'
 												className='p-2 hover:bg-emerald-500/20 rounded-lg'
@@ -828,10 +912,12 @@ useEffect(() => {
 										)}
 										{/* Кнопка копирования ссылки */}
 										<button
-											onClick={async (e) => {
+											onClick={async e => {
 												e.stopPropagation()
 												const url = `${window.location.origin}/tasks/${task.id}`
-												const { copyToClipboard } = await import('@/lib/copyToClipboard')
+												const { copyToClipboard } = await import(
+													'@/lib/copyToClipboard'
+												)
 												const success = await copyToClipboard(url)
 												if (success) {
 													toast.success('Ссылка скопирована')
@@ -875,14 +961,14 @@ useEffect(() => {
 									{/* Заголовок */}
 									<Link href={`/tasks/${task.id}`}>
 										<h2 className='text-lg sm:text-xl font-bold text-emerald-200 group-hover:text-emerald-100 cursor-pointer line-clamp-2 pr-10 transition-colors duration-200 flex items-center gap-2 flex-wrap'>
- 									{task.title}
- 								</h2>
- 							</Link>
- 
- 							{/* Описание */}
- 							<p className='text-sm sm:text-base text-gray-300 leading-relaxed line-clamp-3'>
- 								{task.description}
- 							</p>
+											{task.title}
+										</h2>
+									</Link>
+
+									{/* Описание */}
+									<p className='text-sm sm:text-base text-gray-300 leading-relaxed line-clamp-3'>
+										{task.description}
+									</p>
 
 									{/* Цена и информация */}
 									<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-gradient-to-r from-transparent via-emerald-500/30 to-transparent'>
@@ -905,27 +991,30 @@ useEffect(() => {
 
 							{/* Пагинация */}
 							<div className='flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 mt-6 sm:mt-8'>
-							<nav aria-label="Пагинация задач">
-								<button
-									onClick={() => setPage(p => Math.max(p - 1, 1))}
-									disabled={page === 1}
-									className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
-									aria-label="Предыдущая страница"
-								>
-									← Назад
-								</button>
-								<span className='text-gray-400 text-sm sm:text-base' aria-label={`Страница ${page} из ${totalPages}`}>
-									Страница {page} из {totalPages}
-								</span>
-								<button
-									onClick={() => setPage(p => Math.min(p + 1, totalPages))}
-									disabled={page === totalPages}
-									className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
-									aria-label="Следующая страница"
-								>
-									Далее →
-							</button>
-							</nav>
+								<nav aria-label='Пагинация задач'>
+									<button
+										onClick={() => setPage(p => Math.max(p - 1, 1))}
+										disabled={page === 1}
+										className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
+										aria-label='Предыдущая страница'
+									>
+										← Назад
+									</button>
+									<span
+										className='text-gray-400 text-sm sm:text-base'
+										aria-label={`Страница ${page} из ${totalPages}`}
+									>
+										Страница {page} из {totalPages}
+									</span>
+									<button
+										onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+										disabled={page === totalPages}
+										className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
+										aria-label='Следующая страница'
+									>
+										Далее →
+									</button>
+								</nav>
 							</div>
 						</>
 					)}
@@ -946,4 +1035,3 @@ useEffect(() => {
 		</div>
 	)
 }
-
