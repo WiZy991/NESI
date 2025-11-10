@@ -1122,11 +1122,8 @@ export default function Header() {
 						<nav className='flex flex-col p-5 space-y-1.5 text-gray-200'>
 							{user ? (
 								<>
-									{/* Навигация для страниц /business, /talents, /tasks, /specialists (для авторизованных пользователей) */}
-									{(pathname === '/business' ||
-										pathname === '/talents' ||
-										pathname === '/tasks' ||
-										pathname === '/specialists') && (
+									{/* Навигация для страниц /business и /talents (для авторизованных пользователей) */}
+									{(pathname === '/business' || pathname === '/talents') && (
 										<>
 											<Link
 												href='/tasks'
@@ -1454,11 +1451,8 @@ export default function Header() {
 				<nav className='hidden md:flex gap-7 items-center text-gray-200 font-poppins'>
 					{user ? (
 						<>
-							{/* Навигация для страниц /business, /talents, /tasks, /specialists (для авторизованных пользователей) */}
-							{(pathname === '/business' ||
-								pathname === '/talents' ||
-								pathname === '/tasks' ||
-								pathname === '/specialists') && (
+							{/* Навигация для страниц /business и /talents (для авторизованных пользователей) */}
+							{(pathname === '/business' || pathname === '/talents') && (
 								<>
 									<Link href='/tasks' className={linkStyle}>
 										Каталог задач
