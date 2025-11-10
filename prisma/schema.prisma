@@ -139,6 +139,9 @@ model Task {
   executorKanbanColumn String       @default("TODO")
   executorKanbanOrder  Int          @default(0)
   executorNote         String?
+  executorPlannedStart DateTime?
+  executorPlannedDeadline DateTime?
+  executorPlanNote     String?
   customerId         String
   executorId         String?
   createdAt          DateTime       @default(now())

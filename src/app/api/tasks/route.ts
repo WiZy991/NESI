@@ -171,6 +171,7 @@ export async function GET(req: Request) {
 					title: true,
 					description: true,
 					price: true,
+					escrowAmount: true,
 					deadline: true,
 					status: true,
 					createdAt: true,

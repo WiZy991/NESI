@@ -15,7 +15,7 @@ type TestMeta = {
   passScore: number
   questionCount: number
 }
-type TestResponse = { test: TestMeta; questions: SafeQuestion[] }
+type TestResponse = { test: TestMeta; questions: SafeQuestion[]; answers?: Record<string, string> }
 type StartAttemptResponse = { attemptId: string; startedAt: string; timeLimitSec: number }
 
 function fmtLeft(sec: number | null) {
@@ -68,6 +68,7 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
   const [attemptId, setAttemptId] = useState<string | null>(null)
   const [idx, setIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [correctAnswers, setCorrectAnswers] = useState<Record<string, string>>({})
   const [leftSec, setLeftSec] = useState<number | null>(null)
   const [result, setResult] = useState<{ passed: boolean; score: number; outOfTime: boolean; passScore: number } | null>(null)
 
@@ -93,6 +94,7 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
           const d2 = r2.data as StartAttemptResponse
           setTest(d1.test)
           setQuestions(d1.questions)
+          setCorrectAnswers(d1.answers ?? {})
           setAttemptId(d2.attemptId)
           const startedAt = new Date(d2.startedAt).getTime()
           const expiresAt = startedAt + d2.timeLimitSec * 1000
@@ -120,7 +122,8 @@ function TestRunner({ subcategoryId, backTo }: { subcategoryId: string; backTo: 
       setLoading(true); setErr(null)
       const payload = {
         attemptId,
-        answers: Object.entries(answers).map(([questionId, optionId]) => ({ questionId, optionId }))
+        answers: Object.entries(answers).map(([questionId, optionId]) => ({ questionId, optionId })),
+        correctAnswers
       }
       const r = await authFetch('/api/cert/attempts/submit', { method: 'POST', body: JSON.stringify(payload) })
       if (!r.res.ok) throw new Error(r.data?.error || `HTTP ${r.res.status}`)

@@ -1,55 +1,33 @@
 'use client'
 
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	type KeyboardEvent,
-	useRef,
-	useState,
-	type CSSProperties,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import {
-	DndContext,
-	DragEndEvent,
-	DragStartEvent,
-	KeyboardSensor,
-	MouseSensor,
-	TouchSensor,
-	closestCorners,
-	useSensor,
-	useSensors,
-} from '@dnd-kit/core'
-import { useDroppable } from '@dnd-kit/core'
-import {
-	SortableContext,
-	arrayMove,
-	sortableKeyboardCoordinates,
-	useSortable,
-	verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import {
 	AlertCircle,
-	CalendarDays,
 	ClipboardList,
-	Download,
-	Filter,
-	LayoutGrid,
-	List,
+	ExternalLink,
+	History,
 	Loader2,
 	NotebookPen,
-	Save,
+	Sparkles,
 	Users,
-	X,
-	ChevronDown,
+	ChevronLeft,
+	ChevronRight,
 } from 'lucide-react'
 import clsx from 'clsx'
-import { toast } from 'sonner'
-import { format, isToday, isTomorrow, differenceInCalendarDays } from 'date-fns'
+import {
+	addDays,
+	addMonths,
+	endOfMonth,
+	format,
+	isSameDay,
+	isSameMonth,
+	startOfMonth,
+	startOfWeek,
+} from 'date-fns'
 import { ru as ruLocale } from 'date-fns/locale'
+import { toast } from 'sonner'
 
 import { useUser } from '@/context/UserContext'
 
@@ -61,6 +39,7 @@ interface ExecutorTask {
 	description: string | null
 	price: number
 	rawPrice: string | number | null
+	escrowAmount: number
 	deadline: string | null
 	status: string
 	executorNote: string | null
@@ -69,6 +48,9 @@ interface ExecutorTask {
 	createdAt: string
 	updatedAt: string
 	completedAt: string | null
+	executorPlannedStart: string | null
+	executorPlannedDeadline: string | null
+	executorPlanNote: string | null
 	customer?: {
 		id?: string
 		fullName?: string | null
@@ -86,6 +68,10 @@ type RawApiTask = {
 	executorNote?: string | null
 	executorKanbanColumn?: string | null
 	executorKanbanOrder?: number | null
+	escrowAmount?: string | number | null
+	executorPlannedStart?: string | null
+	executorPlannedDeadline?: string | null
+	executorPlanNote?: string | null
 	createdAt: string
 	updatedAt: string
 	completedAt?: string | null
@@ -96,216 +82,143 @@ type RawApiTask = {
 	} | null
 }
 
-interface FilterState {
-	search: string
-	statuses: KanbanColumnType[]
-	customerId: string
-	minBudget: string
-	maxBudget: string
-	onlyWithNotes: boolean
-}
+const ACTIVE_PRIORITY: KanbanColumnType[] = ['IN_PROGRESS', 'REVIEW', 'TODO']
 
-interface FilterPreset {
-	id: string
-	name: string
-	filters: FilterState
-}
-
-function normalizePresetFilters(input: Partial<FilterState> | undefined): FilterState {
-	return {
-		search: input?.search ?? '',
-		statuses: Array.isArray(input?.statuses)
-			? (input!.statuses as KanbanColumnType[])
-			: [],
-		customerId: input?.customerId ?? 'all',
-		minBudget: input?.minBudget ?? '',
-		maxBudget: input?.maxBudget ?? '',
-		onlyWithNotes: Boolean(input?.onlyWithNotes),
-	}
-}
-
-type SelectOption = {
-	value: string
-	label: string
-}
-
-type FilterToggleProps = {
-	label: string
-	checked: boolean
-	onChange: (next: boolean) => void
-}
-
-function FilterToggle({ label, checked, onChange }: FilterToggleProps) {
-	const toggle = () => onChange(!checked)
-
-	const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault()
-			toggle()
-		}
-	}
-
-	return (
-		<button
-			type='button'
-			role='switch'
-			aria-checked={checked}
-			onClick={toggle}
-			onKeyDown={handleKeyDown}
-			className='group inline-flex items-center gap-2 text-xs text-gray-400 outline-none focus-visible:text-emerald-200'
-		>
-			<span
-				className={clsx(
-					'relative inline-flex h-4 w-7 items-center rounded-full border border-white/20 bg-white/5 transition-all duration-200',
-					'group-hover:border-emerald-300/60 group-hover:bg-emerald-300/10',
-					checked && 'border-emerald-400 bg-emerald-500/40'
-				)}
-			>
-				<span
-					className={clsx(
-						'absolute left-[2px] h-3 w-3 rounded-full bg-white transition-transform duration-200',
-						checked ? 'translate-x-[14px] bg-emerald-100' : 'translate-x-0'
-					)}
-				/>
-			</span>
-			<span
-				className={clsx(
-					'transition-colors duration-150',
-					checked ? 'text-emerald-200' : 'group-hover:text-emerald-200'
-				)}
-			>
-				{label}
-			</span>
-		</button>
-	)
-}
-
-type SelectFieldProps = {
-	label: string
-	value: string
-	options: SelectOption[]
-	onChange: (value: string) => void
-	placeholder?: string
-}
-
-function SelectField({ label, value, options, onChange, placeholder }: SelectFieldProps) {
-	const [open, setOpen] = useState(false)
-	const containerRef = useRef<HTMLDivElement | null>(null)
-
-	useEffect(() => {
-		function handleOutside(event: MouseEvent) {
-			if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-				setOpen(false)
-			}
-		}
-		document.addEventListener('mousedown', handleOutside)
-		return () => document.removeEventListener('mousedown', handleOutside)
-	}, [])
-
-	const selected = options.find(option => option.value === value)
-
-	return (
-		<div ref={containerRef} className='relative flex flex-col gap-1'>
-			<span className='text-[10px] uppercase tracking-[0.2em] text-emerald-300/80'>
-				{label}
-			</span>
-			<button
-				type='button'
-				onClick={() => setOpen(prev => !prev)}
-				className={clsx(
-					'flex w-full items-center justify-between rounded-xl border px-4 py-2 text-sm font-medium transition',
-					'border-white/10 bg-black/40 text-white outline-none hover:border-emerald-300/60',
-					open ? 'border-emerald-400/70 shadow-[0_0_15px_rgba(16,185,129,0.25)]' : ''
-				)}
-			>
-				<span className='truncate'>
-					{selected ? selected.label : placeholder ?? 'Выберите'}
-				</span>
-				<ChevronDown
-					className={clsx(
-						'h-4 w-4 transform transition-transform',
-						open ? 'rotate-180 text-emerald-200' : 'text-emerald-300/70'
-					)}
-				/>
-			</button>
-			{open && (
-				<div className='absolute top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-emerald-400/30 bg-slate-950/95 shadow-[0_20px_40px_rgba(16,185,129,0.2)] backdrop-blur'>
-					<ul className='max-h-56 overflow-y-auto py-1 text-sm text-gray-200'>
-						{options.map(option => {
-							const active = option.value === value
-							return (
-								<li key={option.value}>
-									<button
-										type='button'
-										onClick={() => {
-											onChange(option.value)
-											setOpen(false)
-										}}
-										className={clsx(
-											'flex w-full items-center justify-between px-4 py-2 text-left transition',
-											active
-												? 'bg-emerald-500/20 text-emerald-200'
-												: 'hover:bg-white/10 hover:text-white'
-										)}
-									>
-										<span>{option.label}</span>
-										{active && <span className='text-xs text-emerald-300'>✓</span>}
-									</button>
-								</li>
-							)
-						})}
-					</ul>
-				</div>
-			)}
-		</div>
-	)
-}
-
-const COLUMN_ORDER: KanbanColumnType[] = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']
-
-const COLUMN_META: Record<
-	KanbanColumnType,
-	{ title: string; subtitle: string; accent: string; border: string; hint: string }
+const STATUS_META: Record<
+	KanbanColumnType | 'CANCELLED',
+	{ label: string; badge: string; description: string }
 > = {
 	TODO: {
-		title: 'К началу',
-		subtitle: 'Назначенные, можно стартовать',
-		accent: 'bg-amber-500/10',
-		border: 'border-amber-500/40',
-		hint: 'Перетащи сюда, если ещё не приступал к задаче',
+		label: 'Назначена',
+		badge: 'border-amber-400/40 bg-amber-400/10 text-amber-100',
+		description: 'Можно начинать работу, как только будешь готов.',
 	},
 	IN_PROGRESS: {
-		title: 'В работе',
-		subtitle: 'Сейчас выполняется',
-		accent: 'bg-blue-500/10',
-		border: 'border-blue-500/35',
-		hint: 'Основная работа по задаче',
+		label: 'В работе',
+		badge: 'border-blue-400/40 bg-blue-400/10 text-blue-100',
+		description: 'Ты сейчас выполняешь эту задачу.',
 	},
 	REVIEW: {
-		title: 'На проверке',
-		subtitle: 'Ждёт реакции заказчика',
-		accent: 'bg-purple-500/10',
-		border: 'border-purple-500/35',
-		hint: 'Отправлено заказчику на проверку или ожидание ответа',
+		label: 'На проверке',
+		badge: 'border-purple-400/40 bg-purple-400/10 text-purple-100',
+		description: 'Ждём обратную связь от заказчика.',
 	},
 	DONE: {
-		title: 'Готово',
-		subtitle: 'Завершено с твоей стороны',
-		accent: 'bg-emerald-500/10',
-		border: 'border-emerald-500/35',
-		hint: 'Можно закрывать — дождитесь подтверждения заказчика',
+		label: 'Завершена',
+		badge: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100',
+		description: 'Задача закрыта, можно переходить к следующей.',
+	},
+	CANCELLED: {
+		label: 'Отменена',
+		badge: 'border-red-500/50 bg-red-500/10 text-red-200',
+		description: 'Задача отменена заказчиком.',
 	},
 }
 
-const PRESET_STORAGE_KEY = 'executor-task-filter-presets'
+function getExecutorStatusMeta(task: ExecutorTask) {
+	if (task.status === 'cancelled') return STATUS_META.CANCELLED
+	if (task.status === 'completed') return STATUS_META.DONE
+	if (task.status === 'in_progress') return STATUS_META.IN_PROGRESS
+	return STATUS_META[task.executorKanbanColumn] ?? STATUS_META.TODO
+}
 
-function createEmptyColumns(): Record<KanbanColumnType, ExecutorTask[]> {
-	return {
-		TODO: [],
-		IN_PROGRESS: [],
-		REVIEW: [],
-		DONE: [],
-	}
+type Hint = {
+	id: string
+	title: string
+	description: string
+	tone: 'positive' | 'neutral' | 'warning'
+}
+
+const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+
+type CalendarPopoverProps = {
+	selectedIso: string | null
+	onSelect: (date: Date) => void
+	onClose: () => void
+}
+
+function CalendarPopover({ selectedIso, onSelect, onClose }: CalendarPopoverProps) {
+	const initialDate = selectedIso ? new Date(selectedIso) : new Date()
+	const [month, setMonth] = useState(startOfMonth(initialDate))
+
+	const weeks = useMemo(() => {
+		const start = startOfWeek(month, { weekStartsOn: 1 })
+		const end = endOfMonth(month)
+		const rows: Date[][] = []
+		let current = start
+		while (rows.length < 6) {
+			const row: Date[] = []
+			for (let i = 0; i < 7; i++) {
+				row.push(current)
+				current = addDays(current, 1)
+			}
+			rows.push(row)
+			if (current > end && isSameMonth(rows[rows.length - 1][6], end)) break
+		}
+		return rows
+	}, [month])
+
+	const selectedDate = selectedIso ? new Date(selectedIso) : null
+
+	return (
+		<div className='flex flex-col gap-3 rounded-2xl border border-emerald-400/40 bg-slate-950/95 p-4 shadow-[0_20px_40px_rgba(16,185,129,0.3)] backdrop-blur'>
+			<div className='flex items-center justify-between text-sm text-emerald-100'>
+				<button
+					type='button'
+					onClick={() => setMonth(prev => addMonths(prev, -1))}
+					className='inline-flex items-center rounded-md border border-emerald-400/20 px-2 py-1 transition hover:border-emerald-300 hover:text-emerald-50'
+				>
+					<ChevronLeft className='h-4 w-4' />
+				</button>
+				<span className='font-semibold'>{format(month, 'LLLL yyyy', { locale: ruLocale })}</span>
+				<button
+					type='button'
+					onClick={() => setMonth(prev => addMonths(prev, 1))}
+					className='inline-flex items-center rounded-md border border-emerald-400/20 px-2 py-1 transition hover:border-emerald-300 hover:text-emerald-50'
+				>
+					<ChevronRight className='h-4 w-4' />
+				</button>
+			</div>
+			<div className='grid grid-cols-7 gap-1 text-center text-[11px] uppercase tracking-[0.2em] text-emerald-300/80'>
+				{WEEKDAY_LABELS.map(label => (
+					<div key={label}>{label}</div>
+				))}
+			</div>
+			<div className='grid grid-cols-7 gap-1 text-sm'>
+				{weeks.flat().map(day => {
+					const isSelected = selectedDate && isSameDay(day, selectedDate)
+					const isCurrentMonth = isSameMonth(day, month)
+					return (
+						<button
+							type='button'
+							key={day.toISOString()}
+							onClick={() => {
+								onSelect(day)
+								onClose()
+							}}
+							className={clsx(
+								'rounded-xl px-2 py-2 transition focus:outline-none',
+								isSelected
+									? 'bg-emerald-500 text-slate-950 font-semibold'
+									: isCurrentMonth
+										? 'bg-white/5 text-emerald-100 hover:bg-emerald-500/20'
+										: 'bg-white/5 text-emerald-100/40 hover:bg-emerald-500/10'
+							)}
+						>
+							{format(day, 'd')}
+						</button>
+					)
+				})}
+			</div>
+			<button
+				type='button'
+				onClick={onClose}
+				className='self-end rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition hover:border-emerald-300 hover:text-emerald-100'
+			>
+				Закрыть
+			</button>
+		</div>
+	)
 }
 
 function toNumber(value: string | number | null | undefined): number {
@@ -323,44 +236,55 @@ function normalizeTask(raw: RawApiTask): ExecutorTask {
 		? (raw.executorKanbanColumn.toUpperCase() as KanbanColumnType)
 		: 'TODO'
 
+	const resolveBudget = (value: string | number | null | undefined): number => {
+		if (value === null || value === undefined) return 0
+		if (typeof value === 'number') return value
+		const numeric = Number.parseFloat(value.replace(/\s/g, ''))
+		return Number.isFinite(numeric) ? numeric : 0
+	}
+
+	const escrowAmount = resolveBudget(raw.escrowAmount)
+	const basePrice = resolveBudget(raw.price)
+	const priceValue = escrowAmount > 0 ? escrowAmount : basePrice
+
+	let effectiveColumn: KanbanColumnType =
+		column === 'REVIEW' ? 'IN_PROGRESS' : column
+
+	switch (raw.status?.toLowerCase()) {
+		case 'in_progress':
+			effectiveColumn = 'IN_PROGRESS'
+			break
+		case 'completed':
+			effectiveColumn = 'DONE'
+			break
+		case 'cancelled':
+			effectiveColumn = 'TODO' // отменённые задачи скрываем из активного канбана
+			break
+		default:
+			break
+	}
+
 	return {
 		id: raw.id,
 		title: raw.title,
 		description: raw.description ?? null,
-		price: toNumber(raw.price),
-		rawPrice: raw.price ?? null,
+		price: priceValue,
+		rawPrice: raw.escrowAmount ?? raw.price ?? null,
+		escrowAmount,
 		deadline: raw.deadline ?? null,
 		status: raw.status ?? 'in_progress',
 		executorNote: raw.executorNote ?? null,
-		executorKanbanColumn: COLUMN_ORDER.includes(column) ? column : 'TODO',
+		executorKanbanColumn: STATUS_META[effectiveColumn] ? effectiveColumn : 'TODO',
 		executorKanbanOrder:
 			typeof raw.executorKanbanOrder === 'number' ? raw.executorKanbanOrder : 0,
+		executorPlannedStart: raw.executorPlannedStart ?? null,
+		executorPlannedDeadline: raw.executorPlannedDeadline ?? null,
+		executorPlanNote: raw.executorPlanNote ?? null,
 		createdAt: raw.createdAt,
 		updatedAt: raw.updatedAt,
 		completedAt: raw.completedAt ?? null,
 		customer: raw.customer ?? null,
 	}
-}
-
-function groupTasks(tasks: ExecutorTask[]): Record<KanbanColumnType, ExecutorTask[]> {
-	const result = createEmptyColumns()
-	for (const task of tasks) {
-		const column = COLUMN_ORDER.includes(task.executorKanbanColumn)
-			? task.executorKanbanColumn
-			: 'TODO'
-		result[column].push(task)
-	}
-
-	for (const column of COLUMN_ORDER) {
-		result[column].sort((a, b) => {
-			if (a.executorKanbanOrder !== b.executorKanbanOrder) {
-				return a.executorKanbanOrder - b.executorKanbanOrder
-			}
-			return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-		})
-	}
-
-	return result
 }
 
 function formatCurrency(value: number): string {
@@ -372,436 +296,611 @@ function formatCurrency(value: number): string {
 }
 
 function formatDate(value: string | null): string {
-	if (!value) return 'Без даты'
+	if (!value) return '—'
 	try {
-		return format(new Date(value), 'dd MMM yyyy', { locale: ruLocale })
+		return format(new Date(value), 'd MMM yyyy', { locale: ruLocale })
 	} catch {
 		return value
 	}
 }
 
-function matchesFilters(task: ExecutorTask, filters: FilterState): boolean {
-	const haystack = `${task.title} ${task.description ?? ''} ${
-		task.customer?.fullName ?? ''
-	} ${task.customer?.email ?? ''}`.toLowerCase()
-
-	if (filters.search.trim() && !haystack.includes(filters.search.trim().toLowerCase())) {
-		return false
+function formatDateTime(value: string | null): string {
+	if (!value) return '—'
+	try {
+		return format(new Date(value), 'd MMM yyyy, HH:mm', { locale: ruLocale })
+	} catch {
+		return value
 	}
-
-	if (
-		filters.statuses.length > 0 &&
-		!filters.statuses.includes(task.executorKanbanColumn)
-	) {
-		return false
-	}
-
-	if (
-		filters.customerId !== 'all' &&
-		task.customer?.id &&
-		task.customer.id !== filters.customerId
-	) {
-		return false
-	}
-
-	const price = task.price
-	if (filters.minBudget && price < Number(filters.minBudget || 0)) {
-		return false
-	}
-	if (filters.maxBudget && price > Number(filters.maxBudget || 0)) {
-		return false
-	}
-
-	if (filters.onlyWithNotes && !task.executorNote) {
-		return false
-	}
-
-	return true
 }
 
-function buildICS(tasks: ExecutorTask[]): string {
-	const lines = [
-		'BEGIN:VCALENDAR',
-		'VERSION:2.0',
-		'PRODID:-//NESI//ExecutorTasks//RU',
-	]
-
-	for (const task of tasks) {
-		const start = task.deadline ?? task.createdAt
-		const dt = format(new Date(start), "yyyyMMdd'T'HHmmss'Z'")
-		lines.push('BEGIN:VEVENT')
-		lines.push(`UID:${task.id}@nesi`)
-		lines.push(`DTSTAMP:${dt}`)
-		lines.push(`DTSTART:${dt}`)
-		lines.push(`SUMMARY:${task.title.replace(/\r?\n/g, ' ')}`)
-		lines.push(`DESCRIPTION:${(task.description ?? '').replace(/\r?\n/g, ' ')}`)
-		lines.push('END:VEVENT')
-	}
-
-	lines.push('END:VCALENDAR')
-	return lines.join('\r\n')
-}
-
-type KanbanColumnProps = {
-	columnId: KanbanColumnType
-	tasks: ExecutorTask[]
-	isFiltered: boolean
-	isSyncing: boolean
-	totalCount: number
-	isActiveColumn: boolean
-	customerLookup: Map<string, { name: string }>
-	onSaveNote: (taskId: string, note: string) => Promise<void>
-	onQuickMove: (taskId: string, targetColumn: KanbanColumnType) => void
-}
-
-function KanbanColumn({
-	columnId,
-	tasks,
-	isFiltered,
-	isSyncing,
-	totalCount,
-	isActiveColumn,
-	customerLookup,
-	onSaveNote,
-	onQuickMove,
-}: KanbanColumnProps) {
-	const { setNodeRef, isOver } = useDroppable({ id: columnId })
-	const meta = COLUMN_META[columnId]
-
-	return (
-		<div
-			ref={setNodeRef}
-			className={clsx(
-				'relative flex flex-col overflow-visible rounded-2xl border bg-black/30 backdrop-blur-md transition-colors',
-				meta.border,
-				meta.accent,
-				isOver && !isFiltered && !isSyncing && 'ring-2 ring-emerald-400/60'
-			)}
-			style={{ zIndex: isActiveColumn ? 500 : undefined }}
-		>
-			<div className='flex items-start justify-between gap-2 p-4'>
-				<div>
-					<h3 className='text-lg font-semibold text-white flex items-center gap-2'>
-						{meta.title}
-						<span className='rounded-full bg-white/10 px-2 text-sm text-white/80'>
-							{totalCount}
-						</span>
-					</h3>
-					<p className='text-xs text-gray-400'>{meta.subtitle}</p>
-				</div>
-			</div>
-
-			<div className='flex-1 space-y-3 p-4'>
-				{tasks.length === 0 ? (
-					<div className='rounded-xl border border-dashed border-white/10 bg-white/5 p-6 text-center text-sm text-gray-400'>
-						<p className='font-medium text-gray-200'>Нет задач</p>
-						<p className='text-xs text-gray-500 mt-1'>{meta.hint}</p>
-					</div>
-				) : (
-					<SortableContext
-						items={tasks.map(task => task.id)}
-						strategy={verticalListSortingStrategy}
-						disabled={isFiltered || isSyncing}
-					>
-						{tasks.map(task => (
-							<KanbanTaskCard
-								key={`${columnId}-${task.id}`}
-								task={task}
-								customerLookup={customerLookup}
-								disabled={isFiltered || isSyncing}
-								onSaveNote={onSaveNote}
-								onQuickMove={onQuickMove}
-							/>
-						))}
-					</SortableContext>
-				)}
-			</div>
-		</div>
-	)
-}
-
-type KanbanTaskCardProps = {
-	task: ExecutorTask
-	disabled: boolean
-	customerLookup: Map<string, { name: string }>
-	onSaveNote: (taskId: string, note: string) => Promise<void>
-	onQuickMove: (taskId: string, targetColumn: KanbanColumnType) => void
-}
-
-function KanbanTaskCard({
-	task,
-	disabled,
-	customerLookup,
-	onSaveNote,
-	onQuickMove,
-}: KanbanTaskCardProps) {
-	const {
-		attributes,
-		listeners,
-		setNodeRef,
-		transform,
-		transition,
-		isDragging,
-	} = useSortable({
-		id: task.id,
-		disabled,
+function pickCurrentTask(tasks: ExecutorTask[]): ExecutorTask | null {
+	const sorted = [...tasks].sort((a, b) => {
+		const priorityDiff =
+			ACTIVE_PRIORITY.indexOf(a.executorKanbanColumn) -
+			ACTIVE_PRIORITY.indexOf(b.executorKanbanColumn)
+		if (priorityDiff !== 0) return priorityDiff
+		return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
 	})
 
-	const style: CSSProperties = {
-		transform: CSS.Transform.toString(transform),
-		transition: transition ?? 'transform 180ms ease, box-shadow 180ms ease',
-		zIndex: isDragging ? 999 : undefined,
-		boxShadow: isDragging
-			? '0 18px 40px rgba(16,185,129,0.35)'
-			: '0 10px 25px rgba(16,185,129,0.08)',
-		cursor: isDragging ? 'grabbing' : 'grab',
-		position: 'relative',
+	return sorted.find(task => ACTIVE_PRIORITY.includes(task.executorKanbanColumn)) ?? null
+}
+
+function pickHistoryTasks(tasks: ExecutorTask[], currentTaskId: string | null): ExecutorTask[] {
+	return tasks
+		.filter(task => task.id !== currentTaskId)
+		.sort(
+			(a, b) =>
+				new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+		)
+}
+
+function buildHints(currentTask: ExecutorTask | null, historyTasks: ExecutorTask[]): Hint[] {
+	const hints: Hint[] = []
+
+	if (!currentTask) {
+		hints.push({
+			id: 'no-current',
+			title: 'Нет активной задачи',
+			description: 'Как только заказчик назначит тебя на новую задачу, она появится здесь.',
+			tone: 'neutral',
+		})
+		if (historyTasks.length > 0) {
+			hints.push({
+				id: 'history',
+				title: `Последняя задача: ${historyTasks[0].title}`,
+				description: `Обновлена ${formatDateTime(historyTasks[0].updatedAt)}.`,
+				tone: 'positive',
+			})
+		}
+		return hints
 	}
 
+	const statusMeta = getExecutorStatusMeta(currentTask)
+	hints.push({
+		id: 'status',
+		title: `Статус: ${statusMeta.label}`,
+		description: statusMeta.description,
+		tone: 'neutral',
+	})
+
+	if (currentTask.executorNote) {
+		hints.push({
+			id: 'note',
+			title: 'Заметка добавлена',
+			description: 'Если план поменяется — обнови заметку, чтобы ничего не забыть.',
+			tone: 'positive',
+		})
+	} else {
+		hints.push({
+			id: 'note',
+			title: 'Добавь короткий план',
+			description: 'Запиши, что нужно сделать первым делом — это поможет быстрее включиться.',
+			tone: 'warning',
+		})
+	}
+
+	if (currentTask.executorPlannedDeadline) {
+		hints.push({
+			id: 'plan-deadline',
+			title: 'Твой дедлайн по задаче',
+			description: `Запланировано на ${formatDateTime(currentTask.executorPlannedDeadline)}.`,
+			tone: 'neutral',
+		})
+	} else {
+		hints.push({
+			id: 'plan-missing',
+			title: 'Запланируй дедлайн для себя',
+			description: 'Определи удобную дату выполнения — так проще удерживать темп.',
+			tone: 'warning',
+		})
+	}
+
+	if (currentTask.executorPlanNote) {
+		hints.push({
+			id: 'plan-note',
+			title: 'Есть личные шаги',
+			description: currentTask.executorPlanNote,
+			tone: 'positive',
+		})
+	}
+
+	hints.push({
+		id: 'updated-at',
+		title: 'Последнее обновление',
+		description: `Задача обновлялась ${formatDateTime(currentTask.updatedAt)}.`,
+		tone: 'neutral',
+	})
+
+	const lastDone = historyTasks.find(task => task.executorKanbanColumn === 'DONE')
+	if (lastDone) {
+		hints.push({
+			id: 'recent-done',
+			title: `Недавно завершено: ${lastDone.title}`,
+			description: `Закрыта ${formatDateTime(lastDone.updatedAt)} — отличный темп!`,
+			tone: 'positive',
+		})
+	}
+
+	return hints.slice(0, 3)
+}
+
+type StatsSnapshot = {
+	total: number
+	active: number
+	done: number
+}
+
+const PLATFORM_STATUS_LABELS: Record<string, string> = {
+	open: 'Открыта',
+	in_progress: 'В работе',
+	review: 'На проверке',
+	completed: 'Выполнена',
+	cancelled: 'Отменена',
+}
+
+function StatsSummary({ stats }: { stats: StatsSnapshot }) {
 	return (
-		<div
-			ref={setNodeRef}
-			style={style}
-			className='relative'
-			{...attributes}
-			{...listeners}
-		>
-			<TaskCardContent
-				task={task}
-				customerLookup={customerLookup}
-				onSaveNote={onSaveNote}
-				onQuickMove={onQuickMove}
-			/>
+		<div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3'>
+			<StatCard label='Всего задач' value={stats.total} tone='neutral' />
+			<StatCard label='Сейчас в работе' value={stats.active} tone='positive' />
+			<StatCard label='Завершено' value={stats.done} tone='positive' subtle />
 		</div>
 	)
 }
 
-type TaskCardContentProps = {
-	task: ExecutorTask
-	customerLookup: Map<string, { name: string }>
-	onSaveNote: (taskId: string, note: string) => Promise<void>
-	onQuickMove: (taskId: string, targetColumn: KanbanColumnType) => void
-}
-
-function TaskCardContent({
-	task,
-	customerLookup,
-	onSaveNote,
-	onQuickMove,
-}: TaskCardContentProps) {
-	const [noteDraft, setNoteDraft] = useState(task.executorNote ?? '')
-	const [saving, setSaving] = useState(false)
-
-	useEffect(() => {
-		setNoteDraft(task.executorNote ?? '')
-	}, [task.executorNote])
-
-	const saveNote = async () => {
-		setSaving(true)
-		try {
-			await onSaveNote(task.id, noteDraft)
-			toast.success('Заметка обновлена')
-		} catch (error) {
-			console.error(error)
-			toast.error('Не удалось сохранить заметку')
-		} finally {
-			setSaving(false)
-		}
-	}
-
-	const handleMove = (target: KanbanColumnType) => () => {
-		onQuickMove(task.id, target)
-	}
-
-	const customerName =
-		customerLookup.get(task.customer?.id ?? '')?.name ??
-		task.customer?.fullName ??
-		task.customer?.email ??
-		'—'
+function StatCard({
+	label,
+	value,
+	tone,
+	subtle,
+}: {
+	label: string
+	value: number | string
+	tone: 'positive' | 'neutral' | 'warning'
+	subtle?: boolean
+}) {
+	const toneClass =
+		tone === 'positive'
+			? 'border-emerald-400/30 bg-emerald-400/5 text-emerald-100'
+			: tone === 'warning'
+				? 'border-amber-400/40 bg-amber-400/5 text-amber-100'
+				: 'border-white/10 bg-white/5 text-gray-200'
 
 	return (
-		<div className='rounded-2xl border border-white/10 bg-slate-950/80 p-4 transition hover:border-emerald-400/50 hover:shadow-[0_10px_25px_rgba(16,185,129,0.15)]'>
-			<div className='flex items-start justify-between gap-2'>
+		<div
+			className={clsx(
+				'rounded-xl border px-4 py-5 transition',
+				toneClass,
+				!subtle && 'hover:border-emerald-400/50 hover:shadow-[0_8px_20px_rgba(16,185,129,0.15)]'
+			)}
+		>
+			<p className='text-xs uppercase tracking-[0.2em]'>{label}</p>
+			<p className='mt-3 text-2xl font-semibold'>{value}</p>
+				</div>
+	)
+}
+
+function ContextHints({ hints }: { hints: Hint[] }) {
+	if (hints.length === 0) return null
+
+	return (
+		<div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+			{hints.map(hint => (
+				<div
+					key={hint.id}
+					className={clsx(
+						'flex items-start gap-3 rounded-2xl border px-4 py-3',
+						hint.tone === 'positive' && 'border-emerald-400/30 bg-emerald-400/5',
+						hint.tone === 'warning' && 'border-amber-400/40 bg-amber-400/5',
+						hint.tone === 'neutral' && 'border-white/10 bg-white/5'
+					)}
+				>
+					<Sparkles className='mt-1 h-4 w-4 text-emerald-200' />
+					<div>
+						<p className='text-sm font-medium text-white'>{hint.title}</p>
+						<p className='mt-1 text-xs text-gray-300'>{hint.description}</p>
+			</div>
+				</div>
+			))}
+		</div>
+	)
+}
+
+function CurrentTaskCard({
+	task,
+	onSaveNote,
+	onSavePlan,
+	isSavingNote,
+	isSavingPlan,
+}: {
+	task: ExecutorTask
+	onSaveNote: (note: string) => Promise<void>
+	onSavePlan: (plan: { plannedDeadline: string | null; planNote: string }) => Promise<void>
+	isSavingNote: boolean
+	isSavingPlan: boolean
+}) {
+	const [noteDraft, setNoteDraft] = useState('')
+	const [planDate, setPlanDate] = useState('')
+	const [planTime, setPlanTime] = useState('')
+	const [planNote, setPlanNote] = useState('')
+	const [showCalendar, setShowCalendar] = useState(false)
+
+	const initialDeadlineRef = useRef<string | null>(task.executorPlannedDeadline ?? null)
+	const calendarRef = useRef<HTMLDivElement | null>(null)
+
+	useEffect(() => {
+		initialDeadlineRef.current = task.executorPlannedDeadline ?? null
+		if (task.executorPlannedDeadline) {
+			const date = new Date(task.executorPlannedDeadline)
+			const pad = (num: number) => String(num).padStart(2, '0')
+			setPlanDate(date.toISOString().slice(0, 10))
+			setPlanTime(`${pad(date.getHours())}:${pad(date.getMinutes())}`)
+		} else {
+			setPlanDate('')
+			setPlanTime('')
+		}
+		setPlanNote('')
+		setNoteDraft('')
+		setShowCalendar(false)
+	}, [task.id])
+
+	useEffect(() => {
+		if (!showCalendar) return
+		const handleClickOutside = (event: MouseEvent) => {
+			if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+				setShowCalendar(false)
+			}
+		}
+		document.addEventListener('mousedown', handleClickOutside)
+		return () => document.removeEventListener('mousedown', handleClickOutside)
+	}, [showCalendar])
+
+	const statusMeta = getExecutorStatusMeta(task)
+	const customerName =
+		task.customer?.fullName ?? task.customer?.email ?? (task.customer?.id ? `ID ${task.customer.id.slice(0, 6)}` : 'Не указан')
+
+	const buildDraftIso = () => {
+		if (!planDate && !planTime) return null
+		const pad = (num: number) => String(num).padStart(2, '0')
+		const base = initialDeadlineRef.current ? new Date(initialDeadlineRef.current) : null
+		const datePart = planDate || (base ? base.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
+		const timePart =
+			planTime || (base ? `${pad(base.getHours())}:${pad(base.getMinutes())}` : '19:00')
+		return new Date(`${datePart}T${timePart}`).toISOString()
+	}
+
+	const draftIso = buildDraftIso()
+	const currentIso = initialDeadlineRef.current ? new Date(initialDeadlineRef.current).toISOString() : null
+	const deadlineChanged = draftIso !== null && draftIso !== currentIso
+	const planNoteChanged = planNote.trim().length > 0
+	const isPlanDirty = deadlineChanged || planNoteChanged
+
+	const handleNoteSubmit = async () => {
+		const text = noteDraft.trim()
+		if (!text) return
+		await onSaveNote(text)
+		setNoteDraft('')
+	}
+
+	const handlePlanSubmit = async () => {
+		const nextDeadline = draftIso ?? currentIso
+		await onSavePlan({
+			plannedDeadline: nextDeadline,
+			planNote: planNote.trim(),
+		})
+		initialDeadlineRef.current = nextDeadline
+		setPlanDate('')
+		setPlanTime('')
+		setPlanNote('')
+		setShowCalendar(false)
+	}
+
+	const handlePlanReset = async () => {
+		await onSavePlan({ plannedDeadline: null, planNote: '' })
+		initialDeadlineRef.current = null
+		setPlanDate('')
+		setPlanTime('')
+		setPlanNote('')
+		setShowCalendar(false)
+	}
+
+	return (
+		<div className='rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur'>
+			<div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
 				<div>
-					<Link
-						href={`/tasks/${task.id}`}
-						className='text-base font-semibold text-emerald-300 transition hover:text-emerald-200'
-					>
-						{task.title}
-					</Link>
-					<p className='text-xs text-gray-500 mt-1'>
-						Создано {formatDate(task.createdAt)}
-						{task.deadline && (
-							<>
-								{' · '}Дедлайн {formatDate(task.deadline)}
-							</>
-						)}
+					<p className='text-xs uppercase tracking-[0.3em] text-emerald-300/70'>
+						Текущая задача
+					</p>
+					<h2 className='mt-2 text-2xl font-semibold text-white'>{task.title}</h2>
+					<p className='mt-2 text-sm text-gray-300'>
+						Создана {formatDate(task.createdAt)} · Обновлена {formatDateTime(task.updatedAt)}
 					</p>
 				</div>
-				<span className='rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/70'>
-					{COLUMN_META[task.executorKanbanColumn].title}
+				<span
+					className={clsx(
+						'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-widest',
+						statusMeta.badge
+					)}
+				>
+					{statusMeta.label}
 				</span>
 			</div>
 
 			{task.description && (
-				<p className='mt-2 line-clamp-3 text-sm text-gray-300'>{task.description}</p>
+				<p className='mt-4 text-sm text-gray-200'>{task.description}</p>
 			)}
 
-			<div className='mt-4 grid gap-2 text-xs text-gray-400'>
-				<div className='flex items-center justify-between'>
-					<span>Бюджет</span>
-					<strong className='text-sm text-white'>
-						{task.price > 0 ? formatCurrency(task.price) : '—'}
-					</strong>
-				</div>
-				<div className='flex items-center justify-between'>
-					<span>Заказчик</span>
+			<div className='mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+				<InfoRow label='Бюджет' tone='accent'>
+					{task.price > 0 ? formatCurrency(task.price) : 'Не указан'}
+				</InfoRow>
+				<InfoRow label='Заказчик'>
 					{task.customer?.id ? (
 						<Link
-							className='flex items-center gap-1 text-sm text-sky-300 transition hover:text-sky-200'
 							href={`/users/${task.customer.id}`}
+							className='inline-flex items-center gap-1 text-sm text-sky-200 hover:text-sky-100'
 						>
 							<Users className='h-3.5 w-3.5' />
 							{customerName}
 						</Link>
 					) : (
-						<span className='text-sm text-gray-500'>{customerName}</span>
+						customerName
 					)}
+				</InfoRow>
+				<InfoRow label='Статус платформы' tone='status'>
+					{PLATFORM_STATUS_LABELS[task.status] ?? task.status}
+				</InfoRow>
 				</div>
+
+			<div className='mt-4 grid gap-4 md:grid-cols-2'>
+				<InfoRow label='Мой дедлайн' tone='accent'>
+					{task.executorPlannedDeadline ? formatDateTime(task.executorPlannedDeadline) : 'Не установлен'}
+				</InfoRow>
+				<InfoRow label='Моя заметка' tone='note'>
+					{task.executorNote ? task.executorNote : '—'}
+				</InfoRow>
+				<InfoRow label='Ключевые шаги' tone='note'>
+					{task.executorPlanNote ? task.executorPlanNote : '—'}
+				</InfoRow>
 			</div>
 
-			<div className='mt-4 flex flex-wrap gap-2'>
-				<button
-					onClick={handleMove('TODO')}
-					className='rounded-full border border-white/10 px-3 py-1 text-xs text-white/80 hover:border-amber-300/70 hover:text-amber-200 transition'
-				>
-					В отложенные
-				</button>
-				<button
-					onClick={handleMove('IN_PROGRESS')}
-					className='rounded-full border border-white/10 px-3 py-1 text-xs text-white/80 hover:border-blue-300/70 hover:text-blue-200 transition'
-				>
-					В работу
-				</button>
-				<button
-					onClick={handleMove('REVIEW')}
-					className='rounded-full border border-white/10 px-3 py-1 text-xs text-white/80 hover:border-purple-300/70 hover:text-purple-200 transition'
-				>
-					На проверку
-				</button>
-				<button
-					onClick={handleMove('DONE')}
-					className='rounded-full border border-white/10 px-3 py-1 text-xs text-white/80 hover:border-emerald-300/70 hover:text-emerald-200 transition'
-				>
-					Готово
-				</button>
-			</div>
-
-			<div className='mt-4 rounded-xl border border-white/10 bg-white/5 p-3'>
-				<div className='flex items-center justify-between gap-2'>
-					<div className='flex items-center gap-2 text-sm text-gray-300'>
+			<div className='mt-6 rounded-2xl border border-white/10 bg-white/5 p-4'>
+				<div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+					<div className='flex items-center gap-2 text-sm text-gray-200'>
 						<NotebookPen className='h-4 w-4 text-emerald-300' />
-						<span>Заметка</span>
+						Заметка исполнителя
 					</div>
 					<div className='flex gap-2'>
-						{noteDraft && (
-							<button
-								type='button'
-								className='text-xs text-gray-500 hover:text-gray-300 transition'
-								onClick={() => setNoteDraft('')}
-							>
-								Очистить
-							</button>
-						)}
-						<button
+				<button
 							type='button'
-							className='flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 transition disabled:opacity-50'
-							onClick={saveNote}
-							disabled={saving}
+							className='rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition hover:border-white/30 hover:text-white'
+							onClick={() => setNoteDraft('')}
+							disabled={!noteDraft}
 						>
-							{saving ? (
-								<span className='w-3 h-3 border border-emerald-200 border-t-transparent rounded-full animate-spin' />
+							Очистить
+				</button>
+				<button
+							type='button'
+							className='inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-4 py-1.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-500/30 disabled:opacity-60'
+							onClick={() => void handleNoteSubmit()}
+							disabled={isSavingNote || noteDraft.trim().length === 0}
+						>
+							{isSavingNote ? (
+								<Loader2 className='h-3.5 w-3.5 animate-spin' />
 							) : (
-								<Save className='h-3 w-3' />
+								<>
+									Сохранить заметку
+								</>
 							)}
-							Сохранить
-						</button>
+				</button>
 					</div>
 				</div>
 				<textarea
 					value={noteDraft}
 					onChange={event => setNoteDraft(event.target.value)}
-					className='mt-2 w-full resize-none rounded-lg border border-white/5 bg-black/40 px-3 py-2 text-sm text-gray-100 outline-none focus:border-emerald-400'
-					rows={3}
-					placeholder='Добавьте пометки по задаче'
+					rows={4}
+					className='mt-3 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-gray-100 outline-none transition focus:border-emerald-400'
+					placeholder='Опиши план или важные нюансы, чтобы быстро вернуться к задаче.'
 				/>
+			</div>
+
+			<div className='mt-6 rounded-2xl border border-white/10 bg-white/5 p-4'>
+				<div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+					<div className='flex flex-col gap-1 text-sm text-gray-200'>
+						<span className='font-semibold text-white'>Мой дедлайн</span>
+						<span className='text-xs text-gray-400'>
+							Определи удобную дату завершения — платформа напомнит об этом в подсказках.
+						</span>
+					</div>
+					<div className='flex flex-wrap gap-2'>
+						<button
+							type='button'
+							onClick={() => setShowCalendar(prev => !prev)}
+							className={clsx(
+								'rounded-full border px-3 py-1 text-xs transition',
+								showCalendar
+									? 'border-emerald-300 bg-emerald-500/20 text-emerald-100'
+									: 'border-white/10 text-gray-200 hover:border-emerald-300 hover:text-emerald-100'
+							)}
+						>
+							Календарь
+						</button>
+					</div>
+				</div>
+				<div className='mt-3 flex flex-col gap-3 md:flex-row md:items-center md:gap-4'>
+					<div className='flex flex-col gap-2 md:w-64'>
+						<input
+							type='date'
+							value={planDate}
+							onChange={event => setPlanDate(event.target.value)}
+							className='rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-white outline-none transition focus:border-emerald-300 focus:bg-emerald-500/10 focus:shadow-[0_0_0_2px_rgba(16,185,129,0.25)] focus-visible:ring-0'
+						/>
+						<input
+							type='time'
+							value={planTime}
+							onChange={event => setPlanTime(event.target.value)}
+							className='rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-white outline-none transition focus:border-emerald-300 focus:bg-emerald-500/10 focus:shadow-[0_0_0_2px_rgba(16,185,129,0.25)] focus-visible:ring-0'
+						/>
+					</div>
+					<div className='flex-1'>
+				<textarea
+							value={planNote}
+							onChange={event => setPlanNote(event.target.value)}
+							rows={2}
+							className='w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-gray-100 outline-none transition focus:border-emerald-400'
+							placeholder='Опиши личные шаги для выполнения задачи'
+						/>
+					</div>
+				</div>
+				<div className='mt-3 flex justify-end'>
+					<button
+						type='button'
+						onClick={() => void handlePlanReset()}
+						disabled={isSavingPlan}
+						className='mr-3 inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-1.5 text-xs font-semibold text-gray-200 transition hover:border-red-400 hover:text-red-200 disabled:opacity-60'
+					>
+						Сбросить план
+					</button>
+						<button
+							type='button'
+						onClick={() => void handlePlanSubmit()}
+						disabled={!isPlanDirty || isSavingPlan}
+						className='inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-4 py-1.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-500/30 disabled:opacity-60'
+					>
+						{isSavingPlan ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : 'Сохранить мой план'}
+						</button>
+					</div>
+
+				{showCalendar && (
+					<div ref={calendarRef} className='mt-4 flex justify-end'>
+						<CalendarPopover
+							selectedIso={
+								planDate
+									? `${planDate}T${planTime || '19:00'}`
+									: initialDeadlineRef.current ?? null
+							}
+							onSelect={date => {
+								const iso = date.toISOString()
+								setPlanDate(iso.slice(0, 10))
+								setPlanTime(iso.slice(11, 16))
+							}}
+							onClose={() => setShowCalendar(false)}
+						/>
+					</div>
+				)}
+				</div>
+
+			<div className='mt-6 flex flex-wrap gap-2'>
+				<Link
+					href={`/tasks/${task.id}`}
+					className='inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-4 py-2 text-sm text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50'
+				>
+					Открыть задачу полностью
+					<ExternalLink className='h-4 w-4' />
+				</Link>
 			</div>
 		</div>
 	)
 }
 
-type ViewMode = 'kanban' | 'list' | 'timeline'
+function InfoRow({
+	label,
+	children,
+	tone = 'default',
+}: {
+	label: string
+	children: React.ReactNode
+	tone?: 'default' | 'status' | 'note' | 'accent'
+}) {
+	const toneClass =
+		tone === 'status'
+			? 'border-emerald-400/30 bg-emerald-400/10'
+			: tone === 'note'
+				? 'border-sky-400/30 bg-sky-400/10'
+				: tone === 'accent'
+					? 'border-amber-400/30 bg-amber-400/10'
+					: 'border-white/10 bg-white/5'
 
-type KanbanPersistPayload = {
-	nextColumns: Record<KanbanColumnType, ExecutorTask[]>
-	changedColumns: KanbanColumnType[]
-	updatedTasks: ExecutorTask[]
+	return (
+		<div className={clsx('rounded-xl p-4 transition', toneClass)}>
+			<p className='text-xs uppercase tracking-[0.2em] text-gray-300'>{label}</p>
+			<p className='mt-2 text-sm text-white'>{children}</p>
+		</div>
+	)
+}
+
+function HistoryTaskList({ tasks }: { tasks: ExecutorTask[] }) {
+	if (tasks.length === 0) {
+		return (
+			<div className='flex items-center gap-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-6 text-sm text-gray-300'>
+				<History className='h-5 w-5 text-gray-500' />
+				<p>История пока пустая. Как только завершишь задания, они появятся здесь.</p>
+			</div>
+		)
+	}
+
+	return (
+		<div className='space-y-3'>
+			{tasks.map(task => (
+				<div
+					key={task.id}
+					className='flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition hover:border-emerald-400/40 hover:shadow-[0_6px_16px_rgba(16,185,129,0.15)] md:flex-row md:items-start md:justify-between'
+				>
+					<div className='space-y-2'>
+						<Link
+							href={`/tasks/${task.id}`}
+							className='text-base font-semibold text-white hover:text-emerald-200'
+						>
+							{task.title}
+						</Link>
+						<p className='mt-1 text-xs text-gray-400'>
+							Обновлена {formatDateTime(task.updatedAt)}
+						</p>
+						{task.description && (
+							<p className='mt-2 line-clamp-2 text-sm text-gray-300'>{task.description}</p>
+						)}
+						<div className='grid gap-2 text-xs'>
+							{task.executorPlannedDeadline && (
+								<div className='inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-emerald-100'>
+									<span>Дедлайн:</span>
+									<strong className='font-semibold text-white'>
+										{formatDateTime(task.executorPlannedDeadline)}
+									</strong>
+								</div>
+							)}
+							{task.executorPlanNote && (
+								<div className='rounded-lg border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-sky-100'>
+									<span className='font-semibold text-white'>Ключевые шаги:</span> {task.executorPlanNote}
+								</div>
+							)}
+							{task.executorNote && (
+								<div className='rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-emerald-100'>
+									<span className='font-semibold text-white'>Заметка:</span> {task.executorNote}
+								</div>
+							)}
+						</div>
+					</div>
+					<span
+						className={clsx(
+							'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest',
+							getExecutorStatusMeta(task).badge
+						)}
+					>
+						{getExecutorStatusMeta(task).label}
+					</span>
+				</div>
+			))}
+		</div>
+	)
 }
 
 export default function ExecutorMyTasksPage() {
-  const { token, user } = useUser()
+	const { token, user } = useUser()
 	const [tasks, setTasks] = useState<ExecutorTask[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-	const [isSyncing, setIsSyncing] = useState(false)
-	const [activeColumnId, setActiveColumnId] = useState<KanbanColumnType | null>(null)
-	const [viewMode, setViewMode] = useState<ViewMode>('kanban')
-	const [savedPresets, setSavedPresets] = useState<FilterPreset[]>([])
-	const [filters, setFilters] = useState<FilterState>({
-		search: '',
-		statuses: [],
-		customerId: 'all',
-		minBudget: '',
-		maxBudget: '',
-		onlyWithNotes: false,
-	})
-
-	const sensors = useSensors(
-		useSensor(MouseSensor),
-		useSensor(TouchSensor),
-		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-	)
-
-	const loadPresets = useCallback(() => {
-		if (typeof window === 'undefined') return
-		try {
-			const raw = localStorage.getItem(PRESET_STORAGE_KEY)
-			if (!raw) return
-			const parsed = JSON.parse(raw) as FilterPreset[]
-			setSavedPresets(
-				parsed.map(preset => ({
-					...preset,
-					filters: normalizePresetFilters(preset.filters),
-				}))
-			)
-		} catch (err) {
-			console.warn('Не удалось загрузить пресеты фильтров', err)
-		}
-	}, [])
-
-	useEffect(() => {
-		loadPresets()
-	}, [loadPresets])
-
-	const savePresets = useCallback(
-		(next: FilterPreset[]) => {
-			setSavedPresets(next)
-			if (typeof window !== 'undefined') {
-				localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(next))
-			}
-		},
-		[]
-	)
+	const [loading, setLoading] = useState(true)
+	const [error, setError] = useState<string | null>(null)
+	const [savingNoteId, setSavingNoteId] = useState<string | null>(null)
+	const [savingPlanId, setSavingPlanId] = useState<string | null>(null)
 
 	const loadTasks = useCallback(async () => {
 		if (!token) return
@@ -820,7 +919,7 @@ export default function ExecutorMyTasksPage() {
 			setTasks(normalized)
 		} catch (err: unknown) {
 			console.error('Ошибка при загрузке задач исполнителя:', err)
-			setError(err instanceof Error ? err.message : 'Ошибка при загрузке задач')
+			setError(err instanceof Error ? err.message : 'Не удалось загрузить задачи')
       } finally {
         setLoading(false)
       }
@@ -832,313 +931,40 @@ export default function ExecutorMyTasksPage() {
 		}
 	}, [token, user, loadTasks])
 
-	const columns = useMemo(() => groupTasks(tasks), [tasks])
-
-	const customerLookup = useMemo(() => {
-		const map = new Map<string, { name: string }>()
-		for (const task of tasks) {
-			if (task.customer?.id) {
-				map.set(task.customer.id, {
-					name:
-						task.customer.fullName ??
-						task.customer.email ??
-						`ID ${task.customer.id.slice(0, 6)}`,
-				})
-			}
+	const currentTask = useMemo(() => pickCurrentTask(tasks), [tasks])
+	const historyTasks = useMemo(
+		() => pickHistoryTasks(tasks, currentTask?.id ?? null),
+		[tasks, currentTask?.id]
+	)
+	const hints = useMemo(() => buildHints(currentTask, historyTasks), [currentTask, historyTasks])
+	const stats = useMemo<StatsSnapshot>(() => {
+		const active = tasks.filter(task => task.status === 'in_progress').length
+		const done = tasks.filter(task => task.status === 'completed').length
+		return {
+			total: tasks.length,
+			active,
+			done,
 		}
-		return map
 	}, [tasks])
 
-	const filteredColumns = useMemo(() => {
-		const result = createEmptyColumns()
-		for (const column of COLUMN_ORDER) {
-			result[column] = columns[column].filter(task => matchesFilters(task, filters))
-		}
-		return result
-	}, [columns, filters])
-
-	const filteredTasksFlat = useMemo(
-		() => COLUMN_ORDER.flatMap(column => filteredColumns[column]),
-		[filteredColumns]
-	)
-
-	const stats = useMemo(() => {
-		const open = columns.TODO.length
-		const inProgress = columns.IN_PROGRESS.length + columns.REVIEW.length
-		const completed = columns.DONE.length
-		const cancelled = tasks.filter(task => task.status === 'cancelled').length
-		const completedTasks = tasks.filter(task => task.status === 'completed')
-		const totalEarned = completedTasks.reduce((sum, task) => sum + task.price, 0)
-		const avgCheck =
-			completedTasks.length > 0 ? totalEarned / completedTasks.length : 0
-
-		const avgTimeMs = completedTasks.reduce((sum, task) => {
-			if (!task.completedAt) return sum
-			return (
-				sum +
-				(new Date(task.completedAt).getTime() - new Date(task.createdAt).getTime())
-			)
-		}, 0)
-		const avgTimeDays =
-			completedTasks.length > 0
-				? Math.max(avgTimeMs / completedTasks.length / (1000 * 60 * 60 * 24), 0)
-				: 0
-
-		return {
-			open,
-			inProgress,
-			completed,
-			cancelled,
-			totalEarned,
-			avgCheck,
-			avgTimeDays,
-		}
-	}, [columns, tasks])
-
-	const percentages = useMemo(() => {
-		const total =
-			stats.open + stats.inProgress + stats.completed + stats.cancelled || 1
-		return {
-			open: (stats.open / total) * 100,
-			inProgress: (stats.inProgress / total) * 100,
-			completed: (stats.completed / total) * 100,
-			cancelled: (stats.cancelled / total) * 100,
-		}
-	}, [stats])
-
-function prepareColumns(source: ExecutorTask[]): Record<KanbanColumnType, ExecutorTask[]> {
-	const columns = groupTasks(source)
-	for (const column of COLUMN_ORDER) {
-		columns[column] = columns[column].map(task => ({ ...task }))
-	}
-	return columns
-}
-
-function computeDragReorder(
-	source: ExecutorTask[],
-	activeId: string,
-	overId: string
-): KanbanPersistPayload | null {
-	const copy = prepareColumns(source)
-
-	let startColumn: KanbanColumnType | null = null
-	let startIndex = -1
-	for (const column of COLUMN_ORDER) {
-		const index = copy[column].findIndex(task => task.id === activeId)
-		if (index !== -1) {
-			startColumn = column
-			startIndex = index
-			break
-		}
-	}
-
-	if (!startColumn) return null
-
-	const startTasks = copy[startColumn]
-	const [movedTask] = startTasks.splice(startIndex, 1)
-	if (!movedTask) return null
-
-	let destinationColumn: KanbanColumnType | null = null
-	let destinationIndex = 0
-
-	if ((COLUMN_ORDER as readonly string[]).includes(overId)) {
-		destinationColumn = overId as KanbanColumnType
-		destinationIndex = copy[destinationColumn].length
-	} else {
-		for (const column of COLUMN_ORDER) {
-			const index = copy[column].findIndex(task => task.id === overId)
-			if (index !== -1) {
-				destinationColumn = column
-				destinationIndex = index
-				if (startColumn === destinationColumn && destinationIndex > startIndex) {
-					destinationIndex -= 1
-				}
-				break
+	const handleSaveNote = useCallback(
+		async (taskId: string, note: string) => {
+			if (!token) {
+				toast.error('Не удалось сохранить заметку: нет токена авторизации')
+				return
 			}
-		}
-	}
-
-	if (!destinationColumn) return null
-
-	const changedColumns = new Set<KanbanColumnType>([startColumn, destinationColumn])
-
-	if (startColumn === destinationColumn) {
-		const reordered = arrayMove(copy[destinationColumn], startIndex, destinationIndex)
-		copy[destinationColumn] = reordered.map((task, index) => ({
-			...task,
-			executorKanbanColumn: destinationColumn!,
-			executorKanbanOrder: index,
-		}))
-	} else {
-		const destinationTasks = copy[destinationColumn]
-		const updatedTask = {
-			...movedTask,
-			executorKanbanColumn: destinationColumn,
-		}
-		destinationTasks.splice(destinationIndex, 0, updatedTask)
-
-		copy[startColumn] = copy[startColumn].map((task, index) => ({
-			...task,
-			executorKanbanOrder: index,
-		}))
-
-		copy[destinationColumn] = copy[destinationColumn].map((task, index) => ({
-			...task,
-			executorKanbanColumn: destinationColumn!,
-			executorKanbanOrder: index,
-		}))
-	}
-
-	for (const column of COLUMN_ORDER) {
-		copy[column] = copy[column].map((task, index) => ({
-			...task,
-			executorKanbanColumn: column,
-			executorKanbanOrder: index,
-		}))
-	}
-
-	const updatedTasks = COLUMN_ORDER.flatMap(column => copy[column])
-
-	return {
-		nextColumns: copy,
-		changedColumns: Array.from(changedColumns),
-		updatedTasks,
-	}
-}
-
-function computeQuickMove(
-	source: ExecutorTask[],
-	taskId: string,
-	targetColumn: KanbanColumnType
-): KanbanPersistPayload | null {
-	const copy = prepareColumns(source)
-
-	let currentColumn: KanbanColumnType | null = null
-	let currentIndex = -1
-	for (const column of COLUMN_ORDER) {
-		const index = copy[column].findIndex(task => task.id === taskId)
-		if (index !== -1) {
-			currentColumn = column
-			currentIndex = index
-			break
-		}
-	}
-
-	if (currentColumn === null) return null
-	const [task] = copy[currentColumn].splice(currentIndex, 1)
-	if (!task) return null
-
-	const changedColumns = new Set<KanbanColumnType>([currentColumn, targetColumn])
-
-	const destinationTasks = copy[targetColumn]
-	destinationTasks.push({
-		...task,
-		executorKanbanColumn: targetColumn,
-	})
-
-	for (const column of COLUMN_ORDER) {
-		copy[column] = copy[column].map((item, index) => ({
-			...item,
-			executorKanbanColumn: column,
-			executorKanbanOrder: index,
-		}))
-	}
-
-	const updatedTasks = COLUMN_ORDER.flatMap(column => copy[column])
-
-	return {
-		nextColumns: copy,
-		changedColumns: Array.from(changedColumns),
-		updatedTasks,
-	}
-}
-	const persistKanban = useCallback(
-		async (
-			nextColumns: Record<KanbanColumnType, ExecutorTask[]>,
-			changedColumns: KanbanColumnType[]
-		) => {
-			if (!token) return
-			setIsSyncing(true)
+			setSavingNoteId(taskId)
 			try {
-				const updates = changedColumns.flatMap(column =>
-					nextColumns[column].map((task, index) => ({
-						id: task.id,
-						column,
-						order: index,
-					}))
-				)
-
-				const res = await fetch('/api/my-tasks/kanban', {
+			const res = await fetch(`/api/my-tasks/${taskId}/note`, {
 					method: 'PATCH',
 					headers: {
 						'Content-Type': 'application/json',
 						Authorization: `Bearer ${token}`,
 					},
-					body: JSON.stringify({ updates }),
+				body: JSON.stringify({ note }),
 				})
-
 				if (!res.ok) {
 					const data = await res.json().catch(() => ({}))
-					throw new Error(data.error || 'Не удалось сохранить порядок')
-				}
-			} catch (error: unknown) {
-				console.error('Ошибка сохранения executor kanban:', error)
-				const message =
-					error instanceof Error ? error.message : 'Не удалось сохранить изменения'
-				toast.error(message)
-				void loadTasks()
-			} finally {
-				setIsSyncing(false)
-			}
-		},
-		[token, loadTasks]
-	)
-
-	const handleDragStart = useCallback(
-		(event: DragStartEvent) => {
-			const taskId = event.active.id as string
-			const task = tasks.find(item => item.id === taskId)
-			if (!task) return
-			setActiveColumnId(task.executorKanbanColumn)
-		},
-		[tasks]
-	)
-
-	const handleDragEnd = useCallback(
-		(event: DragEndEvent) => {
-			setActiveColumnId(null)
-			const { active, over } = event
-			if (!over) return
-
-			const activeId = active.id as string
-			const overId = over.id as string
-
-			const result = computeDragReorder(tasks, activeId, overId)
-			if (!result) return
-
-			setTasks(result.updatedTasks)
-			void persistKanban(result.nextColumns, result.changedColumns)
-		},
-		[persistKanban, tasks]
-	)
-
-	const handleDragCancel = useCallback(() => {
-		setActiveColumnId(null)
-	}, [])
-
-	const handleSaveNote = useCallback(
-		async (taskId: string, note: string) => {
-			if (!token) return
-			const res = await fetch(`/api/my-tasks/${taskId}/note`, {
-				method: 'PATCH',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({ note }),
-			})
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}))
 				throw new Error(data.error || 'Не удалось сохранить заметку')
 			}
 			setTasks(prev =>
@@ -1146,99 +972,73 @@ function computeQuickMove(
 					task.id === taskId ? { ...task, executorNote: note.trim() || null } : task
 				)
 			)
+				toast.success('Заметка обновлена')
+			} catch (err: unknown) {
+				console.error('Ошибка при сохранении заметки исполнителя:', err)
+				toast.error(
+					err instanceof Error ? err.message : 'Не удалось сохранить заметку'
+				)
+			} finally {
+				setSavingNoteId(null)
+			}
 		},
 		[token]
 	)
 
-	const handleQuickMove = useCallback(
-		(taskId: string, targetColumn: KanbanColumnType) => {
-			const result = computeQuickMove(tasks, taskId, targetColumn)
-			if (!result) return
-
-			setTasks(result.updatedTasks)
-			void persistKanban(result.nextColumns, result.changedColumns)
+	const handleSavePlan = useCallback(
+		async (taskId: string, plan: { plannedDeadline: string | null; planNote: string }) => {
+			if (!token) {
+				toast.error('Не удалось сохранить план: нет токена авторизации')
+				return
+			}
+			setSavingPlanId(taskId)
+			try {
+				const res = await fetch(`/api/my-tasks/${taskId}/plan`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+					body: JSON.stringify({
+						plannedDeadline: plan.plannedDeadline,
+						planNote: plan.planNote,
+					}),
+			})
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}))
+					throw new Error(data.error || 'Не удалось сохранить план')
+				}
+				const data = (await res.json()) as {
+					plan?: {
+						id: string
+						executorPlannedStart: string | null
+						executorPlannedDeadline: string | null
+						executorPlanNote: string | null
+					}
+				}
+				const updatedPlan = data.plan
+			setTasks(prev =>
+				prev.map(task =>
+						task.id === taskId
+							? {
+									...task,
+									executorPlannedStart: updatedPlan?.executorPlannedStart ?? null,
+									executorPlannedDeadline: updatedPlan?.executorPlannedDeadline ?? null,
+									executorPlanNote: updatedPlan?.executorPlanNote ?? null,
+							  }
+							: task
+					)
+				)
+				toast.success('Личный план обновлён')
+			} catch (err: unknown) {
+				console.error('Ошибка при сохранении плана исполнителя:', err)
+				toast.error(err instanceof Error ? err.message : 'Не удалось сохранить план')
+			} finally {
+				setSavingPlanId(null)
+			}
 		},
-		[persistKanban, tasks]
+		[token]
 	)
-
-	const handleSavePreset = () => {
-		const name = prompt('Название фильтра:')
-		if (!name) return
-		const preset: FilterPreset = {
-			id: crypto.randomUUID(),
-			name,
-			filters: { ...filters },
-		}
-		savePresets([...savedPresets, preset])
-		toast.success('Фильтр сохранён')
-	}
-
-	const handleApplyPreset = (preset: FilterPreset) => {
-		const base: FilterState = {
-			search: '',
-			statuses: [],
-			customerId: 'all',
-			minBudget: '',
-			maxBudget: '',
-			onlyWithNotes: false,
-		}
-		setFilters({ ...base, ...preset.filters })
-		toast.success(`Фильтр "${preset.name}" применён`)
-	}
-
-	const handleDeletePreset = (presetId: string) => {
-		savePresets(savedPresets.filter(item => item.id !== presetId))
-	}
-
-	const exportICS = () => {
-		const ics = buildICS(filteredTasksFlat)
-		const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
-		const url = URL.createObjectURL(blob)
-		const link = document.createElement('a')
-		link.href = url
-		link.download = 'my-tasks-executor.ics'
-		link.click()
-		URL.revokeObjectURL(url)
-	}
-
-	const uniqueCustomers = useMemo(() => {
-		const set = new Map<string, string>()
-		for (const task of tasks) {
-			if (task.customer?.id) {
-				const name =
-					task.customer.fullName ??
-					task.customer.email ??
-					`ID ${task.customer.id.slice(0, 6)}`
-				set.set(task.customer.id, name)
-			}
-		}
-		return Array.from(set.entries()).map(([id, name]) => ({ id, name }))
-	}, [tasks])
-
-	const timelineGroups = useMemo(() => {
-		const groups = new Map<string, ExecutorTask[]>()
-		for (const task of filteredTasksFlat) {
-			const dateKey = task.deadline ?? task.createdAt
-			const day = format(new Date(dateKey), 'yyyy-MM-dd')
-			if (!groups.has(day)) groups.set(day, [])
-			groups.get(day)!.push(task)
-		}
-
-		const sortedKeys = Array.from(groups.keys()).sort()
-		return sortedKeys.map(key => {
-			const date = new Date(key)
-			let label = format(date, 'd MMMM, EEEE', { locale: ruLocale })
-			if (isToday(date)) label = 'Сегодня'
-			else if (isTomorrow(date)) label = 'Завтра'
-			else if (differenceInCalendarDays(date, new Date()) < 0) label = `${label} (просрочено)`
-
-			return {
-				date: key,
-				label,
-				tasks: groups.get(key)!,
-			}
-		})
-	}, [filteredTasksFlat])
 
 	if (loading) {
   return (
@@ -1251,437 +1051,89 @@ function computeQuickMove(
 
 	if (error) {
 		return (
-			<div className='mx-auto max-w-xl rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center text-sm text-red-200'>
+			<div className='mx-auto max-w-xl rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-center text-sm text-red-200'>
 				{error}
 			</div>
 		)
 	}
 
 	return (
-		<div className='mx-auto max-w-[1400px] px-4 pb-16 pt-12 text-white'>
+		<>
+			<style jsx global>{`
+				input[type='date'],
+				input[type='time'] {
+					caret-color: #34d399;
+				}
+
+				input[type='date']::selection,
+				input[type='time']::selection {
+					background: rgba(16, 185, 129, 0.25);
+					color: #f8fafc;
+				}
+
+				input[type='date']::-moz-selection,
+				input[type='time']::-moz-selection {
+					background: rgba(16, 185, 129, 0.25);
+					color: #f8fafc;
+				}
+			`}</style>
+			<div className='mx-auto max-w-[1200px] px-4 pb-16 pt-12 text-white'>
 			<motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.5 }}
-				className='mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'
+				transition={{ duration: 0.4 }}
+				className='mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'
 			>
 				<div>
 					<h1 className='flex items-center gap-2 text-3xl font-bold text-emerald-400'>
 						<ClipboardList className='h-7 w-7 text-emerald-400' />
-						Мои задачи исполнителя
+						Мои задачи
 					</h1>
-					<p className='mt-1 text-sm text-gray-400'>
-						Контролируй поток задач, сохраняй пресеты фильтров и веди заметки прямо на карточках.
+					<p className='mt-1 text-sm text-gray-300'>
+						Следи за текущей задачей и держи под рукой историю выполненных работ.
 					</p>
-        </div>
-				<div className='flex flex-wrap gap-2'>
-					<button
-						onClick={() => setViewMode('kanban')}
-						className={clsx(
-							'flex items-center gap-1 rounded-full px-4 py-2 text-sm transition',
-							viewMode === 'kanban'
-								? 'bg-emerald-500 text-black'
-								: 'bg-white/10 text-white hover:bg-white/20'
-						)}
-					>
-						<LayoutGrid className='h-4 w-4' />
-						Канбан
-					</button>
-					<button
-								onClick={() => setViewMode('list')}
-						className={clsx(
-							'flex items-center gap-1 rounded-full px-4 py-2 text-sm transition',
-							viewMode === 'list'
-								? 'bg-emerald-500 text-black'
-								: 'bg-white/10 text-white hover:bg-white/20'
-						)}
-					>
-						<List className='h-4 w-4' />
-						Список
-					</button>
-					<button
-						onClick={() => setViewMode('timeline')}
-						className={clsx(
-							'flex items-center gap-1 rounded-full px-4 py-2 text-sm transition',
-							viewMode === 'timeline'
-								? 'bg-emerald-500 text-black'
-								: 'bg-white/10 text-white hover:bg-white/20'
-						)}
-					>
-						<CalendarDays className='h-4 w-4' />
-						План
-					</button>
-					<button
-						onClick={exportICS}
-						className='flex items-center gap-1 rounded-full border border-emerald-400/40 px-4 py-2 text-sm text-emerald-200 transition hover:border-emerald-200 hover:text-emerald-100'
-					>
-						<Download className='h-4 w-4' />
-						Экспорт .ics
-					</button>
 				</div>
 			</motion.div>
 
-			{/* Статистика */}
-			<div className='mb-10 rounded-2xl border border-emerald-500/20 bg-black/40 p-6 backdrop-blur'>
-				<div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-					<div className='rounded-xl border border-white/5 bg-white/5 p-4'>
-						<p className='text-sm text-emerald-200'>Готово</p>
-						<p className='mt-2 text-3xl font-semibold text-white'>{stats.completed}</p>
-						<p className='mt-1 text-xs text-gray-400'>Задач завершено</p>
-          </div>
-					<div className='rounded-xl border border-white/5 bg-white/5 p-4'>
-						<p className='text-sm text-blue-200'>В работе</p>
-						<p className='mt-2 text-3xl font-semibold text-white'>{stats.inProgress}</p>
-						<p className='mt-1 text-xs text-gray-400'>Сейчас выполняешь</p>
-          </div>
-					<div className='rounded-xl border border-white/5 bg-white/5 p-4'>
-						<p className='text-sm text-emerald-200'>Доход</p>
-						<p className='mt-2 text-3xl font-semibold text-white'>
-							{formatCurrency(stats.totalEarned)}
-						</p>
-						<p className='mt-1 text-xs text-gray-400'>
-							Средний чек {formatCurrency(stats.avgCheck || 0)}
-						</p>
-          </div>
-					<div className='rounded-xl border border-white/5 bg-white/5 p-4'>
-						<p className='text-sm text-amber-200'>Средний срок</p>
-						<p className='mt-2 text-3xl font-semibold text-white'>
-							{stats.avgTimeDays ? stats.avgTimeDays.toFixed(1) : '--'} дн.
-						</p>
-						<p className='mt-1 text-xs text-gray-400'>От старта до завершения</p>
-        </div>
-				</div>
-				<div className='mt-6 h-2 rounded-full bg-gray-900'>
-					<div
-						style={{ width: `${percentages.open}%` }}
-						className='h-full rounded-l-full bg-amber-400/70'
-					/>
-					<div
-						style={{ width: `${percentages.inProgress}%` }}
-						className='h-full bg-blue-500/70'
-          />
-          <div
-            style={{ width: `${percentages.completed}%` }}
-						className='h-full bg-emerald-500/80'
-          />
-          <div
-            style={{ width: `${percentages.cancelled}%` }}
-						className='h-full rounded-r-full bg-red-600/70'
-          />
-        </div>
-      </div>
+			<StatsSummary stats={stats} />
 
-			{/* Фильтры */}
-			<div className='mb-8 rounded-2xl border border-white/5 bg-white/5 p-5 backdrop-blur'>
-				<div className='mb-4 flex items-center gap-2 text-sm font-semibold text-emerald-300'>
-					<Filter className='h-4 w-4' />
-					Фильтры и пресеты
-        </div>
-				<div className='flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between'>
-					<div className='grid flex-1 gap-4 md:grid-cols-2 lg:grid-cols-3'>
-						<div className='flex flex-col gap-1'>
-							<span className='text-[10px] uppercase tracking-[0.2em] text-emerald-300/80'>
-								Поиск
-							</span>
-							<input
-								type='text'
-								value={filters.search}
-								onChange={event => setFilters(prev => ({ ...prev, search: event.target.value }))}
-								placeholder='Название, описание, заказчик...'
-								className='rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-white outline-none focus:border-emerald-400'
-							/>
-						</div>
-						<SelectField
-							label='Столбцы'
-							value={filters.statuses[0] ?? ''}
-							onChange={newValue => {
-								if (!newValue) {
-									setFilters(prev => ({ ...prev, statuses: [] }))
-								} else {
-									setFilters(prev => ({
-										...prev,
-										statuses: [newValue as KanbanColumnType],
-									}))
-								}
-							}}
-							options={[
-								{ value: '', label: 'Все' },
-								...COLUMN_ORDER.map(column => ({
-									value: column,
-									label: COLUMN_META[column].title,
-								})),
-							]}
-						/>
-						<SelectField
-							label='Заказчик'
-							value={filters.customerId}
-							onChange={value =>
-								setFilters(prev => ({
-									...prev,
-									customerId: value,
-								}))
-							}
-							options={[
-								{ value: 'all', label: 'Все' },
-								...uniqueCustomers.map(customer => ({
-									value: customer.id,
-									label: customer.name,
-								})),
-							]}
-						/>
-						<div className='flex flex-col gap-1'>
-							<span className='text-[10px] uppercase tracking-[0.2em] text-emerald-300/80'>
-								Мин. бюджет
-							</span>
-							<div className='relative'>
-								<span className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500'>
-									₽
-								</span>
-								<input
-									type='number'
-									min={0}
-									value={filters.minBudget}
-									onChange={event =>
-										setFilters(prev => ({ ...prev, minBudget: event.target.value }))
-									}
-									placeholder='0'
-									className='w-full rounded-xl border border-white/10 bg-black/40 px-7 py-2 text-sm text-white outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
-								/>
-							</div>
-						</div>
-						<div className='flex flex-col gap-1'>
-							<span className='text-[10px] uppercase tracking-[0.2em] text-emerald-300/80'>
-								Макс. бюджет
-							</span>
-							<div className='relative'>
-								<span className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500'>
-									₽
-								</span>
-								<input
-									type='number'
-									min={0}
-									value={filters.maxBudget}
-									onChange={event =>
-										setFilters(prev => ({ ...prev, maxBudget: event.target.value }))
-									}
-									placeholder='0'
-									className='w-full rounded-xl border border-white/10 bg-black/40 px-7 py-2 text-sm text-white outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
-								/>
-							</div>
-						</div>
-					</div>
-					<div className='flex flex-col gap-3'>
-						<div className='flex items-center gap-3 text-xs text-gray-400'>
-							<FilterToggle
-								label='Только с заметками'
-								checked={filters.onlyWithNotes}
-								onChange={value =>
-									setFilters(prev => ({ ...prev, onlyWithNotes: value }))
-								}
-							/>
-						</div>
-						<div className='flex flex-wrap gap-2'>
-							<button
-								onClick={() =>
-									setFilters({
-										search: '',
-										statuses: [],
-										customerId: 'all',
-										minBudget: '',
-										maxBudget: '',
-										onlyWithNotes: false,
-									})
-								}
-								className='inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:border-emerald-400 hover:text-emerald-300'
-							>
-								Сбросить
-							</button>
-							<button
-								onClick={handleSavePreset}
-								className='inline-flex items-center gap-1 rounded-full border border-emerald-400/40 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:border-emerald-200 hover:text-emerald-100'
-							>
-								<Save className='h-3 w-3' />
-								Сохранить пресет
-							</button>
-						</div>
-					</div>
-				</div>
-
-				{savedPresets.length > 0 && (
-					<div className='mt-4 flex flex-wrap items-center gap-2'>
-						{savedPresets.map(preset => (
-							<button
-								key={preset.id}
-								onClick={() => handleApplyPreset(preset)}
-								className='group inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs text-gray-200 transition hover:border-emerald-400/60 hover:text-emerald-200'
-							>
-								{preset.name}
-								<X
-									className='h-3 w-3 text-gray-500 transition group-hover:text-red-400'
-									onClick={event => {
-										event.stopPropagation()
-										handleDeletePreset(preset.id)
-									}}
-								/>
-							</button>
-						))}
+			{hints.length > 0 && (
+				<div className='mt-8'>
+					<ContextHints hints={hints} />
 					</div>
 				)}
-			</div>
 
-			{/* Основная зона */}
-			{filteredTasksFlat.length === 0 ? (
-				<div className='flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-emerald-400/30 bg-emerald-400/5 p-12 text-center text-sm text-emerald-200'>
-					<AlertCircle className='h-8 w-8 text-emerald-300' />
-					<p>Задач не найдено под текущий фильтр. Попробуйте обновить условия или сбросить фильтры.</p>
-				</div>
-			) : viewMode === 'kanban' ? (
-				<DndContext
-					sensors={sensors}
-					onDragStart={handleDragStart}
-					onDragEnd={handleDragEnd}
-					onDragCancel={handleDragCancel}
-					collisionDetection={closestCorners}
-				>
-					<div className='grid gap-4 xl:grid-cols-4'>
-						{COLUMN_ORDER.map(columnId => (
-							<KanbanColumn
-								key={columnId}
-								columnId={columnId}
-								tasks={filteredColumns[columnId]}
-								totalCount={columns[columnId].length}
-								isFiltered={
-									filteredColumns[columnId].length !== columns[columnId].length
-								}
-								isSyncing={isSyncing}
-								isActiveColumn={activeColumnId === columnId}
-								customerLookup={customerLookup}
-								onSaveNote={handleSaveNote}
-								onQuickMove={handleQuickMove}
-							/>
-						))}
-					</div>
-				</DndContext>
-			) : viewMode === 'list' ? (
-				<div className='space-y-3'>
-					{filteredTasksFlat.map(task => (
-						<div
-							key={task.id}
-							className='rounded-2xl border border-white/10 bg-black/40 p-4 transition hover:border-emerald-400/30 hover:shadow-[0_10px_25px_rgba(16,185,129,0.15)]'
-						>
-							<div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
+			<div className='mt-10 space-y-6'>
+				{currentTask ? (
+					<CurrentTaskCard
+						task={currentTask}
+						onSaveNote={note => handleSaveNote(currentTask.id, note)}
+						onSavePlan={plan => handleSavePlan(currentTask.id, plan)}
+						isSavingNote={savingNoteId === currentTask.id}
+						isSavingPlan={savingPlanId === currentTask.id}
+					/>
+				) : (
+					<div className='flex items-center gap-3 rounded-3xl border border-white/10 bg-black/40 px-6 py-10 text-sm text-gray-300'>
+						<AlertCircle className='h-6 w-6 text-emerald-200' />
 								<div>
-									<Link
-										href={`/tasks/${task.id}`}
-										className='text-lg font-semibold text-emerald-300 hover:text-emerald-200'
-									>
-                    {task.title}
-									</Link>
-									<p className='text-xs text-gray-500 mt-1'>
-										{COLUMN_META[task.executorKanbanColumn].title} ·{' '}
-										{task.deadline ? `Дедлайн ${formatDate(task.deadline)}` : 'Без дедлайна'}
+							<p className='text-base font-semibold text-white'>Нет активной задачи</p>
+							<p className='mt-1 text-sm text-gray-400'>
+								Как только заказчик назначит тебя на задачу, здесь появится блок с подробностями.
                   </p>
                 </div>
-								<div className='flex flex-wrap gap-2'>
-									<button
-										onClick={() => handleQuickMove(task.id, 'TODO')}
-										className='rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 hover:border-amber-400 hover:text-amber-200 transition'
-									>
-										К началу
-									</button>
-									<button
-										onClick={() => handleQuickMove(task.id, 'IN_PROGRESS')}
-										className='rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 hover:border-blue-400 hover:text-blue-200 transition'
-									>
-										В работу
-									</button>
-									<button
-										onClick={() => handleQuickMove(task.id, 'REVIEW')}
-										className='rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 hover:border-purple-400 hover:text-purple-200 transition'
-									>
-										На проверку
-									</button>
-									<button
-										onClick={() => handleQuickMove(task.id, 'DONE')}
-										className='rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 hover:border-emerald-400 hover:text-emerald-200 transition'
-									>
-										Готово
-									</button>
 								</div>
-							</div>
-							<p className='mt-2 text-sm text-gray-300'>
-								{task.description || 'Нет описания'}
-							</p>
-							<div className='mt-3 grid gap-3 text-xs text-gray-400 sm:grid-cols-2 lg:grid-cols-4'>
-								<div>
-									<p className='text-gray-500'>Заказчик</p>
-									{task.customer?.id ? (
-                    <Link
-											href={`/users/${task.customer.id}`}
-											className='text-white hover:text-emerald-200 transition'
-                    >
-											{customerLookup.get(task.customer.id)?.name ??
-												task.customer.fullName ??
-												task.customer.email ??
-												'—'}
-                    </Link>
-                  ) : (
-										task.customer?.fullName ?? task.customer?.email ?? '—'
 									)}
 								</div>
-								<div>
-									<p className='text-gray-500'>Бюджет</p>
-									<p className='text-white'>
-										{task.price > 0 ? formatCurrency(task.price) : '—'}
-									</p>
+
+			<div className='mt-12 space-y-4'>
+				<div className='flex items-center gap-2 text-sm font-semibold text-emerald-200'>
+					<History className='h-4 w-4' />
+					История задач
 								</div>
-								<div>
-									<p className='text-gray-500'>Создано</p>
-									<p className='text-white'>{formatDate(task.createdAt)}</p>
+				<HistoryTaskList tasks={historyTasks} />
 								</div>
-								<div>
-									<p className='text-gray-500'>Заметка</p>
-									<p className='text-white'>{task.executorNote ?? '—'}</p>
-								</div>
-							</div>
-						</div>
-					))}
-				</div>
-			) : (
-				<div className='space-y-4 rounded-2xl border border-white/10 bg-black/30 p-6'>
-					{timelineGroups.map(group => (
-						<div key={group.date} className='rounded-xl border border-white/5 bg-white/5 p-4'>
-							<div className='flex items-center justify-between'>
-								<h3 className='text-lg font-semibold text-emerald-300'>{group.label}</h3>
-								<span className='text-xs text-gray-500'>{group.tasks.length} задач</span>
-							</div>
-							<div className='mt-3 space-y-3'>
-								{group.tasks.map(task => (
-									<div
-										key={task.id}
-										className='rounded-xl border border-white/10 bg-black/40 p-3 transition hover:border-emerald-300/40'
-									>
-										<div className='flex items-center justify-between'>
-                <Link
-                  href={`/tasks/${task.id}`}
-												className='text-sm font-semibold text-white hover:text-emerald-200'
-                >
-												{task.title}
-                </Link>
-											<span className='rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60'>
-												{COLUMN_META[task.executorKanbanColumn].title}
-											</span>
-										</div>
-										<p className='mt-1 text-xs text-gray-400'>
-											{task.customer?.fullName ?? task.customer?.email ?? 'Заказчик неизвестен'}
-										</p>
-									</div>
-								))}
-							</div>
-						</div>
-					))}
-				</div>
-      )}
-    </div>
+			</div>
+		</>
   )
 }
+
