@@ -787,14 +787,21 @@ export default function EditProfileModal({
 			})
 
 			const data = await res.json()
-			if (!res.ok) throw new Error(data.error || 'Ошибка при сохранении')
+			if (!res.ok) {
+				const errorMessage = data.details
+					? `${data.error}: ${data.details}`
+					: data.error || 'Ошибка при сохранении'
+				throw new Error(errorMessage)
+			}
 
 			toast.success('Профиль обновлён', { id: toastId })
 			setValidationErrors({})
 			onSuccess()
 			onClose()
 		} catch (err: any) {
-			toast.error(err.message || 'Ошибка сервера', { id: toastId })
+			console.error('Ошибка сохранения профиля:', err)
+			const errorMessage = err.message || 'Ошибка сервера'
+			toast.error(errorMessage, { id: toastId })
 		} finally {
 			setSaving(false)
 		}
