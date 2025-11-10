@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { randomUUID } from 'crypto'
+import { fetchPollDataForPosts } from '@/lib/communityPoll'
 
 // 📌 Получить список постов
 export async function GET(req: NextRequest) {
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
         title: true,
         content: true,
         imageUrl: true,
+        isPoll: true,
         createdAt: true,
         updatedAt: true,
         authorId: true,
@@ -52,6 +54,11 @@ export async function GET(req: NextRequest) {
       })
       userLikes = likes.map(l => l.postId)
     }
+
+    const pollMap = await fetchPollDataForPosts(
+      posts.map(p => p.id),
+      me?.id
+    )
 
     // Если нужно определить mediaType по MIME типу файла, получаем информацию о файлах
     const fileIds = posts
@@ -95,8 +102,12 @@ export async function GET(req: NextRequest) {
         }
       }
       
+      const pollInfo = pollMap.get(p.id) ?? null
+
       const result = {
         ...p,
+        isPoll: p.isPoll || !!pollInfo,
+        poll: pollInfo,
         liked: userLikes.includes(p.id),
         // Форматируем imageUrl если он начинается с /api/files, иначе оставляем как есть
         imageUrl: p.imageUrl ? (p.imageUrl.startsWith('/api/files') ? p.imageUrl : p.imageUrl) : null,
@@ -201,6 +212,11 @@ export async function GET(req: NextRequest) {
           })
           userLikes = likes.map(l => l.postId)
         }
+
+        const pollMapFallback = await fetchPollDataForPosts(
+          postsWithCounts.map(p => p.id),
+          me?.id
+        )
         
         const formattedFallback = postsWithCounts.map((p) => {
           // Определяем mediaType на основе URL
@@ -215,9 +231,13 @@ export async function GET(req: NextRequest) {
               detectedMediaType = 'video'
             }
           }
+
+          const pollInfo = pollMapFallback.get(p.id) ?? null
           
           return {
             ...p,
+            isPoll: p.isPoll || !!pollInfo,
+            poll: pollInfo,
             liked: userLikes.includes(p.id),
             imageUrl: p.imageUrl ? (p.imageUrl.startsWith('/api/files') ? p.imageUrl : p.imageUrl) : null,
             mediaType: detectedMediaType,
@@ -259,12 +279,27 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { content, imageUrl, mediaType } = body || {}
+    const { content, imageUrl, mediaType, poll } = body || {}
     
     // Валидация данных
     if (!content?.trim() && !imageUrl) {
       return NextResponse.json(
         { error: 'Пост не может быть пустым' },
+        { status: 400 }
+      )
+    }
+
+    const pollOptionsInput: string[] = Array.isArray(poll?.options)
+      ? poll.options
+          .map((opt: unknown) => (typeof opt === 'string' ? opt.trim() : ''))
+          .filter(opt => opt.length > 0)
+      : []
+
+    const isPoll = poll?.isPoll || pollOptionsInput.length > 0
+
+    if (isPoll && pollOptionsInput.length < 2) {
+      return NextResponse.json(
+        { error: 'Для опроса требуется минимум два варианта ответа' },
         { status: 400 }
       )
     }
@@ -298,6 +333,7 @@ export async function POST(req: NextRequest) {
       content: content?.trim() || '',
       imageUrl: imageUrl || null,
       authorId: me.id,
+      isPoll: isPoll,
     }
     
     // Пробуем создать с mediaType, если не получится - без него
@@ -312,6 +348,7 @@ export async function POST(req: NextRequest) {
           title: true,
           content: true,
           imageUrl: true,
+          isPoll: true,
           createdAt: true,
           updatedAt: true,
           authorId: true,
@@ -426,8 +463,25 @@ export async function POST(req: NextRequest) {
       throw new Error('Пост не был создан')
     }
 
+    if (isPoll && pollOptionsInput.length > 0 && post) {
+      await prisma.communityPollOption.createMany({
+        data: pollOptionsInput.map((text, index) => ({
+          postId: post.id,
+          text,
+          order: index,
+        })),
+      })
+    }
+
+    const pollData =
+      post && isPoll
+        ? await fetchPollDataForPosts([post.id], me.id).then(map => map.get(post.id) ?? null)
+        : null
+
     const formattedPost = {
       ...post,
+      isPoll: post?.isPoll || !!pollData,
+      poll: pollData,
       mediaType: (post as any).mediaType || detectedMediaType,
       author: {
         ...post.author,

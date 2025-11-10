@@ -112,6 +112,7 @@ const STATUS_TABS: Array<{ value: ResponseStatusFilter; label: string }> = [
 ]
 
 const STATUS_ORDER: ResponseStatus[] = ['pending', 'viewed', 'responded', 'hired', 'rejected']
+const WITHDRAWABLE_STATUSES: readonly ResponseStatus[] = ['pending', 'viewed', 'responded'] as const
 
 const statusLabels: Record<ResponseStatus, string> = {
   pending: 'Ожидает ответа',
@@ -762,7 +763,7 @@ export default function MyResponsesPage() {
                   )}
                 </div>
 
-                {response.status === 'pending' && (
+                {WITHDRAWABLE_STATUSES.includes(response.status) && (
                   <button
                     onClick={() => handleWithdraw(response.id)}
                     className="self-end px-3 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white text-sm transition"

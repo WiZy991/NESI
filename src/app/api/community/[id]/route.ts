@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { fetchSinglePoll } from '@/lib/communityPoll'
 
 // 📌 Получить один пост по ID
 export async function GET(
@@ -21,6 +22,7 @@ export async function GET(
         title: true,
         content: true,
         imageUrl: true,
+        isPoll: true,
         createdAt: true,
         updatedAt: true,
         authorId: true,
@@ -149,8 +151,14 @@ export async function GET(
     )
 
     // Формируем корректные ссылки на аватарки и изображения
+    const pollData = post.isPoll
+      ? await fetchSinglePoll(post.id, me?.id)
+      : null
+
     const formatted = {
       ...post,
+      isPoll: post.isPoll || !!pollData,
+      poll: pollData,
       liked,
       // Форматируем imageUrl если он начинается с /api/files, иначе оставляем как есть
       imageUrl: post.imageUrl ? (post.imageUrl.startsWith('/api/files') ? post.imageUrl : post.imageUrl) : null,

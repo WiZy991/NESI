@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import { toast } from 'sonner'
-import { ImagePlus, Send, Loader2 } from 'lucide-react'
+import { ImagePlus, Send, Loader2, Plus, X } from 'lucide-react'
 
 // Функция для форматирования размера файла
 function formatFileSize(bytes: number): string {
@@ -27,18 +27,38 @@ export default function NewPostPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [fileSize, setFileSize] = useState(0)
   const [uploadXHR, setUploadXHR] = useState<XMLHttpRequest | null>(null)
+  const [isPoll, setIsPoll] = useState(false)
+  const [pollOptions, setPollOptions] = useState<Array<{ id: number; value: string }>>([
+    { id: 1, value: '' },
+    { id: 2, value: '' },
+  ])
   const router = useRouter()
   const { token } = useUser()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim()) return toast.error('Напиши что-нибудь!')
+    if (!content.trim() && !isPoll) return toast.error('Напиши что-нибудь!')
     if (!token) return toast.error('Авторизация недействительна')
 
     setLoading(true)
     const toastId = toast.loading('Создаём тему...')
 
     try {
+      let pollPayload: { isPoll: true; options: string[] } | undefined
+      if (isPoll) {
+        const options = pollOptions
+          .map(option => option.value.trim())
+          .filter(option => option.length > 0)
+
+        if (options.length < 2) {
+          toast.error('Добавьте минимум два варианта для опроса', { id: toastId })
+          setLoading(false)
+          return
+        }
+
+        pollPayload = { isPoll: true, options }
+      }
+
       const res = await fetch('/api/community', {
         method: 'POST',
         headers: {
@@ -49,6 +69,7 @@ export default function NewPostPage() {
           content,
           imageUrl: fileId ? `/api/files/${fileId}` : null,
           mediaType: mediaType,
+          poll: pollPayload,
         }),
       })
       const data = await res.json()

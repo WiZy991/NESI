@@ -57,6 +57,19 @@ function resolveMediaUrl(imageUrl?: string | null): string {
   return `/api/files/${imageUrl}`
 }
 
+type PollOption = {
+  id: string
+  text: string
+  order: number
+  votes: number
+}
+
+type PollData = {
+  options: PollOption[]
+  totalVotes: number
+  userVoteOptionId: string | null
+}
+
 type Post = {
   id: string
   title: string
@@ -73,6 +86,8 @@ type Post = {
   }
   comments: Comment[]
   _count: { likes: number }
+  isPoll?: boolean
+  poll?: PollData | null
 }
 
 type Comment = {
@@ -126,6 +141,8 @@ export default function CommunityPostPage() {
   const [editPostTitle, setEditPostTitle] = useState('')
   const [savingPost, setSavingPost] = useState(false)
   const [isPostExpanded, setIsPostExpanded] = useState(false)
+  const [pollData, setPollData] = useState<PollData | null>(null)
+  const [pollVoteLoading, setPollVoteLoading] = useState<string | null>(null)
   
   // Закрытие меню при клике вне его
   useEffect(() => {
@@ -148,6 +165,7 @@ export default function CommunityPostPage() {
       })
       const data = await res.json()
       setPost(data.post)
+      setPollData(data.post?.poll ?? null)
       setLiked(data.liked || false)
     } catch (err) {
       console.error('Ошибка загрузки поста:', err)
@@ -343,6 +361,102 @@ export default function CommunityPostPage() {
       }
     } catch (err) {
       console.error('Ошибка лайка:', err)
+    }
+  }
+
+  const renderPoll = () => {
+    if (!post?.isPoll || !pollData) return null
+    const options = [...pollData.options].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const totalVotes =
+      pollData.totalVotes ?? options.reduce((sum, option) => sum + (option.votes || 0), 0)
+
+    return (
+      <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-emerald-300">Опрос</h3>
+          <span className="text-xs text-gray-400">
+            {totalVotes > 0 ? `Всего голосов: ${totalVotes}` : 'Голосов пока нет'}
+          </span>
+        </div>
+        <div className="space-y-2">
+          {options.map(option => {
+            const votes = option.votes || 0
+            const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0
+            const isSelected = pollData.userVoteOptionId === option.id
+            const isDisabled = !token || (pollVoteLoading && pollVoteLoading !== option.id)
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => handlePollVote(option.id)}
+                disabled={isDisabled}
+                className={`w-full text-left px-4 py-3 rounded-lg border transition ${
+                  isSelected
+                    ? 'border-emerald-400 bg-emerald-500/15 text-emerald-100'
+                    : 'border-gray-700 hover:border-emerald-500/40 hover:bg-gray-900/60 text-gray-200'
+                } ${!token ? 'opacity-60 cursor-not-allowed' : ''}`}
+              >
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{option.text}</span>
+                  <span className="text-xs text-gray-400">
+                    {pollVoteLoading === option.id ? '…' : `${percentage}% • ${votes}`}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      isSelected ? 'bg-emerald-400' : 'bg-emerald-600/50'
+                    }`}
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-gray-500">
+          {token
+            ? pollData.userVoteOptionId
+              ? 'Вы можете изменить свой выбор, нажав на другой вариант.'
+              : 'Выберите вариант, чтобы проголосовать.'
+            : 'Авторизуйтесь, чтобы проголосовать в опросе.'}
+        </p>
+      </div>
+    )
+  }
+
+  const handlePollVote = async (optionId: string) => {
+    if (!token) {
+      alert('Чтобы проголосовать, войдите в аккаунт.')
+      return
+    }
+    if (pollVoteLoading) return
+
+    setPollVoteLoading(optionId)
+    try {
+      const res = await fetch(`/api/community/${id}/poll`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ optionId }),
+      })
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (data?.poll) {
+          setPollData(data.poll)
+        }
+      } else {
+        const error = await res.json().catch(() => ({}))
+        alert(error.error || 'Не удалось проголосовать')
+      }
+    } catch (err) {
+      console.error('Ошибка голосования:', err)
+      alert('Во время голосования произошла ошибка')
+    } finally {
+      setPollVoteLoading(null)
     }
   }
 
@@ -637,6 +751,8 @@ export default function CommunityPostPage() {
                 </div>
               </>
             )}
+
+        {!isEditingPost && renderPoll()}
 
             {post.imageUrl && (() => {
               // Определяем тип медиа

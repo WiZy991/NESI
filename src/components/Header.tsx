@@ -18,6 +18,22 @@ import LevelIndicator from './LevelIndicator'
 import Image from 'next/image'
 import AchievementModal from './AchievementModal'
 
+const FavoritesLink = ({
+	className,
+}: {
+	className?: string
+}) => (
+	<Link
+		href='/tasks/favorites'
+		className={className}
+		title='Избранное'
+		aria-label='Избранное'
+		data-onboarding-target='nav-favorites'
+	>
+		<Heart className='w-4 h-4' />
+	</Link>
+)
+
 // Функция для форматирования времени уведомления
 const formatNotificationTime = (timestamp: string) => {
 	const date = new Date(timestamp)
@@ -78,6 +94,45 @@ export default function Header() {
 	const [usePolling, setUsePolling] = useState(false)
 	const [toastNotifications, setToastNotifications] = useState<any[]>([])
 	const [onlineCount, setOnlineCount] = useState<number | null>(null)
+	const notificationRequestRef = useRef(false)
+
+	useEffect(() => {
+		if (typeof window === 'undefined' || notificationRequestRef.current) return
+		const hasNotifications = 'Notification' in window
+		if (!hasNotifications) return
+
+		const storageKey = 'nesi-notification-permission-requested'
+		const stored = window.localStorage.getItem(storageKey)
+		const permission = window.Notification.permission
+
+		// Если уже запрашивали или пользователь сделал выбор — ничего не делаем
+		if (permission === 'granted' || permission === 'denied' || stored) {
+			if (!stored) {
+				window.localStorage.setItem(storageKey, permission)
+			}
+			return
+		}
+
+		const requestPermission = () => {
+			notificationRequestRef.current = true
+			window.localStorage.setItem(storageKey, 'requested')
+			window.Notification.requestPermission().catch(() => undefined)
+		}
+
+		const handleFirstInteraction = () => {
+			requestPermission()
+			window.removeEventListener('click', handleFirstInteraction)
+			window.removeEventListener('touchstart', handleFirstInteraction)
+		}
+
+		window.addEventListener('click', handleFirstInteraction, { once: true })
+		window.addEventListener('touchstart', handleFirstInteraction, { once: true })
+
+		return () => {
+			window.removeEventListener('click', handleFirstInteraction)
+			window.removeEventListener('touchstart', handleFirstInteraction)
+		}
+	}, [])
 	
 	// Отслеживаем открытый чат через события от страницы чатов
 	const [currentChatInfo, setCurrentChatInfo] = useState<{
@@ -947,6 +1002,9 @@ export default function Header() {
 							)}
 						</div>
 					)}
+					{user?.role === 'executor' && (
+						<FavoritesLink className='p-2 rounded-full hover:bg-emerald-500/10 active:bg-emerald-500/20 transition text-emerald-400' />
+					)}
 
 					{/* Гамбургер-меню */}
 					<button
@@ -1438,6 +1496,9 @@ export default function Header() {
 									</div>
 								)}
 							</div>
+							{user.role === 'executor' && (
+								<FavoritesLink className='p-2 rounded-full hover:bg-emerald-500/10 active:bg-emerald-500/20 transition text-emerald-400 ml-1' />
+							)}
 
 							{/* 🧭 Основная навигация */}
 							{user.role === 'admin' ? (
@@ -1458,14 +1519,6 @@ export default function Header() {
 											</Link>
 											<Link href='/tasks' className={linkStyle} data-onboarding-target="nav-tasks">
 												Каталог задач
-											</Link>
-											<Link
-												href='/tasks/favorites'
-												className={`${linkStyle} px-3`}
-												title='Избранное'
-												aria-label='Избранное'
-											>
-												<Heart className='w-4 h-4' />
 											</Link>
 											<Link href='/tasks/my' className={linkStyle}>
 												Мои задачи
