@@ -1062,13 +1062,14 @@ export default function ExecutorMyTasksPage() {
 				return prev.map(task => updatedMap.get(task.id) ?? task)
 			})
 
-		const payload = pendingPayload
-		if (payload) {
-			void persistKanban(payload.nextColumns, payload.changedColumns)
-		}
+			const payload = pendingPayload
+			if (payload) {
+				void persistKanban(payload.nextColumns, payload.changedColumns)
+			}
+		})
 	},
-		[persistKanban]
-	)
+	[persistKanban, tasks]
+)
 
 	const handleDragCancel = useCallback(() => {
 		setActiveColumnId(null)
