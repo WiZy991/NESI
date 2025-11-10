@@ -31,6 +31,7 @@ export function middleware(req: NextRequest) {
 		'/reset-password',
 		'/tasks',
 		'/specialists',
+		'/community',
 	])
 
 	const isExactPublicPage = PUBLIC_PAGES.has(pathname)
@@ -56,12 +57,16 @@ export function middleware(req: NextRequest) {
 		// - GET /api/tasks (лист задач, ровно этот путь)
 		// - GET /api/categories
 		// - GET /api/specialists
+		// - GET /api/community (список постов)
+		// - GET /api/community/[id] (отдельный пост)
 		const isGet = req.method === 'GET'
 		const allowApiForGuest =
 			isGet &&
 			(pathname === '/api/tasks' ||
 				pathname === '/api/categories' ||
-				pathname === '/api/specialists')
+				pathname === '/api/specialists' ||
+				pathname === '/api/community' ||
+				pathname.startsWith('/api/community/'))
 
 		if (!hasValidToken) {
 			if (allowApiForGuest) return NextResponse.next()
@@ -74,8 +79,16 @@ export function middleware(req: NextRequest) {
 
 	// 6) Правила для страниц без токена (гостя)
 	if (!hasValidToken) {
-		// Ровно /tasks и /specialists гостю можно
+		// Ровно /tasks, /specialists, /community гостю можно
 		if (isExactPublicPage) return NextResponse.next()
+
+		// Разрешаем просмотр отдельных постов сообщества (только просмотр, не создание/редактирование)
+		if (pathname.startsWith('/community/')) {
+			// Разрешаем только просмотр поста (формат /community/[id])
+			const communityPostMatch = pathname.match(/^\/community\/[^/]+$/)
+			if (communityPostMatch) return NextResponse.next()
+			// Все остальные пути сообщества (new, edit и т.д.) требуют авторизации
+		}
 
 		// Любые вложенные пути (детали задач/профили спецов) — нельзя
 		if (
@@ -104,42 +117,48 @@ export function middleware(req: NextRequest) {
 
 	// 7) Улучшенные security-заголовки
 	const res = NextResponse.next()
-	
+
 	// Защита от clickjacking
 	res.headers.set('X-Frame-Options', 'DENY')
-	
+
 	// Защита от MIME type sniffing
 	res.headers.set('X-Content-Type-Options', 'nosniff')
-	
+
 	// Контроль referrer информации
 	res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-	
+
 	// Защита от XSS (для старых браузеров)
 	res.headers.set('X-XSS-Protection', '1; mode=block')
-	
+
 	// Content Security Policy
 	// Для SSE endpoints разрешаем соединения без ограничений
 	const isSSEEndpoint = pathname === '/api/notifications/stream'
 	const isApi = pathname.startsWith('/api/')
-	
+
 	if (!isSSEEndpoint) {
 		const csp = isApi
 			? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';"
 			: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: ws: wss:; frame-ancestors 'none';"
 		res.headers.set('Content-Security-Policy', csp)
 	}
-	
+
 	// Permissions Policy (Feature Policy)
 	res.headers.set(
 		'Permissions-Policy',
 		'geolocation=(), microphone=(), camera=(), payment=()'
 	)
-	
+
 	// Strict Transport Security (только в продакшене с HTTPS)
-	if (process.env.NODE_ENV === 'production' && req.nextUrl.protocol === 'https:') {
-		res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+	if (
+		process.env.NODE_ENV === 'production' &&
+		req.nextUrl.protocol === 'https:'
+	) {
+		res.headers.set(
+			'Strict-Transport-Security',
+			'max-age=31536000; includeSubDomains; preload'
+		)
 	}
-	
+
 	return res
 }
 
