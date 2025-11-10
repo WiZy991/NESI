@@ -1120,34 +1120,38 @@ export default function Header() {
 						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-xl border-b border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.3)] md:hidden z-40 animate-slideInDown max-h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar'
 					>
 						<nav className='flex flex-col p-5 space-y-1.5 text-gray-200'>
+							{/* Навигация для страниц /business, /talents, /tasks, /specialists (только для неавторизованных пользователей) */}
+							{!user &&
+								(pathname === '/business' ||
+									pathname === '/talents' ||
+									pathname === '/tasks' ||
+									pathname === '/specialists') && (
+									<>
+										<Link
+											href='/tasks'
+											className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+											onClick={() => setMobileMenuOpen(false)}
+										>
+											📋 Каталог задач
+										</Link>
+										<Link
+											href='/specialists'
+											className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+											onClick={() => setMobileMenuOpen(false)}
+										>
+											⚡ Подиум исполнителей
+										</Link>
+										<Link
+											href='/community'
+											className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+											onClick={() => setMobileMenuOpen(false)}
+										>
+											💬 Сообщества
+										</Link>
+									</>
+								)}
 							{user ? (
 								<>
-									{/* Навигация для страниц /business и /talents (для авторизованных пользователей) */}
-									{(pathname === '/business' || pathname === '/talents') && (
-										<>
-											<Link
-												href='/tasks'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												📋 Каталог задач
-											</Link>
-											<Link
-												href='/specialists'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												⚡ Подиум исполнителей
-											</Link>
-											<Link
-												href='/community'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												💬 Сообщества
-											</Link>
-										</>
-									)}
 									{/* Плашка с онлайн пользователями в мобильном меню */}
 									<div className='flex items-center justify-center gap-2 px-4 py-2 mx-4 mb-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm'>
 										<div className='w-2 h-2 bg-emerald-400 rounded-full animate-pulse'></div>
@@ -1449,22 +1453,26 @@ export default function Header() {
 
 				{/* Десктопная навигация */}
 				<nav className='hidden md:flex gap-7 items-center text-gray-200 font-poppins'>
+					{/* Навигация для страниц /business, /talents, /tasks, /specialists (только для неавторизованных пользователей) */}
+					{!user &&
+						(pathname === '/business' ||
+							pathname === '/talents' ||
+							pathname === '/tasks' ||
+							pathname === '/specialists') && (
+							<>
+								<Link href='/tasks' className={linkStyle}>
+									Каталог задач
+								</Link>
+								<Link href='/specialists' className={linkStyle}>
+									Подиум исполнителей
+								</Link>
+								<Link href='/community' className={linkStyle}>
+									Сообщества
+								</Link>
+							</>
+						)}
 					{user ? (
 						<>
-							{/* Навигация для страниц /business и /talents (для авторизованных пользователей) */}
-							{(pathname === '/business' || pathname === '/talents') && (
-								<>
-									<Link href='/tasks' className={linkStyle}>
-										Каталог задач
-									</Link>
-									<Link href='/specialists' className={linkStyle}>
-										Подиум исполнителей
-									</Link>
-									<Link href='/community' className={linkStyle}>
-										Сообщества
-									</Link>
-								</>
-							)}
 							{/* Плашка с онлайн пользователями */}
 							<div className='flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs'>
 								<div className='w-2 h-2 bg-emerald-400 rounded-full animate-pulse'></div>
