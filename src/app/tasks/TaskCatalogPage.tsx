@@ -805,9 +805,14 @@ export default function TaskCatalogPage() {
 																}}
 																onClick={e => e.stopPropagation()}
 															>
-																<span className='text-[10px] uppercase tracking-[0.18em] text-emerald-300/60 break-words'>
-																	Рейтинг релевантности
-																</span>
+																<div className='flex flex-col items-center sm:items-end text-[9px] uppercase text-emerald-300/65 leading-[1.15]'>
+																	<span className='tracking-[0.16em]'>
+																		Рейтинг
+																	</span>
+																	<span className='tracking-[0.14em]'>
+																		Релевантности
+																	</span>
+																</div>
 																<div className='flex items-baseline gap-2 justify-center sm:justify-end'>
 																	<span
 																		className={scoreClass}
