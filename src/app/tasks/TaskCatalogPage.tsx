@@ -780,9 +780,24 @@ export default function TaskCatalogPage() {
 														href={`/tasks/${task.id}`}
 														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden'
 													>
-														<div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between'>
+														<div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6'>
+															<div className='min-w-0 flex-1'>
+																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors break-words line-clamp-2 md:whitespace-normal'>
+																	{task.title}
+																</h3>
+																<p className='text-xs text-slate-400 mt-1'>
+																	{new Date(task.createdAt).toLocaleDateString(
+																		'ru-RU',
+																		{
+																			day: '2-digit',
+																			month: 'long',
+																		}
+																	)}
+																</p>
+															</div>
+
 															<div
-																className='relative flex flex-col items-end text-right gap-1 w-full md:w-[140px] md:self-start px-1 mt-2 md:mt-0'
+																className='relative flex flex-col items-end text-right gap-1 w-full md:w-auto md:min-w-[200px] md:self-start px-1 md:px-0 mt-2 md:mt-0'
 																onMouseLeave={() => {
 																	if (activeReasonId === reasonsKey) {
 																		setActiveReasonId(null)
@@ -883,20 +898,6 @@ export default function TaskCatalogPage() {
 																) : null}
 															</div>
 
-															<div className='min-w-0'>
-																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors truncate'>
-																	{task.title}
-																</h3>
-																<p className='text-xs text-slate-400 mt-1'>
-																	{new Date(task.createdAt).toLocaleDateString(
-																		'ru-RU',
-																		{
-																			day: '2-digit',
-																			month: 'long',
-																		}
-																	)}
-																</p>
-															</div>
 														</div>
 
 														{/* Описание намеренно скрываем, чтобы карточка не разъезжалась из-за длинного текста */}
