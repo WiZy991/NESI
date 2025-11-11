@@ -619,7 +619,125 @@ const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360
 		}
 	}
 
-const handleFileChange = useCallback(
+	const uploadAttachment = useCallback(
+		(file: File, attachmentId: string) => {
+			if (!token) {
+				setAttachments(prev =>
+					prev.map(att =>
+						att.id === attachmentId
+							? { ...att, status: 'error', uploadProgress: 0 }
+							: att
+					)
+				)
+				return
+			}
+
+			const formData = new FormData()
+			formData.append('file', file)
+
+			try {
+				const xhr = new XMLHttpRequest()
+				attachmentUploadsRef.current.set(attachmentId, xhr)
+
+				xhr.open('POST', '/api/upload/chat-file')
+				xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+				xhr.upload.onprogress = event => {
+					if (!event.lengthComputable) return
+					const progress = Math.round((event.loaded / event.total) * 100)
+					setAttachments(prev =>
+						prev.map(att =>
+							att.id === attachmentId
+								? { ...att, uploadProgress: progress }
+								: att
+						)
+					)
+				}
+
+				const handleError = (errorMessage?: string) => {
+					console.error('Ошибка загрузки вложения:', errorMessage ?? xhr.statusText)
+					setAttachments(prev =>
+						prev.map(att =>
+							att.id === attachmentId
+								? { ...att, status: 'error', uploadProgress: 0 }
+								: att
+						)
+					)
+					attachmentUploadsRef.current.delete(attachmentId)
+				}
+
+				xhr.onreadystatechange = () => {
+					if (xhr.readyState !== XMLHttpRequest.DONE) return
+
+					if (xhr.status >= 200 && xhr.status < 300) {
+						try {
+							const responseText = xhr.responseText || '{}'
+							const data = JSON.parse(responseText)
+							const uploadedId = data?.id ?? data?.fileId ?? null
+
+							if (!uploadedId) {
+								handleError('Сервер не вернул идентификатор файла')
+								return
+							}
+
+							setAttachments(prev =>
+								prev.map(att =>
+									att.id === attachmentId
+										? {
+												...att,
+												uploadedFileId: uploadedId,
+												uploadProgress: 100,
+												status: 'ready',
+										  }
+										: att
+								)
+							)
+						} catch (parseError) {
+							handleError(`Ошибка разбора ответа: ${String(parseError)}`)
+							return
+						} finally {
+							attachmentUploadsRef.current.delete(attachmentId)
+						}
+					} else {
+						let errorMessage: string | undefined
+						try {
+							const errorResponse = JSON.parse(xhr.responseText || '{}')
+							errorMessage =
+								errorResponse?.error ||
+								errorResponse?.message ||
+								xhr.statusText
+						} catch {
+							errorMessage = xhr.statusText
+						}
+						handleError(errorMessage)
+					}
+				}
+
+				xhr.onerror = () => {
+					handleError('Ошибка сети при загрузке файла')
+				}
+
+				xhr.onabort = () => {
+					handleError('Загрузка файла была отменена')
+				}
+
+				xhr.send(formData)
+			} catch (error) {
+				console.error('Непредвиденная ошибка загрузки вложения:', error)
+				setAttachments(prev =>
+					prev.map(att =>
+						att.id === attachmentId
+							? { ...att, status: 'error', uploadProgress: 0 }
+							: att
+					)
+				)
+				attachmentUploadsRef.current.delete(attachmentId)
+			}
+		},
+		[token]
+	)
+
+	const handleFileChange = useCallback(
 		async (
 			input: React.ChangeEvent<HTMLInputElement> | File | null,
 			options: { voice?: VoiceMetadata | null; previewUrl?: string | null } = {}
