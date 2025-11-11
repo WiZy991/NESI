@@ -1,6 +1,5 @@
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { getUserFromRequest } from '@/lib/auth'
-import { createNotification } from '@/lib/createNotification'
 import { formatMoney, toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
@@ -51,6 +50,19 @@ export async function POST(
 	// Получаем ID владельца платформы
 	const platformOwnerId = process.env.PLATFORM_OWNER_ID
 
+	const notificationsToDispatch: Array<{
+		userId: string
+		payload: {
+			id: string
+			type: string
+			title: string
+			message: string
+			link: string
+			taskTitle: string
+			playSound: boolean
+		}
+	}> = []
+
 	// Обновляем статус спора и обрабатываем деньги в транзакции
 	await prisma.$transaction(async tx => {
 		// Обновляем статус спора
@@ -79,14 +91,17 @@ export async function POST(
 				where: { id: task.customerId },
 				data: {
 					frozenBalance: { decrement: escrowDecimal },
-					transactions: {
-						create: {
-							amount: new Prisma.Decimal(0),
-							type: 'refund',
-							reason: `Возврат средств по решению спора по задаче "${task.title}"`,
-							taskId: task.id,
-						},
-					},
+				},
+			})
+
+			await tx.transaction.create({
+				data: {
+					userId: task.customerId,
+					amount: escrowDecimal,
+					type: 'refund',
+					reason: `Возврат средств по решению спора по задаче "${task.title}"`,
+					taskId: task.id,
+					status: 'completed',
 				},
 			})
 		} else if (decision === 'executor') {
@@ -106,40 +121,50 @@ export async function POST(
 				data: {
 					balance: { decrement: escrowDecimal },
 					frozenBalance: { decrement: escrowDecimal },
-					transactions: {
-						create: [
-							{
-								amount: new Prisma.Decimal(-escrowNum),
-								type: 'payment',
-								reason: `Оплата за задачу "${task.title}" (по решению спора)`,
-								taskId: task.id,
-							},
-							{
-								amount: new Prisma.Decimal(-commission),
-								type: 'commission',
-								reason: `Комиссия 20% с задачи "${task.title}" (по решению спора)`,
-								taskId: task.id,
-							},
-						],
-					},
 				},
 			})
 
-			// Исполнителю: начисляем выплату (80%)
-			await tx.user.update({
-				where: { id: task.executorId },
-				data: {
-					balance: { increment: payoutDecimal },
-					transactions: {
-						create: {
-							amount: payoutDecimal,
-							type: 'earn',
-							reason: `Выплата за задачу "${task.title}" (по решению спора)`,
-							taskId: task.id,
-						},
+			await tx.transaction.createMany({
+				data: [
+					{
+						userId: task.customerId,
+						amount: new Prisma.Decimal(-escrowNum),
+						type: 'payment',
+						reason: `Оплата за задачу "${task.title}" (по решению спора)`,
+						taskId: task.id,
+						status: 'completed',
 					},
-				},
+					{
+						userId: task.customerId,
+						amount: new Prisma.Decimal(-commission),
+						type: 'commission',
+						reason: `Комиссия 20% с задачи "${task.title}" (по решению спора)`,
+						taskId: task.id,
+						status: 'completed',
+					},
+				],
 			})
+
+			// Исполнителю: начисляем выплату (80%)
+			if (task.executorId) {
+				await tx.user.update({
+					where: { id: task.executorId },
+					data: {
+						balance: { increment: payoutDecimal },
+					},
+				})
+
+				await tx.transaction.create({
+					data: {
+						userId: task.executorId,
+						amount: payoutDecimal,
+						type: 'earn',
+						reason: `Выплата за задачу "${task.title}" (по решению спора)`,
+						taskId: task.id,
+						status: 'completed',
+					},
+				})
+			}
 
 			// Владельцу платформы: начисляем комиссию (20%)
 			if (platformOwnerId) {
@@ -147,20 +172,23 @@ export async function POST(
 					where: { id: platformOwnerId },
 					data: {
 						balance: { increment: commissionDecimal },
-						transactions: {
-							create: {
-								amount: commissionDecimal,
-								type: 'commission',
-								reason: `Комиссия платформы 20% с задачи "${task.title}" (по решению спора)`,
-								taskId: task.id,
-							},
-						},
+					},
+				})
+
+				await tx.transaction.create({
+					data: {
+						userId: platformOwnerId,
+						amount: commissionDecimal,
+						type: 'commission',
+						reason: `Комиссия платформы 20% с задачи "${task.title}" (по решению спора)`,
+						taskId: task.id,
+						status: 'completed',
 					},
 				})
 			}
 		}
 
-		// Создаём уведомления для обеих сторон
+		// Создаём уведомления для обеих сторон в рамках транзакции
 		const customerMessage =
 			decision === 'customer'
 				? `Спор по задаче "${task.title}" разрешён в вашу пользу. Средства возвращены на баланс.`
@@ -168,55 +196,66 @@ export async function POST(
 
 		const executorMessage =
 			decision === 'executor'
-				? `Спор по задаче "${
-						task.title
-				  }" разрешён в вашу пользу. Вам начислено ${formatMoney(payout)}.`
+				? `Спор по задаче "${task.title}" разрешён в вашу пользу. Вам начислено ${formatMoney(payout)}.`
 				: `Спор по задаче "${task.title}" разрешён в пользу заказчика.`
 
-		// Создаём уведомления в БД
-		await createNotification(
-			task.customerId,
-			customerMessage,
-			`/tasks/${task.id}`,
-			'dispute'
-		)
+		const customerNotification = await tx.notification.create({
+			data: {
+				userId: task.customerId,
+				type: 'dispute',
+				message: customerMessage,
+				link: `/tasks/${task.id}`,
+			},
+		})
 
-		if (task.executorId) {
-			await createNotification(
-				task.executorId,
-				executorMessage,
-				`/tasks/${task.id}`,
-				'dispute'
-			)
-		}
-
-		// Отправляем уведомления в реальном времени
-		sendNotificationToUser(task.customerId, {
-			type: 'dispute',
-			title: 'Спор разрешён',
-			message: customerMessage,
-			link: `/tasks/${task.id}`,
-			taskTitle: task.title,
-			playSound: true,
-		}).catch(err =>
-			console.error('Ошибка отправки уведомления заказчику:', err)
-		)
-
-		if (task.executorId) {
-			sendNotificationToUser(task.executorId, {
+		notificationsToDispatch.push({
+			userId: task.customerId,
+			payload: {
+				id: customerNotification.id,
 				type: 'dispute',
 				title: 'Спор разрешён',
-				message: executorMessage,
+				message: customerMessage,
 				link: `/tasks/${task.id}`,
 				taskTitle: task.title,
 				playSound: true,
-			}).catch(err =>
-				console.error('Ошибка отправки уведомления исполнителю:', err)
-			)
+			},
+		})
+
+		if (task.executorId) {
+			const executorNotification = await tx.notification.create({
+				data: {
+					userId: task.executorId,
+					type: decision === 'executor' ? 'payment' : 'dispute',
+					message: executorMessage,
+					link: `/tasks/${task.id}`,
+				},
+			})
+
+			notificationsToDispatch.push({
+				userId: task.executorId,
+				payload: {
+					id: executorNotification.id,
+					type: decision === 'executor' ? 'payment' : 'dispute',
+					title: 'Спор разрешён',
+					message: executorMessage,
+					link: `/tasks/${task.id}`,
+					taskTitle: task.title,
+					playSound: true,
+				},
+			})
 		}
 
 		return updated
 	})
+
+	// Отправляем уведомления в реальном времени после успешной транзакции
+	for (const notification of notificationsToDispatch) {
+		try {
+			sendNotificationToUser(notification.userId, notification.payload)
+		} catch (err) {
+			console.error('Ошибка отправки SSE уведомления по спору:', err)
+		}
+	}
 
 	return NextResponse.json({ success: true })
 }

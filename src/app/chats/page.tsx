@@ -342,8 +342,20 @@ function ChatsPageContent() {
 
 	const scrollToMessageById = useCallback((messageId: string) => {
 		const element = messageSearchRefs.current.get(messageId)
-		if (element) {
-			element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+		const container = messagesContainerRef.current
+		if (element && container) {
+			const elementRect = element.getBoundingClientRect()
+			const containerRect = container.getBoundingClientRect()
+			const offsetTop =
+				elementRect.top - containerRect.top + container.scrollTop
+			const targetScroll =
+				offsetTop - container.clientHeight / 2 + elementRect.height / 2
+
+			container.scrollTo({
+				top: Math.max(0, targetScroll),
+				behavior: 'smooth',
+			})
+
 			setHighlightedMessageId(messageId)
 			if (highlightTimeoutRef.current) {
 				clearTimeout(highlightTimeoutRef.current)

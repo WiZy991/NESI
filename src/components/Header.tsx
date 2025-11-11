@@ -51,6 +51,35 @@ const formatNotificationTime = (timestamp: string) => {
 	})
 }
 
+const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
+	message: 'Сообщения',
+	review: 'Отзывы',
+	task: 'Задачи',
+	warning: 'Предупреждения',
+	response: 'Отклики',
+	response_reminder: 'Напоминания',
+	reminder: 'Напоминания',
+	hire: 'Назначения',
+	hire_request: 'Запросы на наём',
+	assignment: 'Назначения',
+	payment: 'Платежи',
+	expense: 'Списания',
+	income: 'Поступления',
+	commission: 'Комиссии',
+	refund: 'Возвраты',
+	dispute: 'Споры',
+	badge: 'Награды',
+	freeze: 'Заморозка',
+	earn: 'Начисления',
+	system: 'Система',
+	broadcast: 'Системные',
+	chatPresence: 'Чаты',
+	other: 'Прочее',
+}
+
+const getNotificationTypeLabel = (type: string) =>
+	NOTIFICATION_TYPE_LABELS[type] ?? NOTIFICATION_TYPE_LABELS.other ?? 'Прочее'
+
 // Глобальная переменная для доступа к setMenuOpen из онбординга
 let globalSetMenuOpen:
 	| ((value: boolean | ((prev: boolean) => boolean)) => void)
@@ -938,14 +967,6 @@ export default function Header() {
 													return acc
 												}, {} as Record<string, typeof notifications>)
 
-												const typeLabels: Record<string, string> = {
-													message: 'Сообщения',
-													review: 'Отзывы',
-													task: 'Задачи',
-													warning: 'Предупреждения',
-													other: 'Прочее',
-												}
-
 												return Object.entries(grouped).map(
 													([type, groupNotifs]) => (
 														<div
@@ -955,7 +976,7 @@ export default function Header() {
 															{Object.keys(grouped).length > 1 && (
 																<div className='px-3 py-2 bg-gray-800/40 border-b border-gray-700/30'>
 																	<span className='text-xs font-semibold text-emerald-400 uppercase tracking-wider'>
-																		{typeLabels[type] || type}
+																		{getNotificationTypeLabel(type)}
 																	</span>
 																	<span className='ml-2 text-xs text-gray-500'>
 																		({groupNotifs.length})
@@ -1530,14 +1551,6 @@ export default function Header() {
 														return acc
 													}, {} as Record<string, typeof notifications>)
 
-													const typeLabels: Record<string, string> = {
-														message: 'Сообщения',
-														review: 'Отзывы',
-														task: 'Задачи',
-														warning: 'Предупреждения',
-														other: 'Прочее',
-													}
-
 													return Object.entries(grouped).map(
 														([type, groupNotifs]) => (
 															<div
@@ -1547,7 +1560,7 @@ export default function Header() {
 																{Object.keys(grouped).length > 1 && (
 																	<div className='px-3 py-2 bg-gray-800/40 border-b border-gray-700/30'>
 																		<span className='text-xs font-semibold text-emerald-400 uppercase tracking-wider'>
-																			{typeLabels[type] || type}
+																			{getNotificationTypeLabel(type)}
 																		</span>
 																		<span className='ml-2 text-xs text-gray-500'>
 																			({groupNotifs.length})

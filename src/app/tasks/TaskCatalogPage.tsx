@@ -701,6 +701,26 @@ export default function TaskCatalogPage() {
 												const reasonsKey = `recommended-${task.id}`
 												const showReasons = activeReasonId === reasonsKey
 
+												const rawScore =
+													typeof recommendation.score === 'number' &&
+													isFinite(recommendation.score)
+														? recommendation.score
+														: 0
+												const normalizedScore = Math.max(
+													0,
+													Math.min(100, rawScore)
+												)
+												const displayScore =
+													rawScore > 100
+														? '100+'
+														: Number.isInteger(rawScore)
+														? rawScore.toString()
+														: rawScore.toFixed(1)
+												const scoreTitle =
+													rawScore > 100 || rawScore < 0
+														? `Фактическое значение: ${rawScore.toFixed(1)}`
+														: undefined
+
 												return (
 													<Link
 														key={task.id}
@@ -736,8 +756,11 @@ export default function TaskCatalogPage() {
 																	Рейтинг релевантности
 																</span>
 																<div className='flex items-baseline gap-2'>
-																	<span className='text-xl font-semibold text-emerald-100 leading-none'>
-																		{recommendation.score}
+																	<span
+																		className='text-xl font-semibold text-emerald-100 leading-none'
+																		title={scoreTitle}
+																	>
+																		{displayScore}
 																	</span>
 																	<span className='text-[11px] text-emerald-300/60'>
 																		/ 100
@@ -747,10 +770,7 @@ export default function TaskCatalogPage() {
 																	<div
 																		className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
 																		style={{
-																			width: `${Math.min(
-																				100,
-																				Math.max(0, recommendation.score * 5)
-																			)}%`,
+																			width: `${normalizedScore}%`,
 																		}}
 																	/>
 																</div>
