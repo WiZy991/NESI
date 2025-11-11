@@ -27,6 +27,17 @@ const FILE_SIGNATURES: Record<string, number[][]> = {
     [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x71, 0x74], // QuickTime
   ],
   'video/x-msvideo': [[0x52, 0x49, 0x46, 0x46]], // AVI (RIFF header)
+
+  // Audio
+  'audio/webm': [[0x1a, 0x45, 0xdf, 0xa3]],
+  'audio/ogg': [[0x4f, 0x67, 0x67, 0x53]], // OggS
+  'audio/mpeg': [
+    [0x49, 0x44, 0x33], // ID3 tag
+    [0xff, 0xfb], // MPEG-1 Layer III
+  ],
+  'audio/wav': [
+    [0x52, 0x49, 0x46, 0x46], // RIFF
+  ],
   
   // Documents
   'application/pdf': [[0x25, 0x50, 0x44, 0x46]], // %PDF
@@ -46,6 +57,9 @@ const FILE_SIGNATURES: Record<string, number[][]> = {
   ],
 }
 
+const normalizeMimeType = (value: string): string =>
+  value.split(';')[0]?.trim().toLowerCase() || value.toLowerCase()
+
 // Разрешенные MIME типы
 const ALLOWED_MIME_TYPES = new Set([
   'image/png',
@@ -57,6 +71,10 @@ const ALLOWED_MIME_TYPES = new Set([
   'video/webm',
   'video/quicktime',
   'video/x-msvideo',
+  'audio/webm',
+  'audio/ogg',
+  'audio/mpeg',
+  'audio/wav',
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -75,6 +93,9 @@ const ALLOWED_EXTENSIONS = new Set([
   'webm',
   'mov',
   'avi',
+  'ogg',
+  'mp3',
+  'wav',
   'pdf',
   'doc',
   'docx',
@@ -175,11 +196,13 @@ export async function validateFile(
   }
 
   // 3. Проверка MIME типа
-  const mimeType = file.type || 'application/octet-stream'
+  const rawMimeType = file.type || 'application/octet-stream'
+  const mimeType = normalizeMimeType(rawMimeType)
+
   if (!ALLOWED_MIME_TYPES.has(mimeType)) {
     return {
       valid: false,
-      error: `Недопустимый тип файла: ${mimeType}`,
+      error: `Недопустимый тип файла: ${rawMimeType}`,
     }
   }
 
@@ -254,7 +277,9 @@ export function validateFileBuffer(
   }
 
   // Проверка MIME типа
-  if (!ALLOWED_MIME_TYPES.has(declaredMimeType)) {
+  const normalizedMimeType = normalizeMimeType(declaredMimeType)
+
+  if (!ALLOWED_MIME_TYPES.has(normalizedMimeType)) {
     return {
       valid: false,
       error: `Недопустимый тип файла: ${declaredMimeType}`,
@@ -263,7 +288,7 @@ export function validateFileBuffer(
 
   // Проверка magic bytes
   const detectedMimeType = getMimeTypeFromSignature(buffer)
-  if (detectedMimeType && detectedMimeType !== declaredMimeType) {
+  if (detectedMimeType && detectedMimeType !== normalizedMimeType) {
     return {
       valid: false,
       error: `Тип файла не соответствует содержимому`,
@@ -279,6 +304,6 @@ export function validateFileBuffer(
 
   return {
     valid: true,
-    detectedMimeType: detectedMimeType || declaredMimeType,
+    detectedMimeType: detectedMimeType || normalizedMimeType,
   }
 }

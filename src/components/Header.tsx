@@ -12,11 +12,12 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AchievementModal from './AchievementModal'
 import LevelIndicator from './LevelIndicator'
 import { NotificationPolling } from './NotificationPolling'
 import { ToastContainer } from './ToastNotification'
+import { toast } from 'sonner'
 
 const FavoritesLink = ({ className }: { className?: string }) => (
 	<Link
@@ -122,46 +123,69 @@ export default function Header() {
 	const [toastNotifications, setToastNotifications] = useState<any[]>([])
 	const [onlineCount, setOnlineCount] = useState<number | null>(null)
 	const notificationRequestRef = useRef(false)
+	const NOTIFICATION_PERMISSION_KEY = useMemo(
+		() => 'nesi-notification-permission-state',
+		[]
+	)
+	const [shouldPromptNotifications, setShouldPromptNotifications] = useState(false)
 
 	useEffect(() => {
 		if (typeof window === 'undefined' || notificationRequestRef.current) return
-		const hasNotifications = 'Notification' in window
-		if (!hasNotifications) return
+		if (!('Notification' in window)) return
 
-		const storageKey = 'nesi-notification-permission-requested'
-		const stored = window.localStorage.getItem(storageKey)
+		const storedState = window.localStorage.getItem(NOTIFICATION_PERMISSION_KEY)
 		const permission = window.Notification.permission
 
-		// Если уже запрашивали или пользователь сделал выбор — ничего не делаем
-		if (permission === 'granted' || permission === 'denied' || stored) {
-			if (!stored) {
-				window.localStorage.setItem(storageKey, permission)
+		if (permission === 'granted') {
+			if (storedState !== 'granted') {
+				window.localStorage.setItem(NOTIFICATION_PERMISSION_KEY, 'granted')
 			}
+			setShouldPromptNotifications(false)
 			return
 		}
 
-		const requestPermission = () => {
+		if (permission === 'denied') {
+			window.localStorage.setItem(NOTIFICATION_PERMISSION_KEY, 'denied')
+			setShouldPromptNotifications(false)
+			return
+		}
+
+		// permission === 'default'
+		if (storedState !== 'dismissed') {
+			setShouldPromptNotifications(true)
+		}
+	}, [NOTIFICATION_PERMISSION_KEY])
+
+	const handleRequestNotificationPermission = useCallback(async () => {
+		if (typeof window === 'undefined' || !('Notification' in window)) {
+			toast.error('Ваш браузер не поддерживает нативные уведомления')
+			return
+		}
+
+		try {
 			notificationRequestRef.current = true
-			window.localStorage.setItem(storageKey, 'requested')
-			window.Notification.requestPermission().catch(() => undefined)
+			const result = await window.Notification.requestPermission()
+			window.localStorage.setItem(NOTIFICATION_PERMISSION_KEY, result)
+			setShouldPromptNotifications(false)
+			if (result === 'denied') {
+				toast('Уведомления отключены', {
+					description:
+						'Вы всегда сможете включить их в настройках браузера, если передумаете.',
+				})
+			}
+		} catch (error) {
+			console.error('Ошибка запроса разрешения на уведомления:', error)
+			toast.error('Не удалось запросить разрешение на уведомления.')
+			setShouldPromptNotifications(false)
 		}
+	}, [NOTIFICATION_PERMISSION_KEY])
 
-		const handleFirstInteraction = () => {
-			requestPermission()
-			window.removeEventListener('click', handleFirstInteraction)
-			window.removeEventListener('touchstart', handleFirstInteraction)
+	const handleDismissNotificationPrompt = useCallback(() => {
+		if (typeof window !== 'undefined') {
+			window.localStorage.setItem(NOTIFICATION_PERMISSION_KEY, 'dismissed')
 		}
-
-		window.addEventListener('click', handleFirstInteraction, { once: true })
-		window.addEventListener('touchstart', handleFirstInteraction, {
-			once: true,
-		})
-
-		return () => {
-			window.removeEventListener('click', handleFirstInteraction)
-			window.removeEventListener('touchstart', handleFirstInteraction)
-		}
-	}, [])
+		setShouldPromptNotifications(false)
+	}, [NOTIFICATION_PERMISSION_KEY])
 
 	// Отслеживаем открытый чат через события от страницы чатов
 	const [currentChatInfo, setCurrentChatInfo] = useState<{
@@ -889,6 +913,41 @@ export default function Header() {
 					badge={achievementBadge}
 					onClose={() => setAchievementBadge(null)}
 				/>
+			)}
+			{shouldPromptNotifications && (
+				<div className='fixed bottom-6 right-6 z-[11050] max-w-xs bg-black/85 backdrop-blur-lg border border-emerald-500/30 rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.25)] p-4 space-y-3 text-sm text-gray-200 animate-fadeIn'>
+					<div className='flex items-start gap-3'>
+						<div className='flex-shrink-0 mt-0.5'>
+							<Bell className='w-5 h-5 text-emerald-400' />
+						</div>
+						<div className='space-y-1'>
+							<p className='text-emerald-200 font-semibold text-sm'>
+								Включите уведомления
+							</p>
+							<p className='text-xs text-gray-400 leading-relaxed'>
+								Мы сможем показывать новые сообщения и события без открытия
+								сайта. Разрешение можно в любой момент изменить в настройках
+								браузера.
+							</p>
+						</div>
+					</div>
+					<div className='flex items-center gap-2'>
+						<button
+							type='button'
+							onClick={handleRequestNotificationPermission}
+							className='flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-200 hover:bg-emerald-500/30 hover:text-emerald-100 transition-all text-xs font-semibold'
+						>
+							Разрешить
+						</button>
+						<button
+							type='button'
+							onClick={handleDismissNotificationPrompt}
+							className='px-3 py-2 rounded-lg border border-emerald-500/20 text-gray-400 hover:text-gray-200 hover:border-emerald-500/40 transition-all text-xs'
+						>
+							Позже
+						</button>
+					</div>
+				</div>
 			)}
 			<ToastContainer
 				notifications={toastNotifications}

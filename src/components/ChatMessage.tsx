@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useUser } from '@/context/UserContext'
 import { toast } from 'sonner'
@@ -24,7 +24,9 @@ import {
   FileAudio,
   Archive,
   Download,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Play,
+  Pause
 } from 'lucide-react'
 
 type Props = {
@@ -71,7 +73,22 @@ type Props = {
   onReply?: (messageId: string) => void // Callback для ответа на сообщение
 }
 
-export default function ChatMessage({ message, chatType, showSenderName = true, isFirstInGroup = true, isLastInGroup = true, onMessageUpdate, onMessageDelete, onReply }: Props) {
+type VoiceMessagePayload = {
+	type: 'voice'
+	duration: number
+	waveform: number[]
+}
+
+export default function ChatMessage({
+	message,
+	chatType,
+	showSenderName = true,
+	isFirstInGroup = true,
+	isLastInGroup = true,
+	onMessageUpdate,
+	onMessageDelete,
+	onReply,
+}: Props) {
   const { user, token } = useUser()
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState(message.content)
@@ -98,29 +115,96 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
   }, [message.reactions])
   
   // Используем fileUrl напрямую, если он есть, иначе строим из fileId
-  const fileUrl = message.fileUrl || (message.fileId ? `/api/files/${message.fileId}` : null)
+  const fileUrl =
+		message.fileUrl || (message.fileId ? `/api/files/${message.fileId}` : null)
+
+	const voiceMeta = useMemo<VoiceMessagePayload | null>(() => {
+		if (!message.content) return null
+		if (typeof message.content !== 'string') return null
+		try {
+			const parsed = JSON.parse(message.content)
+			if (
+				parsed &&
+				parsed.type === 'voice' &&
+				typeof parsed.duration === 'number' &&
+				Array.isArray(parsed.waveform)
+			) {
+				const sanitizedWaveform = parsed.waveform
+					.map((value: any) =>
+						Number.isFinite(Number(value)) ? Math.min(1, Math.max(0, Number(value))) : 0
+					)
+					.slice(0, 128)
+				return {
+					type: 'voice',
+					duration: Math.max(0, Number(parsed.duration)),
+					waveform: sanitizedWaveform.length > 0 ? sanitizedWaveform : [0.1],
+				}
+			}
+		} catch (error) {
+			// not a voice message
+		}
+		return null
+	}, [message.content])
+
+  const replyVoiceMeta = useMemo(() => {
+		if (!message.replyTo?.content) return null
+		try {
+			const parsed = JSON.parse(message.replyTo.content)
+			if (parsed?.type === 'voice') return parsed
+		} catch (error) {
+			return null
+		}
+		return null
+	}, [message.replyTo?.content])
+
+	const isVoiceMessage = useMemo(() => {
+		if (!voiceMeta) return false
+		if (!fileUrl) return false
+		if (message.fileMimetype && message.fileMimetype.startsWith('audio/')) return true
+		if (message.fileName) {
+			const ext = message.fileName.split('.').pop()?.toLowerCase()
+			if (ext && ['webm', 'ogg', 'mp3', 'wav', 'm4a'].includes(ext)) {
+				return true
+			}
+		}
+		return false
+	}, [voiceMeta, fileUrl, message.fileMimetype, message.fileName])
+
+	const audioRef = useRef<HTMLAudioElement | null>(null)
+	const [isVoicePlaying, setIsVoicePlaying] = useState(false)
+	const [voiceCurrentTime, setVoiceCurrentTime] = useState(0)
+	const [voiceDuration, setVoiceDuration] = useState<number>(
+		voiceMeta?.duration || 0
+	)
   
   // Определяем тип файла по MIME-типу или по расширению
   const getFileType = () => {
-    if (message.fileMimetype) {
-      if (message.fileMimetype.startsWith('image/')) return 'image'
-      if (message.fileMimetype.startsWith('video/')) return 'video'
-    }
-    // Если MIME-тип не определен, проверяем по расширению
-    if (message.fileName) {
-      const ext = message.fileName.split('.').pop()?.toLowerCase()
-      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext || '')) return 'image'
-      if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'wmv', 'm4v', 'flv'].includes(ext || '')) return 'video'
-    }
-    return 'file'
-  }
+		if (isVoiceMessage) return 'audio'
+		if (message.fileMimetype) {
+			if (message.fileMimetype.startsWith('image/')) return 'image'
+			if (message.fileMimetype.startsWith('video/')) return 'video'
+			if (message.fileMimetype.startsWith('audio/')) return 'audio'
+		}
+		// Если MIME-тип не определен, проверяем по расширению
+		if (message.fileName) {
+			const ext = message.fileName.split('.').pop()?.toLowerCase()
+			if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext || ''))
+				return 'image'
+			if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'wmv', 'm4v', 'flv'].includes(ext || ''))
+				return 'video'
+			if (['ogg', 'mp3', 'wav', 'm4a'].includes(ext || '')) return 'audio'
+		}
+		return 'file'
+	}
   
   const fileType = getFileType()
   const isImage = fileType === 'image'
   const isVideo = fileType === 'video'
+	const isAudio = fileType === 'audio'
   const isOwnMessage = user?.id === message.sender.id
   const isDeleted = message.content === '[Сообщение удалено]'
   const isEdited = message.editedAt && message.editedAt !== message.createdAt
+	const canEditMessage = isOwnMessage && !isDeleted && !isVoiceMessage
   
   // Закрытие модального окна по Escape
   useEffect(() => {
@@ -224,7 +308,14 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
     return false
   }
 
-  const containsOnlyEmoji = Boolean(message.content && !fileUrl && !message.replyTo && !isDeleted && isOnlyEmoji(message.content))
+  const containsOnlyEmoji = Boolean(
+		message.content &&
+			!fileUrl &&
+			!message.replyTo &&
+			!isDeleted &&
+			!isVoiceMessage &&
+			isOnlyEmoji(message.content)
+	)
 
   // Функция для форматирования размера файла
   const formatFileSize = (bytes?: number) => {
@@ -233,6 +324,78 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`
     return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
   }
+
+	const formatVoiceTime = useCallback((seconds: number) => {
+		const total = Math.max(0, Math.floor(seconds))
+		const mins = Math.floor(total / 60)
+		const secs = total % 60
+		return `${mins}:${secs.toString().padStart(2, '0')}`
+	}, [])
+
+	useEffect(() => {
+		if (!isVoiceMessage || !fileUrl) {
+			return
+		}
+
+		const audioElement = document.createElement('audio')
+		audioElement.src = fileUrl
+		audioElement.preload = 'metadata'
+		audioRef.current = audioElement
+
+		const handleLoadedMetadata = () => {
+			setVoiceDuration(audioElement.duration || voiceMeta?.duration || 0)
+		}
+
+		const handleTimeUpdate = () => {
+			setVoiceCurrentTime(audioElement.currentTime)
+		}
+
+		const handleEnded = () => {
+			setIsVoicePlaying(false)
+			setVoiceCurrentTime(audioElement.duration || 0)
+		}
+
+		audioElement.addEventListener('loadedmetadata', handleLoadedMetadata)
+		audioElement.addEventListener('timeupdate', handleTimeUpdate)
+		audioElement.addEventListener('ended', handleEnded)
+
+		return () => {
+			audioElement.pause()
+			audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
+			audioElement.removeEventListener('timeupdate', handleTimeUpdate)
+			audioElement.removeEventListener('ended', handleEnded)
+			audioRef.current = null
+		}
+	}, [fileUrl, isVoiceMessage, voiceMeta])
+
+	const toggleVoicePlayback = useCallback(() => {
+		if (!audioRef.current) return
+
+		const audio = audioRef.current
+		if (audio.paused) {
+			const playPromise = audio.play()
+			if (playPromise && typeof playPromise.then === 'function') {
+				playPromise
+					.then(() => {
+						setIsVoicePlaying(true)
+					})
+					.catch(() => {
+						toast.error('Не удалось воспроизвести голосовое сообщение')
+					})
+			} else {
+				setIsVoicePlaying(true)
+			}
+		} else {
+			audio.pause()
+			setIsVoicePlaying(false)
+		}
+	}, [])
+
+	useEffect(() => {
+		if (!isVoicePlaying && audioRef.current) {
+			audioRef.current.pause()
+		}
+	}, [isVoicePlaying])
 
   // Функция для определения типа файла и получения иконки
   const getFileIcon = (mimetype?: string, fileName?: string) => {
@@ -724,6 +887,21 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
     }
   }
 
+  const handleVoiceSeek = useCallback(
+	(event: React.MouseEvent<HTMLDivElement>) => {
+		if (!audioRef.current) return
+		const total = voiceDuration || voiceMeta?.duration || 0
+		if (!total) return
+
+		const rect = event.currentTarget.getBoundingClientRect()
+		const ratio = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1)
+		const newTime = total * ratio
+		audioRef.current.currentTime = newTime
+		setVoiceCurrentTime(newTime)
+	},
+	[voiceDuration, voiceMeta]
+)
+
   return (
     <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} ${marginBottom}`} style={{ overflow: 'visible' }}>
       <div 
@@ -861,7 +1039,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                     <span>Реакция</span>
                   </button>
                 </div>
-                {message.content && (
+                {message.content && !isVoiceMessage && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
@@ -907,17 +1085,19 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                 {isOwnMessage && (
                   <>
                     <div className="border-t border-gray-700/50 my-1"></div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setIsEditing(true)
-                        setShowMenu(false)
-                      }}
-                      className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
-                    >
-                      <Edit className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                      <span>Изменить</span>
-                    </button>
+                    {canEditMessage && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsEditing(true)
+                          setShowMenu(false)
+                        }}
+                        className="flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation"
+                      >
+                        <Edit className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <span>Изменить</span>
+                      </button>
+                    )}
                     <div className="border-t border-gray-700/50 my-1"></div>
                     <button
                       onClick={(e) => {
@@ -1126,24 +1306,105 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
                     {message.replyTo.sender.fullName || message.replyTo.sender.email}
                   </Link>
                 </div>
-                <div className={`text-xs line-clamp-2 break-words pl-4 ${
-                  isOwnMessage ? 'text-white/70' : 'text-gray-300'
-                }`}>
-                  {message.replyTo.content ? (
-                    message.replyTo.content.length > 100 
-                      ? message.replyTo.content.substring(0, 100) + '...' 
-                      : message.replyTo.content
-                  ) : (
-                    <span className="italic">📎 Файл</span>
-                  )}
+                <div
+									className={`text-xs line-clamp-2 break-words pl-4 ${
+										isOwnMessage ? 'text-white/70' : 'text-gray-300'
+									}`}
+								>
+									{replyVoiceMeta ? (
+										<span className='italic text-emerald-200/80'>🎙️ Голосовое сообщение</span>
+									) : message.replyTo.content ? (
+										message.replyTo.content.length > 100
+											? message.replyTo.content.substring(0, 100) + '...'
+											: message.replyTo.content
+									) : (
+										<span className='italic'>📎 Файл</span>
+									)}
                 </div>
               </div>
             )}
 
             {/* Файл - отображается первым, если есть */}
             {fileUrl && !isDeleted && (
-              <div className={message.content ? 'mb-2' : ''}>
-                {isImage ? (
+              <div className={!isVoiceMessage && message.content ? 'mb-2' : ''}>
+                {isVoiceMessage && voiceMeta ? (
+                  <div
+                    className={`p-3 sm:p-4 rounded-xl border shadow-sm transition-all duration-200 ${
+                      isOwnMessage
+                        ? 'bg-emerald-600/20 border-emerald-400/40 text-emerald-100'
+                        : 'bg-slate-700/40 border-slate-500/40 text-emerald-100'
+                    }`}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className='flex items-center gap-3 sm:gap-4'>
+                      <button
+                        type='button'
+                        onClick={e => {
+                          e.stopPropagation()
+                          toggleVoicePlayback()
+                        }}
+                        className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center border transition-all ${
+                          isOwnMessage
+                            ? 'border-emerald-300 hover:bg-emerald-300 hover:text-emerald-900'
+                            : 'border-emerald-400 hover:bg-emerald-400 hover:text-emerald-900'
+                        }`}
+                        aria-label={isVoicePlaying ? 'Пауза' : 'Воспроизвести'}
+                      >
+                        {isVoicePlaying ? (
+                          <Pause className='w-5 h-5' />
+                        ) : (
+                          <Play className='w-5 h-5' />
+                        )}
+                      </button>
+                      <div className='flex-1 min-w-0'>
+                        {(() => {
+                          const total = voiceDuration || voiceMeta.duration || 0
+                          const progressRatio = total ? Math.min(voiceCurrentTime / total, 1) : 0
+                          const activeBars = Math.floor(progressRatio * voiceMeta.waveform.length)
+
+                          return (
+                            <>
+                              <div
+                                className='flex items-end gap-[2px] sm:gap-[3px] h-16 sm:h-18 lg:h-20 cursor-pointer select-none relative'
+                                onClick={handleVoiceSeek}
+                              >
+                                <div className='absolute inset-0 bg-emerald-400/10 rounded-lg' />
+                                <div
+                                  className='absolute inset-0 bg-gradient-to-r from-emerald-400/25 to-emerald-500/40 rounded-lg pointer-events-none'
+                                  style={{ width: `${progressRatio * 100}%` }}
+                                />
+                                <div className='relative flex items-end gap-[2px] sm:gap-[3px] h-full w-full'>
+                                  {voiceMeta.waveform.map((value, index) => (
+                                    <div
+                                      key={index}
+                                      className={`flex-1 rounded-full transition-colors duration-150 ${
+                                        index <= activeBars ? 'bg-emerald-300' : 'bg-emerald-500/25'
+                                      }`}
+                                      style={{ height: `${Math.max(10, value * 60)}px`, opacity: value < 0.1 ? 0.35 : 0.9 }}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                              <div className='flex items-center justify-between text-[10px] text-emerald-100/80 mt-1'>
+                                <span>{formatVoiceTime(voiceCurrentTime)}</span>
+                                <span>{formatVoiceTime(total)}</span>
+                              </div>
+                            </>
+                          )
+                        })()}
+                      </div>
+                      <a
+                        href={`${fileUrl}?download=true`}
+                        download={message.fileName || 'voice-message.webm'}
+                        className='flex-shrink-0 p-2 rounded-lg border border-emerald-400/50 hover:bg-emerald-400/20 transition-colors text-emerald-200'
+                        onClick={e => e.stopPropagation()}
+                        title='Скачать голосовое сообщение'
+                      >
+                        <Download className='w-4 h-4' />
+                      </a>
+                    </div>
+                  </div>
+                ) : isImage ? (
                   <>
                     <div
                       className="relative block rounded-lg overflow-hidden group cursor-pointer"
@@ -1306,7 +1567,7 @@ export default function ChatMessage({ message, chatType, showSenderName = true, 
             )}
 
             {/* Текст сообщения */}
-            {message.content && (
+            {message.content && !isVoiceMessage && (
               <div 
                 className={containsOnlyEmoji 
                   ? 'text-center block' 

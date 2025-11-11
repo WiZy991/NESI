@@ -68,7 +68,12 @@ export async function POST(req: Request) {
 
     // Проверка расширения
     const ext = safeFileName.split('.').pop()?.toLowerCase()
-    const allowedExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mov', 'avi', 'pdf', 'doc', 'docx', 'xls', 'xlsx']
+    const allowedExts = [
+      'png', 'jpg', 'jpeg', 'gif', 'webp',
+      'mp4', 'webm', 'mov', 'avi',
+      'mp3', 'wav', 'ogg', 'm4a',
+      'pdf', 'doc', 'docx', 'xls', 'xlsx'
+    ]
     if (!ext || !allowedExts.includes(ext)) {
       return NextResponse.json(
         { error: `Недопустимое расширение файла. Разрешены: ${allowedExts.join(', ')}` },
@@ -77,17 +82,19 @@ export async function POST(req: Request) {
     }
 
     // Проверка MIME типа
-    const mimeType = file.type || 'application/octet-stream'
+    const rawMimeType = file.type || 'application/octet-stream'
+    const mimeType = rawMimeType.split(';')[0].trim().toLowerCase()
     const allowedTypes = [
       'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp',
       'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
+      'audio/webm', 'audio/ogg', 'audio/mpeg', 'audio/wav', 'audio/mp4',
       'application/pdf', 'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ]
     if (!allowedTypes.includes(mimeType)) {
       return NextResponse.json(
-        { error: `Недопустимый тип файла: ${mimeType}` },
+        { error: `Недопустимый тип файла: ${rawMimeType}` },
         { status: 400 }
       )
     }

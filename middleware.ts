@@ -145,7 +145,7 @@ export function middleware(req: NextRequest) {
 	// Permissions Policy (Feature Policy)
 	res.headers.set(
 		'Permissions-Policy',
-		'geolocation=(), microphone=(), camera=(), payment=()'
+		'geolocation=(), microphone=(self), camera=(), payment=()'
 	)
 
 	// Strict Transport Security (только в продакшене с HTTPS)
