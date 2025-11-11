@@ -797,7 +797,7 @@ export default function TaskCatalogPage() {
 															</div>
 
 															<div
-																className='relative flex flex-col items-center sm:items-end text-center sm:text-right gap-1 w-full sm:w-auto sm:min-w-[150px] mt-2 sm:mt-0 max-w-full'
+																className='relative flex flex-col items-end text-right gap-1 w-full sm:w-auto sm:min-w-[140px] sm:max-w-[140px] mt-2 sm:mt-0 self-end px-1'
 																onMouseLeave={() => {
 																	if (activeReasonId === reasonsKey) {
 																		setActiveReasonId(null)
@@ -805,26 +805,21 @@ export default function TaskCatalogPage() {
 																}}
 																onClick={e => e.stopPropagation()}
 															>
-																<div className='flex flex-col items-center sm:items-end text-[9px] uppercase text-emerald-300/65 leading-[1.15]'>
-																	<span className='tracking-[0.16em]'>
-																		Рейтинг
-																	</span>
-																	<span className='tracking-[0.14em]'>
-																		Релевантности
-																	</span>
-																</div>
-																<div className='flex items-baseline gap-2 justify-center sm:justify-end'>
+																<span className='block text-[9px] uppercase tracking-[0.18em] text-emerald-300/60 whitespace-nowrap'>
+																	Рейтинг релевантности
+																</span>
+																<div className='flex items-baseline gap-1 justify-end'>
 																	<span
 																		className={scoreClass}
 																		title={scoreTitle}
 																	>
 																		{displayScore}
 																	</span>
-																	<span className='text-[11px] text-emerald-300/60'>
+																	<span className='text-[10px] text-emerald-300/60'>
 																		/ 100
 																	</span>
 																</div>
-																<div className='relative w-24 h-[6px] rounded-full bg-emerald-500/5 border border-emerald-500/20 overflow-hidden shadow-[0_0_10px_rgba(16,185,129,0.18)]'>
+																<div className='relative w-full h-[6px] rounded-full bg-emerald-500/5 border border-emerald-500/20 overflow-hidden shadow-[0_0_10px_rgba(16,185,129,0.18)]'>
 																	<div
 																		className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
 																		style={{
