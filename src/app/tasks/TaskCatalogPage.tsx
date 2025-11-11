@@ -780,12 +780,12 @@ export default function TaskCatalogPage() {
 														href={`/tasks/${task.id}`}
 														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden'
 													>
-														<div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start'>
-															<div className='min-w-0 space-y-1'>
+														<div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between'>
+															<div className='min-w-0'>
 																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 line-clamp-2 transition-colors break-words'>
 																	{task.title}
 																</h3>
-																<p className='text-xs text-slate-400'>
+																<p className='text-xs text-slate-400 mt-1'>
 																	{new Date(task.createdAt).toLocaleDateString(
 																		'ru-RU',
 																		{
@@ -797,7 +797,7 @@ export default function TaskCatalogPage() {
 															</div>
 
 															<div
-																className='relative flex flex-col items-end text-right gap-1 w-full md:w-[140px] md:self-start px-1'
+																className='relative flex flex-col items-end text-right gap-1 w-full md:w-[140px] md:self-start px-1 mt-2 md:mt-0'
 																onMouseLeave={() => {
 																	if (activeReasonId === reasonsKey) {
 																		setActiveReasonId(null)
@@ -899,9 +899,8 @@ export default function TaskCatalogPage() {
 															</div>
 														</div>
 
-														<p className='text-sm text-slate-300/90 line-clamp-3 min-h-[3.5rem]'>
-															{task.description || 'Описание отсутствует'}
-														</p>
+														{/* Описание намеренно скрываем, чтобы карточка не разъезжалась из-за длинного текста */}
+
 
 														{task.price && (
 															<p className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm font-semibold'>
