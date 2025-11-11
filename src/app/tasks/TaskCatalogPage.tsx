@@ -702,17 +702,16 @@ export default function TaskCatalogPage() {
 												const showReasons = activeReasonId === reasonsKey
 
 												return (
-													<div
+													<Link
 														key={task.id}
-														className='group relative p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3'
+														href={`/tasks/${task.id}`}
+														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer'
 													>
 														<div className='flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3'>
 															<div>
-																<Link href={`/tasks/${task.id}`}>
-																	<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 line-clamp-2 transition-colors'>
-																		{task.title}
-																	</h3>
-																</Link>
+																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 line-clamp-2 transition-colors'>
+																	{task.title}
+																</h3>
 																<p className='text-xs text-slate-400 mt-1'>
 																	{new Date(task.createdAt).toLocaleDateString(
 																		'ru-RU',
@@ -731,6 +730,7 @@ export default function TaskCatalogPage() {
 																		setActiveReasonId(null)
 																	}
 																}}
+																onClick={e => e.stopPropagation()}
 															>
 																<span className='text-[10px] uppercase tracking-[0.18em] text-emerald-300/60'>
 																	Рейтинг релевантности
@@ -851,13 +851,13 @@ export default function TaskCatalogPage() {
 															))}
 														</div>
 
-														<div className='flex items-center justify-between gap-2 pt-2 border-t border-slate-700/50'>
-															<Link
-																href={`/tasks/${task.id}`}
-																className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-600/30 transition-colors text-sm'
-															>
+														<div
+															className='flex items-center justify-between gap-2 pt-2 border-t border-slate-700/50'
+															onClick={e => e.stopPropagation()}
+														>
+															<span className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm'>
 																Подробнее
-															</Link>
+															</span>
 															{isExecutor && (
 																<FavoriteTaskButton
 																	taskId={task.id}
@@ -866,7 +866,7 @@ export default function TaskCatalogPage() {
 																/>
 															)}
 														</div>
-													</div>
+													</Link>
 												)
 											})}
 										</div>

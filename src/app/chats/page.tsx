@@ -1,17 +1,24 @@
 'use client'
 
+import AttachmentsModal from '@/components/AttachmentsModal'
 import ChatMessage from '@/components/ChatMessage'
 import MessageInput from '@/components/ChatMessageInput'
 import ChatMessageSearch from '@/components/ChatMessageSearch'
 import ChatSkeleton from '@/components/ChatSkeleton'
 import EmptyState from '@/components/EmptyState'
-import AttachmentsModal from '@/components/AttachmentsModal'
 import { useUser } from '@/context/UserContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+	Suspense,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react'
 
 type ChatPresence = {
 	lastReadAt: string | null
@@ -187,18 +194,20 @@ function ChatsPageContent() {
 	const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
 	const previousSearchQueryRef = useRef<string>('')
 	const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false)
-	const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+	const [highlightedMessageId, setHighlightedMessageId] = useState<
+		string | null
+	>(null)
 	const [isTyping, setIsTyping] = useState(false)
 	const [typingUser, setTypingUser] = useState<string | null>(null)
 	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
 	const [isMobile, setIsMobile] = useState(false)
-	
+
 	// Отслеживание размера окна для адаптивности
 	useEffect(() => {
 		const checkMobile = () => {
 			setIsMobile(window.innerWidth < 768)
 		}
-		
+
 		checkMobile()
 		window.addEventListener('resize', checkMobile)
 		return () => window.removeEventListener('resize', checkMobile)
@@ -215,7 +224,10 @@ function ChatsPageContent() {
 	const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
 	const mergePresence = useCallback(
-		(prevPresence: ChatPresence | null | undefined, updates: Partial<ChatPresence>) => {
+		(
+			prevPresence: ChatPresence | null | undefined,
+			updates: Partial<ChatPresence>
+		) => {
 			const prev = prevPresence ?? DEFAULT_PRESENCE
 			let changed = false
 			const result: ChatPresence = { ...prev }
@@ -225,7 +237,10 @@ function ChatsPageContent() {
 				const incomingTs = parseTimestamp(nextValue)
 				const currentTs = parseTimestamp(prev.lastReadAt)
 
-				if (prev.lastReadAt !== nextValue && (!currentTs || !incomingTs || incomingTs >= currentTs)) {
+				if (
+					prev.lastReadAt !== nextValue &&
+					(!currentTs || !incomingTs || incomingTs >= currentTs)
+				) {
 					result.lastReadAt = nextValue
 					changed = true
 				}
@@ -236,7 +251,10 @@ function ChatsPageContent() {
 				const incomingTs = parseTimestamp(nextValue)
 				const currentTs = parseTimestamp(prev.lastActivityAt)
 
-				if (prev.lastActivityAt !== nextValue && (!currentTs || !incomingTs || incomingTs >= currentTs)) {
+				if (
+					prev.lastActivityAt !== nextValue &&
+					(!currentTs || !incomingTs || incomingTs >= currentTs)
+				) {
 					result.lastActivityAt = nextValue
 					changed = true
 				}
@@ -261,7 +279,10 @@ function ChatsPageContent() {
 				prevChats.map(chat => {
 					if (chat.id !== chatId) return chat
 					const merged = mergePresence(chat.presence, updates)
-					if (merged === chat.presence || isPresenceEqual(merged, chat.presence)) {
+					if (
+						merged === chat.presence ||
+						isPresenceEqual(merged, chat.presence)
+					) {
 						return chat
 					}
 					return {
@@ -277,7 +298,10 @@ function ChatsPageContent() {
 				}
 
 				const merged = mergePresence(prevSelected.presence, updates)
-				if (merged === prevSelected.presence || isPresenceEqual(merged, prevSelected.presence)) {
+				if (
+					merged === prevSelected.presence ||
+					isPresenceEqual(merged, prevSelected.presence)
+				) {
 					return prevSelected
 				}
 
@@ -316,25 +340,22 @@ function ChatsPageContent() {
 		}
 	}, [])
 
-	const scrollToMessageById = useCallback(
-		(messageId: string) => {
-			const element = messageSearchRefs.current.get(messageId)
-			if (element) {
-				element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-				setHighlightedMessageId(messageId)
-				if (highlightTimeoutRef.current) {
-					clearTimeout(highlightTimeoutRef.current)
-				}
-				highlightTimeoutRef.current = setTimeout(() => {
-					setHighlightedMessageId(prev => (prev === messageId ? null : prev))
-					highlightTimeoutRef.current = null
-				}, 2000)
-			} else {
-				console.warn('Не удалось найти сообщение для вложения:', messageId)
+	const scrollToMessageById = useCallback((messageId: string) => {
+		const element = messageSearchRefs.current.get(messageId)
+		if (element) {
+			element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+			setHighlightedMessageId(messageId)
+			if (highlightTimeoutRef.current) {
+				clearTimeout(highlightTimeoutRef.current)
 			}
-		},
-		[]
-	)
+			highlightTimeoutRef.current = setTimeout(() => {
+				setHighlightedMessageId(prev => (prev === messageId ? null : prev))
+				highlightTimeoutRef.current = null
+			}, 2000)
+		} else {
+			console.warn('Не удалось найти сообщение для вложения:', messageId)
+		}
+	}, [])
 
 	// КРИТИЧНО: Убираем квадратную обводку outline для поля поиска чатов
 	useEffect(() => {
@@ -349,7 +370,15 @@ function ChatsPageContent() {
 
 		removeOutline()
 
-		const events = ['focus', 'blur', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend']
+		const events = [
+			'focus',
+			'blur',
+			'mousedown',
+			'mouseup',
+			'click',
+			'touchstart',
+			'touchend',
+		]
 		events.forEach(event => {
 			input.addEventListener(event, removeOutline, true)
 		})
@@ -359,7 +388,7 @@ function ChatsPageContent() {
 		})
 		observer.observe(input, {
 			attributes: true,
-			attributeFilter: ['style', 'class']
+			attributeFilter: ['style', 'class'],
 		})
 
 		return () => {
@@ -414,7 +443,7 @@ function ChatsPageContent() {
 				const res = await fetch('/api/chats', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
-				
+
 				// Проверяем, есть ли содержимое в ответе
 				const text = await res.text()
 				if (!text || text.trim() === '') {
@@ -428,7 +457,12 @@ function ChatsPageContent() {
 				try {
 					data = JSON.parse(text)
 				} catch (parseError) {
-					console.error('❌ Ошибка парсинга JSON:', parseError, 'Ответ:', text.substring(0, 200))
+					console.error(
+						'❌ Ошибка парсинга JSON:',
+						parseError,
+						'Ответ:',
+						text.substring(0, 200)
+					)
 					setChats([])
 					setLoading(false)
 					return
@@ -510,7 +544,7 @@ function ChatsPageContent() {
 						status: res.status,
 						statusText: res.statusText,
 						data: data,
-						error: data?.error || 'Неизвестная ошибка'
+						error: data?.error || 'Неизвестная ошибка',
 					})
 					if (!isMounted) return
 					setChats([])
@@ -563,7 +597,8 @@ function ChatsPageContent() {
 									currentSelectedChat.otherUser?.id === data.senderId) ||
 								(data.chatType === 'task' &&
 									currentSelectedChat.type === 'task' &&
-									currentSelectedChat.task?.id === data.chatId.replace('task_', ''))
+									currentSelectedChat.task?.id ===
+										data.chatId.replace('task_', ''))
 
 							if (isCurrentChat) {
 								const newMessage: Message = {
@@ -600,7 +635,7 @@ function ChatsPageContent() {
 										return chat
 									})
 								)
-								
+
 								// Если пользователь находится в этом чате, помечаем уведомления как прочитанные
 								// и обновляем счетчик уведомлений
 								if (data.messageId && token) {
@@ -635,27 +670,29 @@ function ChatsPageContent() {
 											console.error('Ошибка обработки уведомлений:', err)
 										})
 								}
-								
+
 								// Автоматически прокручиваем вниз при новом сообщении в открытом чате (плавно)
 								setTimeout(() => {
 									const container = messagesContainerRef.current
 									if (container) {
 										// Плавная прокрутка до самого низа
-										const targetScrollTop = container.scrollHeight - container.clientHeight
+										const targetScrollTop =
+											container.scrollHeight - container.clientHeight
 										const startScrollTop = container.scrollTop
 										const distance = targetScrollTop - startScrollTop
 										const duration = 300 // Длительность анимации в мс
 										const startTime = Date.now()
-										
+
 										const animateScroll = () => {
 											const elapsed = Date.now() - startTime
 											const progress = Math.min(elapsed / duration, 1)
 											// Используем easing функцию для плавности
 											const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-											const currentScrollTop = startScrollTop + (distance * easeOutCubic)
-											
+											const currentScrollTop =
+												startScrollTop + distance * easeOutCubic
+
 											container.scrollTop = currentScrollTop
-											
+
 											if (progress < 1) {
 												requestAnimationFrame(animateScroll)
 											} else {
@@ -663,7 +700,7 @@ function ChatsPageContent() {
 												container.scrollTop = container.scrollHeight
 											}
 										}
-										
+
 										requestAnimationFrame(animateScroll)
 									}
 								}, 100)
@@ -684,7 +721,9 @@ function ChatsPageContent() {
 									return {
 										...chat,
 										unreadCount:
-											chat.id === currentSelectedChat?.id ? 0 : chat.unreadCount + 1,
+											chat.id === currentSelectedChat?.id
+												? 0
+												: chat.unreadCount + 1,
 									}
 								}
 								return chat
@@ -707,8 +746,8 @@ function ChatsPageContent() {
 						}
 
 						if (currentSelectedChat && chatId === currentSelectedChat.id) {
-										setIsTyping(false)
-										setTypingUser(null)
+							setIsTyping(false)
+							setTypingUser(null)
 						}
 					} else if (data.type === 'chatPresence') {
 						const chatId: string | undefined = data.chatId
@@ -800,9 +839,9 @@ function ChatsPageContent() {
 				const res = await fetch(url, {
 					headers: { Authorization: `Bearer ${token}` },
 				})
-				
+
 				console.log('📡 Статус ответа:', res.status, res.statusText)
-				
+
 				// Проверяем, есть ли содержимое в ответе
 				const text = await res.text()
 				if (!text || text.trim() === '') {
@@ -816,7 +855,12 @@ function ChatsPageContent() {
 				try {
 					data = JSON.parse(text)
 				} catch (parseError) {
-					console.error('❌ Ошибка парсинга JSON:', parseError, 'Ответ:', text.substring(0, 200))
+					console.error(
+						'❌ Ошибка парсинга JSON:',
+						parseError,
+						'Ответ:',
+						text.substring(0, 200)
+					)
 					setMessages([])
 					setMessagesLoading(false)
 					return
@@ -827,7 +871,7 @@ function ChatsPageContent() {
 					ok: res.ok,
 					dataType: Array.isArray(data) ? 'array' : typeof data,
 					dataKeys: data && typeof data === 'object' ? Object.keys(data) : null,
-					dataPreview: JSON.stringify(data).substring(0, 200)
+					dataPreview: JSON.stringify(data).substring(0, 200),
 				})
 
 				if (res.ok) {
@@ -836,36 +880,46 @@ function ChatsPageContent() {
 					if (messagesData.length > 0) {
 						console.log('📝 Первое сообщение:', messagesData[0])
 						// Проверяем сообщения с ответами
-						const messagesWithReplies = messagesData.filter((m: Message) => m.replyTo !== null && m.replyTo !== undefined)
+						const messagesWithReplies = messagesData.filter(
+							(m: Message) => m.replyTo !== null && m.replyTo !== undefined
+						)
 						if (messagesWithReplies.length > 0) {
-							console.log('💬 Найдено сообщений с ответами:', messagesWithReplies.length)
-							console.log('📎 Пример ответа:', JSON.stringify(messagesWithReplies[0].replyTo, null, 2))
+							console.log(
+								'💬 Найдено сообщений с ответами:',
+								messagesWithReplies.length
+							)
+							console.log(
+								'📎 Пример ответа:',
+								JSON.stringify(messagesWithReplies[0].replyTo, null, 2)
+							)
 						} else {
 							console.log('⚠️ Нет сообщений с ответами')
 						}
 					}
 					setMessages(messagesData)
-					
+
 					// Прокручиваем вниз после загрузки сообщений (плавно)
 					setTimeout(() => {
 						const container = messagesContainerRef.current
 						if (container) {
 							// Плавная прокрутка до самого низа
-							const targetScrollTop = container.scrollHeight - container.clientHeight
+							const targetScrollTop =
+								container.scrollHeight - container.clientHeight
 							const startScrollTop = container.scrollTop
 							const distance = targetScrollTop - startScrollTop
 							const duration = 400 // Длительность анимации в мс
 							const startTime = Date.now()
-							
+
 							const animateScroll = () => {
 								const elapsed = Date.now() - startTime
 								const progress = Math.min(elapsed / duration, 1)
 								// Используем easing функцию для плавности
 								const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-								const currentScrollTop = startScrollTop + (distance * easeOutCubic)
-								
+								const currentScrollTop =
+									startScrollTop + distance * easeOutCubic
+
 								container.scrollTop = currentScrollTop
-								
+
 								if (progress < 1) {
 									requestAnimationFrame(animateScroll)
 								} else {
@@ -873,15 +927,22 @@ function ChatsPageContent() {
 									container.scrollTop = container.scrollHeight
 								}
 							}
-							
+
 							requestAnimationFrame(animateScroll)
 						}
 					}, 200)
 				} else {
 					// Если это ошибка, но есть данные, все равно пытаемся их использовать
-					if (data && typeof data === 'object' && (data.messages || Array.isArray(data))) {
+					if (
+						data &&
+						typeof data === 'object' &&
+						(data.messages || Array.isArray(data))
+					) {
 						const messagesData = data.messages || data || []
-						console.warn('⚠️ API вернул ошибку, но есть данные:', messagesData.length)
+						console.warn(
+							'⚠️ API вернул ошибку, но есть данные:',
+							messagesData.length
+						)
 						setMessages(messagesData)
 					} else {
 						console.error('❌ Ошибка API сообщений:', {
@@ -889,11 +950,13 @@ function ChatsPageContent() {
 							statusText: res.statusText,
 							data: data,
 							url: url,
-							responseText: text.substring(0, 500)
+							responseText: text.substring(0, 500),
 						})
 						// Если это ошибка сервера, но не критичная, просто показываем пустой список
 						if (res.status >= 500) {
-							console.error('❌ Серверная ошибка, устанавливаем пустой список сообщений')
+							console.error(
+								'❌ Серверная ошибка, устанавливаем пустой список сообщений'
+							)
 						}
 						setMessages([])
 					}
@@ -918,7 +981,7 @@ function ChatsPageContent() {
 	// Автоскролл к последнему сообщению при открытии чата (только если поиск не открыт)
 	// НЕ прокручиваем после закрытия поиска
 	const preventAutoScrollRef = useRef(false)
-	
+
 	useEffect(() => {
 		// Если поиск был открыт и теперь закрыт, предотвращаем прокрутку
 		if (!isMessageSearchOpen && preventAutoScrollRef.current) {
@@ -926,13 +989,13 @@ function ChatsPageContent() {
 			return
 		}
 	}, [isMessageSearchOpen])
-	
+
 	useEffect(() => {
 		// Не прокручиваем если поиск только что закрыли
 		if (preventAutoScrollRef.current) {
 			return
 		}
-		
+
 		if (messages.length > 0 && !messagesLoading && !isMessageSearchOpen) {
 			console.log('📜 Автоскролл к последнему сообщению')
 			// Используем плавную прокрутку до самого низа
@@ -940,21 +1003,22 @@ function ChatsPageContent() {
 			if (container) {
 				// Функция для плавной прокрутки до самого низа
 				const smoothScrollToBottom = () => {
-					const targetScrollTop = container.scrollHeight - container.clientHeight
+					const targetScrollTop =
+						container.scrollHeight - container.clientHeight
 					const startScrollTop = container.scrollTop
 					const distance = targetScrollTop - startScrollTop
 					const duration = 300 // Длительность анимации в мс
 					const startTime = Date.now()
-					
+
 					const animateScroll = () => {
 						const elapsed = Date.now() - startTime
 						const progress = Math.min(elapsed / duration, 1)
 						// Используем easing функцию для плавности
 						const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-						const currentScrollTop = startScrollTop + (distance * easeOutCubic)
-						
+						const currentScrollTop = startScrollTop + distance * easeOutCubic
+
 						container.scrollTop = currentScrollTop
-						
+
 						if (progress < 1) {
 							requestAnimationFrame(animateScroll)
 						} else {
@@ -962,17 +1026,18 @@ function ChatsPageContent() {
 							container.scrollTop = container.scrollHeight
 						}
 					}
-					
+
 					requestAnimationFrame(animateScroll)
 				}
-				
+
 				// Первая попытка - через небольшую задержку для рендера
 				setTimeout(() => {
 					smoothScrollToBottom()
 					// Дополнительная проверка через задержку на случай если контент еще загружается
 					setTimeout(() => {
 						if (container.scrollHeight > container.clientHeight) {
-							const targetScrollTop = container.scrollHeight - container.clientHeight
+							const targetScrollTop =
+								container.scrollHeight - container.clientHeight
 							if (Math.abs(container.scrollTop - targetScrollTop) > 10) {
 								container.scrollTop = container.scrollHeight
 							}
@@ -990,8 +1055,9 @@ function ChatsPageContent() {
 
 		const handleScroll = () => {
 			// Проверяем, прокручен ли контейнер не до самого низа (с небольшим отступом в 100px)
-			const isScrolledUp = 
-				container.scrollHeight - container.scrollTop - container.clientHeight > 100
+			const isScrolledUp =
+				container.scrollHeight - container.scrollTop - container.clientHeight >
+				100
 			setShowScrollToBottom(isScrolledUp)
 		}
 
@@ -1199,12 +1265,13 @@ function ChatsPageContent() {
 		setSelectedChat(chat)
 		setMessages([])
 		setMessagesLoading(true)
-		
+
 		// Отправляем событие о том, что чат открыт (для Header)
 		if (typeof window !== 'undefined') {
-			const chatInfo = chat.type === 'private' 
-				? { chatType: 'private', chatId: chat.otherUser?.id }
-				: { chatType: 'task', chatId: chat.task?.id }
+			const chatInfo =
+				chat.type === 'private'
+					? { chatType: 'private', chatId: chat.otherUser?.id }
+					: { chatType: 'task', chatId: chat.task?.id }
 			window.dispatchEvent(new CustomEvent('chatOpened', { detail: chatInfo }))
 		}
 
@@ -1244,9 +1311,7 @@ function ChatsPageContent() {
 						`✅ Прочитано, удалено уведомлений: ${data.deletedNotifications}`
 					)
 
-					const nowIso =
-						data.lastReadAt ||
-						new Date().toISOString()
+					const nowIso = data.lastReadAt || new Date().toISOString()
 					updateChatPresence(chat.id, {
 						lastReadAt: nowIso,
 						lastActivityAt: nowIso,
@@ -1285,7 +1350,7 @@ function ChatsPageContent() {
 			fileId: newMessage.fileId,
 			fileName: newMessage.fileName,
 			fileMimetype: newMessage.fileMimetype,
-			fileUrl: newMessage.fileUrl
+			fileUrl: newMessage.fileUrl,
 		})
 		// Добавляем новое сообщение в список
 		setMessages(prev => [...prev, newMessage])
@@ -1487,12 +1552,12 @@ function ChatsPageContent() {
 						method: 'GET',
 						headers: { 'Content-Type': 'application/json' },
 					})
-					
+
 					if (!res.ok) {
 						console.error('Ошибка проверки онлайн статуса:', res.status)
 						return
 					}
-					
+
 					const data = await res.json()
 					// Если privacy = true, значит пользователь скрыл статус
 					if (data.privacy) {
@@ -1529,19 +1594,19 @@ function ChatsPageContent() {
 					{/* Индикатор онлайн статуса */}
 					<div
 						className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
-							isOnline === true 
-								? 'bg-emerald-400 animate-pulse' 
-								: isOnline === false 
-									? 'bg-gray-500' 
-									: 'bg-gray-600'
+							isOnline === true
+								? 'bg-emerald-400 animate-pulse'
+								: isOnline === false
+								? 'bg-gray-500'
+								: 'bg-gray-600'
 						}`}
 						style={{ width: size * 0.25, height: size * 0.25 }}
 						title={
-							isOnline === true 
-								? 'В сети' 
-								: isOnline === false 
-									? 'Не в сети' 
-									: 'Статус неизвестен'
+							isOnline === true
+								? 'В сети'
+								: isOnline === false
+								? 'Не в сети'
+								: 'Статус неизвестен'
 						}
 					/>
 				</div>
@@ -1622,16 +1687,28 @@ function ChatsPageContent() {
 
 		// Прокрутка к первому совпадению только если запрос изменился (не при первом открытии)
 		const queryChanged = previousSearchQueryRef.current !== messageSearchQuery
-		if (matches.length > 0 && messageSearchQuery.trim() !== '' && queryChanged) {
+		if (
+			matches.length > 0 &&
+			messageSearchQuery.trim() !== '' &&
+			queryChanged
+		) {
 			const firstMatch = messages[matches[0]]
 			if (firstMatch) {
 				setTimeout(() => {
 					const element = messageSearchRefs.current.get(firstMatch.id)
-					element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-				}, 50)
+					if (element && messagesContainerRef.current) {
+						// Используем прокрутку контейнера вместо scrollIntoView, чтобы избежать прыжков
+						const container = messagesContainerRef.current
+						const elementTop = element.offsetTop
+						const containerHeight = container.clientHeight
+						const scrollPosition =
+							elementTop - containerHeight / 2 + element.clientHeight / 2
+						container.scrollTo({ top: scrollPosition, behavior: 'smooth' })
+					}
+				}, 100)
 			}
 		}
-		
+
 		previousSearchQueryRef.current = messageSearchQuery
 	}, [messageSearchQuery, messages])
 
@@ -1644,7 +1721,15 @@ function ChatsPageContent() {
 		const message = messages[matchIndex]
 		if (message) {
 			const element = messageSearchRefs.current.get(message.id)
-			element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+			if (element && messagesContainerRef.current) {
+				// Используем прокрутку контейнера вместо scrollIntoView
+				const container = messagesContainerRef.current
+				const elementTop = element.offsetTop
+				const containerHeight = container.clientHeight
+				const scrollPosition =
+					elementTop - containerHeight / 2 + element.clientHeight / 2
+				container.scrollTo({ top: scrollPosition, behavior: 'smooth' })
+			}
 		}
 	}
 
@@ -1659,7 +1744,15 @@ function ChatsPageContent() {
 		const message = messages[matchIndex]
 		if (message) {
 			const element = messageSearchRefs.current.get(message.id)
-			element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+			if (element && messagesContainerRef.current) {
+				// Используем прокрутку контейнера вместо scrollIntoView
+				const container = messagesContainerRef.current
+				const elementTop = element.offsetTop
+				const containerHeight = container.clientHeight
+				const scrollPosition =
+					elementTop - containerHeight / 2 + element.clientHeight / 2
+				container.scrollTo({ top: scrollPosition, behavior: 'smooth' })
+			}
 		}
 	}
 
@@ -1669,9 +1762,7 @@ function ChatsPageContent() {
 		const presence = selectedChat.presence ?? null
 		const now = Date.now()
 		const typingTimestamp = parseTimestamp(
-			isTyping
-				? new Date().toISOString()
-				: presence?.typingAt
+			isTyping ? new Date().toISOString() : presence?.typingAt
 		)
 		const typingWindowMs = 5 * 1000
 
@@ -1743,12 +1834,12 @@ function ChatsPageContent() {
 
 	if (loading) {
 		return (
-			<div 
+			<div
 				className='fixed inset-x-0 top-16 px-3 sm:px-6'
-				style={{ 
+				style={{
 					height: 'calc(100vh - 4rem)',
 					maxHeight: 'calc(100vh - 4rem)',
-					minHeight: 'calc(100vh - 4rem)'
+					minHeight: 'calc(100vh - 4rem)',
 				}}
 			>
 				<div className='w-full h-full flex items-center justify-center'>
@@ -1759,22 +1850,16 @@ function ChatsPageContent() {
 	}
 
 	return (
-		<div 
+		<div
 			className='fixed inset-x-0 px-2 sm:px-3 md:px-6'
-			style={{ 
-				top: isMobile 
+			style={{
+				top: isMobile
 					? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
 					: 'calc(0.5rem - 1px)',
-				height: isMobile
-					? 'calc(100vh - 80px)'
-					: 'calc(100vh - 2rem + 1px)',
-				maxHeight: isMobile
-					? 'calc(100vh - 80px)'
-					: 'calc(100vh - 6rem + 1px)',
-				minHeight: isMobile
-					? 'calc(100vh - 80px)'
-					: 'calc(100vh - 6rem + 1px)',
-				paddingTop: 0
+				height: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 2rem + 1px)',
+				maxHeight: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 6rem + 1px)',
+				minHeight: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 6rem + 1px)',
+				paddingTop: 0,
 			}}
 		>
 			<div className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden'>
@@ -1801,13 +1886,15 @@ function ChatsPageContent() {
 									value={searchQuery}
 									onChange={e => setSearchQuery(e.target.value)}
 									className='w-full px-5 py-3.5 sm:py-4 bg-slate-800/35 border-2 border-emerald-300/30 rounded-full text-white text-sm sm:text-base placeholder-slate-300/80 focus:border-emerald-300 focus:outline-none focus:bg-slate-800/45 transition-all shadow-lg hover:shadow-emerald-300/15 ios-transition'
-									style={{ 
-										outline: 'none',
-										outlineOffset: '0',
-										boxShadow: 'none',
-										WebkitAppearance: 'none',
-										appearance: 'none'
-									} as React.CSSProperties}
+									style={
+										{
+											outline: 'none',
+											outlineOffset: '0',
+											boxShadow: 'none',
+											WebkitAppearance: 'none',
+											appearance: 'none',
+										} as React.CSSProperties
+									}
 								/>
 								<div className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400/50'>
 									🔍
@@ -1913,15 +2000,15 @@ function ChatsPageContent() {
 									{selectedChat && (
 										<div className='absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 flex items-center gap-2'>
 											{messages.length > 0 && (
-										<button
+												<button
 													onClick={() => setIsMessageSearchOpen(prev => !prev)}
 													className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
-											aria-label='Поиск в сообщениях (Ctrl+F)'
-											title='Поиск в сообщениях (Ctrl+F)'
-										>
-											<span className='text-base sm:text-lg'>🔍</span>
-										</button>
-									)}
+													aria-label='Поиск в сообщениях (Ctrl+F)'
+													title='Поиск в сообщениях (Ctrl+F)'
+												>
+													<span className='text-base sm:text-lg'>🔍</span>
+												</button>
+											)}
 											<button
 												onClick={() => setIsAttachmentsOpen(true)}
 												className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-200 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
@@ -1932,7 +2019,9 @@ function ChatsPageContent() {
 											<button
 												onClick={() => {
 													if (typeof window !== 'undefined') {
-														window.dispatchEvent(new CustomEvent('openMessageTemplates'))
+														window.dispatchEvent(
+															new CustomEvent('openMessageTemplates')
+														)
 													}
 												}}
 												className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-200 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
@@ -1989,10 +2078,11 @@ function ChatsPageContent() {
 										)}
 										<div className='flex-1 min-w-0'>
 											<h2 className='text-white font-semibold text-sm sm:text-lg truncate'>
-												{selectedChat.type === 'private' 
-													? (selectedChat.otherUser?.fullName || selectedChat.otherUser?.email || 'Неизвестный пользователь')
-													: getChatTitle(selectedChat)
-												}
+												{selectedChat.type === 'private'
+													? selectedChat.otherUser?.fullName ||
+													  selectedChat.otherUser?.email ||
+													  'Неизвестный пользователь'
+													: getChatTitle(selectedChat)}
 											</h2>
 											<div className='flex items-center gap-2 mt-1 flex-wrap'>
 												{selectedChat.type === 'task' ? (
@@ -2033,16 +2123,16 @@ function ChatsPageContent() {
 									</div>
 								</div>
 
-                     {/* Сообщения - растягиваемая область */}
-                     <div
-                       ref={messagesContainerRef}
-                       data-chat-container
-                       className='flex-1 overflow-y-auto px-3 sm:px-5 md:px-8 lg:px-10 xl:px-16 pt-4 sm:pt-6 pb-4 sm:pb-10 custom-scrollbar relative min-h-0'
-                       style={{
-                         touchAction: 'pan-y',
-                         WebkitOverflowScrolling: 'touch',
-                       }}
-                     >
+								{/* Сообщения - растягиваемая область */}
+								<div
+									ref={messagesContainerRef}
+									data-chat-container
+									className='flex-1 overflow-y-auto px-3 sm:px-5 md:px-8 lg:px-10 xl:px-16 pt-4 sm:pt-6 pb-4 sm:pb-10 custom-scrollbar relative min-h-0'
+									style={{
+										touchAction: 'pan-y',
+										WebkitOverflowScrolling: 'touch',
+									}}
+								>
 									{/* Поиск по сообщениям */}
 									{selectedChat && (
 										<ChatMessageSearch
@@ -2111,7 +2201,8 @@ function ChatsPageContent() {
 														messageSearchQuery &&
 														messageSearchMatches.includes(index) &&
 														!isHighlighted
-													const isAttachmentHighlight = highlightedMessageId === msg.id
+													const isAttachmentHighlight =
+														highlightedMessageId === msg.id
 
 													const wrapperClasses: string[] = []
 													if (isHighlighted) {
@@ -2171,7 +2262,9 @@ function ChatsPageContent() {
 																	)
 																}}
 																onReply={messageId => {
-																	const messageToReply = messages.find(m => m.id === messageId)
+																	const messageToReply = messages.find(
+																		m => m.id === messageId
+																	)
 																	if (messageToReply) {
 																		setReplyTo({
 																			id: messageToReply.id,
@@ -2214,7 +2307,7 @@ function ChatsPageContent() {
 
 									<div ref={messagesEndRef} />
 								</div>
-								
+
 								{/* Кнопка прокрутки вниз */}
 								{showScrollToBottom && !isMessageSearchOpen && (
 									<button
@@ -2240,7 +2333,7 @@ function ChatsPageContent() {
 								)}
 
 								{/* Поле ввода сообщения - закреплённое внизу колонки */}
-								<div 
+								<div
 									className='flex-shrink-0 border-t border-slate-700/50 bg-slate-800/60 md:bg-slate-800/50 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.3)] relative z-10'
 									style={{
 										position: 'relative',
@@ -2249,7 +2342,7 @@ function ChatsPageContent() {
 										pointerEvents: 'auto',
 									}}
 								>
-									<div 
+									<div
 										className='px-4 py-2 sm:px-5 sm:px-3'
 										style={{
 											position: 'relative',
@@ -2283,8 +2376,8 @@ function ChatsPageContent() {
 									chatTitle={
 										selectedChat.type === 'private'
 											? selectedChat.otherUser?.fullName ||
-												selectedChat.otherUser?.email ||
-												'Неизвестный пользователь'
+											  selectedChat.otherUser?.email ||
+											  'Неизвестный пользователь'
 											: getChatTitle(selectedChat)
 									}
 									onLocateMessage={messageId => {

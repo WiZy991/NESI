@@ -2,12 +2,16 @@
 
 import { Mail } from 'lucide-react'
 import Link from 'next/link'
+import EmailLink from './EmailLink'
 
 export default function Footer() {
 	const currentYear = new Date().getFullYear()
 
 	return (
-		<footer className='relative mt-20 border-t border-emerald-500/20 bg-black/60 backdrop-blur-md' role="contentinfo">
+		<footer
+			className='relative mt-20 border-t border-emerald-500/20 bg-black/60 backdrop-blur-md'
+			role='contentinfo'
+		>
 			{/* Градиентный фон */}
 			<div className='absolute inset-0 bg-gradient-to-t from-emerald-900/10 to-transparent' />
 
@@ -23,13 +27,12 @@ export default function Footer() {
 						</p>
 						{/* Социальные сети */}
 						<div className='flex gap-3'>
-							<a
-								href='mailto:info.nesi@bk.ru'
+							<EmailLink
+								email='info.nesi@bk.ru'
 								className='w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors'
-								aria-label='Email'
 							>
 								<Mail className='w-5 h-5' />
-							</a>
+							</EmailLink>
 						</div>
 					</div>
 
@@ -93,12 +96,10 @@ export default function Footer() {
 								</Link>
 							</li>
 							<li>
-								<a
-									href='mailto:info.nesi@bk.ru'
+								<EmailLink
+									email='info.nesi@bk.ru'
 									className='text-gray-400 hover:text-emerald-400 transition-colors text-sm'
-								>
-									Связаться с нами
-								</a>
+								/>
 							</li>
 						</ul>
 					</div>
@@ -113,12 +114,10 @@ export default function Footer() {
 							</li>
 							<li className='flex items-center gap-2'>
 								<Mail className='w-4 h-4 text-emerald-400' />
-								<a
-									href='mailto:info.nesi@bk.ru'
+								<EmailLink
+									email='info.nesi@bk.ru'
 									className='hover:text-emerald-400 transition-colors'
-								>
-									info.nesi@bk.ru
-								</a>
+								/>
 							</li>
 						</ul>
 					</div>

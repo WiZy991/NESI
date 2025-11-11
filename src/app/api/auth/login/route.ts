@@ -1,7 +1,6 @@
 import { broadcastOnlineCountUpdate } from '@/app/api/users/activity/stream/route'
 import { checkUserBlocked, logActivity } from '@/lib/antifraud'
 import { verifyPassword } from '@/lib/auth'
-import { createNotification } from '@/lib/createNotification'
 import { signJWT } from '@/lib/jwt'
 import prisma from '@/lib/prisma'
 import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
@@ -88,13 +87,7 @@ export async function POST(req: Request) {
 			console.error('Ошибка broadcast при входе:', err)
 		})
 
-		// 📨 Создаём уведомление
-		await createNotification(
-			user.id,
-			'Вы успешно вошли в аккаунт!',
-			'/tasks',
-			'login'
-		)
+		// 📨 Уведомление о входе убрано по запросу
 
 		const response = NextResponse.json({
 			user: {
