@@ -311,6 +311,35 @@ export default function TaskCatalogPage() {
 	}, [fetchTasks])
 
 	useEffect(() => {
+		if (typeof window === 'undefined') return
+
+		let channel: BroadcastChannel | null = null
+
+		const handleTaskCreated = () => {
+			fetchTasks({ silent: true })
+		}
+
+		window.addEventListener('nesi-task-created', handleTaskCreated as EventListener)
+
+		if ('BroadcastChannel' in window) {
+			channel = new BroadcastChannel('nesi-tasks')
+			channel.addEventListener('message', event => {
+				if (event.data?.type === 'task_created') {
+					handleTaskCreated()
+				}
+			})
+		}
+
+		return () => {
+			window.removeEventListener(
+				'nesi-task-created',
+				handleTaskCreated as EventListener
+			)
+			channel?.close()
+		}
+	}, [fetchTasks])
+
+	useEffect(() => {
 		if (!userLoading && user && token && isExecutor) {
 			fetchRecommendations()
 		} else if (!isExecutor) {
@@ -725,22 +754,19 @@ export default function TaskCatalogPage() {
 													0,
 													Math.min(100, rawScore)
 												)
-												const displayScore =
-													rawScore > 100
-														? '100+'
-														: Number.isInteger(rawScore)
-														? rawScore.toString()
-														: rawScore.toFixed(1)
+												const clampedDisplay = Math.max(
+													0,
+													Math.min(100, rawScore)
+												)
+												const displayScore = Number.isInteger(clampedDisplay)
+													? clampedDisplay.toString()
+													: clampedDisplay.toFixed(1)
 												const scoreTitle =
 													rawScore > 100 || rawScore < 0
 														? `Фактическое значение: ${rawScore.toFixed(1)}`
 														: undefined
-												const isExtendedScore =
-													typeof displayScore === 'string' &&
-													displayScore.length > 3
-												const scoreClass = `font-semibold text-emerald-100 leading-none ${
-													isExtendedScore ? 'text-lg tracking-tight' : 'text-xl'
-												}`
+												const scoreClass =
+													'text-xl font-semibold text-emerald-100 leading-none'
 
 												return (
 													<Link

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
@@ -34,6 +34,18 @@ export default function CreateTaskPage() {
   const [showPreview, setShowPreview] = useState(false)
   const [currentBadge, setCurrentBadge] = useState<BadgeData | null>(null)
   const [badgeQueue, setBadgeQueue] = useState<BadgeData[]>([])
+  const taskBroadcastRef = useRef<BroadcastChannel | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if ('BroadcastChannel' in window) {
+      taskBroadcastRef.current = new BroadcastChannel('nesi-tasks')
+    }
+    return () => {
+      taskBroadcastRef.current?.close()
+      taskBroadcastRef.current = null
+    }
+  }, [])
 
   // Автосохранение черновика
   const formData = {
@@ -81,6 +93,25 @@ export default function CreateTaskPage() {
     }
   }
 
+  const notifyTaskCreated = useCallback((task: any) => {
+    try {
+      taskBroadcastRef.current?.postMessage({
+        type: 'task_created',
+        task,
+      })
+    } catch (err) {
+      console.warn('BroadcastChannel недоступен для задач:', err)
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('nesi-task-created', {
+          detail: { task },
+        })
+      )
+    }
+  }, [])
+
   const handleBadgeClose = () => {
     setCurrentBadge(null)
     // Показываем следующее достижение после небольшой задержки
@@ -126,6 +157,9 @@ export default function CreateTaskPage() {
       }
 
       clearDraft()
+      if (data.task) {
+        notifyTaskCreated(data.task)
+      }
       toast.success('Задача создана!')
 
       // Показываем достижения, если они есть
