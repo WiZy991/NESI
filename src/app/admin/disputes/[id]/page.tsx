@@ -1,3 +1,7 @@
+import {
+	dispatchDisputeNotifications,
+	resolveDisputeWithFinancials,
+} from '@/lib/disputes/resolveDispute'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
@@ -37,34 +41,22 @@ export default async function DisputeDetailsPage({ params }: Props) {
 	async function resolveDispute(formData: FormData) {
 		'use server'
 
-		const decision = formData.get('decision') as string // "customer" | "executor"
-		const resolution = formData.get('resolution') as string
+		const decision = formData.get('decision') as 'customer' | 'executor'
+		const resolution = (formData.get('resolution') as string) || ''
 
-		// Обновляем спор
-		await (prisma as any).dispute.update({
-			where: { id: dispute.id },
-			data: {
-				status: 'resolved',
-				resolution: resolution || '',
-				resolvedAt: new Date(),
-				adminDecision: decision,
-			},
-		})
+		try {
+			const { notifications } = await resolveDisputeWithFinancials({
+				disputeId: dispute.id,
+				decision,
+				comment: resolution,
+			})
 
-		// Обновляем задачу
-		if (decision === 'customer') {
-			await (prisma as any).task.update({
-				where: { id: dispute.Task.id },
-				data: { status: 'cancelled' },
-			})
-		} else if (decision === 'executor') {
-			await (prisma as any).task.update({
-				where: { id: dispute.Task.id },
-				data: { status: 'completed' },
-			})
+			await dispatchDisputeNotifications(notifications)
+		} catch (error) {
+			console.error('Ошибка обработки спора через серверное действие:', error)
+			throw error
 		}
 
-		// 🚀 Возврат в список споров
 		redirect('/admin/disputes')
 	}
 
