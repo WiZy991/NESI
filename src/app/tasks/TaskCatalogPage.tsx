@@ -781,21 +781,6 @@ export default function TaskCatalogPage() {
 														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden'
 													>
 														<div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between'>
-															<div className='min-w-0'>
-																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 line-clamp-2 transition-colors break-words'>
-																	{task.title}
-																</h3>
-																<p className='text-xs text-slate-400 mt-1'>
-																	{new Date(task.createdAt).toLocaleDateString(
-																		'ru-RU',
-																		{
-																			day: '2-digit',
-																			month: 'long',
-																		}
-																	)}
-																</p>
-															</div>
-
 															<div
 																className='relative flex flex-col items-end text-right gap-1 w-full md:w-[140px] md:self-start px-1 mt-2 md:mt-0'
 																onMouseLeave={() => {
@@ -896,6 +881,21 @@ export default function TaskCatalogPage() {
 																		</div>
 																	</>
 																) : null}
+															</div>
+
+															<div className='min-w-0'>
+																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors truncate'>
+																	{task.title}
+																</h3>
+																<p className='text-xs text-slate-400 mt-1'>
+																	{new Date(task.createdAt).toLocaleDateString(
+																		'ru-RU',
+																		{
+																			day: '2-digit',
+																			month: 'long',
+																		}
+																	)}
+																</p>
 															</div>
 														</div>
 
