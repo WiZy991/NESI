@@ -116,7 +116,27 @@ export default function ChatMessage({
 		setReactions(message.reactions || [])
 	}, [message.reactions])
 
+	// ЕДИНАЯ ФУНКЦИЯ ПРОВЕРКИ: является ли сообщение голосовым
+	const checkIsVoiceMessage = useCallback(
+		(content: string | undefined): boolean => {
+			if (!content || typeof content !== 'string') return false
+			try {
+				const parsed = JSON.parse(content)
+				return (
+					parsed &&
+					parsed.type === 'voice' &&
+					typeof parsed.duration === 'number' &&
+					Array.isArray(parsed.waveform)
+				)
+			} catch {
+				return false
+			}
+		},
+		[]
+	)
+
 	// Используем fileUrl напрямую, если он есть, иначе строим из fileId
+	// НО для голосовых сообщений fileUrl нужен только для воспроизведения
 	const fileUrl =
 		message.fileUrl || (message.fileId ? `/api/files/${message.fileId}` : null)
 
@@ -161,19 +181,70 @@ export default function ChatMessage({
 		return null
 	}, [message.replyTo?.content])
 
+	// Проверяем, является ли сообщение голосовым - более надежная проверка
+	const isVoiceMessageContent = useMemo(() => {
+		return checkIsVoiceMessage(message.content)
+	}, [message.content, checkIsVoiceMessage])
+
 	const isVoiceMessage = useMemo(() => {
-		if (!voiceMeta) return false
-		if (!fileUrl) return false
-		if (message.fileMimetype && message.fileMimetype.startsWith('audio/'))
-			return true
-		if (message.fileName) {
-			const ext = message.fileName.split('.').pop()?.toLowerCase()
-			if (ext && ['webm', 'ogg', 'mp3', 'wav', 'm4a'].includes(ext)) {
+		// Если есть voiceMeta или content содержит голосовое сообщение, это голосовое сообщение
+		if (voiceMeta) return true
+		if (isVoiceMessageContent) return true
+		return false
+	}, [voiceMeta, isVoiceMessageContent])
+
+	// ГЛАВНАЯ ПРОВЕРКА: является ли это голосовым сообщением (используется везде)
+	// Проверяем ВСЕ возможные способы определения голосового сообщения
+	const isVoice = useMemo(() => {
+		// 1. Проверяем voiceMeta
+		if (voiceMeta) return true
+
+		// 2. Проверяем isVoiceMessage
+		if (isVoiceMessage) return true
+
+		// 3. Проверяем isVoiceMessageContent
+		if (isVoiceMessageContent) return true
+
+		// 4. Проверяем fileType и fileMimetype - если это аудио файл И content содержит voice метаданные
+		const isAudioFile = message.fileMimetype?.startsWith('audio/') || false
+		if (isAudioFile && message.content && typeof message.content === 'string') {
+			// Быстрая проверка по строке
+			if (
+				message.content.includes('"type":"voice"') &&
+				message.content.includes('"waveform"')
+			) {
+				return true
+			}
+			// Полная проверка через функцию
+			if (checkIsVoiceMessage(message.content)) {
 				return true
 			}
 		}
+
+		// 5. Прямая проверка content (даже если не аудио файл, но content содержит voice метаданные)
+		if (message.content && typeof message.content === 'string') {
+			// Быстрая проверка по строке
+			if (
+				message.content.includes('"type":"voice"') &&
+				message.content.includes('"waveform"')
+			) {
+				return true
+			}
+			// Полная проверка через функцию
+			if (checkIsVoiceMessage(message.content)) {
+				return true
+			}
+		}
+
 		return false
-	}, [voiceMeta, fileUrl, message.fileMimetype, message.fileName])
+	}, [
+		isVoiceMessage,
+		isVoiceMessageContent,
+		voiceMeta,
+		message.content,
+		message.fileMimetype,
+		checkIsVoiceMessage,
+	])
 
 	const audioRef = useRef<HTMLAudioElement | null>(null)
 	const [isVoicePlaying, setIsVoicePlaying] = useState(false)
@@ -183,8 +254,9 @@ export default function ChatMessage({
 	)
 
 	// Определяем тип файла по MIME-типу или по расширению
-	const getFileType = () => {
-		if (isVoiceMessage) return 'audio'
+	const getFileType = useMemo(() => {
+		// Голосовые сообщения обрабатываются отдельно, не как обычные файлы
+		if (isVoice) return 'voice'
 		if (message.fileMimetype) {
 			if (message.fileMimetype.startsWith('image/')) return 'image'
 			if (message.fileMimetype.startsWith('video/')) return 'video'
@@ -206,12 +278,14 @@ export default function ChatMessage({
 			if (['ogg', 'mp3', 'wav', 'm4a'].includes(ext || '')) return 'audio'
 		}
 		return 'file'
-	}
+	}, [isVoice, message.fileMimetype, message.fileName])
 
-	const fileType = getFileType()
+	const fileType = getFileType
 	const isImage = fileType === 'image'
 	const isVideo = fileType === 'video'
 	const isAudio = fileType === 'audio'
+	// Голосовые сообщения не должны отображаться как файлы
+	const isVoiceFile = fileType === 'voice'
 	const isOwnMessage = user?.id === message.sender.id
 	const isDeleted = message.content === '[Сообщение удалено]'
 	const isEdited = message.editedAt && message.editedAt !== message.createdAt
@@ -1476,250 +1550,324 @@ export default function ChatMessage({
 								</div>
 							)}
 
-							{/* Файл - отображается первым, если есть */}
-							{fileUrl && !isDeleted && (
-								<div
-									className={!isVoiceMessage && message.content ? 'mb-2' : ''}
-								>
-									{isVoiceMessage && voiceMeta ? (
-										<div
-											className={`p-3 sm:p-4 rounded-xl border shadow-sm transition-all duration-200 ${
-												isOwnMessage
-													? 'bg-emerald-600/20 border-emerald-400/40 text-emerald-100'
-													: 'bg-slate-700/40 border-slate-500/40 text-emerald-100'
-											}`}
-											onClick={e => e.stopPropagation()}
-										>
-											<VoicePlayer
-												audioUrl={fileUrl}
-												waveform={voiceMeta.waveform}
-												duration={voiceMeta.duration}
-											/>
-										</div>
-									) : isImage ? (
-										<>
-											<div
-												className='relative block rounded-lg overflow-hidden group cursor-pointer'
-												onClick={e => {
-													e.stopPropagation()
-													setShowImageModal(true)
-												}}
-											>
-												<img
-													src={fileUrl}
-													alt={message.fileName || 'Изображение'}
-													className='max-w-full max-h-64 sm:max-h-80 rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02]'
-													onError={e => {
-														// Если изображение не загружается, показываем как файл
-														console.error(
-															'Ошибка загрузки изображения:',
-															fileUrl
-														)
-													}}
+							{/* Голосовое сообщение - отображается первым, если есть */}
+							{/* ВАЖНО: голосовые сообщения обрабатываются ДО файлов */}
+							{isVoice &&
+								!isDeleted &&
+								(() => {
+									// Парсим voiceMeta, если его еще нет
+									let meta = voiceMeta
+									if (!meta && message.content) {
+										try {
+											const parsed = JSON.parse(message.content)
+											if (parsed && parsed.type === 'voice') {
+												const sanitizedWaveform = (parsed.waveform || [])
+													.map((value: any) =>
+														Number.isFinite(Number(value))
+															? Math.min(1, Math.max(0, Number(value)))
+															: 0
+													)
+													.slice(0, 128)
+												meta = {
+													type: 'voice' as const,
+													duration: Math.max(0, Number(parsed.duration || 0)),
+													waveform:
+														sanitizedWaveform.length > 0
+															? sanitizedWaveform
+															: [0.1],
+												}
+											}
+										} catch {}
+									}
+
+									return (
+										<div className='py-2' onClick={e => e.stopPropagation()}>
+											{meta && fileUrl ? (
+												<VoicePlayer
+													audioUrl={fileUrl}
+													waveform={meta.waveform || []}
+													duration={meta.duration || 0}
+													fileSize={message.fileSize}
+													fileName={message.fileName}
 												/>
-												{/* Кнопка скачивания - появляется при наведении */}
-												<a
-													href={`${fileUrl}?download=true`}
-													download={message.fileName}
-													className='absolute top-3 right-3 p-2.5 bg-black/70 hover:bg-black/90 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-30 backdrop-blur-sm'
-													onClick={e => e.stopPropagation()}
-													title='Скачать изображение'
-												>
-													<Download className='w-4 h-4 text-white' />
-												</a>
-											</div>
-											{/* Модальное окно для просмотра изображения */}
-											{showImageModal &&
-												typeof window !== 'undefined' &&
-												createPortal(
-													<div
-														className='fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm'
-														style={{
-															position: 'fixed',
-															top: 0,
-															left: 0,
-															right: 0,
-															bottom: 0,
-															zIndex: 99999, // z-index выше хедера (10002) для отображения поверх него
-														}}
-														onClick={() => setShowImageModal(false)}
-													>
-														{/* Кнопка закрытия */}
-														<button
-															onClick={() => setShowImageModal(false)}
-															className='absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors'
-															aria-label='Закрыть'
-														>
-															<X className='w-6 h-6' />
-														</button>
-														{/* Кнопка скачивания в модальном окне */}
-														<a
-															href={`${fileUrl}?download=true`}
-															download={message.fileName}
-															className='absolute top-4 right-16 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors'
-															title='Скачать изображение'
-															onClick={e => e.stopPropagation()}
-														>
-															<Download className='w-5 h-5' />
-														</a>
-														{/* Изображение */}
-														<div
-															className='relative max-w-[90vw] max-h-[90vh] flex items-center justify-center'
-															onClick={e => e.stopPropagation()}
-														>
-															<img
-																src={fileUrl}
-																alt={message.fileName || 'Изображение'}
-																className='max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl'
-															/>
-														</div>
-														{/* Название файла внизу */}
-														{message.fileName && (
-															<div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-black/70 backdrop-blur-sm rounded-lg'>
-																<p className='text-sm text-white/90 font-medium'>
-																	{message.fileName}
-																</p>
-															</div>
-														)}
-													</div>,
-													document.body
-												)}
-										</>
-									) : isVideo ? (
-										<div
-											className='max-w-full rounded-lg overflow-hidden relative group bg-black/20'
-											style={{ maxHeight: '320px', aspectRatio: '16/9' }}
-											onClick={e => e.stopPropagation()}
-										>
-											<VideoPlayer
-												src={fileUrl}
-												className='w-full h-full rounded-lg shadow-lg object-contain'
-											/>
-											{/* Кнопка скачивания видео - появляется при наведении */}
-											<a
-												href={fileUrl}
-												download={message.fileName}
-												className='absolute top-3 right-3 p-2.5 bg-black/70 hover:bg-black/90 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-30 backdrop-blur-sm'
-												onClick={e => e.stopPropagation()}
-												title='Скачать видео'
-											>
-												<Download className='w-4 h-4 text-white' />
-											</a>
-											{/* Название файла - показываем всегда внизу */}
-											{message.fileName && (
-												<div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-3 py-2 z-20 pointer-events-none'>
-													<p className='text-xs text-white/90 truncate font-medium'>
-														{message.fileName}
-													</p>
+											) : (
+												<div className='py-2 px-3 text-sm text-gray-400'>
+													Загрузка голосового сообщения...
 												</div>
 											)}
 										</div>
-									) : (
-										<a
-											href={fileUrl}
-											download={message.fileName}
-											className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 hover:scale-[1.02] group ${
-												isOwnMessage
-													? 'bg-white/15 hover:bg-white/20 border border-white/30 shadow-sm'
-													: 'bg-slate-600/40 hover:bg-slate-600/50 border border-slate-500/40 shadow-sm'
-											}`}
-											target='_blank'
-											rel='noopener noreferrer'
-											onClick={e => e.stopPropagation()}
-										>
-											{/* Иконка файла */}
-											<div
-												className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
-													isOwnMessage
-														? 'bg-white/25 group-hover:bg-white/30 shadow-sm'
-														: 'bg-slate-500/40 group-hover:bg-slate-500/50 shadow-sm'
-												} transition-colors`}
-											>
-												{(() => {
-													const FileIcon = getFileIcon(
-														message.fileMimetype,
-														message.fileName
-													)
-													return (
-														<FileIcon
-															className={`w-6 h-6 ${
-																isOwnMessage ? 'text-white' : 'text-gray-200'
-															}`}
-														/>
-													)
-												})()}
-											</div>
+									)
+								})()}
 
-											{/* Информация о файле */}
-											<div className='flex-1 min-w-0'>
-												<div
-													className={`text-sm font-medium truncate ${
-														isOwnMessage ? 'text-white' : 'text-gray-100'
-													}`}
-												>
-													{message.fileName || 'Файл'}
-												</div>
-												<div
-													className={`text-xs mt-0.5 ${
-														isOwnMessage ? 'text-white/70' : 'text-gray-400'
-													}`}
-												>
-													{message.fileMimetype?.split('/')[1]?.toUpperCase() ||
-														'ФАЙЛ'}
-													{/* Размер файла можно будет добавить, когда API будет возвращать size */}
-												</div>
-											</div>
+							{/* Файл - отображается ТОЛЬКО если это НЕ голосовое сообщение */}
+							{/* СТРОГАЯ ПРОВЕРКА: если это голосовое сообщение, файл НЕ отображается */}
+							{!isVoice &&
+								fileUrl &&
+								!isDeleted &&
+								!isVoiceFile &&
+								(() => {
+									// Еще раз проверяем content напрямую, на всякий случай
+									const hasVoiceInContent =
+										message.content &&
+										typeof message.content === 'string' &&
+										message.content.includes('"type":"voice"') &&
+										message.content.includes('"waveform"')
 
-											{/* Иконка скачивания */}
-											<div className='flex-shrink-0'>
-												<Download
-													className={`w-5 h-5 ${
-														isOwnMessage ? 'text-white/70' : 'text-gray-400'
-													} group-hover:scale-110 transition-transform`}
-												/>
-											</div>
-										</a>
-									)}
-								</div>
-							)}
+									// Проверяем, является ли это аудио файлом с voice метаданными
+									const isAudioWithVoice =
+										message.fileMimetype?.startsWith('audio/') &&
+										hasVoiceInContent
 
-							{/* Текст сообщения */}
-							{message.content && !isVoiceMessage && (
-								<div
-									className={
-										containsOnlyEmoji
-											? 'text-center block'
-											: `whitespace-pre-wrap ${
-													isDeleted ? 'italic text-gray-500 text-center' : ''
-											  }`
+									// Если в content есть голосовое сообщение ИЛИ это аудио файл с voice метаданными, НЕ показываем файл
+									if (hasVoiceInContent || isAudioWithVoice) {
+										return null
 									}
-									style={{
-										...(containsOnlyEmoji
-											? {
-													fontSize: '3.5rem', // 56px - большой размер для эмодзи
-													lineHeight: '1',
-													fontFamily:
-														"'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', system-ui, sans-serif",
-													display: 'block',
-													wordBreak: 'normal',
-													overflowWrap: 'normal',
-											  }
-											: {
-													fontSize: '0.875rem',
-													lineHeight: '1.5',
-													wordBreak: 'break-word',
-													overflowWrap: 'break-word',
-													wordWrap: 'break-word',
-													fontFamily:
-														"'Inter', 'Poppins', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif",
-											  }),
-									}}
-								>
-									{containsOnlyEmoji
-										? message.content.trim()
-										: renderTextWithLinks(message.content)}
-								</div>
-							)}
+
+									// Показываем файл только если это точно НЕ голосовое сообщение
+									return (
+										<div className={message.content ? 'mb-2' : ''}>
+											{isImage ? (
+												<>
+													<div
+														className='relative block rounded-lg overflow-hidden group cursor-pointer'
+														onClick={e => {
+															e.stopPropagation()
+															setShowImageModal(true)
+														}}
+													>
+														<img
+															src={fileUrl}
+															alt={message.fileName || 'Изображение'}
+															className='max-w-full max-h-64 sm:max-h-80 rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02]'
+															onError={e => {
+																// Если изображение не загружается, показываем как файл
+																console.error(
+																	'Ошибка загрузки изображения:',
+																	fileUrl
+																)
+															}}
+														/>
+														{/* Кнопка скачивания - появляется при наведении */}
+														<a
+															href={`${fileUrl}?download=true`}
+															download={message.fileName}
+															className='absolute top-3 right-3 p-2.5 bg-black/70 hover:bg-black/90 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-30 backdrop-blur-sm'
+															onClick={e => e.stopPropagation()}
+															title='Скачать изображение'
+														>
+															<Download className='w-4 h-4 text-white' />
+														</a>
+													</div>
+													{/* Модальное окно для просмотра изображения */}
+													{showImageModal &&
+														typeof window !== 'undefined' &&
+														createPortal(
+															<div
+																className='fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm'
+																style={{
+																	position: 'fixed',
+																	top: 0,
+																	left: 0,
+																	right: 0,
+																	bottom: 0,
+																	zIndex: 99999, // z-index выше хедера (10002) для отображения поверх него
+																}}
+																onClick={() => setShowImageModal(false)}
+															>
+																{/* Кнопка закрытия */}
+																<button
+																	onClick={() => setShowImageModal(false)}
+																	className='absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors'
+																	aria-label='Закрыть'
+																>
+																	<X className='w-6 h-6' />
+																</button>
+																{/* Кнопка скачивания в модальном окне */}
+																<a
+																	href={`${fileUrl}?download=true`}
+																	download={message.fileName}
+																	className='absolute top-4 right-16 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors'
+																	title='Скачать изображение'
+																	onClick={e => e.stopPropagation()}
+																>
+																	<Download className='w-5 h-5' />
+																</a>
+																{/* Изображение */}
+																<div
+																	className='relative max-w-[90vw] max-h-[90vh] flex items-center justify-center'
+																	onClick={e => e.stopPropagation()}
+																>
+																	<img
+																		src={fileUrl}
+																		alt={message.fileName || 'Изображение'}
+																		className='max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl'
+																	/>
+																</div>
+																{/* Название файла внизу */}
+																{message.fileName && (
+																	<div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-black/70 backdrop-blur-sm rounded-lg'>
+																		<p className='text-sm text-white/90 font-medium'>
+																			{message.fileName}
+																		</p>
+																	</div>
+																)}
+															</div>,
+															document.body
+														)}
+												</>
+											) : isVideo ? (
+												<div
+													className='max-w-full rounded-lg overflow-hidden relative group bg-black/20'
+													style={{ maxHeight: '320px', aspectRatio: '16/9' }}
+													onClick={e => e.stopPropagation()}
+												>
+													<VideoPlayer
+														src={fileUrl}
+														className='w-full h-full rounded-lg shadow-lg object-contain'
+													/>
+													{/* Кнопка скачивания видео - появляется при наведении */}
+													<a
+														href={fileUrl}
+														download={message.fileName}
+														className='absolute top-3 right-3 p-2.5 bg-black/70 hover:bg-black/90 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-30 backdrop-blur-sm'
+														onClick={e => e.stopPropagation()}
+														title='Скачать видео'
+													>
+														<Download className='w-4 h-4 text-white' />
+													</a>
+													{/* Название файла - показываем всегда внизу */}
+													{message.fileName && (
+														<div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-3 py-2 z-20 pointer-events-none'>
+															<p className='text-xs text-white/90 truncate font-medium'>
+																{message.fileName}
+															</p>
+														</div>
+													)}
+												</div>
+											) : (
+												<a
+													href={fileUrl}
+													download={message.fileName}
+													className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 hover:scale-[1.02] group ${
+														isOwnMessage
+															? 'bg-white/15 hover:bg-white/20 border border-white/30 shadow-sm'
+															: 'bg-slate-600/40 hover:bg-slate-600/50 border border-slate-500/40 shadow-sm'
+													}`}
+													target='_blank'
+													rel='noopener noreferrer'
+													onClick={e => e.stopPropagation()}
+												>
+													{/* Иконка файла */}
+													<div
+														className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
+															isOwnMessage
+																? 'bg-white/25 group-hover:bg-white/30 shadow-sm'
+																: 'bg-slate-500/40 group-hover:bg-slate-500/50 shadow-sm'
+														} transition-colors`}
+													>
+														{(() => {
+															const FileIcon = getFileIcon(
+																message.fileMimetype,
+																message.fileName
+															)
+															return (
+																<FileIcon
+																	className={`w-6 h-6 ${
+																		isOwnMessage
+																			? 'text-white'
+																			: 'text-gray-200'
+																	}`}
+																/>
+															)
+														})()}
+													</div>
+
+													{/* Информация о файле */}
+													<div className='flex-1 min-w-0'>
+														<div
+															className={`text-sm font-medium truncate ${
+																isOwnMessage ? 'text-white' : 'text-gray-100'
+															}`}
+														>
+															{message.fileName || 'Файл'}
+														</div>
+														<div
+															className={`text-xs mt-0.5 ${
+																isOwnMessage ? 'text-white/70' : 'text-gray-400'
+															}`}
+														>
+															{message.fileMimetype
+																?.split('/')[1]
+																?.toUpperCase() || 'ФАЙЛ'}
+															{/* Размер файла можно будет добавить, когда API будет возвращать size */}
+														</div>
+													</div>
+
+													{/* Иконка скачивания */}
+													<div className='flex-shrink-0'>
+														<Download
+															className={`w-5 h-5 ${
+																isOwnMessage ? 'text-white/70' : 'text-gray-400'
+															} group-hover:scale-110 transition-transform`}
+														/>
+													</div>
+												</a>
+											)}
+										</div>
+									)
+								})()}
+
+							{/* Текст сообщения - НЕ показываем для голосовых сообщений */}
+							{message.content &&
+								!isVoice &&
+								(() => {
+									// Дополнительная проверка: если content содержит JSON с voice метаданными, не показываем
+									if (message.content && typeof message.content === 'string') {
+										const isVoiceJson =
+											message.content.trim().startsWith('{') &&
+											message.content.includes('"type":"voice"') &&
+											message.content.includes('"waveform"')
+										if (isVoiceJson) {
+											return null
+										}
+									}
+									return true
+								})() && (
+									<div
+										className={
+											containsOnlyEmoji
+												? 'text-center block'
+												: `whitespace-pre-wrap ${
+														isDeleted ? 'italic text-gray-500 text-center' : ''
+												  }`
+										}
+										style={{
+											...(containsOnlyEmoji
+												? {
+														fontSize: '3.5rem', // 56px - большой размер для эмодзи
+														lineHeight: '1',
+														fontFamily:
+															"'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', system-ui, sans-serif",
+														display: 'block',
+														wordBreak: 'normal',
+														overflowWrap: 'normal',
+												  }
+												: {
+														fontSize: '0.875rem',
+														lineHeight: '1.5',
+														wordBreak: 'break-word',
+														overflowWrap: 'break-word',
+														wordWrap: 'break-word',
+														fontFamily:
+															"'Inter', 'Poppins', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif",
+												  }),
+										}}
+									>
+										{containsOnlyEmoji
+											? message.content.trim()
+											: renderTextWithLinks(message.content)}
+									</div>
+								)}
 
 							{/* Время и статус редактирования */}
 							{!containsOnlyEmoji && (
