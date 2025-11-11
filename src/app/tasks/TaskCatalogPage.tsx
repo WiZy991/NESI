@@ -305,7 +305,7 @@ export default function TaskCatalogPage() {
 	useEffect(() => {
 		const interval = setInterval(() => {
 			fetchTasks({ silent: true })
-		}, 20000)
+		}, 5000)
 
 		return () => clearInterval(interval)
 	}, [fetchTasks])
@@ -330,12 +330,20 @@ export default function TaskCatalogPage() {
 			})
 		}
 
+		const handleVisibilityChange = () => {
+			if (!document.hidden) {
+				handleTaskCreated()
+			}
+		}
+		document.addEventListener('visibilitychange', handleVisibilityChange)
+
 		return () => {
 			window.removeEventListener(
 				'nesi-task-created',
 				handleTaskCreated as EventListener
 			)
 			channel?.close()
+			document.removeEventListener('visibilitychange', handleVisibilityChange)
 		}
 	}, [fetchTasks])
 
@@ -756,11 +764,9 @@ export default function TaskCatalogPage() {
 												)
 												const clampedDisplay = Math.max(
 													0,
-													Math.min(100, rawScore)
+													Math.min(100, Math.round(rawScore))
 												)
-												const displayScore = Number.isInteger(clampedDisplay)
-													? clampedDisplay.toString()
-													: clampedDisplay.toFixed(1)
+												const displayScore = clampedDisplay.toString()
 												const scoreTitle =
 													rawScore > 100 || rawScore < 0
 														? `Фактическое значение: ${rawScore.toFixed(1)}`
@@ -791,7 +797,7 @@ export default function TaskCatalogPage() {
 															</div>
 
 															<div
-																className='relative flex flex-col items-stretch sm:items-end text-right gap-1 w-full sm:w-auto sm:min-w-[150px] mt-2 sm:mt-0 max-w-full'
+																className='relative flex flex-col items-center sm:items-end text-center sm:text-right gap-1 w-full sm:w-auto sm:min-w-[150px] mt-2 sm:mt-0 max-w-full'
 																onMouseLeave={() => {
 																	if (activeReasonId === reasonsKey) {
 																		setActiveReasonId(null)
@@ -802,7 +808,7 @@ export default function TaskCatalogPage() {
 																<span className='text-[10px] uppercase tracking-[0.18em] text-emerald-300/60 break-words'>
 																	Рейтинг релевантности
 																</span>
-																<div className='flex items-baseline gap-2'>
+																<div className='flex items-baseline gap-2 justify-center sm:justify-end'>
 																	<span
 																		className={scoreClass}
 																		title={scoreTitle}
