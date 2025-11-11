@@ -780,9 +780,9 @@ export default function TaskCatalogPage() {
 														href={`/tasks/${task.id}`}
 														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden'
 													>
-														<div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6'>
-															<div className='min-w-0 flex-1'>
-																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors break-words line-clamp-2 md:whitespace-normal'>
+														<div className='flex flex-col-reverse gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+															<div className='min-w-0 flex-1 sm:order-1'>
+																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors break-words line-clamp-2'>
 																	{task.title}
 																</h3>
 																<p className='text-xs text-slate-400 mt-1'>
@@ -797,7 +797,7 @@ export default function TaskCatalogPage() {
 															</div>
 
 															<div
-																className='relative flex flex-col items-end text-right gap-1 w-full md:w-auto md:min-w-[200px] md:self-start px-1 md:px-0 mt-2 md:mt-0'
+																className='relative flex flex-col items-end text-right gap-1 w-full sm:w-auto sm:min-w-[150px] lg:min-w-[170px] sm:self-start px-1 sm:px-0 sm:order-2'
 																onMouseLeave={() => {
 																	if (activeReasonId === reasonsKey) {
 																		setActiveReasonId(null)
@@ -819,7 +819,7 @@ export default function TaskCatalogPage() {
 																		/ 100
 																	</span>
 																</div>
-																<div className='relative w-full h-[6px] rounded-full bg-emerald-500/5 border border-emerald-500/20 overflow-hidden shadow-[0_0_10px_rgba(16,185,129,0.18)]'>
+																<div className='relative w-full max-w-[120px] sm:max-w-full self-end h-[4px] rounded-full bg-emerald-500/10 border border-emerald-500/25 overflow-hidden shadow-[0_0_8px_rgba(16,185,129,0.2)]'>
 																	<div
 																		className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
 																		style={{
@@ -900,7 +900,7 @@ export default function TaskCatalogPage() {
 
 														</div>
 
-														{/* Описание намеренно скрываем, чтобы карточка не разъезжалась из-за длинного текста */}
+															{/* Описание намеренно скрываем, чтобы карточка не разъезжалась из-за длинного текста */}
 
 
 														{task.price && (
