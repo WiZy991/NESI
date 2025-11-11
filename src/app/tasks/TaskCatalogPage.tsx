@@ -169,56 +169,62 @@ export default function TaskCatalogPage() {
 		{ value: 'old', label: 'Сначала старые' },
 	]
 
-	const fetchTasks = useCallback(async () => {
-		setLoading(true)
-		setError(null)
-		try {
-			const query = new URLSearchParams()
-			if (debouncedSearch) query.set('search', debouncedSearch)
-			if (sort) query.set('sort', sort)
-			if (subcategory) query.set('subcategory', subcategory)
-			if (dateFilter) query.set('dateFilter', dateFilter)
-			if (minRating) query.set('minRating', minRating)
-			if (hasFiles) query.set('hasFiles', hasFiles)
-			if (minResponses) query.set('minResponses', minResponses)
-			query.set('page', page.toString())
-			query.set('limit', '20')
-
-			const res = await fetchWithRetry(
-				`/api/tasks?${query.toString()}`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-						...(token ? { Authorization: `Bearer ${token}` } : {}),
-					},
-				},
-				{
-					maxRetries: 3,
-					retryDelay: 1000,
-				}
-			)
-
-			const data = await res.json()
-			if (!res.ok) {
-				throw { message: data.error || 'Ошибка загрузки', status: res.status }
+	const fetchTasks = useCallback(
+		async ({ silent = false }: { silent?: boolean } = {}) => {
+			if (!silent) {
+				setLoading(true)
 			}
+			setError(null)
+			try {
+				const query = new URLSearchParams()
+				if (debouncedSearch) query.set('search', debouncedSearch)
+				if (sort) query.set('sort', sort)
+				if (subcategory) query.set('subcategory', subcategory)
+				if (dateFilter) query.set('dateFilter', dateFilter)
+				if (minRating) query.set('minRating', minRating)
+				if (hasFiles) query.set('hasFiles', hasFiles)
+				if (minResponses) query.set('minResponses', minResponses)
+				query.set('page', page.toString())
+				query.set('limit', '20')
 
-			const visibleTasks = (data.tasks || []).filter(
-				(task: Task) => task.status === 'open' || !task.status
-			)
+				const res = await fetchWithRetry(
+					`/api/tasks?${query.toString()}`,
+					{
+						headers: {
+							'Content-Type': 'application/json',
+							...(token ? { Authorization: `Bearer ${token}` } : {}),
+						},
+					},
+					{
+						maxRetries: 3,
+						retryDelay: 1000,
+					}
+				)
 
-			setTasks(visibleTasks)
-			setTotalPages(data.pagination?.totalPages || 1)
-			setRetryCount(0) // Сбрасываем счетчик при успехе
-		} catch (err: unknown) {
-			const errorMessage = getErrorMessage(err)
-			logError(err, 'fetchTasks')
-			setError(errorMessage)
-			setRetryCount(prev => prev + 1)
-		} finally {
-			setLoading(false)
-		}
-	}, [
+				const data = await res.json()
+				if (!res.ok) {
+					throw { message: data.error || 'Ошибка загрузки', status: res.status }
+				}
+
+				const visibleTasks = (data.tasks || []).filter(
+					(task: Task) => task.status === 'open' || !task.status
+				)
+
+				setTasks(visibleTasks)
+				setTotalPages(data.pagination?.totalPages || 1)
+				setRetryCount(0) // Сбрасываем счетчик при успехе
+			} catch (err: unknown) {
+				const errorMessage = getErrorMessage(err)
+				logError(err, 'fetchTasks')
+				setError(errorMessage)
+				setRetryCount(prev => prev + 1)
+			} finally {
+				if (!silent) {
+					setLoading(false)
+				}
+			}
+		},
+		[
 		debouncedSearch,
 		sort,
 		subcategory,
@@ -228,7 +234,8 @@ export default function TaskCatalogPage() {
 		minResponses,
 		token,
 		page,
-	])
+		]
+	)
 
 	const fetchRecommendations = useCallback(async () => {
 		if (!token || !isExecutor) {
@@ -294,6 +301,14 @@ export default function TaskCatalogPage() {
 			fetchTasks()
 		}
 	}, [userLoading, fetchTasks])
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			fetchTasks({ silent: true })
+		}, 20000)
+
+		return () => clearInterval(interval)
+	}, [fetchTasks])
 
 	useEffect(() => {
 		if (!userLoading && user && token && isExecutor) {
@@ -720,12 +735,18 @@ export default function TaskCatalogPage() {
 													rawScore > 100 || rawScore < 0
 														? `Фактическое значение: ${rawScore.toFixed(1)}`
 														: undefined
+												const isExtendedScore =
+													typeof displayScore === 'string' &&
+													displayScore.length > 3
+												const scoreClass = `font-semibold text-emerald-100 leading-none ${
+													isExtendedScore ? 'text-lg tracking-tight' : 'text-xl'
+												}`
 
 												return (
 													<Link
 														key={task.id}
 														href={`/tasks/${task.id}`}
-														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer'
+														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden'
 													>
 														<div className='flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3'>
 															<div>
@@ -744,7 +765,7 @@ export default function TaskCatalogPage() {
 															</div>
 
 															<div
-																className='relative flex flex-col items-stretch sm:items-end text-right gap-1 w-full sm:w-auto sm:min-w-[150px] mt-2 sm:mt-0'
+																className='relative flex flex-col items-stretch sm:items-end text-right gap-1 w-full sm:w-auto sm:min-w-[150px] mt-2 sm:mt-0 max-w-full'
 																onMouseLeave={() => {
 																	if (activeReasonId === reasonsKey) {
 																		setActiveReasonId(null)
@@ -752,12 +773,12 @@ export default function TaskCatalogPage() {
 																}}
 																onClick={e => e.stopPropagation()}
 															>
-																<span className='text-[10px] uppercase tracking-[0.18em] text-emerald-300/60'>
+																<span className='text-[10px] uppercase tracking-[0.18em] text-emerald-300/60 break-words'>
 																	Рейтинг релевантности
 																</span>
 																<div className='flex items-baseline gap-2'>
 																	<span
-																		className='text-xl font-semibold text-emerald-100 leading-none'
+																		className={scoreClass}
 																		title={scoreTitle}
 																	>
 																		{displayScore}
