@@ -780,12 +780,12 @@ export default function TaskCatalogPage() {
 														href={`/tasks/${task.id}`}
 														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden'
 													>
-														<div className='flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3'>
-															<div>
-																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 line-clamp-2 transition-colors'>
+														<div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start'>
+															<div className='min-w-0 space-y-1'>
+																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 line-clamp-2 transition-colors break-words'>
 																	{task.title}
 																</h3>
-																<p className='text-xs text-slate-400 mt-1'>
+																<p className='text-xs text-slate-400'>
 																	{new Date(task.createdAt).toLocaleDateString(
 																		'ru-RU',
 																		{
@@ -797,7 +797,7 @@ export default function TaskCatalogPage() {
 															</div>
 
 															<div
-																className='relative flex flex-col items-end text-right gap-1 w-full sm:w-auto sm:min-w-[140px] sm:max-w-[140px] mt-2 sm:mt-0 self-end px-1'
+																className='relative flex flex-col items-end text-right gap-1 w-full md:w-[140px] md:self-start px-1'
 																onMouseLeave={() => {
 																	if (activeReasonId === reasonsKey) {
 																		setActiveReasonId(null)
