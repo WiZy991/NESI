@@ -1,7 +1,7 @@
 'use client'
 
 import { Pause, Play } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface VoicePlayerProps {
 	audioUrl: string
@@ -135,15 +135,44 @@ export default function VoicePlayer({
 		audioDuration > 0 ? audioDuration : duration > 0 ? duration : 0
 	const progressRatio =
 		effectiveDuration > 0 ? Math.min(currentTime / effectiveDuration, 1) : 0
-	const activeBars = Math.floor(progressRatio * waveform.length)
+
+	// Нормализуем waveform - если массив пустой или слишком маленький, создаем дефолтный
+	const normalizedWaveform = useMemo(() => {
+		if (!waveform || waveform.length === 0) {
+			// Создаем дефолтный waveform из 36 элементов
+			return Array.from({ length: 36 }, () => Math.random() * 0.5 + 0.3)
+		}
+		// Если waveform слишком маленький, увеличиваем его
+		if (waveform.length < 20) {
+			const expanded = []
+			for (let i = 0; i < 36; i++) {
+				const sourceIndex = Math.floor((i / 36) * waveform.length)
+				expanded.push(waveform[sourceIndex] || 0.3)
+			}
+			return expanded
+		}
+		// Если waveform слишком большой, уменьшаем его
+		if (waveform.length > 50) {
+			const step = waveform.length / 36
+			return Array.from({ length: 36 }, (_, i) => {
+				const index = Math.floor(i * step)
+				return waveform[index] || 0.3
+			})
+		}
+		return waveform
+	}, [waveform])
+
+	const activeBarsNormalized = Math.floor(
+		progressRatio * normalizedWaveform.length
+	)
 
 	return (
 		<div className={`flex items-center gap-3 ${className}`}>
-			{/* Кнопка Play/Pause - как в Telegram (светло-голубая) */}
+			{/* Кнопка Play/Pause - в фирменном стиле платформы (emerald) */}
 			<button
 				type='button'
 				onClick={togglePlayback}
-				className='w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center bg-sky-400 hover:bg-sky-500 transition-all flex-shrink-0 shadow-sm'
+				className='w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 transition-all flex-shrink-0 shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_20px_rgba(16,185,129,0.6)]'
 				aria-label={isPlaying ? 'Пауза' : 'Воспроизвести'}
 			>
 				{isPlaying ? (
@@ -161,28 +190,37 @@ export default function VoicePlayer({
 					className='flex items-end gap-[2px] sm:gap-[3px] h-12 sm:h-14 cursor-pointer select-none relative'
 					onClick={handleWaveformClick}
 				>
-					{/* Фон прогресса - тонкая линия как в Telegram (всегда видна) */}
+					{/* Фон прогресса - тонкая линия в фирменном стиле (всегда видна) */}
 					<div
-						className='absolute bottom-0 left-0 h-0.5 bg-sky-400 transition-all duration-150 pointer-events-none z-10'
+						className='absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-emerald-400 to-emerald-300 transition-all duration-150 pointer-events-none z-10 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
 						style={{
 							width: `${Math.max(0, Math.min(100, progressRatio * 100))}%`,
 						}}
 					/>
 
-					{/* Волна */}
+					{/* Волна - вертикальные полоски как в Telegram */}
 					<div className='relative flex items-end gap-[2px] sm:gap-[3px] h-full w-full'>
-						{waveform.map((value, index) => {
-							const isActive = index <= activeBars
-							const height = Math.max(8, value * 40)
+						{normalizedWaveform.map((value, index) => {
+							const isActive = index < activeBarsNormalized
+							// Высота полоски: минимум 4px, максимум 100% высоты контейнера
+							const minHeight = 4
+							const maxHeight = 48 // h-12 = 48px
+							const height = Math.max(
+								minHeight,
+								Math.min(maxHeight, value * maxHeight)
+							)
+
 							return (
 								<div
 									key={index}
-									className={`flex-1 rounded-full transition-colors duration-150 ${
-										isActive ? 'bg-sky-400' : 'bg-sky-400/30'
+									className={`flex-1 rounded-full transition-all duration-150 ${
+										isActive
+											? 'bg-gradient-to-t from-emerald-400 to-emerald-300 shadow-[0_0_4px_rgba(16,185,129,0.4)]'
+											: 'bg-emerald-500/20'
 									}`}
 									style={{
 										height: `${height}px`,
-										opacity: value < 0.1 ? 0.4 : 1,
+										opacity: value < 0.1 ? 0.3 : isActive ? 1 : 0.5,
 									}}
 								/>
 							)
@@ -190,11 +228,15 @@ export default function VoicePlayer({
 					</div>
 				</div>
 
-				{/* Размер файла и время внизу - как в Telegram */}
-				<div className='flex items-center justify-between text-xs text-gray-400 mt-1'>
-					<span>{formatTime(currentTime)}</span>
+				{/* Размер файла и время внизу - в фирменном стиле */}
+				<div className='flex items-center justify-between text-xs mt-1.5'>
+					<span className='text-emerald-300/80 font-medium'>
+						{formatTime(currentTime)} / {formatTime(effectiveDuration)}
+					</span>
 					{fileSize && (
-						<span className='text-gray-500'>{formatFileSize(fileSize)}</span>
+						<span className='text-emerald-400/60'>
+							{formatFileSize(fileSize)}
+						</span>
 					)}
 				</div>
 			</div>

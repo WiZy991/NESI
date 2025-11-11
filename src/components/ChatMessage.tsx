@@ -121,7 +121,16 @@ export default function ChatMessage({
 		(content: string | undefined): boolean => {
 			if (!content || typeof content !== 'string') return false
 			try {
-				const parsed = JSON.parse(content)
+				// Сначала пробуем распарсить как есть
+				let parsed
+				try {
+					parsed = JSON.parse(content)
+				} catch {
+					// Если не получилось, пробуем заменить экранированные кавычки
+					const unescaped = content.replace(/&quot;/g, '"')
+					parsed = JSON.parse(unescaped)
+				}
+
 				return (
 					parsed &&
 					parsed.type === 'voice' &&
@@ -144,7 +153,16 @@ export default function ChatMessage({
 		if (!message.content) return null
 		if (typeof message.content !== 'string') return null
 		try {
-			const parsed = JSON.parse(message.content)
+			// Сначала пробуем распарсить как есть
+			let parsed
+			try {
+				parsed = JSON.parse(message.content)
+			} catch {
+				// Если не получилось, пробуем заменить экранированные кавычки
+				const unescaped = message.content.replace(/&quot;/g, '"')
+				parsed = JSON.parse(unescaped)
+			}
+
 			if (
 				parsed &&
 				parsed.type === 'voice' &&
@@ -166,6 +184,11 @@ export default function ChatMessage({
 			}
 		} catch (error) {
 			// not a voice message
+			console.log(
+				'❌ voiceMeta parse error:',
+				error,
+				message.content?.substring(0, 100)
+			)
 		}
 		return null
 	}, [message.content])
@@ -194,55 +217,107 @@ export default function ChatMessage({
 	}, [voiceMeta, isVoiceMessageContent])
 
 	// ГЛАВНАЯ ПРОВЕРКА: является ли это голосовым сообщением (используется везде)
-	// Проверяем ВСЕ возможные способы определения голосового сообщения
+	// УПРОЩЕННАЯ ЛОГИКА: проверяем напрямую все возможные признаки голосового сообщения
 	const isVoice = useMemo(() => {
-		// 1. Проверяем voiceMeta
-		if (voiceMeta) return true
+		// 1. Проверяем voiceMeta (уже распарсенные метаданные)
+		if (voiceMeta) {
+			console.log('🎙️ isVoice = true (voiceMeta)', message.id, voiceMeta)
+			return true
+		}
 
-		// 2. Проверяем isVoiceMessage
-		if (isVoiceMessage) return true
+		// 0.5. Если voiceMeta еще не распарсен, но content содержит признаки голосового сообщения, пробуем распарсить
+		if (message.content && typeof message.content === 'string') {
+			const hasVoiceType =
+				message.content.includes('"type":"voice"') ||
+				message.content.includes('"type": "voice"') ||
+				message.content.includes('&quot;type&quot;:&quot;voice&quot;') ||
+				message.content.includes('&quot;type&quot;: &quot;voice&quot;')
+			const hasWaveform =
+				message.content.includes('"waveform"') ||
+				message.content.includes('&quot;waveform&quot;')
 
-		// 3. Проверяем isVoiceMessageContent
-		if (isVoiceMessageContent) return true
+			if (hasVoiceType && hasWaveform) {
+				// Пробуем распарсить напрямую
+				try {
+					let parsed
+					try {
+						parsed = JSON.parse(message.content)
+					} catch {
+						const unescaped = message.content.replace(/&quot;/g, '"')
+						parsed = JSON.parse(unescaped)
+					}
 
-		// 4. Проверяем fileType и fileMimetype - если это аудио файл И content содержит voice метаданные
+					if (
+						parsed &&
+						parsed.type === 'voice' &&
+						Array.isArray(parsed.waveform)
+					) {
+						console.log('🎙️ isVoice = true (direct parse)', message.id)
+						return true
+					}
+				} catch {}
+			}
+		}
+
+		// 2. Проверяем content - если это JSON с type: 'voice' и waveform
+		if (message.content && typeof message.content === 'string') {
+			// Быстрая проверка по строке (учитываем экранированные кавычки)
+			const hasVoiceType =
+				message.content.includes('"type":"voice"') ||
+				message.content.includes('"type": "voice"') ||
+				message.content.includes('&quot;type&quot;:&quot;voice&quot;') ||
+				message.content.includes('&quot;type&quot;: &quot;voice&quot;')
+			const hasWaveform =
+				message.content.includes('"waveform"') ||
+				message.content.includes('&quot;waveform&quot;')
+
+			if (hasVoiceType && hasWaveform) {
+				// Полная проверка через функцию (с парсингом JSON)
+				if (checkIsVoiceMessage(message.content)) {
+					console.log('🎙️ isVoice = true (content check)', message.id)
+					return true
+				}
+			}
+		}
+
+		// 3. Проверяем fileMimetype - если это аудио файл И content содержит voice метаданные
 		const isAudioFile = message.fileMimetype?.startsWith('audio/') || false
 		if (isAudioFile && message.content && typeof message.content === 'string') {
-			// Быстрая проверка по строке
-			if (
-				message.content.includes('"type":"voice"') &&
-				message.content.includes('"waveform"')
-			) {
-				return true
-			}
-			// Полная проверка через функцию
-			if (checkIsVoiceMessage(message.content)) {
-				return true
+			const hasVoiceType =
+				message.content.includes('"type":"voice"') ||
+				message.content.includes('"type": "voice"') ||
+				message.content.includes('&quot;type&quot;:&quot;voice&quot;') ||
+				message.content.includes('&quot;type&quot;: &quot;voice&quot;')
+			const hasWaveform =
+				message.content.includes('"waveform"') ||
+				message.content.includes('&quot;waveform&quot;')
+
+			if (hasVoiceType && hasWaveform) {
+				if (checkIsVoiceMessage(message.content)) {
+					console.log(
+						'🎙️ isVoice = true (audio file + voice content)',
+						message.id
+					)
+					return true
+				}
 			}
 		}
 
-		// 5. Прямая проверка content (даже если не аудио файл, но content содержит voice метаданные)
-		if (message.content && typeof message.content === 'string') {
-			// Быстрая проверка по строке
-			if (
-				message.content.includes('"type":"voice"') &&
-				message.content.includes('"waveform"')
-			) {
-				return true
-			}
-			// Полная проверка через функцию
-			if (checkIsVoiceMessage(message.content)) {
-				return true
-			}
-		}
-
+		console.log('🎙️ isVoice = false', message.id, {
+			hasVoiceMeta: !!voiceMeta,
+			hasContent: !!message.content,
+			contentType: typeof message.content,
+			hasVoiceType: message.content?.includes('"type":"voice"'),
+			hasWaveform: message.content?.includes('"waveform"'),
+			fileMimetype: message.fileMimetype,
+			isAudioFile: message.fileMimetype?.startsWith('audio/'),
+		})
 		return false
 	}, [
-		isVoiceMessage,
-		isVoiceMessageContent,
 		voiceMeta,
 		message.content,
 		message.fileMimetype,
+		message.id,
 		checkIsVoiceMessage,
 	])
 
@@ -1559,7 +1634,19 @@ export default function ChatMessage({
 									let meta = voiceMeta
 									if (!meta && message.content) {
 										try {
-											const parsed = JSON.parse(message.content)
+											// Сначала пробуем распарсить как есть
+											let parsed
+											try {
+												parsed = JSON.parse(message.content)
+											} catch {
+												// Если не получилось, пробуем заменить экранированные кавычки
+												const unescaped = message.content.replace(
+													/&quot;/g,
+													'"'
+												)
+												parsed = JSON.parse(unescaped)
+											}
+
 											if (parsed && parsed.type === 'voice') {
 												const sanitizedWaveform = (parsed.waveform || [])
 													.map((value: any) =>
@@ -1576,8 +1663,19 @@ export default function ChatMessage({
 															? sanitizedWaveform
 															: [0.1],
 												}
+												console.log(
+													'✅ meta parsed in render block',
+													message.id,
+													meta
+												)
 											}
-										} catch {}
+										} catch (error) {
+											console.log(
+												'❌ meta parse error in render block:',
+												error,
+												message.content?.substring(0, 100)
+											)
+										}
 									}
 
 									return (
@@ -1606,12 +1704,20 @@ export default function ChatMessage({
 								!isDeleted &&
 								!isVoiceFile &&
 								(() => {
-									// Еще раз проверяем content напрямую, на всякий случай
+									// Еще раз проверяем content напрямую, на всякий случай (учитываем экранированные кавычки)
 									const hasVoiceInContent =
 										message.content &&
 										typeof message.content === 'string' &&
-										message.content.includes('"type":"voice"') &&
-										message.content.includes('"waveform"')
+										(message.content.includes('"type":"voice"') ||
+											message.content.includes('"type": "voice"') ||
+											message.content.includes(
+												'&quot;type&quot;:&quot;voice&quot;'
+											) ||
+											message.content.includes(
+												'&quot;type&quot;: &quot;voice&quot;'
+											)) &&
+										(message.content.includes('"waveform"') ||
+											message.content.includes('&quot;waveform&quot;'))
 
 									// Проверяем, является ли это аудио файлом с voice метаданными
 									const isAudioWithVoice =
@@ -1620,6 +1726,10 @@ export default function ChatMessage({
 
 									// Если в content есть голосовое сообщение ИЛИ это аудио файл с voice метаданными, НЕ показываем файл
 									if (hasVoiceInContent || isAudioWithVoice) {
+										console.log(
+											'🚫 Блок файлов: НЕ показываем файл (это голосовое сообщение)',
+											message.id
+										)
 										return null
 									}
 
@@ -1821,14 +1931,32 @@ export default function ChatMessage({
 							{message.content &&
 								!isVoice &&
 								(() => {
-									// Дополнительная проверка: если content содержит JSON с voice метаданными, не показываем
+									// Дополнительная проверка: если content содержит JSON с voice метаданными, не показываем (учитываем экранированные кавычки)
 									if (message.content && typeof message.content === 'string') {
-										const isVoiceJson =
-											message.content.trim().startsWith('{') &&
-											message.content.includes('"type":"voice"') &&
-											message.content.includes('"waveform"')
-										if (isVoiceJson) {
-											return null
+										const trimmed = message.content.trim()
+										// Проверяем, является ли это JSON (начинается с {)
+										const isJson = trimmed.startsWith('{')
+										if (isJson) {
+											const hasVoiceType =
+												message.content.includes('"type":"voice"') ||
+												message.content.includes('"type": "voice"') ||
+												message.content.includes(
+													'&quot;type&quot;:&quot;voice&quot;'
+												) ||
+												message.content.includes(
+													'&quot;type&quot;: &quot;voice&quot;'
+												)
+											const hasWaveform =
+												message.content.includes('"waveform"') ||
+												message.content.includes('&quot;waveform&quot;')
+
+											if (hasVoiceType && hasWaveform) {
+												console.log(
+													'🚫 Блок текста: НЕ показываем текст (это голосовое сообщение)',
+													message.id
+												)
+												return null
+											}
 										}
 									}
 									return true
