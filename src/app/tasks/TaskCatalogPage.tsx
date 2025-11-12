@@ -786,49 +786,49 @@ export default function TaskCatalogPage() {
 																	{task.title}
 																</h3>
 																{task.createdAt && (
-																	<p className='text-xs text-slate-400 mt-1'>
-																		{new Date(task.createdAt).toLocaleDateString(
-																			'ru-RU',
-																			{
-																				day: '2-digit',
-																				month: 'long',
-																			}
-																		)}
-																	</p>
+																<p className='text-xs text-slate-400 mt-1'>
+																	{new Date(task.createdAt).toLocaleDateString(
+																		'ru-RU',
+																		{
+																			day: '2-digit',
+																			month: 'long',
+																		}
+																	)}
+																</p>
 																)}
 															</div>
 
 															<div className='flex-1 min-w-0'>
 																<div className='flex flex-col items-end text-right gap-1'>
-																	<span className='block text-[9px] uppercase tracking-[0.18em] text-emerald-300/60 whitespace-nowrap'>
-																		Рейтинг релевантности
+																<span className='block text-[9px] uppercase tracking-[0.18em] text-emerald-300/60 whitespace-nowrap'>
+																	Рейтинг релевантности
+																</span>
+																<div className='flex items-baseline gap-1 justify-end'>
+																	<span
+																		className={scoreClass}
+																		title={scoreTitle}
+																	>
+																		{displayScore}
 																	</span>
-																	<div className='flex items-baseline gap-1 justify-end'>
-																		<span
-																			className={scoreClass}
-																			title={scoreTitle}
-																		>
-																			{displayScore}
-																		</span>
-																		<span className='text-[10px] text-emerald-300/60'>
-																			/ 100
-																		</span>
-																	</div>
-																	<div className='relative w-full max-w-[72px] self-end h-[3px] rounded-full bg-emerald-500/15 border border-emerald-500/30 overflow-hidden shadow-[0_0_5px_rgba(16,185,129,0.25)]'>
-																		<div
-																			className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
-																			style={{
-																				width: `${normalizedScore}%`,
-																			}}
-																		/>
+																	<span className='text-[10px] text-emerald-300/60'>
+																		/ 100
+																	</span>
+																</div>
+																<div className='relative w-full max-w-[72px] self-end h-[3px] rounded-full bg-emerald-500/15 border border-emerald-500/30 overflow-hidden shadow-[0_0_5px_rgba(16,185,129,0.25)]'>
+																	<div
+																		className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
+																		style={{
+																			width: `${normalizedScore}%`,
+																		}}
+																	/>
 																	</div>
 																</div>
-															</div>
+																</div>
 															{recommendation.reasons?.length ? (
 																<div className='w-full'>
 																	<button
 																		type='button'
-																		className='w-full text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none text-left'
+																		className='inline-block text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none text-left'
 																		onMouseEnter={() =>
 																			setActiveReasonId(reasonsKey)
 																		}
@@ -850,16 +850,16 @@ export default function TaskCatalogPage() {
 																				Почему подобрали
 																			</div>
 																			<div className='space-y-1.5'>
-																				{recommendation.reasons
-																					.slice(0, 3)
+																			{recommendation.reasons
+																				.slice(0, 3)
 																					.map((reason, idx) => (
-																						<div
+																					<div
 																							key={`${task.id}-popover-${idx}-${reason}`}
 																							className='text-[11px] text-emerald-100/95 leading-relaxed break-words'
-																						>
+																					>
 																							{reason}
-																						</div>
-																					))}
+																					</div>
+																				))}
 																				{recommendation.reasons.length > 3 && (
 																					<div className='text-[10px] text-emerald-300/60 mt-2 pt-2 border-t border-emerald-500/20'>
 																						И ещё {recommendation.reasons.length - 3}{' '}
@@ -868,10 +868,10 @@ export default function TaskCatalogPage() {
 																							: recommendation.reasons.length - 3 < 5
 																							? 'фактора'
 																							: 'факторов'}
-																					</div>
+																				</div>
 																				)}
-																			</div>
 																		</div>
+															</div>
 																	)}
 																</div>
 															) : null}
