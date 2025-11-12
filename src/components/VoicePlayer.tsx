@@ -167,44 +167,36 @@ export default function VoicePlayer({
 	)
 
 	return (
-		<div className={`flex items-center gap-3 ${className}`}>
+		<div className={`flex items-center gap-2 ${className}`}>
 			{/* Кнопка Play/Pause - в фирменном стиле платформы (emerald) */}
 			<button
 				type='button'
 				onClick={togglePlayback}
-				className='w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 transition-all flex-shrink-0 shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_20px_rgba(16,185,129,0.6)]'
+				className='w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 transition-all flex-shrink-0 shadow-[0_0_12px_rgba(16,185,129,0.4)] hover:shadow-[0_0_16px_rgba(16,185,129,0.6)]'
 				aria-label={isPlaying ? 'Пауза' : 'Воспроизвести'}
 			>
 				{isPlaying ? (
-					<Pause className='w-5 h-5 text-white' />
+					<Pause className='w-3.5 h-3.5 sm:w-4 sm:h-4 text-white' />
 				) : (
-					<Play className='w-5 h-5 text-white ml-0.5' />
+					<Play className='w-3.5 h-3.5 sm:w-4 sm:h-4 text-white ml-0.5' />
 				)}
 			</button>
 
 			{/* Визуализация волны */}
 			<div className='flex-1 min-w-0'>
-				{/* Волна с прогрессом */}
+				{/* Волна с прогрессом - как в Telegram */}
 				<div
 					ref={waveformRef}
-					className='flex items-end gap-[2px] sm:gap-[3px] h-12 sm:h-14 cursor-pointer select-none relative'
+					className='flex items-end gap-[1.5px] sm:gap-[2px] h-6 sm:h-7 cursor-pointer select-none relative'
 					onClick={handleWaveformClick}
 				>
-					{/* Фон прогресса - тонкая линия в фирменном стиле (всегда видна) */}
-					<div
-						className='absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-emerald-400 to-emerald-300 transition-all duration-150 pointer-events-none z-10 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
-						style={{
-							width: `${Math.max(0, Math.min(100, progressRatio * 100))}%`,
-						}}
-					/>
-
 					{/* Волна - вертикальные полоски как в Telegram */}
-					<div className='relative flex items-end gap-[2px] sm:gap-[3px] h-full w-full'>
+					<div className='relative flex items-end gap-[1.5px] sm:gap-[2px] h-full w-full'>
 						{normalizedWaveform.map((value, index) => {
 							const isActive = index < activeBarsNormalized
-							// Высота полоски: минимум 4px, максимум 100% высоты контейнера
-							const minHeight = 4
-							const maxHeight = 48 // h-12 = 48px
+							// Высота полоски: минимум 2px, максимум 100% высоты контейнера
+							const minHeight = 2
+							const maxHeight = 28 // h-7 = 28px
 							const height = Math.max(
 								minHeight,
 								Math.min(maxHeight, value * maxHeight)
@@ -213,14 +205,14 @@ export default function VoicePlayer({
 							return (
 								<div
 									key={index}
-									className={`flex-1 rounded-full transition-all duration-150 ${
+									className={`w-[2px] sm:w-[2.5px] rounded-full transition-all duration-150 ${
 										isActive
-											? 'bg-gradient-to-t from-emerald-400 to-emerald-300 shadow-[0_0_4px_rgba(16,185,129,0.4)]'
-											: 'bg-emerald-500/20'
+											? 'bg-emerald-400'
+											: 'bg-emerald-500/30'
 									}`}
 									style={{
 										height: `${height}px`,
-										opacity: value < 0.1 ? 0.3 : isActive ? 1 : 0.5,
+										opacity: value < 0.1 ? 0.2 : isActive ? 1 : 0.4,
 									}}
 								/>
 							)
@@ -229,7 +221,7 @@ export default function VoicePlayer({
 				</div>
 
 				{/* Размер файла и время внизу - в фирменном стиле */}
-				<div className='flex items-center justify-between text-xs mt-1.5'>
+				<div className='flex items-center justify-between text-[9px] sm:text-[10px] mt-0.5'>
 					<span className='text-emerald-300/80 font-medium'>
 						{formatTime(currentTime)} / {formatTime(effectiveDuration)}
 					</span>

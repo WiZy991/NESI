@@ -1,7 +1,7 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
-import { ChevronDown, FileText, Mic } from 'lucide-react'
+import { ChevronDown, FileText, Mic, Send } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import MessageTemplatesModal from './MessageTemplatesModal'
@@ -181,7 +181,8 @@ export default function MessageInput({
 	const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
 	const [selectedMicrophoneId, setSelectedMicrophoneId] =
 		useState<string>('default')
-	const [microphoneMenuOpen, setMicrophoneMenuOpen] = useState(false)
+	const [showSendMenu, setShowSendMenu] = useState(false)
+	const [preferSendMode, setPreferSendMode] = useState(false)
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -194,8 +195,8 @@ export default function MessageInput({
 	const audioChunksRef = useRef<Blob[]>([])
 	const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
 	const audioRef = useRef<HTMLAudioElement | null>(null)
-	const microphoneMenuRef = useRef<HTMLDivElement | null>(null)
-	const microphoneButtonRef = useRef<HTMLButtonElement | null>(null)
+	const sendMenuRef = useRef<HTMLDivElement | null>(null)
+	const sendMenuButtonRef = useRef<HTMLButtonElement | null>(null)
 
 	const typingContext = useMemo<TypingContext | null>(() => {
 		if (!otherUserId) return null
@@ -339,6 +340,10 @@ export default function MessageInput({
 	const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
 		const value = e.target.value
 		setMessage(value)
+		// Если пользователь начал вводить текст, сбрасываем режим отправки
+		if (value.trim().length > 0) {
+			setPreferSendMode(false)
+		}
 
 		if (!typingContext) {
 			if (typingTimeoutRef.current) {
@@ -480,10 +485,29 @@ export default function MessageInput({
 		refreshMicrophones()
 	}, [refreshMicrophones])
 
+	// Закрытие меню выбора при клике вне его
 	useEffect(() => {
-		if (!microphoneMenuOpen) return
-		refreshMicrophones()
-	}, [microphoneMenuOpen, refreshMicrophones])
+		if (!showSendMenu) return
+
+		const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+			if (
+				sendMenuRef.current &&
+				sendMenuButtonRef.current &&
+				!sendMenuRef.current.contains(event.target as Node) &&
+				!sendMenuButtonRef.current.contains(event.target as Node)
+			) {
+				setShowSendMenu(false)
+			}
+		}
+
+		document.addEventListener('mousedown', handleClickOutside)
+		document.addEventListener('touchstart', handleClickOutside)
+
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside)
+			document.removeEventListener('touchstart', handleClickOutside)
+		}
+	}, [showSendMenu])
 
 	useEffect(() => {
 		if (!audioPreviewUrl) {
@@ -686,6 +710,7 @@ export default function MessageInput({
 			setAttachments([])
 			setShowEmojiPicker(false)
 			setShowTemplatesModal(false)
+			setPreferSendMode(false)
 			clearVoiceState()
 			attachmentUploadsRef.current.clear()
 
@@ -1007,7 +1032,6 @@ export default function MessageInput({
 						previewUrl,
 					})
 
-					setMicrophoneMenuOpen(false)
 				} catch (error) {
 					console.error('Ошибка обработки голосового сообщения:', error)
 					alert('Не удалось сохранить голосовое сообщение')
@@ -1092,7 +1116,6 @@ export default function MessageInput({
 		await stopRecording(false)
 		clearVoiceState()
 		setRecordingTime(0)
-		setMicrophoneMenuOpen(false)
 	}, [clearVoiceState, stopRecording])
 
 	const toggleVoicePlayback = useCallback(() => {
@@ -1332,7 +1355,9 @@ export default function MessageInput({
 					position: 'relative',
 					zIndex: 10,
 					touchAction: 'manipulation',
-				}}
+					WebkitTapHighlightColor: 'transparent',
+					WebkitTouchCallout: 'none',
+				} as React.CSSProperties}
 			>
 				{/* Информация об ответе на сообщение */}
 				{replyTo && (
@@ -1371,6 +1396,32 @@ export default function MessageInput({
 					</div>
 				)}
 
+				{/* Индикатор записи */}
+				{isRecording && (
+					<div className='mb-3 px-4 py-2.5 bg-red-500/20 backdrop-blur-sm border border-red-400/40 rounded-xl flex items-center justify-between text-sm transition-all duration-200 animate-in fade-in-0 slide-in-from-top-2 shadow-lg'>
+						<div className='flex items-center gap-2'>
+							<span className='inline-flex w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse'></span>
+							<span className='text-red-200 font-medium'>Идёт запись...</span>
+						</div>
+						<div className='flex items-center gap-3'>
+							<span className='text-red-300 font-mono text-sm'>
+								{formatDuration(recordingTime)}
+							</span>
+							<button
+								type='button'
+								onClick={() =>
+									cancelRecording().catch(err =>
+										console.error('Ошибка отмены записи:', err)
+									)
+								}
+								className='text-xs text-red-300 hover:text-red-200 transition px-2 py-1 rounded-md hover:bg-red-500/20'
+							>
+								Отменить
+							</button>
+						</div>
+					</div>
+				)}
+
 				{/* Вложения */}
 				{attachments.length > 0 && (
 					<div className='mb-3 space-y-3'>
@@ -1390,7 +1441,7 @@ export default function MessageInput({
 								return (
 									<div
 										key={attachment.id}
-										className='rounded-2xl border border-slate-700/60 bg-slate-800/60 backdrop-blur-sm px-4 py-3 shadow-lg'
+										className='rounded-lg border border-slate-700/50 bg-slate-800/50 backdrop-blur-sm px-2 py-1.5 shadow-sm max-w-fit'
 									>
 										<VoicePlayer
 											audioUrl={attachment.audioPreviewUrl}
@@ -1398,7 +1449,7 @@ export default function MessageInput({
 											duration={attachment.voiceMetadata.duration || 0}
 										/>
 										{isUploading && (
-											<div className='mt-2 w-full bg-emerald-500/10 rounded-full h-1 overflow-hidden'>
+											<div className='mt-1.5 w-full bg-emerald-500/10 rounded-full h-0.5 overflow-hidden'>
 												<div
 													className='h-full bg-gradient-to-r from-emerald-400 to-emerald-300 transition-all duration-200'
 													style={{ width: `${progress}%` }}
@@ -1406,28 +1457,28 @@ export default function MessageInput({
 											</div>
 										)}
 										{isError && (
-											<div className='mt-2 flex items-center gap-2'>
+											<div className='mt-1.5 flex items-center gap-2'>
 												<button
 													type='button'
 													onClick={() => retryAttachment(attachment.id)}
-													className='px-2 py-1 text-[11px] rounded-md bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition-colors'
+													className='px-2 py-0.5 text-[10px] rounded-md bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition-colors'
 												>
 													Повторить
 												</button>
 											</div>
 										)}
-										<div className='mt-2 flex items-center justify-between'>
-											<div className='text-xs text-gray-400 truncate'>
+										<div className='mt-1.5 flex items-center justify-between'>
+											<div className='text-[10px] text-gray-400 truncate'>
 												{getTruncatedFileName(attachment.name)}
 											</div>
 											<button
 												type='button'
 												onClick={() => removeAttachment(attachment.id)}
-												className='w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/20 text-red-300 transition-colors flex-shrink-0'
+												className='w-6 h-6 flex items-center justify-center rounded-md hover:bg-red-500/20 text-red-300 transition-colors flex-shrink-0'
 												aria-label='Удалить вложение'
 											>
 												<svg
-													className='w-4 h-4'
+													className='w-3 h-3'
 													fill='none'
 													stroke='currentColor'
 													viewBox='0 0 24 24'
@@ -1592,7 +1643,7 @@ export default function MessageInput({
 				)}
 
 				{/* Поле ввода сообщения */}
-				<div className='flex items-end gap-2'>
+				<div className='flex items-center gap-2'>
 					<label
 						className='group cursor-pointer flex-shrink-0 w-11 h-11 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:bg-slate-700/80 hover:border-emerald-400/50 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
 						style={{
@@ -1661,8 +1712,8 @@ export default function MessageInput({
 							disabled={sending}
 							style={
 								{
-									height: '40px',
-									minHeight: '40px',
+									height: '44px',
+									minHeight: '44px',
 									maxHeight: '140px',
 									lineHeight: '1.5',
 									overflow: 'auto',
@@ -1707,8 +1758,6 @@ export default function MessageInput({
 									: 'border-slate-600/50'
 							} hover:border-emerald-400/50 hover:bg-slate-700/80 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button text-2xl touch-manipulation transition-all duration-200 active:scale-95`}
 							style={{
-								minHeight: '44px',
-								minWidth: '44px',
 								touchAction: 'manipulation',
 								WebkitTapHighlightColor: 'transparent',
 								pointerEvents: 'auto',
@@ -1770,8 +1819,6 @@ export default function MessageInput({
 							}}
 							className='flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:border-emerald-400/50 hover:bg-slate-700/80 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
 							style={{
-								minHeight: '44px',
-								minWidth: '44px',
 								touchAction: 'manipulation',
 								WebkitTapHighlightColor: 'transparent',
 								pointerEvents: 'auto',
@@ -1783,9 +1830,118 @@ export default function MessageInput({
 						</button>
 					)}
 
-					{/* Кнопка отправки и меню микрофона */}
-					<div className='relative flex flex-col items-center gap-1'>
-						<div className='flex items-center gap-1'>
+					{/* Кнопка отправки или микрофона */}
+					{isRecording ? (
+						// Кнопка остановки записи
+						<button
+							type='button'
+							onClick={() => {
+								stopRecording(true).catch(err =>
+									console.error('Ошибка остановки записи:', err)
+								)
+							}}
+							onTouchStart={e => {
+								e.stopPropagation()
+							}}
+							className='flex-shrink-0 w-11 h-11 bg-gradient-to-br from-red-500/90 to-red-600/90 hover:from-red-400 hover:to-red-500 text-white rounded-xl active:scale-95 ios-button shadow-md hover:shadow-lg hover:shadow-red-500/20 flex items-center justify-center touch-manipulation border border-red-400/30 transition-all duration-200'
+							style={{
+								position: 'relative',
+								zIndex: 20,
+								touchAction: 'manipulation',
+								WebkitTapHighlightColor: 'transparent',
+								pointerEvents: 'auto',
+							}}
+						>
+							<div className='relative'>
+								<Mic className='w-5 h-5' />
+								<span className='absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-white animate-pulse'></span>
+							</div>
+						</button>
+					) : !trimmedMessage && !hasReadyAttachment && !preferSendMode ? (
+						// Группа: кнопка микрофона + меню выбора
+						<div className='relative flex items-center gap-1'>
+							<button
+								type='button'
+								onClick={() => {
+									startRecording().catch(err =>
+										console.error('Ошибка запуска записи:', err)
+									)
+								}}
+								onTouchStart={e => {
+									e.stopPropagation()
+								}}
+								className='flex-shrink-0 w-11 h-11 bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-xl active:scale-95 ios-button shadow-md hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center touch-manipulation border border-emerald-400/30 transition-all duration-200'
+								style={{
+									position: 'relative',
+									zIndex: 20,
+									touchAction: 'manipulation',
+									WebkitTapHighlightColor: 'transparent',
+									pointerEvents: 'auto',
+								}}
+							>
+								<Mic className='w-5 h-5' />
+							</button>
+							<button
+								ref={sendMenuButtonRef}
+								type='button'
+								onClick={e => {
+									e.stopPropagation()
+									setShowSendMenu(prev => !prev)
+								}}
+								onTouchStart={e => {
+									e.stopPropagation()
+								}}
+								className='w-8 h-11 flex items-center justify-center rounded-xl border border-emerald-400/30 bg-slate-700/50 hover:bg-slate-700/70 text-emerald-300 transition-all duration-200 active:scale-95'
+								style={{
+									touchAction: 'manipulation',
+									WebkitTapHighlightColor: 'transparent',
+									position: 'relative',
+									zIndex: 21,
+								}}
+							>
+								<ChevronDown
+									className={`w-4 h-4 transition-transform duration-200 ${
+										showSendMenu ? 'rotate-180' : ''
+									}`}
+								/>
+							</button>
+							{showSendMenu && (
+								<div
+									ref={sendMenuRef}
+									className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 space-y-1 animate-fadeIn z-50'
+									onClick={e => e.stopPropagation()}
+								>
+									<button
+										type='button'
+										onClick={() => {
+											startRecording().catch(err =>
+												console.error('Ошибка запуска записи:', err)
+											)
+											setShowSendMenu(false)
+										}}
+										className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+									>
+										<Mic className='w-5 h-5 text-emerald-400' />
+									</button>
+									<button
+										type='button'
+										onClick={() => {
+											setPreferSendMode(true)
+											setShowSendMenu(false)
+											if (textareaRef.current) {
+												textareaRef.current.focus()
+											}
+										}}
+										className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+									>
+										<Send className='w-5 h-5 text-emerald-400' />
+									</button>
+								</div>
+							)}
+						</div>
+					) : (
+						// Кнопка отправки (с меню, если preferSendMode и поле пустое)
+						<div className='relative flex items-center gap-1'>
 							<button
 								type='submit'
 								disabled={sendDisabled}
@@ -1797,168 +1953,103 @@ export default function MessageInput({
 								}}
 								className='flex-shrink-0 w-11 h-11 bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-xl active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ios-button shadow-md hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center touch-manipulation border border-emerald-400/30 transition-all duration-200'
 								style={{
-									minHeight: '44px',
-									minWidth: '44px',
 									position: 'relative',
 									zIndex: 20,
 									touchAction: 'manipulation',
 									WebkitTapHighlightColor: 'transparent',
 									pointerEvents: 'auto',
 								}}
-								title={sendButtonTitle}
 							>
-								{sending ? (
-									<svg
-										className='animate-spin w-5 h-5'
-										fill='none'
-										viewBox='0 0 24 24'
-									>
-										<circle
-											className='opacity-25'
-											cx='12'
-											cy='12'
-											r='10'
-											stroke='currentColor'
-											strokeWidth='4'
-										></circle>
-										<path
-											className='opacity-75'
-											fill='currentColor'
-											d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938л3-2.647z'
-										></path>
-									</svg>
-								) : (
-									<svg
-										className='w-5 h-5'
+							{sending ? (
+								<svg
+									className='animate-spin w-5 h-5'
+									fill='none'
+									viewBox='0 0 24 24'
+								>
+									<circle
+										className='opacity-25'
+										cx='12'
+										cy='12'
+										r='10'
+										stroke='currentColor'
+										strokeWidth='4'
+									></circle>
+									<path
+										className='opacity-75'
 										fill='currentColor'
-										viewBox='0 0 24 24'
-									>
-										<path d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' />
-									</svg>
-								)}
+										d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938л3-2.647z'
+									></path>
+								</svg>
+							) : (
+								<svg
+									className='w-5 h-5'
+									fill='currentColor'
+									viewBox='0 0 24 24'
+								>
+									<path d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' />
+								</svg>
+							)}
 							</button>
-
-							<button
-								type='button'
-								ref={microphoneButtonRef}
-								onClick={() => {
-									setMicrophoneMenuOpen(prev => !prev)
-								}}
-								onTouchStart={e => {
-									e.stopPropagation()
-								}}
-								className='w-8 h-11 flex items-center justify-center rounded-xl border border-emerald-400/30 bg-slate-700/50 hover:bg-slate-700/70 text-emerald-300 transition-all duration-200 active:scale-95'
-								style={{
-									minHeight: '44px',
-									touchAction: 'manipulation',
-									WebkitTapHighlightColor: 'transparent',
-								}}
-								title='Настройки голосового сообщения'
-								aria-label='Настройки голосового сообщения'
-							>
-								<ChevronDown
-									className={`w-4 h-4 transition-transform duration-200 ${
-										microphoneMenuOpen ? 'rotate-180' : ''
-									}`}
-								/>
-							</button>
-						</div>
-
-						{microphoneMenuOpen && (
-							<div
-								ref={microphoneMenuRef}
-								className='absolute bottom-[calc(100%+0.5rem)] right-0 w-64 sm:w-72 bg-slate-900/95 border border-slate-700/60 rounded-2xl shadow-2xl p-4 space-y-3 animate-fadeIn'
-							>
-								<div className='flex items-center gap-2 text-sm font-semibold text-emerald-200'>
-									<Mic className='w-4 h-4' />
-									<span>Голосовые сообщения</span>
-								</div>
-								<div className='space-y-2 text-xs text-gray-300'>
-									<label className='block text-[11px] uppercase tracking-wider text-gray-400'>
-										Микрофон
-									</label>
-									{audioDevices.length > 0 ? (
-										<select
-											value={selectedMicrophoneId}
-											onChange={e => setSelectedMicrophoneId(e.target.value)}
-											className='w-full px-3 py-2 rounded-lg bg-slate-800/70 border border-slate-700/60 text-sm text-gray-200 focus:outline-none focus:border-emerald-400/60 transition'
-										>
-											<option value='default'>Системный (по умолчанию)</option>
-											{audioDevices.map((device, index) => (
-												<option
-													key={device.deviceId || `${index}-device`}
-													value={device.deviceId || 'default'}
-												>
-													{device.label || `Микрофон ${index + 1}`}
-												</option>
-											))}
-										</select>
-									) : (
-										<div className='px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/50 text-[11px] text-gray-400'>
-											Микрофоны не найдены. Убедитесь, что предоставили доступ в
-											браузере.
-										</div>
-									)}
-								</div>
-								<div className='space-y-2'>
+							{preferSendMode && !trimmedMessage && !hasReadyAttachment && (
+								<>
 									<button
+										ref={sendMenuButtonRef}
 										type='button'
-										onClick={() => {
-											if (isRecording) {
-												stopRecording(true).catch(err =>
-													console.error('Ошибка остановки записи:', err)
-												)
-											} else {
-												startRecording().catch(err =>
-													console.error('Ошибка запуска записи:', err)
-												)
-											}
+										onClick={e => {
+											e.stopPropagation()
+											setShowSendMenu(prev => !prev)
 										}}
-										className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition ${
-											isRecording
-												? 'bg-red-500/20 text-red-200 border border-red-400/40 hover:bg-red-500/30'
-												: 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 hover:bg-emerald-500/25'
-										}`}
+										onTouchStart={e => {
+											e.stopPropagation()
+										}}
+										className='w-8 h-11 flex items-center justify-center rounded-xl border border-emerald-400/30 bg-slate-700/50 hover:bg-slate-700/70 text-emerald-300 transition-all duration-200 active:scale-95'
+										style={{
+											touchAction: 'manipulation',
+											WebkitTapHighlightColor: 'transparent',
+											position: 'relative',
+											zIndex: 21,
+										}}
 									>
-										{isRecording ? (
-											<>
-												<span className='inline-flex w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse'></span>
-												<span>Остановить и сохранить</span>
-											</>
-										) : (
-											<>
-												<Mic className='w-4 h-4' />
-												<span>Записать голосовое</span>
-											</>
-										)}
+										<ChevronDown
+											className={`w-4 h-4 transition-transform duration-200 ${
+												showSendMenu ? 'rotate-180' : ''
+											}`}
+										/>
 									</button>
-									{isRecording && (
-										<>
-											<div className='text-[11px] text-emerald-200 text-right'>
-												{formatDuration(recordingTime)}
-											</div>
+									{showSendMenu && (
+										<div
+											ref={sendMenuRef}
+											className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 space-y-1 animate-fadeIn z-50'
+											onClick={e => e.stopPropagation()}
+										>
 											<button
 												type='button'
-												onClick={() =>
-													cancelRecording().catch(err =>
-														console.error('Ошибка отмены записи:', err)
-													)
-												}
-												className='w-full text-xs text-gray-400 hover:text-gray-200 transition'
+												onClick={() => {
+													setPreferSendMode(false)
+													setShowSendMenu(false)
+												}}
+												className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
 											>
-												Отменить запись
+												<Mic className='w-5 h-5 text-emerald-400' />
 											</button>
-										</>
-									)}
-									{voiceMetadata && !isRecording && (
-										<div className='text-[11px] text-emerald-200'>
-											Голосовое сообщение готово к отправке
+											<button
+												type='button'
+												onClick={() => {
+													setShowSendMenu(false)
+													if (textareaRef.current) {
+														textareaRef.current.focus()
+													}
+												}}
+												className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+											>
+												<Send className='w-5 h-5 text-emerald-400' />
+											</button>
 										</div>
 									)}
-								</div>
-							</div>
-						)}
-					</div>
+								</>
+							)}
+						</div>
+					)}
 				</div>
 			</form>
 

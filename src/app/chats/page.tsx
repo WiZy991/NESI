@@ -1667,13 +1667,62 @@ function ChatsPageContent() {
 		}
 	}
 
+	// Проверка, является ли сообщение голосовым
+	const isVoiceMessage = (content: string | undefined): boolean => {
+		if (!content || typeof content !== 'string') return false
+		try {
+			// Быстрая проверка по строке
+			const hasVoiceType =
+				content.includes('"type":"voice"') ||
+				content.includes('"type": "voice"') ||
+				content.includes('&quot;type&quot;:&quot;voice&quot;') ||
+				content.includes('&quot;type&quot;: &quot;voice&quot;')
+			const hasWaveform =
+				content.includes('"waveform"') ||
+				content.includes('&quot;waveform&quot;')
+
+			if (!hasVoiceType || !hasWaveform) return false
+
+			// Полная проверка через парсинг JSON
+			let parsed
+			try {
+				parsed = JSON.parse(content)
+			} catch {
+				const unescaped = content.replace(/&quot;/g, '"')
+				parsed = JSON.parse(unescaped)
+			}
+
+			return (
+				parsed &&
+				parsed.type === 'voice' &&
+				typeof parsed.duration === 'number' &&
+				Array.isArray(parsed.waveform)
+			)
+		} catch {
+			return false
+		}
+	}
+
 	const getChatSubtitle = (chat: Chat) => {
+		const lastMessageContent = chat.lastMessage.content
+		
+		// Проверяем, является ли последнее сообщение голосовым
+		if (isVoiceMessage(lastMessageContent)) {
+			if (chat.type === 'private') {
+				return '🎤 Голосовое сообщение'
+			} else {
+				const senderName =
+					chat.lastMessage.sender.fullName || chat.lastMessage.sender.email
+				return `${senderName}: 🎤 Голосовое сообщение`
+			}
+		}
+
 		if (chat.type === 'private') {
-			return chat.lastMessage.content || 'Файл'
+			return lastMessageContent || 'Файл'
 		} else {
 			const senderName =
 				chat.lastMessage.sender.fullName || chat.lastMessage.sender.email
-			return `${senderName}: ${chat.lastMessage.content || 'Файл'}`
+			return `${senderName}: ${lastMessageContent || 'Файл'}`
 		}
 	}
 
@@ -1862,18 +1911,25 @@ function ChatsPageContent() {
 	}
 
 	return (
-		<div
-			className='fixed inset-x-0 px-2 sm:px-3 md:px-6'
-			style={{
-				top: isMobile
-					? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
-					: 'calc(0.5rem - 1px)',
-				height: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 2rem + 1px)',
-				maxHeight: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 6rem + 1px)',
-				minHeight: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 6rem + 1px)',
-				paddingTop: 0,
-			}}
-		>
+			<div
+				className='fixed inset-x-0 px-2 sm:px-3 md:px-6'
+				style={{
+					top: isMobile
+						? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
+						: 'calc(0.5rem - 1px)',
+					height: isMobile 
+						? 'calc(100dvh - 80px)' 
+						: 'calc(100vh - 2rem + 1px)',
+					maxHeight: isMobile 
+						? 'calc(100dvh - 80px)' 
+						: 'calc(100vh - 6rem + 1px)',
+					minHeight: isMobile 
+						? 'calc(100dvh - 80px)' 
+						: 'calc(100vh - 6rem + 1px)',
+					paddingTop: 0,
+					paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 0px)' : '0',
+				}}
+			>
 			<div className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden'>
 				<div
 					className='flex flex-1 overflow-hidden min-h-0'
@@ -2143,6 +2199,9 @@ function ChatsPageContent() {
 									style={{
 										touchAction: 'pan-y',
 										WebkitOverflowScrolling: 'touch',
+										paddingBottom: isMobile 
+											? 'calc(1rem + env(safe-area-inset-bottom, 0px))' 
+											: '2.5rem',
 									}}
 								>
 									{/* Поиск по сообщениям */}
@@ -2324,7 +2383,12 @@ function ChatsPageContent() {
 								{showScrollToBottom && !isMessageSearchOpen && (
 									<button
 										onClick={() => scrollToBottom()}
-										className='fixed bottom-20 sm:bottom-24 right-4 sm:right-6 md:right-8 z-40 w-10 h-10 sm:w-9 sm:h-9 bg-slate-700/90 hover:bg-slate-600/90 active:bg-slate-600/95 text-gray-300 hover:text-white rounded-full shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-200 animate-scaleFadeIn border border-slate-600/50 hover:border-slate-500/70 hover:scale-105 active:scale-95 touch-manipulation'
+										className='fixed right-4 sm:right-6 md:right-8 z-40 w-10 h-10 sm:w-9 sm:h-9 bg-slate-700/90 hover:bg-slate-600/90 active:bg-slate-600/95 text-gray-300 hover:text-white rounded-full shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-200 animate-scaleFadeIn border border-slate-600/50 hover:border-slate-500/70 hover:scale-105 active:scale-95 touch-manipulation'
+										style={{
+											bottom: isMobile 
+												? 'calc(120px + env(safe-area-inset-bottom, 0px))' 
+												: '6rem',
+										}}
 										aria-label='Прокрутить вниз'
 										title='Прокрутить вниз'
 									>
@@ -2352,6 +2416,9 @@ function ChatsPageContent() {
 										zIndex: 100,
 										touchAction: 'manipulation',
 										pointerEvents: 'auto',
+										paddingBottom: isMobile 
+											? `calc(0.5rem + env(safe-area-inset-bottom, 0px))` 
+											: '0',
 									}}
 								>
 									<div
@@ -2373,11 +2440,15 @@ function ChatsPageContent() {
 											showTemplatesButton={false}
 										/>
 									</div>
-									{/* Безопасная зона для iOS */}
-									<div
-										className='h-safe-bottom md:hidden'
-										style={{ height: 'env(safe-area-inset-bottom, 0px)' }}
-									/>
+									{/* Дополнительный отступ для мобильных браузеров */}
+									{isMobile && (
+										<div
+											className='h-4 md:hidden'
+											style={{ 
+												minHeight: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+											}}
+										/>
+									)}
 								</div>
 
 								<AttachmentsModal
