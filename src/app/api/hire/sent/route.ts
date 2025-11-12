@@ -22,12 +22,22 @@ export async function GET(req: Request) {
         message: true,
         amount: true,
         executor: {
-          select: { id: true, fullName: true, email: true, avatarUrl: true, location: true },
+          select: { id: true, fullName: true, email: true, avatarFileId: true, location: true },
         },
       },
       orderBy: { createdAt: 'desc' },
     })
-    return NextResponse.json(sent, { status: 200 })
+    
+    // Преобразуем avatarFileId в avatarUrl
+    const sentWithAvatars = sent.map(item => ({
+      ...item,
+      executor: {
+        ...item.executor,
+        avatarUrl: item.executor.avatarFileId ? `/api/files/${item.executor.avatarFileId}` : null,
+      },
+    }))
+    
+    return NextResponse.json(sentWithAvatars, { status: 200 })
   } catch (e) {
     console.error('❌ /api/hire/sent error:', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
