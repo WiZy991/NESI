@@ -864,22 +864,22 @@ export default function TaskCatalogPage() {
 																					setActiveReasonId(null)
 																				}
 																			}}
-																			className={`absolute z-30 top-[calc(100%+0.5rem)] right-0 w-60 rounded-xl border border-emerald-500/25 bg-slate-950/95 px-3 py-3 text-left shadow-[0_18px_40px_rgba(16,185,129,0.25)] transition-all duration-150 ${
+																			className={`absolute z-50 top-full mt-2 right-0 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-emerald-500/25 bg-slate-950/98 backdrop-blur-sm px-4 py-3 text-left shadow-[0_18px_40px_rgba(16,185,129,0.25)] transition-all duration-150 ${
 																				showReasons
 																					? 'opacity-100 visible pointer-events-auto'
 																					: 'opacity-0 invisible pointer-events-none'
 																			}`}
 																		>
-																			<div className='text-xs font-semibold text-emerald-300 mb-3'>
+																			<div className='text-xs font-semibold text-emerald-300 mb-2.5'>
 																				Почему подобрали
 																			</div>
-																			<div className='space-y-2'>
+																			<div className='space-y-1.5 max-h-48 overflow-y-auto'>
 																				{recommendation.reasons
 																					.slice(0, 3)
 																					.map((reason, idx) => (
 																						<div
 																							key={`${task.id}-popover-${idx}-${reason}`}
-																							className='text-xs text-emerald-100/90 leading-relaxed'
+																							className='text-[11px] text-emerald-100/90 leading-snug'
 																						>
 																							{reason}
 																						</div>
@@ -1069,7 +1069,9 @@ export default function TaskCatalogPage() {
 											<span>{task.customer?.fullName || 'Без имени'}</span>
 											<span className='text-gray-600'>•</span>
 											<span className='text-gray-500'>📅</span>
-											{new Date(task.createdAt).toLocaleDateString('ru-RU')}
+											{task.createdAt
+												? new Date(task.createdAt).toLocaleDateString('ru-RU')
+												: '—'}
 										</p>
 									</div>
 								</div>

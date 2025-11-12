@@ -46,11 +46,16 @@ export function TaskInfoPanel({ task }: TaskInfoPanelProps) {
 						>
 							{task.subcategory.name}
 						</Link>
-						{task.subcategory.minPrice > 0 && (
+						{task.subcategory.minPrice != null && Number(task.subcategory.minPrice) > 0 && (
 							<div className='flex items-center gap-2 text-emerald-400'>
 								<span className='text-lg'>💰</span>
 								<span className='text-sm font-medium'>
-									Мин. ставка: {task.subcategory.minPrice.toLocaleString('ru-RU')} ₽
+									Мин. ставка:{' '}
+									{Number(task.subcategory.minPrice).toLocaleString('ru-RU', {
+										minimumFractionDigits: 0,
+										maximumFractionDigits: 0,
+									})}{' '}
+									₽
 								</span>
 							</div>
 						)}
@@ -84,7 +89,13 @@ export function TaskInfoPanel({ task }: TaskInfoPanelProps) {
 						</h3>
 					</div>
 					<div className='text-2xl md:text-3xl font-bold text-emerald-400'>
-						{task.price.toLocaleString('ru-RU')} ₽
+						{task.price != null
+							? Number(task.price).toLocaleString('ru-RU', {
+									minimumFractionDigits: 0,
+									maximumFractionDigits: 0,
+							  })
+							: '—'}{' '}
+						₽
 					</div>
 				</div>
 			)}
