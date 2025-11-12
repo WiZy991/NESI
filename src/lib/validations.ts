@@ -96,6 +96,47 @@ export const resetPasswordSchema = z.object({
   password: passwordSchema,
 })
 
+// Валидация URL изображения или медиа файла
+// Принимает как полные URL (http/https), так и относительные пути (/api/files/..., /uploads/...)
+export const imageUrlSchema = z
+  .string()
+  .refine(
+    (val) => {
+      if (!val || val.trim() === '') return true // Пустая строка разрешена
+      
+      // Полный URL (http/https)
+      if (val.startsWith('http://') || val.startsWith('https://')) {
+        try {
+          new URL(val)
+          return true
+        } catch {
+          return false
+        }
+      }
+      
+      // Относительные пути (начинаются с /)
+      if (val.startsWith('/')) {
+        // Разрешаем пути: /api/files/..., /uploads/..., /api/...
+        return val.startsWith('/api/files/') || 
+               val.startsWith('/uploads/') || 
+               val.startsWith('/api/')
+      }
+      
+      // ID файла без пути (только UUID или cuid)
+      // Разрешаем строки, которые могут быть ID файла
+      if (/^[a-zA-Z0-9_-]+$/.test(val)) {
+        return true
+      }
+      
+      return false
+    },
+    {
+      message: 'Некорректный URL изображения. Используйте полный URL (http/https) или относительный путь (/api/files/..., /uploads/...)',
+    }
+  )
+  .optional()
+  .or(z.literal(''))
+
 // Валидация с обработкой ошибок
 export function validateWithZod<T>(schema: z.ZodSchema<T>, data: unknown): {
   success: true

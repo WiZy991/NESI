@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
-import { validateWithZod } from '@/lib/validations'
+import { validateWithZod, imageUrlSchema } from '@/lib/validations'
 import { validateStringLength } from '@/lib/security'
 
 // Схема валидации для создания комментария
@@ -13,8 +13,9 @@ const createCommentSchema = z.object({
 		.max(2000, 'Комментарий слишком длинный (максимум 2000 символов)')
 		.trim()
 		.optional(),
-	imageUrl: z.string().url('Некорректный URL изображения').optional().or(z.literal('')),
+	imageUrl: imageUrlSchema,
 	parentId: z.string().uuid('Некорректный ID родительского комментария').optional(),
+	mediaType: z.enum(['image', 'video']).optional(),
 })
 
 // 📌 Оптимизированная функция для построения дерева комментариев

@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto'
 import { fetchPollDataForPosts } from '@/lib/communityPoll'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
-import { validateWithZod } from '@/lib/validations'
+import { validateWithZod, imageUrlSchema } from '@/lib/validations'
 import { validateStringLength } from '@/lib/security'
 import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 
@@ -16,7 +16,7 @@ const createPostSchema = z.object({
 		.max(5000, 'Содержимое поста слишком длинное (максимум 5000 символов)')
 		.trim()
 		.optional(),
-	imageUrl: z.string().url('Некорректный URL изображения').optional().or(z.literal('')),
+	imageUrl: imageUrlSchema,
 	mediaType: z.enum(['image', 'video']).optional(),
 	poll: z
 		.object({
