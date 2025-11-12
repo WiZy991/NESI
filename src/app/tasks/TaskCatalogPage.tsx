@@ -785,15 +785,17 @@ export default function TaskCatalogPage() {
 																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors whitespace-normal break-normal'>
 																	{task.title}
 																</h3>
-																<p className='text-xs text-slate-400 mt-1'>
-																	{new Date(task.createdAt).toLocaleDateString(
-																		'ru-RU',
-																		{
-																			day: '2-digit',
-																			month: 'long',
-																		}
-																	)}
-																</p>
+																{task.createdAt && (
+																	<p className='text-xs text-slate-400 mt-1'>
+																		{new Date(task.createdAt).toLocaleDateString(
+																			'ru-RU',
+																			{
+																				day: '2-digit',
+																				month: 'long',
+																			}
+																		)}
+																	</p>
+																)}
 															</div>
 
 															<div
@@ -868,31 +870,31 @@ export default function TaskCatalogPage() {
 																					: 'opacity-0 invisible pointer-events-none'
 																			}`}
 																		>
-																			<div className='text-[10px] uppercase tracking-[0.12em] text-emerald-300/60 mb-2'>
+																			<div className='text-xs font-semibold text-emerald-300 mb-3'>
 																				Почему подобрали
 																			</div>
-																			{recommendation.reasons
-																				.slice(0, 3)
-																				.map(reason => (
-																					<div
-																						key={`${task.id}-popover-${reason}`}
-																						className='flex gap-2 text-[11px] text-emerald-100/85'
-																					>
-																						<span className='text-emerald-400/80'>
-																							•
-																						</span>
-																						<span className='flex-1'>
+																			<div className='space-y-2'>
+																				{recommendation.reasons
+																					.slice(0, 3)
+																					.map((reason, idx) => (
+																						<div
+																							key={`${task.id}-popover-${idx}-${reason}`}
+																							className='text-xs text-emerald-100/90 leading-relaxed'
+																						>
 																							{reason}
-																						</span>
+																						</div>
+																					))}
+																				{recommendation.reasons.length > 3 && (
+																					<div className='text-[10px] text-emerald-300/60 mt-2 pt-2 border-t border-emerald-500/20'>
+																						И ещё {recommendation.reasons.length - 3}{' '}
+																						{recommendation.reasons.length - 3 === 1
+																							? 'фактор'
+																							: recommendation.reasons.length - 3 < 5
+																							? 'фактора'
+																							: 'факторов'}
 																					</div>
-																				))}
-																			{recommendation.reasons.length > 3 ? (
-																				<div className='text-[10px] text-emerald-300/45 mt-2'>
-																					и ещё{' '}
-																					{recommendation.reasons.length - 3}{' '}
-																					фактора
-																				</div>
-																			) : null}
+																				)}
+																			</div>
 																		</div>
 																	</>
 																) : null}
@@ -906,7 +908,18 @@ export default function TaskCatalogPage() {
 														{task.price && (
 															<p className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm font-semibold'>
 																<span>💰</span>
-																<span>{task.price} ₽</span>
+																<span>
+																	{typeof task.price === 'number'
+																		? task.price.toLocaleString('ru-RU', {
+																				minimumFractionDigits: 0,
+																				maximumFractionDigits: 0,
+																		  })
+																		: Number(task.price || 0).toLocaleString('ru-RU', {
+																				minimumFractionDigits: 0,
+																				maximumFractionDigits: 0,
+																		  })}{' '}
+																	₽
+																</span>
 															</p>
 														)}
 
