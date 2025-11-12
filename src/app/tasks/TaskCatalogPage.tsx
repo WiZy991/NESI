@@ -832,36 +832,20 @@ export default function TaskCatalogPage() {
 																		onMouseEnter={() =>
 																			setActiveReasonId(reasonsKey)
 																		}
+																		onMouseLeave={() =>
+																			setActiveReasonId(null)
+																		}
 																		onFocus={() =>
 																			setActiveReasonId(reasonsKey)
 																		}
 																		onBlur={() => {
-																			if (activeReasonId === reasonsKey) {
-																				setActiveReasonId(null)
-																			}
+																			setActiveReasonId(null)
 																		}}
-																		onClick={() =>
-																			setActiveReasonId(prev =>
-																				prev === reasonsKey
-																					? null
-																					: reasonsKey
-																			)
-																		}
 																	>
 																		Почему подобрали
 																	</button>
 																	{showReasons && (
-																		<div
-																			onMouseEnter={() =>
-																				setActiveReasonId(reasonsKey)
-																			}
-																			onMouseLeave={() => {
-																				if (activeReasonId === reasonsKey) {
-																					setActiveReasonId(null)
-																				}
-																			}}
-																			className='mt-2 w-full rounded-lg border border-emerald-500/30 bg-slate-950/98 backdrop-blur-md px-3 py-2.5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)]'
-																		>
+																		<div className='mt-2 w-full rounded-lg border border-emerald-500/30 bg-slate-950/98 backdrop-blur-md px-3 py-2.5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)]'>
 																			<div className='text-[10px] uppercase tracking-wider text-emerald-400/80 mb-2 font-semibold'>
 																				Почему подобрали
 																			</div>
