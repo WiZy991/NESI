@@ -798,63 +798,59 @@ export default function TaskCatalogPage() {
 																)}
 															</div>
 
-															<div
-																className='relative flex flex-col items-end text-right gap-1 w-full sm:w-auto sm:min-w-[110px] sm:self-start px-1 sm:px-0 sm:shrink-0'
-																onMouseLeave={() => {
-																	if (activeReasonId === reasonsKey) {
-																		setActiveReasonId(null)
-																	}
-																}}
-																onClick={e => e.stopPropagation()}
-															>
-																<span className='block text-[9px] uppercase tracking-[0.18em] text-emerald-300/60 whitespace-nowrap'>
-																	Рейтинг релевантности
-																</span>
-																<div className='flex items-baseline gap-1 justify-end'>
-																	<span
-																		className={scoreClass}
-																		title={scoreTitle}
-																	>
-																		{displayScore}
+															<div className='flex-1 min-w-0'>
+																<div className='flex flex-col items-end text-right gap-1'>
+																	<span className='block text-[9px] uppercase tracking-[0.18em] text-emerald-300/60 whitespace-nowrap'>
+																		Рейтинг релевантности
 																	</span>
-																	<span className='text-[10px] text-emerald-300/60'>
-																		/ 100
-																	</span>
-																</div>
-																<div className='relative w-full max-w-[72px] self-end h-[3px] rounded-full bg-emerald-500/15 border border-emerald-500/30 overflow-hidden shadow-[0_0_5px_rgba(16,185,129,0.25)]'>
-																	<div
-																		className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
-																		style={{
-																			width: `${normalizedScore}%`,
-																		}}
-																	/>
-																</div>
-																{recommendation.reasons?.length ? (
-																	<>
-																		<button
-																			type='button'
-																			className='text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none'
-																			onMouseEnter={() =>
-																				setActiveReasonId(reasonsKey)
-																			}
-																			onFocus={() =>
-																				setActiveReasonId(reasonsKey)
-																			}
-																			onBlur={() => {
-																				if (activeReasonId === reasonsKey) {
-																					setActiveReasonId(null)
-																				}
-																			}}
-																			onClick={() =>
-																				setActiveReasonId(prev =>
-																					prev === reasonsKey
-																						? null
-																						: reasonsKey
-																				)
-																			}
+																	<div className='flex items-baseline gap-1 justify-end'>
+																		<span
+																			className={scoreClass}
+																			title={scoreTitle}
 																		>
-																			Почему подобрали
-																		</button>
+																			{displayScore}
+																		</span>
+																		<span className='text-[10px] text-emerald-300/60'>
+																			/ 100
+																		</span>
+																	</div>
+																	<div className='relative w-full max-w-[72px] self-end h-[3px] rounded-full bg-emerald-500/15 border border-emerald-500/30 overflow-hidden shadow-[0_0_5px_rgba(16,185,129,0.25)]'>
+																		<div
+																			className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
+																			style={{
+																				width: `${normalizedScore}%`,
+																			}}
+																		/>
+																	</div>
+																</div>
+															</div>
+															{recommendation.reasons?.length ? (
+																<div className='w-full'>
+																	<button
+																		type='button'
+																		className='w-full text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none text-left'
+																		onMouseEnter={() =>
+																			setActiveReasonId(reasonsKey)
+																		}
+																		onFocus={() =>
+																			setActiveReasonId(reasonsKey)
+																		}
+																		onBlur={() => {
+																			if (activeReasonId === reasonsKey) {
+																				setActiveReasonId(null)
+																			}
+																		}}
+																		onClick={() =>
+																			setActiveReasonId(prev =>
+																				prev === reasonsKey
+																					? null
+																					: reasonsKey
+																			)
+																		}
+																	>
+																		Почему подобрали
+																	</button>
+																	{showReasons && (
 																		<div
 																			onMouseEnter={() =>
 																				setActiveReasonId(reasonsKey)
@@ -864,28 +860,24 @@ export default function TaskCatalogPage() {
 																					setActiveReasonId(null)
 																				}
 																			}}
-																			className={`absolute z-50 bottom-full mb-2 right-0 w-[260px] max-w-[calc(100vw-1rem)] rounded-lg border border-emerald-500/30 bg-slate-950/98 backdrop-blur-md px-2.5 py-2 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all duration-150 ${
-																				showReasons
-																					? 'opacity-100 visible pointer-events-auto'
-																					: 'opacity-0 invisible pointer-events-none'
-																			}`}
+																			className='mt-2 w-full rounded-lg border border-emerald-500/30 bg-slate-950/98 backdrop-blur-md px-3 py-2.5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)]'
 																		>
-																			<div className='text-[9px] uppercase tracking-wider text-emerald-400/70 mb-1.5 font-semibold'>
+																			<div className='text-[10px] uppercase tracking-wider text-emerald-400/80 mb-2 font-semibold'>
 																				Почему подобрали
 																			</div>
-																			<div className='space-y-1'>
+																			<div className='space-y-1.5'>
 																				{recommendation.reasons
 																					.slice(0, 3)
 																					.map((reason, idx) => (
 																						<div
 																							key={`${task.id}-popover-${idx}-${reason}`}
-																							className='text-[10px] text-emerald-100/90 leading-tight break-words'
+																							className='text-[11px] text-emerald-100/95 leading-relaxed break-words'
 																						>
 																							{reason}
 																						</div>
 																					))}
 																				{recommendation.reasons.length > 3 && (
-																					<div className='text-[9px] text-emerald-300/50 mt-1 pt-1 border-t border-emerald-500/15'>
+																					<div className='text-[10px] text-emerald-300/60 mt-2 pt-2 border-t border-emerald-500/20'>
 																						И ещё {recommendation.reasons.length - 3}{' '}
 																						{recommendation.reasons.length - 3 === 1
 																							? 'фактор'
@@ -896,9 +888,9 @@ export default function TaskCatalogPage() {
 																				)}
 																			</div>
 																		</div>
-																	</>
-																) : null}
-															</div>
+																	)}
+																</div>
+															) : null}
 
 														</div>
 

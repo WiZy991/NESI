@@ -463,11 +463,11 @@ function ChatsPageContent() {
 				})
 
 				// Проверяем, есть ли содержимое в ответе
-			const text = await res.text()
-			if (!text || text.trim() === '') {
+				const text = await res.text()
+				if (!text || text.trim() === '') {
 				clientLogger.warn('Пустой ответ от API чатов')
-				setChats([])
-				setLoading(false)
+					setChats([])
+					setLoading(false)
 					return
 				}
 
@@ -518,44 +518,44 @@ function ChatsPageContent() {
 							return false
 						})
 
-					// Объединяем: сначала временные чаты, потом реальные
-					return [...validTempChats, ...loadedChats]
-				})
+						// Объединяем: сначала временные чаты, потом реальные
+						return [...validTempChats, ...loadedChats]
+					})
 				clientLogger.debug('Чаты загружены', { count: loadedChats.length })
 
-				// Устанавливаем флаг для автооткрытия чата
-				if (openUserId || openTaskId) {
+					// Устанавливаем флаг для автооткрытия чата
+					if (openUserId || openTaskId) {
 					clientLogger.debug('Обнаружен параметр для автооткрытия', {
-						openUserId,
-						openTaskId,
-					})
-					setShouldAutoOpen(true)
-				}
-
-				// Отладочная информация для аватарок
-				clientLogger.debug('Аватарки в загруженных чатах')
-				data.chats?.forEach((chat: any) => {
-					if (chat.type === 'private') {
-						clientLogger.debug(`Приватный чат с ${chat.otherUser?.id}`, {
-							fullName: chat.otherUser?.fullName,
-							email: chat.otherUser?.email,
-							avatarUrl: chat.otherUser?.avatarUrl,
+							openUserId,
+							openTaskId,
 						})
-					} else if (chat.type === 'task') {
-						clientLogger.debug(`Чат задачи ${chat.task?.id}`, {
-							customer: {
-								fullName: chat.task?.customer?.fullName,
-								email: chat.task?.customer?.email,
-								avatarUrl: chat.task?.customer?.avatarUrl,
-							},
-							executor: {
-								fullName: chat.task?.executor?.fullName,
-								email: chat.task?.executor?.email,
-								avatarUrl: chat.task?.executor?.avatarUrl,
-							},
-						})
+						setShouldAutoOpen(true)
 					}
-				})
+
+					// Отладочная информация для аватарок
+				clientLogger.debug('Аватарки в загруженных чатах')
+					data.chats?.forEach((chat: any) => {
+						if (chat.type === 'private') {
+						clientLogger.debug(`Приватный чат с ${chat.otherUser?.id}`, {
+								fullName: chat.otherUser?.fullName,
+								email: chat.otherUser?.email,
+								avatarUrl: chat.otherUser?.avatarUrl,
+							})
+						} else if (chat.type === 'task') {
+						clientLogger.debug(`Чат задачи ${chat.task?.id}`, {
+								customer: {
+									fullName: chat.task?.customer?.fullName,
+									email: chat.task?.customer?.email,
+									avatarUrl: chat.task?.customer?.avatarUrl,
+								},
+								executor: {
+									fullName: chat.task?.executor?.fullName,
+									email: chat.task?.executor?.email,
+									avatarUrl: chat.task?.executor?.avatarUrl,
+								},
+							})
+						}
+					})
 				} else {
 					const errorMessage = data?.error || 'Неизвестная ошибка'
 					clientLogger.error('Ошибка API чатов', new Error(errorMessage), {
@@ -585,14 +585,14 @@ function ChatsPageContent() {
 				`/api/notifications/stream?token=${encodeURIComponent(token)}`
 			)
 
-		eventSource.onopen = () => {
+			eventSource.onopen = () => {
 			clientLogger.info('SSE подключение установлено для чатов')
-		}
+			}
 
 			eventSource.onmessage = event => {
 				if (!isMounted) return
-			try {
-				const data = JSON.parse(event.data)
+				try {
+					const data = JSON.parse(event.data)
 				clientLogger.debug('Получено событие SSE для чатов', { type: data.type })
 
 					const currentSelectedChat = selectedChatRef.current
@@ -836,11 +836,11 @@ function ChatsPageContent() {
 		const fetchMessages = async () => {
 			setMessagesLoading(true)
 			try {
-			// Если это временный чат (только что созданный), просто показываем пустой список
-			if (chatId.startsWith('temp_')) {
+				// Если это временный чат (только что созданный), просто показываем пустой список
+				if (chatId.startsWith('temp_')) {
 				clientLogger.debug('Временный чат, показываем пустой список сообщений')
-				setMessages([])
-				setMessagesLoading(false)
+					setMessages([])
+					setMessagesLoading(false)
 					return
 				}
 
@@ -849,21 +849,21 @@ function ChatsPageContent() {
 					url = `/api/messages/${otherUserId}`
 				} else {
 					url = `/api/tasks/${taskId}/messages`
-			}
+				}
 
 			clientLogger.debug('Загружаем сообщения для чата', { chatType, url })
-			const res = await fetch(url, {
-				headers: { Authorization: `Bearer ${token}` },
-			})
+				const res = await fetch(url, {
+					headers: { Authorization: `Bearer ${token}` },
+				})
 
 			clientLogger.debug('Статус ответа', { status: res.status, statusText: res.statusText })
 
 				// Проверяем, есть ли содержимое в ответе
-			const text = await res.text()
-			if (!text || text.trim() === '') {
+				const text = await res.text()
+				if (!text || text.trim() === '') {
 				clientLogger.warn('Пустой ответ от API', { status: res.status })
-				setMessages([])
-				setMessagesLoading(false)
+					setMessages([])
+					setMessagesLoading(false)
 					return
 				}
 
@@ -879,37 +879,37 @@ function ChatsPageContent() {
 					setMessages([])
 					setMessagesLoading(false)
 					return
-			}
+				}
 
 			clientLogger.debug('Ответ API сообщений', {
-				status: res.status,
-				ok: res.ok,
+					status: res.status,
+					ok: res.ok,
 					dataType: Array.isArray(data) ? 'array' : typeof data,
 					dataKeys: data && typeof data === 'object' ? Object.keys(data) : null,
 					dataPreview: JSON.stringify(data).substring(0, 200),
 				})
 
-			if (res.ok) {
-				const messagesData = data.messages || data || []
+				if (res.ok) {
+					const messagesData = data.messages || data || []
 				clientLogger.debug('Сообщения загружены', { count: messagesData.length })
-				if (messagesData.length > 0) {
+					if (messagesData.length > 0) {
 					clientLogger.debug('Первое сообщение', { message: messagesData[0] })
-					// Проверяем сообщения с ответами
-					const messagesWithReplies = messagesData.filter(
-						(m: Message) => m.replyTo !== null && m.replyTo !== undefined
-					)
-					if (messagesWithReplies.length > 0) {
+						// Проверяем сообщения с ответами
+						const messagesWithReplies = messagesData.filter(
+							(m: Message) => m.replyTo !== null && m.replyTo !== undefined
+						)
+						if (messagesWithReplies.length > 0) {
 						clientLogger.debug('Найдено сообщений с ответами', {
 							count: messagesWithReplies.length,
 						})
 						clientLogger.debug('Пример ответа', {
 							replyTo: messagesWithReplies[0].replyTo,
 						})
-					} else {
+						} else {
 						clientLogger.debug('Нет сообщений с ответами')
+						}
 					}
-				}
-				setMessages(messagesData)
+					setMessages(messagesData)
 
 					// Прокручиваем вниз после загрузки сообщений (плавно)
 					setTimeout(() => {
@@ -950,8 +950,8 @@ function ChatsPageContent() {
 						data &&
 						typeof data === 'object' &&
 						(data.messages || Array.isArray(data))
-				) {
-					const messagesData = data.messages || data || []
+					) {
+						const messagesData = data.messages || data || []
 					clientLogger.warn('API вернул ошибку, но есть данные', {
 						count: messagesData.length,
 					})
@@ -1174,11 +1174,11 @@ function ChatsPageContent() {
 								},
 							},
 							unreadCount: 0,
-					}
+						}
 
 					clientLogger.debug('Создан временный чат задачи', { chat: tempTaskChat })
-					setChats(prev => [tempTaskChat, ...prev])
-					setSelectedChat(tempTaskChat)
+						setChats(prev => [tempTaskChat, ...prev])
+						setSelectedChat(tempTaskChat)
 						setMessages([])
 						setShouldAutoOpen(false)
 						window.history.replaceState({}, '', '/chats')
@@ -2289,11 +2289,11 @@ function ChatsPageContent() {
 										<div className='max-w-4xl w-full mx-auto space-y-2 sm:space-y-3 md:space-y-4'>
 											{messages
 												.map((msg, index) => {
-												// Проверяем, что sender существует
-												if (!msg.sender) {
+													// Проверяем, что sender существует
+													if (!msg.sender) {
 													clientLogger.warn('Сообщение без отправителя', { message: msg })
-													return null
-												}
+														return null
+													}
 
 													// Определяем позицию в группе
 													const prevMsg = index > 0 ? messages[index - 1] : null
