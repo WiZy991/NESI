@@ -182,7 +182,7 @@ export default function MessageInput({
 	const [selectedMicrophoneId, setSelectedMicrophoneId] =
 		useState<string>('default')
 	const [showSendMenu, setShowSendMenu] = useState(false)
-	const [preferSendMode, setPreferSendMode] = useState(false)
+	const [preferSendMode, setPreferSendMode] = useState(true)
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -340,9 +340,9 @@ export default function MessageInput({
 	const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
 		const value = e.target.value
 		setMessage(value)
-		// Если пользователь начал вводить текст, сбрасываем режим отправки
+		// Если пользователь начал вводить текст, показываем кнопку отправки
 		if (value.trim().length > 0) {
-			setPreferSendMode(false)
+			setPreferSendMode(true)
 		}
 
 		if (!typingContext) {
@@ -710,7 +710,7 @@ export default function MessageInput({
 			setAttachments([])
 			setShowEmojiPicker(false)
 			setShowTemplatesModal(false)
-			setPreferSendMode(false)
+			setPreferSendMode(true)
 			clearVoiceState()
 			attachmentUploadsRef.current.clear()
 
