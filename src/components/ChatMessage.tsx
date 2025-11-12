@@ -97,11 +97,13 @@ export default function ChatMessage({
 	const [expandReactionsUpward, setExpandReactionsUpward] = useState(false)
 	const [reactions, setReactions] = useState(message.reactions || [])
 	const [showImageModal, setShowImageModal] = useState(false)
+	const [showVideoModal, setShowVideoModal] = useState(false)
 	const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
 	const [reactionPickerPosition, setReactionPickerPosition] = useState({
 		x: 0,
 		y: 0,
 	})
+	const [selectedText, setSelectedText] = useState<string>('')
 	const menuRef = useRef<HTMLDivElement>(null)
 	const reactionPickerRef = useRef<HTMLDivElement>(null)
 	const reactionButtonRef = useRef<HTMLButtonElement>(null)
@@ -109,6 +111,7 @@ export default function ChatMessage({
 	const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
 	const messageRef = useRef<HTMLDivElement>(null)
 	const reactionsContainerRef = useRef<HTMLDivElement>(null)
+	const textContentRef = useRef<HTMLDivElement>(null)
 	const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640
 
 	// Обновляем реакции при изменении сообщения
@@ -368,17 +371,18 @@ export default function ChatMessage({
 
 	// Закрытие модального окна по Escape
 	useEffect(() => {
-		if (!showImageModal) return
+		if (!showImageModal && !showVideoModal) return
 
 		const handleEscape = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
 				setShowImageModal(false)
+				setShowVideoModal(false)
 			}
 		}
 
 		window.addEventListener('keydown', handleEscape)
 		return () => window.removeEventListener('keydown', handleEscape)
-	}, [showImageModal])
+	}, [showImageModal, showVideoModal])
 
 	// Логирование для отладки файлов
 	useEffect(() => {
@@ -1110,6 +1114,77 @@ export default function ChatMessage({
 		}
 	}
 
+	const handleCopySelectedText = async () => {
+		if (!selectedText.trim()) return
+
+		try {
+			const success = await copyToClipboard(selectedText)
+			if (success) {
+				toast.success('Выделенный текст скопирован')
+				setSelectedText('')
+				setShowMenu(false)
+				// Снимаем выделение
+				if (window.getSelection) {
+					window.getSelection()?.removeAllRanges()
+				}
+			} else {
+				toast.error('Ошибка копирования')
+			}
+		} catch (error) {
+			toast.error('Ошибка копирования')
+		}
+	}
+
+	// Обработчик выделения текста - обновляем selectedText при изменении выделения
+	useEffect(() => {
+		const handleTextSelection = () => {
+			const selection = window.getSelection()
+			if (!selection || selection.rangeCount === 0) {
+				setSelectedText('')
+				return
+			}
+
+			const range = selection.getRangeAt(0)
+			const selectedTextContent = selection.toString().trim()
+
+			// Проверяем, что выделение находится внутри нашего сообщения
+			if (
+				textContentRef.current &&
+				textContentRef.current.contains(range.commonAncestorContainer) &&
+				selectedTextContent.length > 0
+			) {
+				setSelectedText(selectedTextContent)
+			} else {
+				setSelectedText('')
+			}
+		}
+
+		document.addEventListener('selectionchange', handleTextSelection)
+
+		return () => {
+			document.removeEventListener('selectionchange', handleTextSelection)
+		}
+	}, [])
+
+	// Проверяем выделенный текст при открытии меню
+	const getSelectedText = () => {
+		const selection = window.getSelection()
+		if (!selection || selection.rangeCount === 0) return ''
+
+		const range = selection.getRangeAt(0)
+		const selectedTextContent = selection.toString().trim()
+
+		if (
+			textContentRef.current &&
+			textContentRef.current.contains(range.commonAncestorContainer) &&
+			selectedTextContent.length > 0
+		) {
+			return selectedTextContent
+		}
+
+		return ''
+	}
+
 	// Определяем отступ снизу: между группами больше, внутри группы меньше
 	const marginBottom = isLastInGroup ? 'mb-3' : 'mb-1'
 
@@ -1325,7 +1400,35 @@ export default function ChatMessage({
 											<span>Реакция</span>
 										</button>
 									</div>
-									{message.content && !isVoiceMessage && (
+									{/* Кнопка копирования выделенного текста (если есть выделение) */}
+									{getSelectedText() && (
+										<button
+											onClick={e => {
+												e.stopPropagation()
+												const selected = getSelectedText()
+												if (selected) {
+													copyToClipboard(selected).then(success => {
+														if (success) {
+															toast.success('Выделенный текст скопирован')
+															setShowMenu(false)
+															// Снимаем выделение
+															if (window.getSelection) {
+																window.getSelection()?.removeAllRanges()
+															}
+														} else {
+															toast.error('Ошибка копирования')
+														}
+													})
+												}
+											}}
+											className='flex items-center gap-2.5 sm:gap-2 w-full text-left px-4 py-3 sm:py-2.5 hover:bg-gray-800/80 active:bg-gray-800/90 text-sm sm:text-sm text-gray-300 hover:text-white transition-all duration-150 ease-out group touch-manipulation'
+										>
+											<Copy className='w-4 h-4 group-hover:scale-110 transition-transform' />
+											<span>Копировать выделенное</span>
+										</button>
+									)}
+									{/* Кнопка копирования всего текста (если нет выделения) */}
+									{message.content && !isVoiceMessage && !getSelectedText() && (
 										<button
 											onClick={e => {
 												e.stopPropagation()
@@ -1862,34 +1965,94 @@ export default function ChatMessage({
 														)}
 												</>
 											) : isVideo ? (
-												<div
-													className='max-w-full rounded-lg overflow-hidden relative group bg-black/20'
-													style={{ maxHeight: '320px', aspectRatio: '16/9' }}
-													onClick={e => e.stopPropagation()}
-												>
-													<VideoPlayer
-														src={fileUrl}
-														className='w-full h-full rounded-lg shadow-lg object-contain'
-													/>
-													{/* Кнопка скачивания видео - появляется при наведении */}
-													<a
-														href={fileUrl}
-														download={message.fileName}
-														className='absolute top-3 right-3 p-2.5 bg-black/70 hover:bg-black/90 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-30 backdrop-blur-sm'
-														onClick={e => e.stopPropagation()}
-														title='Скачать видео'
+												<>
+													<div
+														className='max-w-full rounded-lg overflow-hidden relative group bg-black/20 cursor-pointer'
+														style={{ maxHeight: '320px', aspectRatio: '16/9' }}
+														onClick={e => {
+															e.stopPropagation()
+															setShowVideoModal(true)
+														}}
 													>
-														<Download className='w-4 h-4 text-white' />
-													</a>
-													{/* Название файла - показываем всегда внизу */}
-													{message.fileName && (
-														<div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-3 py-2 z-20 pointer-events-none'>
-															<p className='text-xs text-white/90 truncate font-medium'>
-																{message.fileName}
-															</p>
-														</div>
-													)}
-												</div>
+														<VideoPlayer
+															src={fileUrl}
+															className='w-full h-full rounded-lg shadow-lg object-contain'
+														/>
+														{/* Кнопка скачивания видео - появляется при наведении */}
+														<a
+															href={fileUrl}
+															download={message.fileName}
+															className='absolute top-3 right-3 p-2.5 bg-black/70 hover:bg-black/90 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-30 backdrop-blur-sm'
+															onClick={e => e.stopPropagation()}
+															title='Скачать видео'
+														>
+															<Download className='w-4 h-4 text-white' />
+														</a>
+														{/* Название файла - показываем всегда внизу */}
+														{message.fileName && (
+															<div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-3 py-2 z-20 pointer-events-none'>
+																<p className='text-xs text-white/90 truncate font-medium'>
+																	{message.fileName}
+																</p>
+															</div>
+														)}
+													</div>
+													{/* Модальное окно для просмотра видео */}
+													{showVideoModal &&
+														typeof window !== 'undefined' &&
+														createPortal(
+															<div
+																className='fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm'
+																style={{
+																	position: 'fixed',
+																	top: 0,
+																	left: 0,
+																	right: 0,
+																	bottom: 0,
+																	zIndex: 99999,
+																}}
+																onClick={() => setShowVideoModal(false)}
+															>
+																{/* Кнопка закрытия */}
+																<button
+																	onClick={() => setShowVideoModal(false)}
+																	className='absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors'
+																	aria-label='Закрыть'
+																>
+																	<X className='w-6 h-6' />
+																</button>
+																{/* Кнопка скачивания в модальном окне */}
+																<a
+																	href={fileUrl}
+																	download={message.fileName}
+																	className='absolute top-4 right-16 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors'
+																	title='Скачать видео'
+																	onClick={e => e.stopPropagation()}
+																>
+																	<Download className='w-5 h-5' />
+																</a>
+																{/* Видео */}
+																<div
+																	className='relative max-w-[90vw] max-h-[90vh] flex items-center justify-center'
+																	onClick={e => e.stopPropagation()}
+																>
+																	<VideoPlayer
+																		src={fileUrl}
+																		className='max-w-full max-h-[90vh] rounded-lg shadow-2xl'
+																	/>
+																</div>
+																{/* Название файла внизу */}
+																{message.fileName && (
+																	<div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-black/70 backdrop-blur-sm rounded-lg'>
+																		<p className='text-sm text-white/90 font-medium'>
+																			{message.fileName}
+																		</p>
+																	</div>
+																)}
+															</div>,
+															document.body
+														)}
+												</>
 											) : (
 												<a
 													href={fileUrl}
@@ -1998,6 +2161,7 @@ export default function ChatMessage({
 									return true
 								})() && (
 									<div
+										ref={textContentRef}
 										className={
 											containsOnlyEmoji
 												? 'text-center block'
@@ -2103,6 +2267,7 @@ export default function ChatMessage({
 					</div>
 				)}
 			</div>
+
 		</div>
 	)
 }

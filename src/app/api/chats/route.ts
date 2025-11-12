@@ -121,6 +121,7 @@ export async function GET(req: NextRequest) {
 				errorCode: sqlError?.code,
 			})
 			// Fallback: используем обычный запрос Prisma
+			// Получаем задачи пользователя
 			const userTasks = await prisma.task.findMany({
 				where: {
 					OR: [{ customerId: user.id }, { executorId: user.id }],
@@ -129,15 +130,19 @@ export async function GET(req: NextRequest) {
 			})
 			const taskIds = userTasks.map(t => t.id)
 			if (taskIds.length > 0) {
-				const allTaskMessages = await prisma.message.findMany({
-					where: {
-						taskId: { in: taskIds },
-					},
-					select: { id: true },
-					orderBy: { createdAt: 'desc' },
-					take: limit,
-				})
-				latestTaskMessageIds = allTaskMessages.map(m => ({ id: m.id }))
+				// Для каждой задачи получаем только последнее сообщение
+				const taskMessagesMap = new Map<string, string>()
+				for (const taskId of taskIds) {
+					const lastMessage = await prisma.message.findFirst({
+						where: { taskId },
+						select: { id: true },
+						orderBy: { createdAt: 'desc' },
+					})
+					if (lastMessage) {
+						taskMessagesMap.set(taskId, lastMessage.id)
+					}
+				}
+				latestTaskMessageIds = Array.from(taskMessagesMap.values()).map(id => ({ id }))
 			}
 		}
 
@@ -500,10 +505,26 @@ export async function GET(req: NextRequest) {
 		})
 
 		// Объединяем все чаты и сортируем по последнему сообщению
-		const allChats = [
-			...Array.from(privateChats.values()),
-			...Array.from(taskChats.values()),
-		].sort(
+		// Защита от дубликатов: используем Map для уникальности по id
+		const uniqueChatsMap = new Map<string, any>()
+		
+		// Добавляем приватные чаты
+		Array.from(privateChats.values()).forEach(chat => {
+			if (!uniqueChatsMap.has(chat.id)) {
+				uniqueChatsMap.set(chat.id, chat)
+			}
+		})
+		
+		// Добавляем чаты задач (с проверкой на дубликаты)
+		Array.from(taskChats.values()).forEach(chat => {
+			if (!uniqueChatsMap.has(chat.id)) {
+				uniqueChatsMap.set(chat.id, chat)
+			} else {
+				logger.warn('Обнаружен дубликат чата задачи', { chatId: chat.id, taskId: chat.task?.id })
+			}
+		})
+		
+		const allChats = Array.from(uniqueChatsMap.values()).sort(
 			(a, b) =>
 				new Date(b.lastMessage.createdAt).getTime() -
 				new Date(a.lastMessage.createdAt).getTime()

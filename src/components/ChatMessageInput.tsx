@@ -1,11 +1,12 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
-import { ChevronDown, FileText, Mic, Send } from 'lucide-react'
+import { ChevronDown, FileText, Mic, Send, X, Download, RotateCw, Trash2, Smile } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import MessageTemplatesModal from './MessageTemplatesModal'
 import VoicePlayer from './VoicePlayer'
+import VideoPlayer from './VideoPlayer'
 
 type MessageInputProps = {
 	chatType: 'private' | 'task'
@@ -115,6 +116,8 @@ type ComposerAttachment = {
 	voiceMetadata?: VoiceMetadata | null
 	audioPreviewUrl?: string | null
 	waveform?: number[]
+	caption?: string
+	compress?: boolean
 }
 
 const WAVEFORM_SAMPLES = 48
@@ -183,6 +186,10 @@ export default function MessageInput({
 		useState<string>('default')
 	const [showSendMenu, setShowSendMenu] = useState(false)
 	const [preferSendMode, setPreferSendMode] = useState(true)
+	const [previewModalAttachment, setPreviewModalAttachment] = useState<ComposerAttachment | null>(null)
+	const [previewModalCaption, setPreviewModalCaption] = useState('')
+	const [previewModalCompress, setPreviewModalCompress] = useState(true)
+	const [previewModalShowEmojiPicker, setPreviewModalShowEmojiPicker] = useState(false)
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -485,6 +492,20 @@ export default function MessageInput({
 		refreshMicrophones()
 	}, [refreshMicrophones])
 
+	// Закрытие модального окна предпросмотра по Escape
+	useEffect(() => {
+		if (!previewModalAttachment) return
+
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				setPreviewModalAttachment(null)
+			}
+		}
+
+		window.addEventListener('keydown', handleEscape)
+		return () => window.removeEventListener('keydown', handleEscape)
+	}, [previewModalAttachment])
+
 	// Закрытие меню выбора при клике вне его
 	useEffect(() => {
 		if (!showSendMenu) return
@@ -652,7 +673,9 @@ export default function MessageInput({
 
 			if (readyAttachments.length > 0) {
 				readyAttachments.forEach((attachment, index) => {
-					queue.push({ attachment, content: index === 0 ? trimmedContent : '' })
+					// Используем подпись из attachment, если есть, иначе текст сообщения для первого вложения
+					const content = attachment.caption || (index === 0 ? trimmedContent : '')
+					queue.push({ attachment, content })
 				})
 			} else if (trimmedContent.length > 0) {
 				queue.push({ content: trimmedContent })
@@ -941,11 +964,21 @@ export default function MessageInput({
 						const result =
 							typeof reader.result === 'string' ? reader.result : null
 						if (result) {
-							setAttachments(prev =>
-								prev.map(att =>
+							setAttachments(prev => {
+								const updated = prev.map(att =>
 									att.id === attachmentId ? { ...att, previewUrl: result } : att
 								)
-							)
+								// Открываем модальное окно для предпросмотра медиа файлов
+								const updatedAttachment = updated.find(att => att.id === attachmentId)
+								if (updatedAttachment && (kind === 'image' || kind === 'video')) {
+									setTimeout(() => {
+										setPreviewModalAttachment(updatedAttachment)
+										setPreviewModalCaption(updatedAttachment.caption || '')
+										setPreviewModalCompress(updatedAttachment.compress !== false)
+									}, 100)
+								}
+								return updated
+							})
 						}
 					}
 					reader.readAsDataURL(fileToAttach)
@@ -1502,14 +1535,22 @@ export default function MessageInput({
 										<img
 											src={attachment.previewUrl}
 											alt={attachment.name}
-											className='w-16 h-16 rounded-xl object-cover border border-slate-700/60'
+											className='w-16 h-16 rounded-xl object-cover border border-slate-700/60 cursor-pointer hover:opacity-80 transition-opacity'
+											onClick={() => {
+												setPreviewModalAttachment(attachment)
+												setPreviewModalCaption(attachment.caption || '')
+												setPreviewModalCompress(attachment.compress !== false)
+											}}
 										/>
 									)
 								}
 
 								if (attachment.kind === 'video') {
 									return (
-										<div className='w-16 h-16 rounded-xl bg-slate-700/70 border border-slate-600/60 flex items-center justify-center text-slate-300'>
+										<div 
+											className='w-16 h-16 rounded-xl bg-slate-700/70 border border-slate-600/60 flex items-center justify-center text-slate-300 cursor-pointer hover:opacity-80 transition-opacity'
+											onClick={() => setPreviewModalAttachment(attachment)}
+										>
 											<svg
 												className='w-6 h-6'
 												fill='none'
@@ -2070,6 +2111,239 @@ export default function MessageInput({
 					}, 100)
 				}}
 			/>
+
+			{/* Модальное окно предпросмотра медиа файлов (как в Telegram) */}
+			{previewModalAttachment &&
+				typeof window !== 'undefined' &&
+				(previewModalAttachment.kind === 'image' || previewModalAttachment.kind === 'video') &&
+				createPortal(
+					<div
+						className={`fixed inset-0 flex ${isMobileView ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm z-[99999]`}
+						onClick={() => {
+							removeAttachment(previewModalAttachment.id)
+							setPreviewModalAttachment(null)
+							setPreviewModalCaption('')
+							setPreviewModalCompress(true)
+						}}
+					>
+						{/* Модальное окно */}
+						<div
+							className={`relative w-full ${isMobileView ? 'max-w-full h-[90vh] rounded-t-3xl' : 'max-w-lg rounded-3xl'} bg-gradient-to-br from-[#0a140f] via-[#05150a] to-[#0a140f] border border-emerald-500/30 shadow-2xl flex flex-col ${isMobileView ? 'max-h-[90vh]' : 'max-h-[90vh]'} overflow-hidden backdrop-blur-xl`}
+							onClick={e => e.stopPropagation()}
+							style={{
+								boxShadow: isMobileView 
+									? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1)'
+									: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 30px rgba(16, 185, 129, 0.15)',
+							}}
+						>
+							{/* Заголовок */}
+							<div className={`flex items-center justify-between ${isMobileView ? 'px-4 py-3' : 'px-6 py-5'} border-b border-emerald-500/20 bg-gradient-to-r from-emerald-950/30 to-transparent`}>
+								<h2 className={`${isMobileView ? 'text-lg' : 'text-xl'} font-bold bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent`}>
+									{previewModalAttachment.kind === 'image' ? 'Отправить изображение' : 'Отправить видео'}
+								</h2>
+								<div className='flex items-center gap-2'>
+									{previewModalAttachment.kind === 'image' && (
+										<button
+											onClick={(e) => {
+												e.stopPropagation()
+												setAttachments(prev =>
+													prev.map(att =>
+														att.id === previewModalAttachment.id
+															? { ...att, rotation: ((att.rotation || 0) + 90) % 360 }
+															: att
+													)
+												)
+												setPreviewModalAttachment(prev =>
+													prev
+														? { ...prev, rotation: ((prev.rotation || 0) + 90) % 360 }
+														: null
+												)
+											}}
+											className={`${isMobileView ? 'w-9 h-9' : 'w-8 h-8'} flex items-center justify-center rounded-lg bg-emerald-900/40 hover:bg-emerald-500/20 border border-emerald-700/40 hover:border-emerald-500/50 text-emerald-300 hover:text-emerald-200 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation`}
+											title='Повернуть'
+										>
+											<RotateCw className={`${isMobileView ? 'w-5 h-5' : 'w-4 h-4'}`} />
+										</button>
+									)}
+									<button
+										onClick={(e) => {
+											e.stopPropagation()
+											removeAttachment(previewModalAttachment.id)
+											setPreviewModalAttachment(null)
+											setPreviewModalCaption('')
+											setPreviewModalCompress(true)
+										}}
+										className={`${isMobileView ? 'w-9 h-9' : 'w-8 h-8'} flex items-center justify-center rounded-lg bg-emerald-900/40 hover:bg-red-500/20 border border-emerald-700/40 hover:border-red-500/50 text-emerald-300 hover:text-red-400 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation`}
+										title='Удалить'
+									>
+										<Trash2 className={`${isMobileView ? 'w-5 h-5' : 'w-4 h-4'}`} />
+									</button>
+								</div>
+							</div>
+
+							{/* Область предпросмотра */}
+							<div className={`relative bg-gradient-to-b from-[#01150d]/60 to-[#000000]/80 flex-1 ${isMobileView ? 'min-h-[200px] max-h-[40vh]' : 'min-h-[320px] max-h-[55vh]'} flex items-center justify-center overflow-hidden`}>
+								{previewModalAttachment.kind === 'image' && previewModalAttachment.previewUrl ? (
+									<div className={`relative w-full h-full flex items-center justify-center ${isMobileView ? 'p-3' : 'p-6'}`}>
+										<img
+											src={previewModalAttachment.previewUrl}
+											alt={previewModalAttachment.name}
+											className={`max-w-full max-h-full object-contain ${isMobileView ? 'rounded-xl' : 'rounded-2xl'} shadow-2xl`}
+											style={{
+												transform: `rotate(${previewModalAttachment.rotation || 0}deg)`,
+												transition: 'transform 0.3s ease',
+											}}
+										/>
+									</div>
+								) : previewModalAttachment.kind === 'video' && previewModalAttachment.previewUrl ? (
+									<div className={`relative w-full h-full flex items-center justify-center ${isMobileView ? 'p-3' : 'p-6'}`}>
+										<VideoPlayer
+											src={previewModalAttachment.previewUrl}
+											className={`max-w-full max-h-full ${isMobileView ? 'rounded-xl' : 'rounded-2xl'} shadow-2xl`}
+										/>
+									</div>
+								) : null}
+							</div>
+
+							{/* Опция сжатия (только для изображений) */}
+							{previewModalAttachment.kind === 'image' && (
+								<label className={`flex items-center gap-3 ${isMobileView ? 'px-4 py-3' : 'px-6 py-4'} border-b border-emerald-500/20 cursor-pointer hover:bg-emerald-950/20 transition-all duration-200 group touch-manipulation`}>
+									<input
+										type='checkbox'
+										checked={previewModalCompress}
+										onChange={e => setPreviewModalCompress(e.target.checked)}
+										className={`${isMobileView ? 'w-6 h-6' : 'w-5 h-5'} rounded-md border-2 border-emerald-700/50 bg-emerald-950/30 text-emerald-500 focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-[#0a140f] transition-all group-hover:border-emerald-500/70`}
+									/>
+									<span className={`${isMobileView ? 'text-base' : 'text-sm'} font-medium text-emerald-200 group-hover:text-emerald-300 transition-colors`}>Сжать изображение</span>
+								</label>
+							)}
+
+							{/* Поле подписи */}
+							<div className={`${isMobileView ? 'px-4 py-4' : 'px-6 py-5'} border-b border-emerald-500/20`}>
+								<label className={`block ${isMobileView ? 'text-base' : 'text-sm'} font-semibold text-emerald-200 ${isMobileView ? 'mb-2.5' : 'mb-3'}`}>Подпись</label>
+								<div className='relative flex items-center'>
+									<input
+										type='text'
+										value={previewModalCaption}
+										onChange={e => setPreviewModalCaption(e.target.value)}
+										placeholder='Добавьте подпись...'
+										className={`flex-1 w-full ${isMobileView ? 'px-3 py-3 text-base' : 'px-4 py-3.5 text-sm'} bg-emerald-950/40 backdrop-blur-sm border-2 border-emerald-800/40 rounded-xl text-white placeholder:text-emerald-400/50 focus:outline-none focus:border-emerald-500/60 focus:bg-emerald-950/60 focus:ring-2 focus:ring-emerald-500/20 pr-12 transition-all duration-200 shadow-inner hover:border-emerald-700/60`}
+									/>
+									<button
+										type='button'
+										onClick={() => setPreviewModalShowEmojiPicker(!previewModalShowEmojiPicker)}
+										className={`absolute ${isMobileView ? 'right-2' : 'right-3'} p-2 text-emerald-400/70 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation`}
+									>
+										<Smile className={`${isMobileView ? 'w-6 h-6' : 'w-5 h-5'}`} />
+									</button>
+								</div>
+								{/* Эмодзи пикер */}
+								{previewModalShowEmojiPicker && (
+									<div className={`mt-3 ${isMobileView ? 'p-3' : 'p-4'} bg-emerald-950/60 backdrop-blur-sm rounded-xl border border-emerald-700/40 ${isMobileView ? 'max-h-48' : 'max-h-40'} overflow-y-auto shadow-lg`}>
+										<div className={`grid ${isMobileView ? 'grid-cols-10 gap-1.5' : 'grid-cols-8 gap-2'}`}>
+											{emojiList.map(emoji => (
+												<button
+													key={emoji}
+													type='button'
+													onClick={() => {
+														setPreviewModalCaption(prev => prev + emoji)
+													}}
+													className={`${isMobileView ? 'text-2xl p-2' : 'text-xl p-1.5'} hover:bg-emerald-500/20 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation`}
+												>
+													{emoji}
+												</button>
+											))}
+										</div>
+									</div>
+								)}
+							</div>
+
+							{/* Кнопки действий */}
+							<div className={`flex ${isMobileView ? 'flex-col' : 'flex-row'} items-stretch ${isMobileView ? 'gap-2' : 'gap-3'} ${isMobileView ? 'px-4 py-4' : 'px-6 py-5'} bg-gradient-to-r from-emerald-950/20 to-transparent safe-area-inset-bottom`}>
+								{!isMobileView && (
+									<button
+										type='button'
+										onClick={() => {
+											// Обновляем подпись и сжатие в attachment
+											setAttachments(prev =>
+												prev.map(att =>
+													att.id === previewModalAttachment.id
+														? {
+																...att,
+																caption: previewModalCaption,
+																compress: previewModalCompress,
+															}
+														: att
+												)
+											)
+											setPreviewModalAttachment(null)
+											setPreviewModalCaption('')
+											setPreviewModalCompress(true)
+											// Открываем выбор файла для добавления еще одного
+											setTimeout(() => {
+												if (fileInputRef.current) {
+													fileInputRef.current.click()
+												}
+											}, 100)
+										}}
+										className='flex-1 px-5 py-3 rounded-xl bg-emerald-900/50 hover:bg-emerald-900/70 border border-emerald-700/50 hover:border-emerald-600/70 text-emerald-200 hover:text-white font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm'
+									>
+										Добавить
+									</button>
+								)}
+								<button
+									type='button'
+									onClick={() => {
+										// Удаляем attachment при отмене
+										removeAttachment(previewModalAttachment.id)
+										setPreviewModalAttachment(null)
+										setPreviewModalCaption('')
+										setPreviewModalCompress(true)
+									}}
+									className={`${isMobileView ? 'w-full' : 'flex-1'} ${isMobileView ? 'px-4 py-3.5' : 'px-5 py-3'} rounded-xl bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-800/50 hover:border-emerald-700/70 text-emerald-300 hover:text-white ${isMobileView ? 'text-base font-semibold' : 'font-semibold'} transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm touch-manipulation`}
+								>
+									Отмена
+								</button>
+								<button
+									type='button'
+									onClick={async () => {
+										// Обновляем подпись и сжатие в attachment
+										setAttachments(prev =>
+											prev.map(att =>
+												att.id === previewModalAttachment.id
+													? {
+															...att,
+															caption: previewModalCaption,
+															compress: previewModalCompress,
+														}
+													: att
+											)
+										)
+										setPreviewModalAttachment(null)
+										setPreviewModalCaption('')
+										setPreviewModalCompress(true)
+										// Если есть подпись, добавляем её в сообщение
+										if (previewModalCaption.trim()) {
+											setMessage(prev => (prev ? prev + '\n' + previewModalCaption.trim() : previewModalCaption.trim()))
+										}
+										// Отправляем сообщение
+										setTimeout(() => {
+											const form = document.querySelector('form') as HTMLFormElement
+											if (form) {
+												const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
+												form.dispatchEvent(submitEvent)
+											}
+										}, 100)
+									}}
+									className={`${isMobileView ? 'w-full' : 'flex-1'} ${isMobileView ? 'px-4 py-4' : 'px-5 py-3'} rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white ${isMobileView ? 'text-lg' : ''} font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] border border-emerald-400/30 touch-manipulation`}
+								>
+									Отправить
+								</button>
+							</div>
+						</div>
+					</div>,
+					document.body
+				)}
 		</>
 	)
 }
