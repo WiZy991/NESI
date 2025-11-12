@@ -187,7 +187,10 @@ export async function GET(req: Request) {
       // 💎 три режима сортировки
       let score = 0
       if (sort === 'rating') {
-        score = (avgRating || 0) * 1000 + (reviews || 0) * 10 + lvl * 10
+        // Приоритет рейтингу: если отзывов нет, рейтинг = 0
+        // Если отзывов мало, рейтинг имеет меньший вес
+        const ratingWeight = reviews > 0 ? 10000 : 0
+        score = (avgRating || 0) * ratingWeight + (reviews || 0) * 10 + lvl * 1
       } else if (sort === 'reviews') {
         score = (reviews || 0) * 1000 + (avgRating || 0) * 50 + lvl * 5
       } else {
@@ -208,10 +211,8 @@ export async function GET(req: Request) {
       }
     })
 
-    // Сортировка (если нужна сортировка по score, а не по БД)
-    if (sort !== 'rating') {
-      scored.sort((a, b) => b.score - a.score)
-    }
+    // Сортировка по вычисленному score (всегда)
+    scored.sort((a, b) => b.score - a.score)
 
     const pages = Math.max(1, Math.ceil(total / take))
 
