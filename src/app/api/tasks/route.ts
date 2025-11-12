@@ -2,7 +2,9 @@ import { getUserFromRequest } from '@/lib/auth'
 import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 import prisma from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
+import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 
 export async function GET(req: Request) {
 	const user = await getUserFromRequest(req).catch(() => null)
@@ -249,7 +251,7 @@ export async function GET(req: Request) {
 
 		return response
 	} catch (err) {
-		console.error('Ошибка при фильтрации задач:', err)
+		logger.error('Ошибка при фильтрации задач', err)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }
@@ -261,6 +263,30 @@ export async function POST(req: Request) {
 		return NextResponse.json(
 			{ error: 'Только заказчики могут создавать задачи' },
 			{ status: 403 }
+		)
+	}
+
+	// Rate limiting для создания задач
+	const taskCreateRateLimit = createUserRateLimit({
+		windowMs: 60 * 1000, // 1 минута
+		maxRequests: 5, // Максимум 5 задач в минуту
+	})
+	const rateLimitResult = await taskCreateRateLimit(req)
+
+	if (!rateLimitResult.success) {
+		return NextResponse.json(
+			{ error: 'Слишком много запросов на создание задач. Подождите немного.' },
+			{
+				status: 429,
+				headers: {
+					'Retry-After': Math.ceil(
+						(rateLimitResult.resetTime - Date.now()) / 1000
+					).toString(),
+					'X-RateLimit-Limit': '5',
+					'X-RateLimit-Remaining': '0',
+					'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+				},
+			}
 		)
 	}
 
@@ -379,9 +405,7 @@ export async function POST(req: Request) {
 			description?: string
 		}> = []
 		try {
-			console.log(
-				`[Badges] 🎯 Проверка достижений для заказчика ${user.id} после создания задачи ${task.id}`
-			)
+			logger.debug('Проверка достижений для заказчика после создания задачи', { userId: user.id, taskId: task.id })
 			const newBadges = await checkAndAwardBadges(user.id)
 			if (newBadges.length > 0) {
 				// Получаем полную информацию о достижениях (включая description)
@@ -396,25 +420,20 @@ export async function POST(req: Request) {
 					icon: badge.icon,
 					description: badge.description,
 				}))
-				console.log(
-					`[Badges] ✅ Заказчик ${user.id} получил ${awardedBadges.length} достижений при создании задачи:`,
-					awardedBadges.map(b => b.name)
-				)
-			} else {
-				console.log(
-					`[Badges] ℹ️ Заказчик ${user.id} не получил новых достижений при создании задачи`
-				)
+				logger.info('Заказчик получил достижения при создании задачи', {
+					userId: user.id,
+					taskId: task.id,
+					badgeCount: awardedBadges.length,
+					badgeNames: awardedBadges.map(b => b.name),
+				})
 			}
 		} catch (badgeError) {
-			console.error(
-				'[Badges] ❌ Ошибка проверки достижений при создании задачи:',
-				badgeError
-			)
+			logger.error('Ошибка проверки достижений при создании задачи', badgeError, { userId: user.id, taskId: task.id })
 		}
 
 		return NextResponse.json({ task, awardedBadges })
 	} catch (err) {
-		console.error('Ошибка при создании задачи:', err)
+		logger.error('Ошибка при создании задачи', err, { userId: user?.id })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

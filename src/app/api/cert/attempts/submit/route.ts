@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { awardXP } from '@/lib/level/awardXP'
+import { logger } from '@/lib/logger'
 
 type Answer = { questionId: string; optionId: string }
 
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
 				const { checkAndAwardBadges } = await import('@/lib/badges/checkBadges')
 				await checkAndAwardBadges(user.id)
 			} catch (xpError) {
-				console.error('[XP] Ошибка начисления XP при сертификации:', xpError)
+				logger.error('Ошибка начисления XP при сертификации', xpError, { userId: user.id, attemptId })
 			}
 		}
 
@@ -104,7 +105,7 @@ export async function POST(req: Request) {
 			passScore: test.passScore,
 		})
 	} catch (e) {
-		console.error('POST /api/cert/attempts/submit error:', e)
+		logger.error('Ошибка при отправке ответов на сертификацию', e, { userId: user?.id, attemptId })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

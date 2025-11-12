@@ -26,21 +26,21 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   useEffect(() => {
     initErrorMonitoring()
     
-    // Инициализация офлайн хранилища
-    if (typeof window !== 'undefined') {
-      initOfflineDB().catch((error) => {
-        console.error('Ошибка инициализации офлайн хранилища:', error)
-      })
+      // Инициализация офлайн хранилища
+      if (typeof window !== 'undefined') {
+        initOfflineDB().catch((error) => {
+          clientLogger.error('Ошибка инициализации офлайн хранилища', error instanceof Error ? error : new Error(String(error)))
+        })
 
-      // Отслеживание изменений онлайн статуса
-      const cleanup = onOnlineStatusChange((isOnline) => {
-        if (isOnline) {
-          console.log('🌐 Онлайн - синхронизация данных...')
-          // Здесь можно добавить логику синхронизации
-        } else {
-          console.log('📴 Офлайн режим')
-        }
-      })
+        // Отслеживание изменений онлайн статуса
+        const cleanup = onOnlineStatusChange((isOnline) => {
+          if (isOnline) {
+            clientLogger.debug('Онлайн - синхронизация данных')
+            // Здесь можно добавить логику синхронизации
+          } else {
+            clientLogger.debug('Офлайн режим')
+          }
+        })
 
       return cleanup
     }

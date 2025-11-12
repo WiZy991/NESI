@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { fetchSinglePoll } from '@/lib/communityPoll'
+import { logger } from '@/lib/logger'
 
 // 📌 Получить один пост по ID
 export async function GET(
@@ -180,11 +181,7 @@ export async function GET(
 
     return NextResponse.json({ post: formatted, liked })
   } catch (err: any) {
-    console.error('Ошибка /api/community/[id]:', {
-      message: err?.message,
-      code: err?.code,
-      stack: err?.stack,
-    })
+    logger.error('Ошибка получения поста сообщества', err, { postId: id, userId: me?.id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
@@ -299,10 +296,7 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true, post: formatted })
   } catch (err: any) {
-    console.error('Ошибка редактирования поста:', {
-      message: err?.message,
-      code: err?.code,
-    })
+    logger.error('Ошибка редактирования поста', err, { postId: id, userId: me?.id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
@@ -357,7 +351,7 @@ export async function DELETE(
       `
     } catch (sqlError: any) {
       // Если raw SQL не работает, пробуем через ORM
-      console.warn('Raw SQL не сработал, пробуем через ORM:', sqlError?.message)
+      logger.warn('Raw SQL не сработал, пробуем через ORM', { postId: id, error: sqlError?.message })
       await prisma.communityPost.update({
         where: { id },
         data: {

@@ -1,6 +1,24 @@
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { validateWithZod } from '@/lib/validations'
+import { validateStringLength } from '@/lib/security'
+
+// Схема валидации для создания спора
+const createDisputeSchema = z.object({
+	taskId: z.string().min(1, 'ID задачи обязателен'),
+	reason: z
+		.string()
+		.min(1, 'Причина спора обязательна')
+		.max(1000, 'Причина слишком длинная (максимум 1000 символов)')
+		.trim(),
+	details: z
+		.string()
+		.max(2000, 'Детали слишком длинные (максимум 2000 символов)')
+		.trim()
+		.optional(),
+})
 
 // 📦 Получить споры пользователя
 export async function GET(req: Request) {
@@ -27,10 +45,41 @@ export async function POST(req: Request) {
 	if (!user)
 		return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-	const { taskId, reason, details } = await req.json()
+	let body
+	try {
+		body = await req.json()
+	} catch (error) {
+		return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+	}
 
-	if (!taskId || !reason) {
-		return NextResponse.json({ error: 'Не хватает данных' }, { status: 400 })
+	// Валидация данных
+	const validation = validateWithZod(createDisputeSchema, body)
+	if (!validation.success) {
+		return NextResponse.json(
+			{ error: validation.errors.join(', ') },
+			{ status: 400 }
+		)
+	}
+
+	const { taskId, reason, details } = validation.data
+
+	// Дополнительная валидация длины полей
+	const reasonValidation = validateStringLength(reason, 1000, 'Причина спора')
+	if (!reasonValidation.valid) {
+		return NextResponse.json(
+			{ error: reasonValidation.error },
+			{ status: 400 }
+		)
+	}
+
+	if (details) {
+		const detailsValidation = validateStringLength(details, 2000, 'Детали спора')
+		if (!detailsValidation.valid) {
+			return NextResponse.json(
+				{ error: detailsValidation.error },
+				{ status: 400 }
+			)
+		}
 	}
 
 	// Проверяем, связан ли пользователь с задачей

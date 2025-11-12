@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { signJWT } from '@/lib/jwt'
 import { setSecureCookie } from '@/lib/security'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
     const token = searchParams.get('token')
     if (!token) {
-      console.warn('⚠️ Токен не передан в URL')
+      logger.warn('Токен не передан в URL')
       return NextResponse.json({ error: 'Токен не указан' }, { status: 400 })
     }
 
@@ -18,13 +19,13 @@ export async function GET(req: Request) {
     })
 
     if (!record) {
-      console.warn('❌ Токен не найден или устарел:', token)
+      logger.warn('Токен не найден или устарел', { token: token.substring(0, 10) + '...' })
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/invalid-token`)
     }
 
     if (record.expiresAt && record.expiresAt < new Date()) {
       await prisma.emailVerificationToken.delete({ where: { token } })
-      console.warn('⚠️ Срок действия токена истёк:', token)
+      logger.warn('Срок действия токена истёк', { token: token.substring(0, 10) + '...' })
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/token-expired`)
     }
 
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
       data: { verified: true },
       select: { id: true, email: true, role: true },
     })
-    console.log('✅ Пользователь подтверждён:', updated.email)
+    logger.debug('Пользователь подтверждён', { userId: updated.id, email: updated.email })
 
     await prisma.emailVerificationToken.delete({ where: { token } })
 
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
     try {
       jwt = signJWT({ userId: updated.id, role: updated.role })
     } catch (err: any) {
-      console.error('❌ Ошибка генерации JWT:', err)
+      logger.error('Ошибка генерации JWT', err, { userId: updated.id })
       return NextResponse.json({ error: 'JWT generation failed' }, { status: 500 })
     }
 
@@ -50,10 +51,10 @@ export async function GET(req: Request) {
 
     res.cookies.set('token', jwt, setSecureCookie(jwt))
 
-    console.log('✅ Подтверждение e-mail завершено, редирект:', redirectUrl)
+    logger.debug('Подтверждение e-mail завершено', { userId: updated.id, redirectUrl })
     return res
   } catch (err: any) {
-    console.error('💥 Ошибка подтверждения e-mail:', err)
+    logger.error('Ошибка подтверждения e-mail', err)
     return NextResponse.json(
       { error: err.message || 'Ошибка сервера' },
       { status: 500 }

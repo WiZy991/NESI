@@ -5,6 +5,7 @@ import {
 	resolveDisputeWithFinancials,
 } from '@/lib/disputes/resolveDispute'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(
 	req: Request,
@@ -40,7 +41,7 @@ export async function POST(
 			return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
 		}
 
-		console.error('Ошибка при разрешении спора админом:', error)
+		logger.error('Ошибка при разрешении спора админом', error, { disputeId: id, adminId: admin?.id })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

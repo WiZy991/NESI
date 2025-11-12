@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/users/[id]/online
@@ -43,7 +44,7 @@ export async function GET(
       lastActivityAt: user.lastActivityAt,
     })
   } catch (error) {
-    console.error('❌ Ошибка проверки онлайн статуса:', error)
+    logger.error('Ошибка проверки онлайн статуса', error, { userId: id })
     return NextResponse.json(
       { error: 'Ошибка проверки статуса' },
       { status: 500 }

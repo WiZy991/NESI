@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcrypt'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: 'Пароль успешно обновлён' }, { status: 200 })
   } catch (error) {
-    console.error('Ошибка сброса пароля:', error)
+    logger.error('Ошибка сброса пароля', error)
     return NextResponse.json({ message: 'Ошибка сервера' }, { status: 500 })
   }
 }

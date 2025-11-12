@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 export async function GET() {
   try {
@@ -92,9 +93,9 @@ export async function GET() {
       topCategories,
     })
   } catch (err) {
-    console.error('❌ Ошибка при получении статистики:', err)
+    logger.error('Ошибка при получении статистики', err)
     return NextResponse.json(
-      { error: 'Ошибка при получении статистики', details: String(err) },
+      { error: 'Ошибка при получении статистики', details: process.env.NODE_ENV === 'development' ? String(err) : undefined },
       { status: 500 }
     )
   }

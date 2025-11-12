@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
+import { logger } from '@/lib/logger'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
@@ -51,7 +52,7 @@ export async function DELETE(
 
 		return NextResponse.json({ message: updatedMessage })
 	} catch (error) {
-		console.error('Ошибка удаления сообщения:', error)
+		logger.error('Ошибка удаления приватного сообщения', error, { messageId: params.messageId })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { sendVerificationEmail } from '@/lib/mail'
 import crypto from 'crypto'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -27,10 +28,13 @@ export async function POST(req: Request) {
     
     await sendVerificationEmail(user.email, link)
 
-    console.log(`📧 Повторное письмо отправлено на ${user.email}`)
+    logger.debug('Повторное письмо отправлено', { userId: user.id, email: user.email })
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('❌ Ошибка при повторной отправке письма:', error)
+    logger.error('Ошибка при повторной отправке письма', error, {
+      email,
+      userId: user?.id,
+    })
     return NextResponse.json({ error: 'Ошибка сервера при повторной отправке' }, { status: 500 })
   }
 }

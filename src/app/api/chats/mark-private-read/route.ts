@@ -3,6 +3,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotificationToUser } from '../../notifications/stream/route'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
 	const user = await getUserFromRequest(req)
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
 
 		const now = new Date()
 
-		console.log('📖 Пометка приватных сообщений как прочитанных:', {
+		logger.debug('Пометка приватных сообщений как прочитанных', {
 			userId: user.id,
 			otherUserId,
 		})
@@ -70,9 +71,11 @@ export async function POST(req: NextRequest) {
 			lastActivityAt: now.toISOString(),
 		})
 
-		console.log(
-			`✅ Приватные сообщения помечены как прочитанные, удалено уведомлений: ${deletedNotifications.count}`
-		)
+		logger.debug('Приватные сообщения помечены как прочитанные', {
+			userId: user.id,
+			otherUserId,
+			deletedNotifications: deletedNotifications.count,
+		})
 
 		return NextResponse.json({
 			success: true,
@@ -80,10 +83,10 @@ export async function POST(req: NextRequest) {
 			lastReadAt: now.toISOString(),
 		})
 	} catch (error) {
-		console.error(
-			'Ошибка при пометке приватных сообщений как прочитанных:',
-			error
-		)
+		logger.error('Ошибка при пометке приватных сообщений как прочитанных', error, {
+			userId: user?.id,
+			otherUserId,
+		})
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

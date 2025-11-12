@@ -3,6 +3,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { validatePassword } from '@/lib/errorHandler'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: 'Пароль успешно изменён' })
   } catch (err) {
-    console.error('Ошибка при смене пароля:', err)
+    logger.error('Ошибка при смене пароля', err, { userId: user?.id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

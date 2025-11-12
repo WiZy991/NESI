@@ -1,5 +1,6 @@
 // lib/notify.ts
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 export async function createNotification({
   userId,
@@ -78,7 +79,7 @@ export async function createNotificationWithSettings({
 
   // Если уведомление отключено, возвращаем null
   if (!shouldNotify) {
-    console.log(`🔕 Уведомление типа "${type}" отключено для пользователя ${userId}`)
+    logger.debug(`Уведомление типа "${type}" отключено для пользователя`, { userId, type })
     return null
   }
 

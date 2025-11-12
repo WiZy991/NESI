@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { awardXP } from '@/lib/level/awardXP'
 import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
+import { logger } from '@/lib/logger'
 
 export async function PATCH(req: NextRequest, { params }: any) {
 	try {
@@ -72,9 +73,9 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				})
 			)
 		} else {
-			console.warn(
-				'⚠️ PLATFORM_OWNER_ID не настроен! Комиссия не будет начислена.'
-			)
+			logger.warn('PLATFORM_OWNER_ID не настроен! Комиссия не будет начислена', {
+				taskId: task.id,
+			})
 		}
 
 		await prisma.$transaction([
@@ -168,7 +169,10 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			}
 		} catch (xpError) {
 			// Логируем ошибку, но не прерываем выполнение
-			console.error('[XP] Ошибка начисления XP при завершении задачи:', xpError)
+			logger.error('Ошибка начисления XP при завершении задачи', xpError, {
+				taskId: task.id,
+				executorId: task.executorId,
+			})
 		}
 
 		// 🎯 Проверяем и начисляем достижения после завершения задачи
@@ -178,7 +182,10 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		let executorBadges: Array<{ id: string; name: string; icon: string; description?: string }> = []
 		
 		try {
-			console.log(`[Badges] 🔍 Проверяем достижения для заказчика ${task.customerId} после завершения задачи ${task.id}`)
+			logger.debug('Проверяем достижения для заказчика после завершения задачи', {
+				customerId: task.customerId,
+				taskId: task.id,
+			})
 			const newCustomerBadges = await checkAndAwardBadges(task.customerId)
 			if (newCustomerBadges.length > 0) {
 				const badgeIds = newCustomerBadges.map(b => b.id)
@@ -192,11 +199,19 @@ export async function PATCH(req: NextRequest, { params }: any) {
 					icon: badge.icon,
 					description: badge.description
 				}))
-				console.log(`[Badges] ✅ Заказчику ${task.customerId} начислено ${customerBadges.length} достижений:`, customerBadges.map(b => b.name))
+				logger.debug('Заказчику начислено достижений', {
+					customerId: task.customerId,
+					taskId: task.id,
+					badgesCount: customerBadges.length,
+					badgeNames: customerBadges.map(b => b.name),
+				})
 			}
 
 			if (task.executorId) {
-				console.log(`[Badges] 🔍 Проверяем достижения для исполнителя ${task.executorId} после завершения задачи ${task.id}`)
+				logger.debug('Проверяем достижения для исполнителя после завершения задачи', {
+					executorId: task.executorId,
+					taskId: task.id,
+				})
 				const newExecutorBadges = await checkAndAwardBadges(task.executorId)
 				if (newExecutorBadges.length > 0) {
 					const badgeIds = newExecutorBadges.map(b => b.id)
@@ -210,11 +225,20 @@ export async function PATCH(req: NextRequest, { params }: any) {
 						icon: badge.icon,
 						description: badge.description
 					}))
-					console.log(`[Badges] ✅ Исполнителю ${task.executorId} начислено ${executorBadges.length} достижений:`, executorBadges.map(b => b.name))
+					logger.debug('Исполнителю начислено достижений', {
+						executorId: task.executorId,
+						taskId: task.id,
+						badgesCount: executorBadges.length,
+						badgeNames: executorBadges.map(b => b.name),
+					})
 				}
 			}
 		} catch (badgeError) {
-			console.error('[Badges] ❌ Ошибка проверки достижений:', badgeError)
+			logger.error('Ошибка проверки достижений', badgeError, {
+				taskId: task.id,
+				customerId: task.customerId,
+				executorId: task.executorId,
+			})
 		}
 
 		return NextResponse.json({ 
@@ -229,7 +253,10 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			}
 		})
 	} catch (err: any) {
-		console.error('Ошибка при завершении задачи:', err)
+		logger.error('Ошибка при завершении задачи', err, {
+			taskId: params?.id,
+			userId: user?.id,
+		})
 		return NextResponse.json({ error: err.message || 'Ошибка сервера' }, { status: 500 })
 	}
 }

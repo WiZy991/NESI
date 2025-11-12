@@ -3,6 +3,7 @@
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,11 @@ export async function GET(req: NextRequest) {
 			take: 20, // максимум 20 уведомлений за раз
 		})
 
-		console.log(`📡 Polling: найдено ${notifications.length} новых уведомлений для пользователя ${user.id}`)
+		logger.debug('Polling: найдено новых уведомлений', {
+			count: notifications.length,
+			userId: user.id,
+			since: sinceParam,
+		})
 
 		// Преобразуем в формат совместимый с SSE
 		const formattedNotifications = notifications.map(n => ({
@@ -51,8 +56,10 @@ export async function GET(req: NextRequest) {
 			count: notifications.length,
 		})
 	} catch (error) {
-		console.error('❌ Ошибка при polling уведомлений:', error)
-		console.error('❌ Stack:', error instanceof Error ? error.stack : 'No stack')
+		logger.error('Ошибка при polling уведомлений', error, {
+			userId: user?.id,
+			stack: error instanceof Error ? error.stack : undefined,
+		})
 		return NextResponse.json(
 			{ 
 				error: 'Ошибка сервера',

@@ -1,5 +1,6 @@
 import { getUserFromToken } from '@/lib/auth'
 import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
 
 // Добавляем типизацию для глобального объекта
 declare global {
@@ -22,14 +23,17 @@ export async function GET(req: NextRequest) {
 	try {
 		const user = await getUserFromToken(token)
 		if (!user) {
-			console.error('❌ getUserFromToken вернул null для токена. Возможные причины:')
-			console.error('   - Пользователь не найден в базе данных (возможно, БД была очищена)')
-			console.error('   - Токен невалидный или истек')
-			console.error('   - Ошибка подключения к базе данных')
+			logger.warn('getUserFromToken вернул null для токена SSE', {
+				possibleReasons: [
+					'Пользователь не найден в базе данных (возможно, БД была очищена)',
+					'Токен невалидный или истек',
+					'Ошибка подключения к базе данных'
+				]
+			})
 			return new Response('Unauthorized: Invalid token or user not found', { status: 401 })
 		}
 
-		console.log('🔔 SSE подключение для пользователя:', user.id)
+		logger.debug('SSE подключение для пользователя', { userId: user.id })
 
 		// Сохраняем userId в переменную для использования в замыканиях
 		const userId = user.id
@@ -59,7 +63,7 @@ export async function GET(req: NextRequest) {
 						})
 						controller.enqueue(`data: ${heartbeatData}\n\n`)
 					} catch (error) {
-						console.error('Ошибка отправки heartbeat:', error)
+						logger.error('Ошибка отправки heartbeat SSE', error, { userId })
 						clearInterval(heartbeatInterval)
 						globalThis.sseConnections?.delete(userId)
 					}
@@ -67,14 +71,14 @@ export async function GET(req: NextRequest) {
 
 				// Очистка при закрытии соединения
 				req.signal.addEventListener('abort', () => {
-					console.log('🔌 SSE соединение закрыто для пользователя:', userId)
+					logger.debug('SSE соединение закрыто для пользователя', { userId })
 					clearInterval(heartbeatInterval)
 					globalThis.sseConnections?.delete(userId)
 					controller.close()
 				})
 			},
 			cancel() {
-				console.log('🔌 SSE соединение отменено для пользователя:', userId)
+				logger.debug('SSE соединение отменено для пользователя', { userId })
 				globalThis.sseConnections?.delete(userId)
 			},
 		})
@@ -109,7 +113,7 @@ export async function GET(req: NextRequest) {
 		})
 	} catch (error: any) {
 		// Обрабатываем ошибки авторизации
-		console.error('❌ Ошибка авторизации в SSE:', error)
+		logger.error('Ошибка авторизации в SSE', error)
 		
 		// Проверяем, является ли это ошибкой схемы БД
 		const isSchemaError = 
@@ -154,7 +158,7 @@ export async function OPTIONS(req: NextRequest) {
 
 // Функция для отправки уведомления конкретному пользователю
 export function sendNotificationToUser(userId: string, notification: any) {
-	console.log('📤 sendNotificationToUser вызвана:', {
+	logger.debug('sendNotificationToUser вызвана', {
 		userId,
 		notificationType: notification.type,
 		title: notification.title,
@@ -164,21 +168,23 @@ export function sendNotificationToUser(userId: string, notification: any) {
 	const connections = globalThis.sseConnections
 	
 	if (!connections) {
-		console.log('❌ globalThis.sseConnections не инициализирован')
+		logger.warn('globalThis.sseConnections не инициализирован')
 		return false
 	}
 	
-	console.log('📊 Всего подключений SSE:', connections.size)
-	console.log('📋 Подключенные пользователи:', Array.from(connections.keys()))
+	logger.debug('Статистика SSE подключений', {
+		totalConnections: connections.size,
+		connectedUsers: Array.from(connections.keys()),
+	})
 	
 	if (!connections.has(userId)) {
-		console.log('📭 Пользователь не подключен к SSE:', userId)
+		logger.debug('Пользователь не подключен к SSE', { userId })
 		return false
 	}
 
 	const controller = connections.get(userId)
 	if (!controller) {
-		console.log('📭 Контроллер не найден для пользователя:', userId)
+		logger.warn('Контроллер не найден для пользователя', { userId })
 		return false
 	}
 
@@ -189,12 +195,12 @@ export function sendNotificationToUser(userId: string, notification: any) {
 			timestamp: new Date().toISOString(),
 		})
 
-		console.log('📨 Отправка данных через SSE:', data.substring(0, 100))
+		logger.debug('Отправка данных через SSE', { userId, dataPreview: data.substring(0, 100) })
 		controller.enqueue(`data: ${data}\n\n`)
-		console.log('✅ Уведомление успешно отправлено пользователю:', userId)
+		logger.debug('Уведомление успешно отправлено пользователю', { userId })
 		return true
 	} catch (error) {
-		console.error('❌ Ошибка отправки уведомления:', error)
+		logger.error('Ошибка отправки уведомления через SSE', error, { userId })
 		connections.delete(userId)
 		return false
 	}
@@ -205,7 +211,9 @@ export function broadcastNotification(notification: any) {
 	const connections = globalThis.sseConnections
 	if (!connections) return
 
-	console.log('📢 Рассылка уведомления всем подключенным пользователям')
+	logger.debug('Рассылка уведомления всем подключенным пользователям', {
+		totalConnections: connections.size,
+	})
 
 	for (const [userId, controller] of connections) {
 		try {
@@ -217,7 +225,7 @@ export function broadcastNotification(notification: any) {
 
 			controller.enqueue(`data: ${data}\n\n`)
 		} catch (error) {
-			console.error('Ошибка рассылки уведомления:', error)
+			logger.error('Ошибка рассылки уведомления', error, { userId })
 			connections.delete(userId)
 		}
 	}

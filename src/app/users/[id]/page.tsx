@@ -230,9 +230,13 @@ export default function UserPublicProfilePage() {
 			setError(null)
 			setAvatarError(false) // Сбрасываем ошибку аватара при загрузке нового пользователя
 			try {
-				const res = await fetch(`/api/users/${userId}`, {
+				const { fetchWithRetry } = await import('@/lib/retry')
+				const res = await fetchWithRetry(`/api/users/${userId}`, {
 					headers: buildAuthHeaders(),
 					cache: 'no-store',
+				}, {
+					maxRetries: 2,
+					retryDelay: 1000,
 				})
 				const raw = await res.json().catch(() => ({}))
 				if (!res.ok)

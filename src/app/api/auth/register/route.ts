@@ -6,6 +6,7 @@ import { sendVerificationEmail } from '@/lib/mail'
 import { sanitizeText } from '@/lib/security'
 import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 import { registerSchema, validateWithZod } from '@/lib/validations'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
       await sendVerificationEmail(email.toLowerCase(), verifyLink)
     } catch (e) {
       emailSent = false
-      console.error('❌ sendVerificationEmail failed:', e)
+      logger.error('Ошибка отправки письма верификации', e, { userId, email })
     }
 
     return NextResponse.json({
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
         : 'Регистрация прошла. Не удалось отправить письмо — попробуйте позже или запросите повторную отправку.',
     })
   } catch (error: any) {
-    console.error('❌ Ошибка регистрации:', error)
+    logger.error('Ошибка регистрации', error)
     if (error.code === 'P2002') {
       return NextResponse.json({ error: 'Такой email уже зарегистрирован' }, { status: 400 })
     }

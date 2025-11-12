@@ -3,6 +3,10 @@ import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { hasActiveTask } from '@/lib/guards'
 import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
+import { validateWithZod, taskResponseSchema } from '@/lib/validations'
+import { validateStringLength } from '@/lib/security'
+import { logger } from '@/lib/logger'
+import { createUserRateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
   const me = await getUserFromRequest(req)
@@ -12,10 +16,69 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Только исполнитель может откликаться' }, { status: 403 })
   }
 
-  const body = await req.json().catch(() => ({}))
-  const { taskId, message, price } = body || {}
-  if (!taskId) {
+  // Rate limiting для отправки откликов
+  const responseRateLimit = createUserRateLimit({
+    windowMs: 60 * 1000, // 1 минута
+    maxRequests: 10, // Максимум 10 откликов в минуту
+  })
+  const rateLimitResult = await responseRateLimit(req)
+
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      { error: 'Слишком много откликов. Подождите немного.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil(
+            (rateLimitResult.resetTime - Date.now()) / 1000
+          ).toString(),
+          'X-RateLimit-Limit': '10',
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+        },
+      }
+    )
+  }
+
+  let body
+  try {
+    body = await req.json()
+  } catch (error) {
+    return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+  }
+
+  // Валидация taskId
+  if (!body.taskId || typeof body.taskId !== 'string' || !body.taskId.trim()) {
     return NextResponse.json({ error: 'taskId обязателен' }, { status: 400 })
+  }
+
+  const taskId = body.taskId.trim()
+
+  // Валидация данных отклика (message и price)
+  const responseData = {
+    message: body.message || '',
+    price: body.price,
+  }
+
+  const validation = validateWithZod(taskResponseSchema, responseData)
+  if (!validation.success) {
+    return NextResponse.json(
+      { error: validation.errors.join(', ') },
+      { status: 400 }
+    )
+  }
+
+  const { message, price } = validation.data
+
+  // Дополнительная валидация длины сообщения
+  if (message) {
+    const messageValidation = validateStringLength(message, 2000, 'Сообщение')
+    if (!messageValidation.valid) {
+      return NextResponse.json(
+        { error: messageValidation.error },
+        { status: 400 }
+      )
+    }
   }
 
   // 🔒 ГАРД: есть ли активная задача у исполнителя?
@@ -45,24 +108,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Вы уже откликались на эту задачу' }, { status: 409 })
   }
 
-  const created = await prisma.$transaction(async tx => {
-    const response = await tx.taskResponse.create({
-      data: {
-        taskId,
-        userId: me.id,
-        message: message ?? null,
-        price: price ?? null,
-      },
+  try {
+    const created = await prisma.$transaction(async tx => {
+      const response = await tx.taskResponse.create({
+        data: {
+          taskId,
+          userId: me.id,
+          message: message && message.trim() ? message.trim() : null,
+          price: price ?? null,
+        },
+      })
+
+      await recordTaskResponseStatus(response.id, 'pending', {
+        changedById: me.id,
+        note: 'Отклик отправлен',
+        tx,
+      })
+
+      return response
     })
 
-    await recordTaskResponseStatus(response.id, 'pending', {
-      changedById: me.id,
-      note: 'Отклик отправлен',
-      tx,
-    })
-
-    return response
-  })
-
-  return NextResponse.json(created, { status: 201 })
+    return NextResponse.json(created, { status: 201 })
+  } catch (error) {
+    logger.error('Ошибка создания отклика', error, { userId: me.id, taskId })
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
 }

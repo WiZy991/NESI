@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: Request) {
   const user = await getUserFromRequest(req)
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
     
     return NextResponse.json(sentWithAvatars, { status: 200 })
   } catch (e) {
-    console.error('❌ /api/hire/sent error:', e)
+    logger.error('Ошибка получения отправленных запросов на найм', e, { userId: user?.id })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -1,0 +1,102 @@
+'use client'
+
+import Link from 'next/link'
+import AssignExecutorButton from '../AssignExecutorButton'
+import { getUserProfileLink } from './utils'
+import type { Task } from './types'
+
+type ResponsesSectionProps = {
+	task: Task
+	currentUserId?: string
+	isCustomer: boolean
+}
+
+export function ResponsesSection({
+	task,
+	currentUserId,
+	isCustomer,
+}: ResponsesSectionProps) {
+	if (!isCustomer) {
+		return null
+	}
+
+	return (
+		<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
+			<div className='flex items-center gap-3 mb-6'>
+				<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
+					<span className='text-sm'>💬</span>
+				</div>
+				<h3 className='text-lg font-semibold text-emerald-300'>
+					Отклики исполнителей
+				</h3>
+				<span className='bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-full text-sm font-medium'>
+					{task.responses.length}
+				</span>
+			</div>
+
+			{task.responses.length === 0 ? (
+				<div className='text-center py-8'>
+					<div className='w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800/50 flex items-center justify-center'>
+						<span className='text-2xl text-gray-500'>💭</span>
+					</div>
+					<p className='text-gray-500 text-lg'>Пока нет откликов</p>
+					<p className='text-gray-600 text-sm mt-1'>
+						Исполнители смогут откликнуться на вашу задачу
+					</p>
+				</div>
+			) : (
+				<div className='space-y-4'>
+					{task.responses?.map((response) => (
+						<div
+							key={response.id}
+							className='bg-black/30 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] hover:scale-[1.02]'
+						>
+							<div className='flex items-start justify-between mb-4'>
+								<div className='flex items-center gap-3'>
+									<div className='w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
+										<span className='text-lg'>👤</span>
+									</div>
+									<div>
+										<Link
+											href={getUserProfileLink(currentUserId, response.user.id)}
+											className='text-emerald-400 hover:text-emerald-300 font-semibold text-lg transition-colors'
+										>
+											{response.user.fullName || response.user.email}
+										</Link>
+										<p className='text-sm text-gray-400'>
+											📅{' '}
+											{new Date(response.createdAt).toLocaleDateString('ru-RU')}
+										</p>
+									</div>
+								</div>
+								{response.price && (
+									<div className='bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-sm font-semibold'>
+										💰 {response.price} ₽
+									</div>
+								)}
+							</div>
+
+							{response.message && (
+								<div className='bg-black/20 rounded-lg p-3 md:p-4 mb-4'>
+									<p className='text-gray-200 leading-relaxed'>
+										{response.message}
+									</p>
+								</div>
+							)}
+
+							{task.status === 'open' && isCustomer && (
+								<div className='flex justify-end'>
+									<AssignExecutorButton
+										taskId={task.id}
+										executorId={response.userId}
+									/>
+								</div>
+							)}
+						</div>
+					))}
+				</div>
+			)}
+		</div>
+	)
+}
+

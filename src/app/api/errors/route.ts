@@ -1,6 +1,7 @@
 // API endpoint для логирования клиентских ошибок
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,8 +19,7 @@ export async function POST(req: Request) {
 
     if (isImportantError) {
       // В продакшене можно сохранять в базу данных или отправлять в Sentry
-      console.error('🚨 Client Error:', {
-        message: errorData.message,
+      logger.error('Client Error', new Error(errorData.message), {
         stack: errorData.stack,
         componentStack: errorData.componentStack,
         context: errorData.context,
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     // Игнорируем ошибки при логировании ошибок
-    console.error('Error logging failed:', error)
+    logger.error('Error logging failed', error)
     return NextResponse.json({ success: false }, { status: 500 })
   }
 }

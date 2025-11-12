@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
+import { logger } from '@/lib/logger'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
@@ -69,7 +70,7 @@ export async function PATCH(
 			}
 		})
 	} catch (error) {
-		console.error('Ошибка редактирования сообщения:', error)
+		logger.error('Ошибка редактирования приватного сообщения', error, { messageId: params.messageId })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import nodemailer from "nodemailer"
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Ошибка при отправке письма:", error)
+    logger.error("Ошибка при отправке письма в поддержку", error, { email })
     return NextResponse.json({ error: "Ошибка при отправке" }, { status: 500 })
   }
 }

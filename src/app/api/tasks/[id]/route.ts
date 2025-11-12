@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
+import { logger } from '@/lib/logger'
+import type { TaskResponse } from '@/types/api'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/tasks/[id]
@@ -14,7 +16,7 @@ export async function GET(
   try {
     const user = await getUserFromRequest(req).catch(() => null)
 
-    let task = await prisma.task.findUnique({
+    let task: TaskResponse | null = await prisma.task.findUnique({
       where: { id },
       include: {
         // автор
@@ -36,7 +38,7 @@ export async function GET(
             category: { select: { id: true, name: true } },
           },
         },
-        // отклики с пользователями и рейтингами
+        // отклики с пользователями (убрали reviewsReceived для оптимизации N+1)
         responses: {
           include: {
             user: {
@@ -44,7 +46,7 @@ export async function GET(
                 id: true,
                 fullName: true,
                 email: true,
-                reviewsReceived: { select: { rating: true } },
+                avgRating: true, // Используем предвычисленный avgRating вместо reviewsReceived
               },
             },
             statusHistory: {
@@ -59,15 +61,15 @@ export async function GET(
         // 🔥 файлы задачи
         files: true,
       },
-    } as any)
+    }) as TaskResponse | null
 
     if (!task) {
       return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
     }
 
     if (user && task.customerId === user.id) {
-      const pendingResponses = (task.responses as any[]).filter(
-        response => response.status === 'pending'
+      const pendingResponses = (task.responses || []).filter(
+        (response: { status: string }) => response.status === 'pending'
       )
 
       if (pendingResponses.length > 0) {
@@ -81,49 +83,52 @@ export async function GET(
           }
         })
 
-        task =
-          ((await prisma.task.findUnique({
-            where: { id },
-            include: {
-              customer: { select: { id: true, fullName: true, email: true } },
-              executor: { select: { id: true, fullName: true, email: true } },
-              review: true,
-              subcategory: {
-                select: {
-                  id: true,
-                  name: true,
-                  minPrice: true,
-                  category: { select: { id: true, name: true } },
-                },
+        const updatedTask = await prisma.task.findUnique({
+          where: { id },
+          include: {
+            customer: { select: { id: true, fullName: true, email: true } },
+            executor: { select: { id: true, fullName: true, email: true } },
+            review: true,
+            subcategory: {
+              select: {
+                id: true,
+                name: true,
+                minPrice: true,
+                category: { select: { id: true, name: true } },
               },
-              responses: {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      fullName: true,
-                      email: true,
-                      reviewsReceived: { select: { rating: true } },
-                    },
-                  },
-                  statusHistory: {
-                    orderBy: { createdAt: 'asc' },
-                    include: {
-                      changedBy: { select: { id: true, fullName: true, email: true } },
-                    },
-                  },
-                },
-                orderBy: { createdAt: 'desc' },
-              },
-              files: true,
             },
-          } as any)) ?? task)
+            responses: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    email: true,
+                    avgRating: true, // Используем предвычисленный avgRating вместо reviewsReceived
+                  },
+                },
+                statusHistory: {
+                  orderBy: { createdAt: 'asc' },
+                  include: {
+                    changedBy: { select: { id: true, fullName: true, email: true } },
+                  },
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+            files: true,
+          },
+        }) as TaskResponse | null
+        
+        if (updatedTask) {
+          task = updatedTask
+        }
       }
     }
 
     return NextResponse.json({ task })
   } catch (err) {
-    console.error('Ошибка при GET задачи:', err)
+    logger.error('Ошибка при GET задачи', err, { taskId: id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
@@ -149,9 +154,40 @@ export async function PATCH(
         { status: 400 }
       )
 
-    const { title, description } = await req.json()
-    if (!title?.trim() || !description?.trim()) {
-      return NextResponse.json({ error: 'Заполни все поля' }, { status: 400 })
+    let body: { title?: string; description?: string }
+    try {
+      body = await req.json()
+    } catch (error) {
+      return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+    }
+
+    const { title, description } = body
+
+    // Валидация данных
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return NextResponse.json({ error: 'Заголовок обязателен' }, { status: 400 })
+    }
+
+    if (!description || typeof description !== 'string' || !description.trim()) {
+      return NextResponse.json({ error: 'Описание обязательно' }, { status: 400 })
+    }
+
+    // Валидация длины
+    const { validateStringLength } = await import('@/lib/security')
+    const titleValidation = validateStringLength(title.trim(), 200, 'Заголовок')
+    if (!titleValidation.valid) {
+      return NextResponse.json(
+        { error: titleValidation.error },
+        { status: 400 }
+      )
+    }
+
+    const descriptionValidation = validateStringLength(description.trim(), 5000, 'Описание')
+    if (!descriptionValidation.valid) {
+      return NextResponse.json(
+        { error: descriptionValidation.error },
+        { status: 400 }
+      )
     }
 
     const updated = await prisma.task.update({
@@ -161,7 +197,7 @@ export async function PATCH(
 
     return NextResponse.json({ task: updated })
   } catch (err) {
-    console.error('Ошибка при PATCH задачи:', err)
+    logger.error('Ошибка при PATCH задачи', err, { taskId: id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
@@ -190,7 +226,7 @@ export async function DELETE(
     await prisma.task.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('Ошибка при DELETE задачи:', err)
+    logger.error('Ошибка при DELETE задачи', err, { taskId: id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

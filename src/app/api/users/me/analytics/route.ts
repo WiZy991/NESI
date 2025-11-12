@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verify } from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { logger } from '@/lib/logger'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
@@ -478,7 +479,7 @@ export async function GET(req: NextRequest) {
       stats: {},
     })
   } catch (err) {
-    console.error('❌ Ошибка получения аналитики:', err)
+    logger.error('Ошибка получения аналитики', err)
     return NextResponse.json(
       { error: 'Ошибка получения аналитики' },
       { status: 500 }

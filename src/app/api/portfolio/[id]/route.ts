@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verify } from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
@@ -15,10 +16,10 @@ export async function GET(
   try {
     const { id } = await params
     
-    console.log('📥 GET /api/portfolio/[id] запрос:', id)
+    logger.debug('GET /api/portfolio/[id] запрос', { id })
     
     if (!id || typeof id !== 'string' || id.trim() === '') {
-      console.error('❌ Неверный ID:', id)
+      logger.warn('Неверный ID портфолио', { id })
       return NextResponse.json(
         { error: 'Неверный ID портфолио' },
         { status: 400 }
@@ -42,7 +43,7 @@ export async function GET(
     } catch (dbError: any) {
       // Если ошибка связана с отсутствующим полем mediaType
       if (dbError?.message?.includes('mediaType') || dbError?.code === 'P2009') {
-        console.error('⚠️ Поле mediaType отсутствует в БД. Нужно применить миграцию.')
+        logger.warn('Поле mediaType отсутствует в БД. Нужно применить миграцию')
         // Пытаемся получить без include task
         portfolioItem = await prisma.portfolio.findUnique({
           where: { id },
@@ -74,8 +75,7 @@ export async function GET(
 
     return NextResponse.json(result)
   } catch (err: any) {
-    console.error('❌ Ошибка получения портфолио:', err)
-    console.error('Детали ошибки:', {
+    logger.error('Ошибка получения портфолио', err, {
       message: err?.message,
       stack: err?.stack,
     })
@@ -176,7 +176,7 @@ export async function PUT(
           updateError?.message?.includes('Unknown column') ||
           updateError?.code === 'P2009' ||
           updateError?.code === 'P2011') {
-        console.log('⚠️ Поле mediaType отсутствует в БД, обновляем без него')
+        logger.warn('Поле mediaType отсутствует в БД, обновляем без него')
         updated = await prisma.portfolio.update({
           where: { id },
           data: updateData,
@@ -201,8 +201,7 @@ export async function PUT(
 
     return NextResponse.json(result)
   } catch (err: any) {
-    console.error('❌ Ошибка обновления портфолио:', err)
-    console.error('Детали ошибки:', {
+    logger.error('Ошибка обновления портфолио', err, {
       message: err?.message,
       stack: err?.stack,
       code: err?.code,
@@ -276,7 +275,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('❌ Ошибка удаления портфолио:', err)
+    logger.error('Ошибка удаления портфолио', err)
     return NextResponse.json(
       { error: 'Ошибка удаления портфолио' },
       { status: 500 }

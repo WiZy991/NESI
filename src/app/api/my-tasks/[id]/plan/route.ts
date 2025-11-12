@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 type RouteParams = {
 	id?: string
@@ -87,7 +88,7 @@ export async function PATCH(
 
 		return NextResponse.json({ plan: updated })
 	} catch (error) {
-		console.error('Ошибка при обновлении персонального плана исполнителя:', error)
+		logger.error('Ошибка при обновлении персонального плана исполнителя', error, { userId: user?.id, taskId })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

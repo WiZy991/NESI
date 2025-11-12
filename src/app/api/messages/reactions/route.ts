@@ -1,6 +1,7 @@
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 // POST /api/messages/reactions - добавить/удалить реакцию
 export async function POST(req: NextRequest) {
@@ -115,7 +116,12 @@ export async function POST(req: NextRequest) {
 			)
 		}
 	} catch (error: any) {
-		console.error('Ошибка при работе с реакцией:', error)
+		logger.error('Ошибка при работе с реакцией', error, {
+			userId: user?.id,
+			messageId,
+			emoji,
+			chatType,
+		})
 		return NextResponse.json(
 			{ error: 'Ошибка сервера', details: error.message },
 			{ status: 500 }

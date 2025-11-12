@@ -4,6 +4,7 @@ import { getChatKey, updateChatActivity } from '@/lib/chatActivity'
 import { getUserFromRequest } from '@/lib/auth'
 import { createNotificationWithSettings } from '@/lib/notify'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import { validateFile } from '@/lib/fileValidation'
 import { normalizeFileName, isValidFileName } from '@/lib/security'
@@ -101,10 +102,10 @@ export async function GET(
 				orderBy: { createdAt: 'asc' },
 			})
 		} catch (prismaError: any) {
-			console.error('❌ Ошибка Prisma при получении сообщений:', prismaError)
+			logger.error('Ошибка Prisma при получении сообщений', prismaError, { taskId })
 			// Если ошибка связана с отсутствующими полями, делаем базовый запрос
 			if (prismaError.message?.includes('replyTo') || prismaError.message?.includes('reactions') || prismaError.code === 'P2021') {
-				console.warn('⚠️ Поля replyTo/reactions недоступны, используем базовый запрос')
+				logger.warn('Поля replyTo/reactions недоступны, используем базовый запрос', { taskId })
 				messages = await prisma.message.findMany({
 					where: { taskId },
 					include: {
@@ -148,22 +149,17 @@ export async function GET(
 		}
 	})
 
-		console.log('📨 Сообщения задачи найдены:', result.length)
-		if (result.length > 0) {
-			console.log('📝 Первое сообщение:', JSON.stringify(result[0], null, 2))
-			// Проверяем, есть ли сообщения с ответами
-			const messagesWithReplies = result.filter(m => m.replyTo !== null)
-			if (messagesWithReplies.length > 0) {
-				console.log('💬 Сообщений с ответами:', messagesWithReplies.length)
-				console.log('📎 Пример ответа:', JSON.stringify(messagesWithReplies[0].replyTo, null, 2))
-			}
-		} else {
-			console.log('📝 Сообщений нет, возвращаем пустой массив')
+	logger.debug('Сообщения задачи найдены', { taskId, count: result.length })
+	if (result.length > 0) {
+		const messagesWithReplies = result.filter(m => m.replyTo !== null)
+		if (messagesWithReplies.length > 0) {
+			logger.debug('Сообщений с ответами', { taskId, count: messagesWithReplies.length })
 		}
+	}
 
-		return NextResponse.json({ messages: result }, { status: 200 })
+	return NextResponse.json({ messages: result }, { status: 200 })
 	} catch (error: any) {
-		console.error('❌ Ошибка получения сообщений задачи:', error)
+		logger.error('Ошибка получения сообщений задачи', error, { taskId })
 		return NextResponse.json(
 			{ error: 'Ошибка сервера', details: error.message },
 			{ status: 500 }
@@ -227,9 +223,9 @@ export async function POST(
 					)
 				}
 			} catch (validationError: any) {
-				console.error('❌ Ошибка валидации replyToId:', validationError)
+				logger.error('Ошибка валидации replyToId', validationError, { replyToId, taskId, userId: user.id })
 				return NextResponse.json(
-					{ error: 'Ошибка проверки сообщения для ответа', details: validationError.message },
+					{ error: 'Ошибка проверки сообщения для ответа' },
 					{ status: 500 }
 				)
 			}
@@ -285,9 +281,9 @@ export async function POST(
 					},
 				})
 			} catch (fileError: any) {
-				console.error('❌ Ошибка сохранения файла:', fileError)
+				logger.error('Ошибка сохранения файла', fileError, { taskId, userId: user.id })
 				return NextResponse.json(
-					{ error: 'Ошибка сохранения файла', details: fileError.message },
+					{ error: 'Ошибка сохранения файла' },
 					{ status: 500 }
 				)
 			}
@@ -339,7 +335,7 @@ export async function POST(
 			} catch (prismaError: any) {
 				// Если ошибка из-за Unknown argument replyToId, создаем без него и обновляем через SQL
 				if (prismaError.message?.includes('Unknown argument') && prismaError.message?.includes('replyToId')) {
-					console.warn('⚠️ Prisma Client не поддерживает replyToId, используем SQL обновление')
+					logger.warn('Prisma Client не поддерживает replyToId, используем SQL обновление', { taskId })
 					
 					// Создаем сообщение без replyToId
 					const messageDataWithoutReply = { ...messageData }
@@ -405,7 +401,7 @@ export async function POST(
 				throw new Error('Не удалось создать сообщение')
 			}
 		} catch (createError: any) {
-			console.error('❌ Ошибка создания сообщения:', createError)
+			logger.error('Ошибка создания сообщения', createError, { taskId, userId: user.id })
 			
 			// Если это ошибка Prisma о foreign key, даем более понятное сообщение
 			if (createError.code === 'P2003' || createError.message?.includes('Foreign key constraint')) {
@@ -451,7 +447,7 @@ export async function POST(
 
 	// Отправляем уведомление получателю в реальном времени
 	if (recipientId) {
-		console.log('🔔 Подготовка уведомления для получателя:', recipientId)
+		logger.debug('Подготовка уведомления для получателя', { recipientId, taskId, senderId: user.id })
 		
 		// Создаем уведомление в базе данных
 		const formattedContent = formatNotificationMessage(
@@ -463,7 +459,6 @@ export async function POST(
 			message.sender.fullName || message.sender.email
 		} написал в задаче "${message.task.title}": ${formattedContent}`
 		
-		console.log('💾 Сохраняю уведомление в БД...')
 		const dbNotification = await createNotificationWithSettings({
 			userId: recipientId,
 			message: notificationMessage,
@@ -473,11 +468,11 @@ export async function POST(
 		
 		// Если уведомление отключено в настройках, не отправляем SSE
 		if (!dbNotification) {
-			console.log('🔕 Уведомление отключено в настройках пользователя')
+			logger.debug('Уведомление отключено в настройках пользователя', { recipientId })
 			return NextResponse.json({ message }, { status: 201 })
 		}
 		
-		console.log('✅ Уведомление сохранено в БД, ID:', dbNotification.id)
+		logger.debug('Уведомление сохранено в БД', { notificationId: dbNotification.id, recipientId })
 
 		const sseNotification = {
 			id: dbNotification.id, // Включаем ID из БД для дедупликации
@@ -496,11 +491,8 @@ export async function POST(
 			link: `/tasks/${taskId}`,
 		}
 		
-		console.log('📡 Отправка SSE уведомления:', sseNotification)
 		const sent = sendNotificationToUser(recipientId, sseNotification)
-		console.log('📨 Результат отправки SSE:', sent ? 'успешно' : 'ошибка')
-
-		console.log('📨 Сообщение в задаче отправлено и уведомление разослано:', {
+		logger.debug('Сообщение в задаче отправлено и уведомление разослано', {
 			senderId: user.id,
 			recipientId,
 			taskId,
@@ -529,9 +521,9 @@ export async function POST(
 			},
 		})
 	} catch (error: any) {
-		console.error('❌ Ошибка создания сообщения задачи:', error)
+		logger.error('Ошибка создания сообщения задачи', error, { taskId, userId: user?.id })
 		return NextResponse.json(
-			{ error: 'Ошибка сервера', details: error.message },
+			{ error: 'Ошибка сервера' },
 			{ status: 500 }
 		)
 	}

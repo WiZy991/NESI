@@ -1,26 +1,17 @@
 // /api/categories/route.ts
 
-import { cacheKeys, cacheTTL, withCache } from '@/lib/cache'
-import prisma from '@/lib/prisma'
+import { getCachedCategories } from '@/lib/categoryCache'
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
 	try {
-		const categories = await prisma.category.findMany({
-  include: {
-    subcategories: {
-      select: {
-        id: true,
-        name: true,
-        minPrice: true,
-      },
-    },
-  },
-})
+		// Используем кешированные категории (in-memory кеш на 10 минут)
+		const categories = await getCachedCategories()
 
 		const response = NextResponse.json({ categories })
 
-		// Кеширование на клиенте на 30 минут
+		// Дополнительное HTTP кеширование на клиенте на 30 минут
 		response.headers.set(
 			'Cache-Control',
 			'public, s-maxage=1800, stale-while-revalidate=3600'
@@ -28,7 +19,7 @@ export async function GET() {
 
 		return response
 	} catch (err) {
-		console.error('Ошибка при получении категорий:', err)
+		logger.error('Ошибка при получении категорий', err)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

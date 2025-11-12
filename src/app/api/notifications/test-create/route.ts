@@ -4,6 +4,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import { createNotification } from '@/lib/notify'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotificationToUser } from '../../notifications/stream/route'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
 	}
 
 	try {
-		console.log('🧪 Создание тестового уведомления для пользователя:', user.id)
+		logger.debug('Создание тестового уведомления', { userId: user.id })
 
 		// Создаем уведомление в БД
 		const notification = await createNotification({
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
 			type: 'test',
 		})
 
-		console.log('✅ Уведомление создано в БД:', notification)
+		logger.info('Тестовое уведомление создано в БД', { notificationId: notification.id, userId: user.id })
 
 		// Пытаемся отправить через SSE
 		const sseSent = sendNotificationToUser(user.id, {
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 			playSound: true,
 		})
 
-		console.log('📡 SSE отправка:', sseSent ? 'успешно' : 'не подключен')
+		logger.debug('SSE отправка тестового уведомления', { sseSent, userId: user.id })
 
 		return NextResponse.json({
 			success: true,
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 				: 'Уведомление сохранено в БД, SSE не подключен (будет получено через polling)',
 		})
 	} catch (error: any) {
-		console.error('❌ Ошибка создания тестового уведомления:', error)
+		logger.error('Ошибка создания тестового уведомления', error, { userId: user.id })
 		return NextResponse.json(
 			{ error: 'Ошибка сервера', details: error.message },
 			{ status: 500 }

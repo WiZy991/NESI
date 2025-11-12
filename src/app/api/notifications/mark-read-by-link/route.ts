@@ -2,6 +2,7 @@
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
 	const user = await getUserFromRequest(req)
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
-		console.log('📖 Удаление уведомлений по ссылке:', {
+		logger.debug('Удаление уведомлений по ссылке', {
 			userId: user.id,
 			link,
 		})
@@ -32,14 +33,18 @@ export async function POST(req: NextRequest) {
 			},
 		})
 
-		console.log(`✅ Удалено уведомлений: ${deletedNotifications.count}`)
+		logger.info('Уведомления удалены', { 
+			userId: user.id, 
+			count: deletedNotifications.count,
+			link,
+		})
 		
 		return NextResponse.json({ 
 			success: true,
 			deletedNotifications: deletedNotifications.count
 		})
 	} catch (error) {
-		console.error('Ошибка при удалении уведомлений:', error)
+		logger.error('Ошибка при удалении уведомлений', error, { userId: user.id })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

@@ -8,6 +8,7 @@ import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request, context: { params: { id: string } }) {
 	try {
@@ -16,7 +17,23 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
 		const { id: taskId } = context.params
-		const { executorId } = await req.json()
+		
+		let body
+		try {
+			body = await req.json()
+		} catch (error) {
+			return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+		}
+
+		// Валидация executorId
+		if (!body.executorId || typeof body.executorId !== 'string' || !body.executorId.trim()) {
+			return NextResponse.json(
+				{ error: 'ID исполнителя обязателен' },
+				{ status: 400 }
+			)
+		}
+
+		const executorId = body.executorId.trim()
 
 		const task = await prisma.task.findUnique({ where: { id: taskId } })
 		if (!task)
@@ -144,19 +161,16 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 				playSound: true,
 			})
 
-			console.log(
-				'✅ Уведомление о назначении отправлено исполнителю:',
-				executorId
-			)
+			logger.debug('Уведомление о назначении отправлено исполнителю', { executorId, taskId })
 			}
 		} catch (notifError) {
-			console.error('❌ Ошибка отправки уведомления о назначении:', notifError)
+			logger.error('Ошибка отправки уведомления о назначении', notifError, { executorId, taskId })
 		}
 
 		// 🎯 Проверяем достижения для заказчика после назначения исполнителя (для uniqueExecutors)
 		let awardedBadges: Array<{ id: string; name: string; icon: string; description?: string }> = []
 		try {
-			console.log(`[Badges] 🔍 Проверяем достижения для заказчика ${user.id} после назначения исполнителя для задачи ${taskId}`)
+			logger.debug('Проверяем достижения для заказчика после назначения исполнителя', { userId: user.id, taskId })
 			const newBadges = await checkAndAwardBadges(user.id)
 			if (newBadges.length > 0) {
 				const badgeIds = newBadges.map(b => b.id)
@@ -170,15 +184,19 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 					icon: badge.icon,
 					description: badge.description
 				}))
-				console.log(`[Badges] ✅ Заказчику ${user.id} начислено ${awardedBadges.length} достижений:`, awardedBadges.map(b => b.name))
+				logger.info('Заказчику начислены достижения', { 
+					userId: user.id, 
+					badgesCount: awardedBadges.length,
+					badgeNames: awardedBadges.map(b => b.name)
+				})
 			}
 		} catch (badgeError) {
-			console.error('[Badges] ❌ Ошибка проверки достижений для заказчика:', badgeError)
+			logger.error('Ошибка проверки достижений для заказчика', badgeError, { userId: user.id, taskId })
 		}
 
 		return NextResponse.json({ task, awardedBadges })
 	} catch (err: any) {
-		console.error('Ошибка при назначении исполнителя:', err)
+		logger.error('Ошибка при назначении исполнителя', err, { taskId })
 		return NextResponse.json({ error: err.message || 'Ошибка сервера' }, { status: 500 })
 	}
 }

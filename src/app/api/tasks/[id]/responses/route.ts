@@ -4,6 +4,8 @@ import { createNotificationWithSettings } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 import { NextRequest, NextResponse } from 'next/server'
+import { validateWithZod, taskResponseSchema } from '@/lib/validations'
+import { validateStringLength } from '@/lib/security'
 
 export async function POST(req: NextRequest) {
 	const { pathname } = req.nextUrl
@@ -18,7 +20,32 @@ export async function POST(req: NextRequest) {
 	if (!user)
 		return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-	const { message, price } = await req.json()
+	let body
+	try {
+		body = await req.json()
+	} catch (error) {
+		return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+	}
+
+	// Валидация данных
+	const validation = validateWithZod(taskResponseSchema, body)
+	if (!validation.success) {
+		return NextResponse.json(
+			{ error: validation.errors.join(', ') },
+			{ status: 400 }
+		)
+	}
+
+	const { message, price } = validation.data
+
+	// Дополнительная валидация длины сообщения
+	const messageValidation = validateStringLength(message || '', 2000, 'Сообщение')
+	if (!messageValidation.valid) {
+		return NextResponse.json(
+			{ error: messageValidation.error },
+			{ status: 400 }
+		)
+	}
 
 	const task = await prisma.task.findUnique({
 		where: { id: taskId },

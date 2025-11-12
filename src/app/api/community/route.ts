@@ -3,6 +3,28 @@ import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { randomUUID } from 'crypto'
 import { fetchPollDataForPosts } from '@/lib/communityPoll'
+import { logger } from '@/lib/logger'
+import { z } from 'zod'
+import { validateWithZod } from '@/lib/validations'
+import { validateStringLength } from '@/lib/security'
+import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
+
+// Схема валидации для создания поста
+const createPostSchema = z.object({
+	content: z
+		.string()
+		.max(5000, 'Содержимое поста слишком длинное (максимум 5000 символов)')
+		.trim()
+		.optional(),
+	imageUrl: z.string().url('Некорректный URL изображения').optional().or(z.literal('')),
+	mediaType: z.enum(['image', 'video']).optional(),
+	poll: z
+		.object({
+			isPoll: z.boolean().optional(),
+			options: z.array(z.string().max(200, 'Вариант ответа слишком длинный')).max(10, 'Максимум 10 вариантов ответа').optional(),
+		})
+		.optional(),
+})
 
 // 📌 Получить список постов
 export async function GET(req: NextRequest) {
@@ -40,7 +62,7 @@ export async function GET(req: NextRequest) {
       },
     })
     
-    console.log(`📋 Получено постов: ${posts.length}`)
+    logger.debug('Получено постов сообщества', { count: posts.length, page, limit })
 
     // Получаем лайки отдельно, если пользователь авторизован
     let userLikes: string[] = []
@@ -123,7 +145,7 @@ export async function GET(req: NextRequest) {
       
       // Логируем для диагностики
       if (p.imageUrl && detectedMediaType === 'video') {
-        console.log(`🎥 Определен видео пост: ${p.id}, imageUrl: ${p.imageUrl}, mediaType: ${detectedMediaType}`)
+        logger.debug('Определен видео пост', { postId: p.id, imageUrl: p.imageUrl, mediaType: detectedMediaType })
       }
       
       return result
@@ -131,10 +153,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ posts: formatted })
   } catch (err: any) {
-    console.error('❌ Ошибка получения постов:', {
+    logger.error('Ошибка получения постов', err, {
       message: err?.message,
       code: err?.code,
-      stack: err?.stack,
     })
     
     // Если ошибка связана с отсутствующим полем mediaType - пробуем получить посты без него
@@ -147,7 +168,7 @@ export async function GET(req: NextRequest) {
       err?.message?.includes('does not exist')
     
     if (isSchemaError) {
-      console.log('⚠️ Проблема с mediaType при получении постов. Пробуем через raw SQL.')
+      logger.warn('Проблема с mediaType при получении постов. Пробуем через raw SQL.')
       try {
         // Используем raw SQL для получения постов
         const postsRaw = await prisma.$queryRaw<Array<{
@@ -252,7 +273,7 @@ export async function GET(req: NextRequest) {
         
         return NextResponse.json({ posts: formattedFallback })
       } catch (fallbackError: any) {
-        console.error('❌ Ошибка при получении постов через raw SQL:', fallbackError)
+        logger.error('Ошибка при получении постов через raw SQL', fallbackError)
         return NextResponse.json({ error: 'Ошибка сервера', posts: [] }, { status: 500 })
       }
     }
@@ -269,6 +290,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
+    // Rate limiting для создания постов
+    const postCreateRateLimit = createUserRateLimit({
+      windowMs: 60 * 1000, // 1 минута
+      maxRequests: 10, // Максимум 10 постов в минуту
+    })
+    const rateLimitResult = await postCreateRateLimit(req)
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Слишком много запросов на создание постов. Подождите немного.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetTime - Date.now()) / 1000
+            ).toString(),
+            'X-RateLimit-Limit': '10',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          },
+        }
+      )
+    }
+
     let body: any
     try {
       body = await req.json()
@@ -279,14 +324,34 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { content, imageUrl, mediaType, poll } = body || {}
-    
     // Валидация данных
+    const validation = validateWithZod(createPostSchema, body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.errors.join(', ') },
+        { status: 400 }
+      )
+    }
+
+    const { content, imageUrl, mediaType, poll } = validation.data
+    
+    // Проверка, что пост не пустой
     if (!content?.trim() && !imageUrl) {
       return NextResponse.json(
         { error: 'Пост не может быть пустым' },
         { status: 400 }
       )
+    }
+
+    // Дополнительная валидация длины содержимого
+    if (content) {
+      const contentValidation = validateStringLength(content, 5000, 'Содержимое поста')
+      if (!contentValidation.valid) {
+        return NextResponse.json(
+          { error: contentValidation.error },
+          { status: 400 }
+        )
+      }
     }
 
     const pollOptionsInput: string[] = Array.isArray(poll?.options)
@@ -370,7 +435,7 @@ export async function POST(req: NextRequest) {
       } as any
     } catch (dbError: any) {
       // Логируем детали ошибки для диагностики
-      console.error('🔍 Ошибка при создании поста с mediaType:', {
+      logger.error('Ошибка при создании поста с mediaType', dbError, {
         message: dbError?.message,
         code: dbError?.code,
         meta: dbError?.meta,
@@ -387,7 +452,7 @@ export async function POST(req: NextRequest) {
         (dbError?.message?.includes('column') && dbError?.message?.includes('not exist'))
       
       if (isSchemaError) {
-        console.log('⚠️ Поле mediaType отсутствует в БД. Создаем через raw SQL.')
+        logger.warn('Поле mediaType отсутствует в БД. Создаем через raw SQL.')
         try {
           // Используем raw SQL, чтобы обойти Prisma клиент, который знает о mediaType из схемы
           // Генерируем ID вручную (cuid формат примерно 25 символов)
@@ -439,17 +504,16 @@ export async function POST(req: NextRequest) {
             mediaType: detectedMediaType,
           } as any
         } catch (secondError: any) {
-          console.error('❌ Ошибка при создании поста через raw SQL:', {
+          logger.error('Ошибка при создании поста через raw SQL', secondError, {
             message: secondError?.message,
             code: secondError?.code,
             meta: secondError?.meta,
-            stack: secondError?.stack,
           })
           throw secondError
         }
       } else {
         // Если это не ошибка схемы - пробрасываем дальше
-        console.error('❌ Ошибка создания поста (не схема):', {
+        logger.error('Ошибка создания поста (не схема)', dbError, {
           message: dbError?.message,
           code: dbError?.code,
           meta: dbError?.meta,
@@ -493,10 +557,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, post: formattedPost }, { status: 201 })
   } catch (err: any) {
-    console.error('🔥 Ошибка создания поста:', err)
-    console.error('Детали ошибки:', {
+    logger.error('Ошибка создания поста', err, {
       message: err?.message,
-      stack: err?.stack,
       code: err?.code,
       meta: err?.meta,
       name: err?.name,

@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function GET(
 	req: Request,
@@ -36,7 +37,7 @@ export async function GET(
 									icon: true,
 									targetRole: true,
 									condition: true, // Добавляем condition для проверки универсальных badges
-								} as any // Обход проблемы с типами Prisma
+								}
 							}
 						},
 						orderBy: { earnedAt: 'desc' },
@@ -153,7 +154,10 @@ export async function GET(
 					}
 				} catch (error) {
 					// Если не удалось распарсить условие, оставляем badge
-					console.error(`[Users API] Ошибка парсинга условия для badge ${badge.id}:`, error)
+					logger.warn('Ошибка парсинга условия для badge', error, {
+						badgeId: badge.id,
+						userId: id,
+					})
 				}
 			}
 			
@@ -174,7 +178,7 @@ export async function GET(
 			},
 		})
 	} catch (error) {
-		console.error('Ошибка получения пользователя:', error)
+		logger.error('Ошибка получения пользователя', error, { userId: id })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

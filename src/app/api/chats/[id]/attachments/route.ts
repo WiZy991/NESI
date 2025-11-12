@@ -2,6 +2,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 type AttachmentType = 'all' | 'image' | 'doc'
 
@@ -264,7 +265,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 			})),
 		})
 	} catch (error: any) {
-		console.error('❌ Ошибка получения вложений чата:', error)
+		logger.error('Ошибка получения вложений чата', error, {
+			chatId: id,
+			userId: user?.id,
+		})
 		return NextResponse.json(
 			{ error: 'Не удалось получить вложения', details: error?.message ?? String(error) },
 			{ status: 500 }

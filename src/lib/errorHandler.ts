@@ -2,6 +2,8 @@
  * Улучшенная обработка ошибок с логированием
  */
 
+import { logger } from './logger'
+
 export class AppError extends Error {
   constructor(
     message: string,
@@ -24,7 +26,7 @@ export function handleApiError(error: unknown): {
   code?: string
 } {
   // Логируем ошибку для мониторинга
-  console.error('❌ API Error:', error)
+  logger.error('API Error', error)
 
   // Если это наш AppError
   if (error instanceof AppError) {

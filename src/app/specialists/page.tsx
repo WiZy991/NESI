@@ -1,6 +1,7 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
+import { SpecialistListSkeleton } from '@/components/SkeletonLoader/SpecialistCardSkeleton'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -91,23 +92,27 @@ export default function SpecialistsPage() {
 				setLoading(true)
 				setError(null)
 				try {
-					const res = await fetch(`/api/specialists?${queryString}`, {
-						cache: 'no-store',
-						signal: ctrl.signal,
-					})
-					const data: ApiResponse = await res.json()
-					if (!res.ok)
-						throw new Error(
-							(data as any)?.error || `${res.status} ${res.statusText}`
-						)
+					const { fetchJsonWithRetry } = await import('@/lib/retry')
+					const data = await fetchJsonWithRetry<ApiResponse>(
+						`/api/specialists?${queryString}`,
+						{
+							cache: 'no-store',
+							signal: ctrl.signal,
+						},
+						{ maxRetries: 2, retryDelay: 800 }
+					)
 
 					// сортировка теперь идёт на бэке
 					setItems(data.items || [])
 					setTotal(data.total || 0)
 					setPages(data.pages || 1)
-				} catch (e: any) {
-					if (e?.name === 'AbortError') return
-					setError(e?.message || 'Ошибка загрузки исполнителей')
+				} catch (e: unknown) {
+					if (e instanceof Error && e.name === 'AbortError') return
+					const errorMessage =
+						e instanceof Error
+							? e.message
+							: 'Ошибка загрузки исполнителей'
+					setError(errorMessage)
 					setItems([])
 					setTotal(0)
 					setPages(1)

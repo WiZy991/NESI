@@ -5,6 +5,7 @@ import { validateFile } from '@/lib/fileValidation'
 import { getUserFromRequest } from '@/lib/auth'
 import { normalizeFileName, isValidFileName } from '@/lib/security'
 import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
 
       // Если это изображение, но сигнатура не совпадает - предупреждение, но разрешаем
       if (mimeType.startsWith('image/') && !isPng && !isJpeg && !isGif && !isWebP) {
-        console.warn(`⚠️ Сигнатура изображения ${safeFileName} не совпадает, но MIME тип корректный`)
+        logger.warn('Сигнатура изображения не совпадает, но MIME тип корректный', { fileName: safeFileName, mimeType })
       }
     }
 
@@ -143,7 +144,7 @@ export async function POST(req: Request) {
       url: `/api/files/${savedFile.id}`,
     })
   } catch (err) {
-    console.error('❌ Ошибка загрузки файла:', err)
+    logger.error('Ошибка загрузки файла в чат', err, { userId: user?.id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

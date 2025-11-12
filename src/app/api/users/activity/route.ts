@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { broadcastOnlineCountUpdate } from './stream/route'
+import { logger } from '@/lib/logger'
 
 /**
  * POST /api/users/activity
@@ -36,13 +37,13 @@ export async function POST(req: NextRequest) {
     if (shouldBroadcast) {
       // Отправляем broadcast асинхронно, не блокируя ответ
       broadcastOnlineCountUpdate().catch(err => {
-        console.error('Ошибка broadcast при обновлении активности:', err)
+        logger.error('Ошибка broadcast при обновлении активности', err, { userId: user.id })
       })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('❌ Ошибка обновления активности:', error)
+    logger.error('Ошибка обновления активности', error, { userId: user?.id })
     return NextResponse.json(
       { error: 'Ошибка обновления активности' },
       { status: 500 }

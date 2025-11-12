@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 // 📌 Получить все жалобы (только для админа)
 export async function GET(req: NextRequest) {
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ reports: reportsWithLinks })
   } catch (err) {
-    console.error('🔥 Ошибка загрузки жалоб:', err)
+    logger.error('Ошибка загрузки жалоб', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
@@ -89,12 +90,12 @@ export async function DELETE(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}))
-    console.log('🗑️ DELETE request body:', body)
+    logger.debug('DELETE request body', { body })
     
     const { type, id } = body
     
     if (!type || !id) {
-      console.error('❌ Missing type or id:', { type, id, body })
+      logger.warn('Missing type or id', { type, id, body })
       return NextResponse.json({ 
         error: `Не указаны type и id. Получено: type=${type}, id=${id}` 
       }, { status: 400 })
@@ -137,7 +138,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ error: 'Неверный тип' }, { status: 400 })
   } catch (err) {
-    console.error('🔥 Ошибка при удалении через админку:', err)
+    logger.error('Ошибка при удалении через админку', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

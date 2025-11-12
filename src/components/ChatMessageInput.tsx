@@ -311,7 +311,7 @@ export default function MessageInput({
 					keepalive: true,
 				})
 			} catch (error) {
-				console.error('Ошибка отправки события набора:', error)
+				// Игнорируем ошибки отправки события набора (не критично)
 			}
 		},
 		[token, typingContext]
