@@ -613,23 +613,58 @@ export default function ChatMessage({
 		return File
 	}
 
+	// Функция для декодирования HTML entities
+	const decodeHtmlEntities = (text: string): string => {
+		if (!text) return text
+		
+		// Сначала декодируем через DOM API (если доступен)
+		let decoded = text
+		if (typeof document !== 'undefined') {
+			try {
+				const textarea = document.createElement('textarea')
+				textarea.innerHTML = text
+				decoded = textarea.value
+			} catch (e) {
+				// Если не получилось, используем замену
+			}
+		}
+		
+		// Дополнительно декодируем часто используемые entities
+		return decoded
+			.replace(/&quot;/g, '"')
+			.replace(/&#x2F;/gi, '/') // case-insensitive для x2F и x2f
+			.replace(/&#x2f;/g, '/')
+			.replace(/&amp;/g, '&')
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>')
+			.replace(/&#39;/g, "'")
+			.replace(/&apos;/g, "'")
+			.replace(/&#x27;/g, "'")
+			// Декодируем числовые entities для слэшей
+			.replace(/&#47;/g, '/')
+			.replace(/&#92;/g, '\\')
+	}
+
 	// Функция для парсинга ссылок в тексте
 	const parseLinks = (text: string) => {
 		if (!text) return []
 
+		// Декодируем HTML entities перед обработкой
+		const decodedText = decodeHtmlEntities(text)
+
 		// Регулярное выражение для поиска URL (с протоколом и без)
 		const urlRegex =
-			/(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}[^\s]*/g
+			/(https?:\/\/[^\s<>"']+)|(www\.[^\s<>"']+)|([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}[^\s<>"']*/g
 		const parts: Array<{ type: 'text' | 'link'; content: string }> = []
 		let lastIndex = 0
 		let match
 
-		while ((match = urlRegex.exec(text)) !== null) {
+		while ((match = urlRegex.exec(decodedText)) !== null) {
 			// Добавляем текст до ссылки
 			if (match.index > lastIndex) {
 				parts.push({
 					type: 'text',
-					content: text.substring(lastIndex, match.index),
+					content: decodedText.substring(lastIndex, match.index),
 				})
 			}
 
@@ -649,14 +684,14 @@ export default function ChatMessage({
 		}
 
 		// Добавляем оставшийся текст
-		if (lastIndex < text.length) {
+		if (lastIndex < decodedText.length) {
 			parts.push({
 				type: 'text',
-				content: text.substring(lastIndex),
+				content: decodedText.substring(lastIndex),
 			})
 		}
 
-		return parts.length > 0 ? parts : [{ type: 'text', content: text }]
+		return parts.length > 0 ? parts : [{ type: 'text', content: decodedText }]
 	}
 
 	// Рендер текста с ссылками
@@ -679,6 +714,7 @@ export default function ChatMessage({
 							isOwnMessage ? 'text-blue-200' : 'text-blue-400'
 						}`}
 						onClick={e => e.stopPropagation()}
+						style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
 					>
 						{displayText}
 					</a>

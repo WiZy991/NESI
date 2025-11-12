@@ -1274,6 +1274,11 @@ function ChatsPageContent() {
 
 	// Функция для выбора чата
 	const handleSelectChat = async (chat: Chat) => {
+		// Если чат уже выбран, не перезагружаем сообщения
+		if (selectedChat?.id === chat.id) {
+			return
+		}
+		
 		setSelectedChat(chat)
 		setMessages([])
 		setMessagesLoading(true)
@@ -1703,6 +1708,38 @@ function ChatsPageContent() {
 		}
 	}
 
+	// Функция для декодирования HTML entities
+	const decodeHtmlEntities = (text: string | null | undefined): string => {
+		if (!text) return text || ''
+		
+		// Сначала декодируем через DOM API (если доступен)
+		let decoded = text
+		if (typeof document !== 'undefined') {
+			try {
+				const textarea = document.createElement('textarea')
+				textarea.innerHTML = text
+				decoded = textarea.value
+			} catch (e) {
+				// Если не получилось, используем замену
+			}
+		}
+		
+		// Дополнительно декодируем часто используемые entities
+		return decoded
+			.replace(/&quot;/g, '"')
+			.replace(/&#x2F;/gi, '/') // case-insensitive для x2F и x2f
+			.replace(/&#x2f;/g, '/')
+			.replace(/&amp;/g, '&')
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>')
+			.replace(/&#39;/g, "'")
+			.replace(/&apos;/g, "'")
+			.replace(/&#x27;/g, "'")
+			// Декодируем числовые entities для слэшей
+			.replace(/&#47;/g, '/')
+			.replace(/&#92;/g, '\\')
+	}
+
 	const getChatSubtitle = (chat: Chat) => {
 		const lastMessageContent = chat.lastMessage.content
 		
@@ -1717,12 +1754,15 @@ function ChatsPageContent() {
 			}
 		}
 
+		// Декодируем HTML entities перед отображением
+		const decodedContent = decodeHtmlEntities(lastMessageContent)
+
 		if (chat.type === 'private') {
-			return lastMessageContent || 'Файл'
+			return decodedContent || 'Файл'
 		} else {
 			const senderName =
 				chat.lastMessage.sender.fullName || chat.lastMessage.sender.email
-			return `${senderName}: ${lastMessageContent || 'Файл'}`
+			return `${senderName}: ${decodedContent || 'Файл'}`
 		}
 	}
 

@@ -8,6 +8,65 @@ import { NextResponse } from 'next/server'
 import { validateFile } from '@/lib/fileValidation'
 import { normalizeFileName, isValidFileName } from '@/lib/security'
 
+// Функция для проверки, является ли сообщение голосовым
+function isVoiceMessage(content: string | null | undefined): boolean {
+	if (!content || typeof content !== 'string') return false
+	try {
+		// Пробуем распарсить как JSON
+		let parsed
+		try {
+			parsed = JSON.parse(content)
+		} catch {
+			// Если не получилось, пробуем заменить экранированные кавычки
+			const unescaped = content.replace(/&quot;/g, '"')
+			parsed = JSON.parse(unescaped)
+		}
+		return (
+			parsed &&
+			parsed.type === 'voice' &&
+			typeof parsed.duration === 'number' &&
+			Array.isArray(parsed.waveform)
+		)
+	} catch {
+		return false
+	}
+}
+
+// Функция для декодирования HTML entities (серверная версия)
+function decodeHtmlEntities(text: string): string {
+	if (!text) return text
+	return text
+		.replace(/&quot;/g, '"')
+		.replace(/&#x2F;/g, '/')
+		.replace(/&#x2f;/g, '/')
+		.replace(/&amp;/g, '&')
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&#39;/g, "'")
+		.replace(/&apos;/g, "'")
+		.replace(/&#x27;/g, "'")
+		.replace(/&#x2F;/g, '/')
+}
+
+// Функция для форматирования текста уведомления
+function formatNotificationMessage(
+	content: string | null | undefined,
+	fileName: string | null | undefined,
+	isServerSide: boolean = true
+): string {
+	if (!content && !fileName) return 'Новое сообщение'
+	if (fileName) return `Файл: ${fileName}`
+	if (!content) return 'Новое сообщение'
+	
+	// Проверяем, является ли сообщение голосовым
+	if (isVoiceMessage(content)) {
+		return '🎤 Голосовое сообщение'
+	}
+	
+	// Декодируем HTML entities
+	return decodeHtmlEntities(content)
+}
+
 // GET /api/tasks/[id]/messages
 export async function GET(
 	req: Request,
@@ -395,11 +454,14 @@ export async function POST(
 		console.log('🔔 Подготовка уведомления для получателя:', recipientId)
 		
 		// Создаем уведомление в базе данных
+		const formattedContent = formatNotificationMessage(
+			content,
+			savedFile?.filename || null,
+			true
+		)
 		const notificationMessage = `${
 			message.sender.fullName || message.sender.email
-		} написал в задаче "${message.task.title}": ${
-			content || (savedFile ? `Файл: ${savedFile.filename}` : 'Новое сообщение')
-		}`
+		} написал в задаче "${message.task.title}": ${formattedContent}`
 		
 		console.log('💾 Сохраняю уведомление в БД...')
 		const dbNotification = await createNotificationWithSettings({
@@ -421,9 +483,7 @@ export async function POST(
 			id: dbNotification.id, // Включаем ID из БД для дедупликации
 			type: 'message',
 			title: 'Новое сообщение в задаче',
-			message:
-				content ||
-				(savedFile ? `Файл: ${savedFile.filename}` : 'Новое сообщение'),
+			message: formattedContent,
 			sender: message.sender.fullName || message.sender.email,
 			senderId: message.sender.id,
 			chatType: 'task',
