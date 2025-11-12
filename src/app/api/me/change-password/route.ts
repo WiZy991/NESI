@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { validatePassword } from '@/lib/errorHandler'
+import { passwordSchema, validateWithZod } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
@@ -20,10 +20,12 @@ export async function POST(req: Request) {
     }
 
     // Валидация нового пароля
-    try {
-      validatePassword(newPassword)
-    } catch (error: any) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    const passwordValidation = validateWithZod(passwordSchema, newPassword)
+    if (!passwordValidation.success) {
+      return NextResponse.json(
+        { error: passwordValidation.errors[0] || 'Ошибка валидации пароля' },
+        { status: 400 }
+      )
     }
 
     // Проверка, что новый пароль отличается от старого

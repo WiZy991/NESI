@@ -3,6 +3,8 @@
 import LoadingSpinner from '@/components/LoadingSpinner'
 import ReportModal from '@/components/ReportModal'
 import VideoPlayer from '@/components/VideoPlayer'
+import { SkeletonLoader } from '@/components/SkeletonLoader'
+import { PostListSkeleton } from '@/components/SkeletonLoader/PostSkeleton'
 import { useUser } from '@/context/UserContext'
 import {
 	Check,
