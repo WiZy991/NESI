@@ -1685,7 +1685,7 @@ export default function ChatMessage({
 													audioUrl={fileUrl}
 													waveform={meta.waveform || []}
 													duration={meta.duration || 0}
-													fileSize={message.fileSize}
+														fileSize={message.fileSize ? Number(message.fileSize) : undefined}
 													fileName={message.fileName}
 												/>
 											) : (

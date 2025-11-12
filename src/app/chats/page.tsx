@@ -2064,25 +2064,31 @@ function ChatsPageContent() {
 						{selectedChat ? (
 							<>
 								{/* Заголовок чата - фиксированный */}
-								<div className='flex-shrink-0 px-3 sm:px-5 md:px-8 py-3 sm:py-4 md:py-5 border-b border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgba(15,118,110,0.22)] backdrop-blur-md relative'>
+								<div className='flex-shrink-0 px-2 sm:px-5 md:px-8 py-2.5 sm:py-4 md:py-5 border-b border-emerald-300/25 bg-slate-900/32 shadow-[0_12px_32px_rgba(15,118,110,0.22)] backdrop-blur-md relative'>
 									{selectedChat && (
-										<div className='absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 flex items-center gap-2'>
+										<div className='absolute top-1.5 right-1.5 sm:top-3 sm:right-3 md:top-4 md:right-4 flex items-center gap-1 sm:gap-2'>
 											{messages.length > 0 && (
 												<button
 													onClick={() => setIsMessageSearchOpen(prev => !prev)}
-													className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
+													className='p-1.5 sm:p-2.5 w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
 													aria-label='Поиск в сообщениях (Ctrl+F)'
 													title='Поиск в сообщениях (Ctrl+F)'
+													style={{
+														WebkitTapHighlightColor: 'transparent',
+													}}
 												>
-													<span className='text-base sm:text-lg'>🔍</span>
+													<span className='text-sm sm:text-base md:text-lg'>🔍</span>
 												</button>
 											)}
 											<button
 												onClick={() => setIsAttachmentsOpen(true)}
-												className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-200 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
+												className='p-1.5 sm:p-2.5 w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-200 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
 												title='Открыть вложения'
+												style={{
+													WebkitTapHighlightColor: 'transparent',
+												}}
 											>
-												<span className='text-base sm:text-lg'>📎</span>
+												<span className='text-sm sm:text-base md:text-lg'>📎</span>
 											</button>
 											<button
 												onClick={() => {
@@ -2092,14 +2098,17 @@ function ChatsPageContent() {
 														)
 													}
 												}}
-												className='p-2 sm:p-2.5 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-200 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
+												className='p-1.5 sm:p-2.5 w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center bg-black/40 border border-emerald-500/30 rounded-lg text-emerald-200 hover:bg-emerald-500/20 active:bg-emerald-500/30 transition touch-manipulation'
 												title='Шаблоны сообщений'
+												style={{
+													WebkitTapHighlightColor: 'transparent',
+												}}
 											>
-												<span className='text-base sm:text-lg'>📄</span>
+												<span className='text-sm sm:text-base md:text-lg'>📄</span>
 											</button>
 										</div>
 									)}
-									<div className='flex items-center space-x-2 sm:space-x-3 md:space-x-4 pr-20 sm:pr-24 md:pr-28'>
+									<div className='flex items-center space-x-2 sm:space-x-3 md:space-x-4 pr-16 sm:pr-24 md:pr-28'>
 										{/* Кнопка "Назад" для мобильных */}
 										<button
 											onClick={() => {
@@ -2109,11 +2118,14 @@ function ChatsPageContent() {
 													window.dispatchEvent(new CustomEvent('chatClosed'))
 												}
 											}}
-											className='md:hidden flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-gray-600/60 to-gray-700/60 border border-gray-500/30 hover:border-emerald-400/50 active:bg-gray-600 active:scale-95 ios-transition hover-scale touch-manipulation shadow-lg transition-transform'
+											className='md:hidden flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-gray-600/60 to-gray-700/60 border border-gray-500/30 hover:border-emerald-400/50 active:bg-gray-600 active:scale-95 ios-transition hover-scale touch-manipulation shadow-lg transition-transform'
 											aria-label='Вернуться к списку чатов'
+											style={{
+												WebkitTapHighlightColor: 'transparent',
+											}}
 										>
 											<svg
-												className='w-5 h-5 sm:w-6 sm:h-6 text-white'
+												className='w-4 h-4 sm:w-5 sm:h-5 text-white'
 												fill='none'
 												stroke='currentColor'
 												viewBox='0 0 24 24'
@@ -2135,33 +2147,33 @@ function ChatsPageContent() {
 														selectedChat.otherUser?.email ||
 														'?'
 													}
-													size={window.innerWidth < 640 ? 40 : 48}
+													size={isMobile ? 36 : window.innerWidth < 640 ? 40 : 48}
 													userId={selectedChat.otherUser?.id}
 												/>
 											</div>
 										) : (
-											<div className='w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
-												<span className='text-xl sm:text-2xl'>📋</span>
+											<div className='w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
+												<span className='text-lg sm:text-xl md:text-2xl'>📋</span>
 											</div>
 										)}
 										<div className='flex-1 min-w-0'>
-											<h2 className='text-white font-semibold text-sm sm:text-lg truncate'>
+											<h2 className='text-white font-semibold text-xs sm:text-sm md:text-lg truncate'>
 												{selectedChat.type === 'private'
 													? selectedChat.otherUser?.fullName ||
 													  selectedChat.otherUser?.email ||
 													  'Неизвестный пользователь'
 													: getChatTitle(selectedChat)}
 											</h2>
-											<div className='flex items-center gap-2 mt-1 flex-wrap'>
+											<div className='flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap'>
 												{selectedChat.type === 'task' ? (
 													<>
-														<span className='text-[10px] sm:text-xs text-emerald-300 bg-emerald-900/30 border border-emerald-500/30 px-2 py-0.5 rounded-full'>
+														<span className='text-[9px] sm:text-[10px] md:text-xs text-emerald-300 bg-emerald-900/30 border border-emerald-500/30 px-1.5 sm:px-2 py-0.5 rounded-full'>
 															💼 Чат по задаче
 														</span>
 														{selectedChat.task?.id && (
 															<Link
 																href={`/tasks/${selectedChat.task.id}`}
-																className='text-[10px] sm:text-xs text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/40 px-2 py-0.5 rounded-full inline-block truncate max-w-full transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/20'
+																className='text-[9px] sm:text-[10px] md:text-xs text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/40 px-1.5 sm:px-2 py-0.5 rounded-full inline-block truncate max-w-full transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/20'
 																title='Перейти к задаче'
 															>
 																📋 {selectedChat.task.title}
@@ -2169,21 +2181,21 @@ function ChatsPageContent() {
 														)}
 													</>
 												) : (
-													<span className='text-[10px] sm:text-xs text-blue-300 bg-blue-900/30 border border-blue-500/30 px-2 py-0.5 rounded-full'>
+													<span className='text-[9px] sm:text-[10px] md:text-xs text-blue-300 bg-blue-900/30 border border-blue-500/30 px-1.5 sm:px-2 py-0.5 rounded-full'>
 														👤 По запросу найма
 													</span>
 												)}
 											</div>
 											{presenceDisplay && (
 												<div
-													className='mt-1 text-[11px] sm:text-xs text-slate-300 flex items-center gap-2'
+													className='mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] md:text-xs text-slate-300 flex items-center gap-1.5 sm:gap-2'
 													title={presenceDisplay.tooltip}
 												>
-													<span className='inline-flex items-center gap-2'>
+													<span className='inline-flex items-center gap-1 sm:gap-2'>
 														<span
-															className={`w-2 h-2 rounded-full ${presenceDisplay.indicatorClass}`}
+															className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${presenceDisplay.indicatorClass}`}
 														/>
-														<span>{presenceDisplay.text}</span>
+														<span className='truncate'>{presenceDisplay.text}</span>
 													</span>
 												</div>
 											)}
