@@ -864,28 +864,28 @@ export default function TaskCatalogPage() {
 																					setActiveReasonId(null)
 																				}
 																			}}
-																			className={`absolute z-50 top-full mt-2 right-0 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-emerald-500/25 bg-slate-950/98 backdrop-blur-sm px-4 py-3 text-left shadow-[0_18px_40px_rgba(16,185,129,0.25)] transition-all duration-150 ${
+																			className={`absolute z-50 bottom-full mb-2 right-0 w-[260px] max-w-[calc(100vw-1rem)] rounded-lg border border-emerald-500/30 bg-slate-950/98 backdrop-blur-md px-2.5 py-2 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all duration-150 ${
 																				showReasons
 																					? 'opacity-100 visible pointer-events-auto'
 																					: 'opacity-0 invisible pointer-events-none'
 																			}`}
 																		>
-																			<div className='text-xs font-semibold text-emerald-300 mb-2.5'>
+																			<div className='text-[9px] uppercase tracking-wider text-emerald-400/70 mb-1.5 font-semibold'>
 																				Почему подобрали
 																			</div>
-																			<div className='space-y-1.5 max-h-48 overflow-y-auto'>
+																			<div className='space-y-1'>
 																				{recommendation.reasons
 																					.slice(0, 3)
 																					.map((reason, idx) => (
 																						<div
 																							key={`${task.id}-popover-${idx}-${reason}`}
-																							className='text-[11px] text-emerald-100/90 leading-snug'
+																							className='text-[10px] text-emerald-100/90 leading-tight break-words'
 																						>
 																							{reason}
 																						</div>
 																					))}
 																				{recommendation.reasons.length > 3 && (
-																					<div className='text-[10px] text-emerald-300/60 mt-2 pt-2 border-t border-emerald-500/20'>
+																					<div className='text-[9px] text-emerald-300/50 mt-1 pt-1 border-t border-emerald-500/15'>
 																						И ещё {recommendation.reasons.length - 3}{' '}
 																						{recommendation.reasons.length - 3 === 1
 																							? 'фактор'
