@@ -556,6 +556,67 @@ export default function Header() {
 				} catch {}
 			}
 
+			// Показываем десктопное уведомление браузера
+			if (typeof window !== 'undefined' && 'Notification' in window) {
+				if (Notification.permission === 'granted') {
+					try {
+						// Определяем иконку (аватар отправителя или логотип платформы)
+						const iconUrl = data.senderAvatar || data.icon || '/logo.png'
+						
+						// Формируем заголовок и текст уведомления
+						const notificationTitle = data.title || 'Новое уведомление'
+						const notificationBody = data.message || data.sender 
+							? `${data.sender}: ${data.message || 'Новое сообщение'}`
+							: 'У вас новое уведомление'
+
+						const notification = new Notification(notificationTitle, {
+							body: notificationBody,
+							icon: iconUrl,
+							badge: '/logo.png',
+							tag: notificationKey, // Чтобы не дублировать одинаковые уведомления
+							requireInteraction: false, // Автоматически исчезнет
+							data: {
+								url: data.link || '/',
+								notificationId: data.id,
+								senderId: data.senderId,
+								chatType: data.chatType,
+							},
+						})
+
+						// Обработка клика на уведомление
+						notification.onclick = () => {
+							window.focus() // Фокус на окно браузера
+							notification.close() // Закрыть уведомление
+							
+							// Переход по ссылке из уведомления
+							if (data.link) {
+								window.location.href = data.link
+							} else if (data.senderId && data.chatType) {
+								// Если это сообщение, открываем чат
+								if (data.chatType === 'private') {
+									window.location.href = `/chats?open=${data.senderId}`
+								} else if (data.chatType === 'task' && data.chatId) {
+									const taskId = data.chatId.replace('task_', '')
+									window.location.href = `/tasks/${taskId}`
+								}
+							}
+						}
+
+						// Автоматически закрыть уведомление через 5 секунд
+						setTimeout(() => {
+							notification.close()
+						}, 5000)
+
+						console.log('🖥️ Десктопное уведомление показано:', notificationTitle)
+					} catch (error) {
+						console.error('❌ Ошибка показа десктопного уведомления:', error)
+					}
+				} else if (Notification.permission === 'default') {
+					// Если разрешение еще не запрошено, можно показать подсказку
+					console.log('ℹ️ Разрешение на уведомления еще не запрошено')
+				}
+			}
+
 			// Обновляем уведомления и счетчик непрочитанных (используем функциональное обновление)
 			setNotifications(prev => {
 				// Проверяем, нет ли уже такого уведомления в списке (по ключу)
