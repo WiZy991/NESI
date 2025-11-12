@@ -113,4 +113,3 @@
 - `src/app/api/responses/[id]/status/route.ts` - улучшена типизация и валидация
 - `CRITICAL_ISSUES_PROGRESS.md` - обновлен прогресс
 
-

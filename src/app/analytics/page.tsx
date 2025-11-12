@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BarChart3, TrendingUp, Award, Calendar, DollarSign, Briefcase, CheckCircle2, Star, Filter } from 'lucide-react'
+import { BarChart3, TrendingUp, Award, Calendar, Briefcase, CheckCircle2, Star, Filter } from 'lucide-react'
+import { clientLogger } from '@/lib/clientLogger'
 import { 
   LineChart, 
   Line, 
@@ -61,7 +62,7 @@ export default function AnalyticsPage() {
       const data = await res.json()
       setAnalytics(data)
     } catch (err) {
-      console.error(err)
+      clientLogger.error('Ошибка загрузки аналитики', err)
     } finally {
       setLoading(false)
     }
@@ -173,10 +174,14 @@ export default function AnalyticsPage() {
 
               <div className="bg-black/40 p-3 sm:p-4 md:p-6 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/50 transition">
                 <div className="flex items-center gap-1.5 sm:gap-2 text-emerald-300 text-xs sm:text-sm mb-1 sm:mb-2">
-                  <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <span className="text-base sm:text-lg flex-shrink-0 font-bold">₽</span>
                   <span className="truncate">Потрачено</span>
                 </div>
-                <div className="text-white text-2xl sm:text-3xl md:text-4xl font-bold">{analytics.stats?.totalSpent?.toFixed(0) || 0}₽</div>
+                <div className="text-white text-2xl sm:text-3xl md:text-4xl font-bold">
+                  {analytics.stats?.totalSpent != null 
+                    ? Number(analytics.stats.totalSpent).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                    : 0}₽
+                </div>
               </div>
 
               <div className="bg-black/40 p-3 sm:p-4 md:p-6 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/50 transition">
@@ -184,7 +189,9 @@ export default function AnalyticsPage() {
                   <Star className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                   <span className="truncate">Средний рейтинг</span>
                 </div>
-                <div className="text-white text-2xl sm:text-3xl md:text-4xl font-bold">{analytics.avgRating?.toFixed(1) || '0.0'}</div>
+                <div className="text-white text-2xl sm:text-3xl md:text-4xl font-bold">
+                  {analytics.avgRating != null ? Number(analytics.avgRating).toFixed(1) : '0.0'}
+                </div>
               </div>
             </div>
 
@@ -247,10 +254,14 @@ export default function AnalyticsPage() {
 
               <div className="bg-black/40 p-3 sm:p-4 md:p-6 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/50 transition">
                 <div className="flex items-center gap-1.5 sm:gap-2 text-emerald-300 text-xs sm:text-sm mb-1 sm:mb-2">
-                  <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <span className="text-base sm:text-lg flex-shrink-0 font-bold">₽</span>
                   <span className="truncate">Заработано</span>
                 </div>
-                <div className="text-white text-2xl sm:text-3xl md:text-4xl font-bold">{analytics.stats?.totalEarned?.toFixed(0) || 0}₽</div>
+                <div className="text-white text-2xl sm:text-3xl md:text-4xl font-bold">
+                  {analytics.stats?.totalEarned != null 
+                    ? Number(analytics.stats.totalEarned).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                    : 0}₽
+                </div>
               </div>
 
               <div className="bg-black/40 p-3 sm:p-4 md:p-6 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/50 transition">
@@ -258,7 +269,9 @@ export default function AnalyticsPage() {
                   <Star className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                   <span className="truncate">Средний рейтинг</span>
                 </div>
-                <div className="text-white text-2xl sm:text-3xl md:text-4xl font-bold">{analytics.avgRating?.toFixed(1) || '0.0'}</div>
+                <div className="text-white text-2xl sm:text-3xl md:text-4xl font-bold">
+                  {analytics.avgRating != null ? Number(analytics.avgRating).toFixed(1) : '0.0'}
+                </div>
               </div>
 
               <div className="bg-black/40 p-3 sm:p-4 md:p-6 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/50 transition">
@@ -343,7 +356,7 @@ export default function AnalyticsPage() {
               <span className="text-gray-400">Средний рейтинг:</span>
               <span className="sm:ml-2 text-emerald-400 font-semibold flex items-center gap-1 mt-0.5 sm:mt-0">
                 <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-emerald-400" />
-                {analytics.avgRating?.toFixed(1) || '0.0'}
+                {analytics.avgRating != null ? Number(analytics.avgRating).toFixed(1) : '0.0'}
               </span>
             </div>
           </div>

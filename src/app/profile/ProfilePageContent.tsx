@@ -445,7 +445,7 @@ export default function ProfilePageContent() {
 								<div className='flex items-center gap-2 text-sm'>
 									<FaStar className='text-yellow-400' />
 									<span className='text-gray-300'>
-										{profile.avgRating ? profile.avgRating.toFixed(1) : '—'} / 5
+										{profile.avgRating != null ? Number(profile.avgRating).toFixed(1) : '—'} / 5
 									</span>
 								</div>
 								<div className='flex items-center gap-2 text-sm'>
@@ -461,7 +461,7 @@ export default function ProfilePageContent() {
 									<div className='flex items-center gap-2 text-sm'>
 										<FaStar className='text-yellow-400' />
 										<span className='text-gray-300'>
-											{profile.avgRating.toFixed(1)} / 5 ({profile._count?.reviewsReceived || 0} отзывов)
+											{Number(profile.avgRating).toFixed(1)} / 5 ({profile._count?.reviewsReceived || 0} отзывов)
 										</span>
 									</div>
 								)}
@@ -609,7 +609,7 @@ export default function ProfilePageContent() {
 										</div>
 										<div className='text-center p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20'>
 											<div className='text-2xl font-bold text-yellow-300'>
-												{profile.avgRating ? profile.avgRating.toFixed(1) : '—'}
+												{profile.avgRating != null ? Number(profile.avgRating).toFixed(1) : '—'}
 											</div>
 											<div className='text-xs text-gray-400 mt-1'>Рейтинг</div>
 										</div>
@@ -634,7 +634,7 @@ export default function ProfilePageContent() {
 										{profile.avgRating && (
 											<div className='text-center p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20'>
 												<div className='text-2xl font-bold text-yellow-300'>
-													{profile.avgRating.toFixed(1)}
+													{Number(profile.avgRating).toFixed(1)}
 												</div>
 												<div className='text-xs text-gray-400 mt-1'>Рейтинг</div>
 											</div>
