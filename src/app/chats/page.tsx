@@ -415,23 +415,132 @@ function ChatsPageContent() {
 		}
 	}, [])
 
-	// Блокируем скролл страницы на мобильной версии
+	// Блокируем скролл страницы полностью
 	useEffect(() => {
 		// Сохраняем текущие стили
-		const originalOverflow = document.body.style.overflow
-		const originalHeight = document.body.style.height
+		const originalBodyOverflow = document.body.style.overflow
+		const originalBodyHeight = document.body.style.height
+		const originalBodyPosition = document.body.style.position
 		const originalHtmlOverflow = document.documentElement.style.overflow
+		const originalHtmlHeight = document.documentElement.style.height
 
 		// Блокируем скролл на body и html
 		document.body.style.overflow = 'hidden'
 		document.body.style.height = '100vh'
+		document.body.style.position = 'fixed'
+		document.body.style.width = '100%'
 		document.documentElement.style.overflow = 'hidden'
+		document.documentElement.style.height = '100vh'
+
+		// Функция для проверки, может ли элемент скроллиться
+		const canScroll = (element: HTMLElement, deltaY: number): boolean => {
+			if (deltaY > 0) {
+				// Скролл вниз
+				return (
+					element.scrollTop + element.clientHeight < element.scrollHeight - 1
+				)
+			} else {
+				// Скролл вверх
+				return element.scrollTop > 1
+			}
+		}
+
+		// Функция для поиска скроллируемого контейнера
+		const findScrollableContainer = (
+			target: HTMLElement
+		): HTMLElement | null => {
+			let element: HTMLElement | null = target
+			while (element && element !== document.body) {
+				if (
+					element.hasAttribute('data-chat-container') ||
+					element.classList.contains('overflow-y-auto') ||
+					element.classList.contains('custom-scrollbar')
+				) {
+					// Проверяем, что элемент действительно скроллируемый
+					if (element.scrollHeight > element.clientHeight) {
+						return element
+					}
+				}
+				element = element.parentElement
+			}
+			return null
+		}
+
+		// Блокируем скролл через колесо мыши
+		const preventWheel = (e: WheelEvent) => {
+			const target = e.target as HTMLElement
+			const scrollableContainer = findScrollableContainer(target)
+
+			if (scrollableContainer) {
+				// Если контейнер не может скроллиться дальше, блокируем событие
+				if (!canScroll(scrollableContainer, e.deltaY)) {
+					e.preventDefault()
+					e.stopPropagation()
+				}
+			} else {
+				// Если это не скроллируемый контейнер, блокируем всегда
+				e.preventDefault()
+				e.stopPropagation()
+			}
+		}
+
+		// Блокируем скролл через touch события
+		const preventTouchMove = (e: TouchEvent) => {
+			const target = e.target as HTMLElement
+			const scrollableContainer = findScrollableContainer(target)
+
+			if (!scrollableContainer) {
+				// Если это не скроллируемый контейнер, блокируем всегда
+				e.preventDefault()
+				e.stopPropagation()
+			}
+		}
+
+		// Предотвращаем скролл страницы через события scroll
+		const preventScroll = (e: Event) => {
+			const target = e.target as HTMLElement
+			const scrollableContainer = findScrollableContainer(target)
+
+			if (!scrollableContainer) {
+				// Если это не скроллируемый контейнер, блокируем
+				e.preventDefault()
+				e.stopPropagation()
+			}
+		}
+
+		// Добавляем обработчики
+		document.addEventListener('scroll', preventScroll, {
+			passive: false,
+			capture: true,
+		})
+		document.addEventListener('wheel', preventWheel, {
+			passive: false,
+			capture: true,
+		})
+		document.addEventListener('touchmove', preventTouchMove, {
+			passive: false,
+			capture: true,
+		})
 
 		return () => {
-			// Восстанавливаем при размонтировании
-			document.body.style.overflow = originalOverflow
-			document.body.style.height = originalHeight
+			// Удаляем обработчики
+			document.removeEventListener('scroll', preventScroll, {
+				capture: true,
+			} as any)
+			document.removeEventListener('wheel', preventWheel, {
+				capture: true,
+			} as any)
+			document.removeEventListener('touchmove', preventTouchMove, {
+				capture: true,
+			} as any)
+
+			// Восстанавливаем стили при размонтировании
+			document.body.style.overflow = originalBodyOverflow
+			document.body.style.height = originalBodyHeight
+			document.body.style.position = originalBodyPosition
+			document.body.style.width = ''
 			document.documentElement.style.overflow = originalHtmlOverflow
+			document.documentElement.style.height = originalHtmlHeight
 		}
 	}, [])
 
@@ -2136,9 +2245,9 @@ function ChatsPageContent() {
 			<div
 				className='fixed inset-x-0 top-16 px-3 sm:px-6'
 				style={{
-					height: 'calc(100vh - 4rem)',
-					maxHeight: 'calc(100vh - 4rem)',
-					minHeight: 'calc(100vh - 4rem)',
+					height: 'calc(100vh - 6rem)',
+					maxHeight: 'calc(100vh - 6rem)',
+					minHeight: 'calc(100vh - 6rem)',
 				}}
 			>
 				<div className='w-full h-full flex items-center justify-center'>
@@ -2155,28 +2264,28 @@ function ChatsPageContent() {
 				top: isMobile
 					? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
 					: 'calc(0.5rem - 1px)',
-				height: isMobile ? 'calc(100dvh - 80px)' : 'calc(100vh - 2rem + 1px)',
-				maxHeight: isMobile
-					? 'calc(100dvh - 80px)'
-					: 'calc(100vh - 2rem + 1px)',
-				minHeight: isMobile
-					? 'calc(100dvh - 80px)'
-					: 'calc(100vh - 2rem + 1px)',
+				height: isMobile ? 'calc(100dvh - 80px)' : 'calc(100vh - 6rem)',
+				maxHeight: isMobile ? 'calc(100dvh - 80px)' : 'calc(100vh - 6rem)',
+				minHeight: isMobile ? 'calc(100dvh - 80px)' : 'calc(100vh - 6rem)',
 				paddingTop: 0,
 				paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 0px)' : '0',
 				overflow: 'hidden',
 			}}
 		>
-			<div className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden'>
+			<div
+				className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden'
+				style={{ overflow: 'hidden' }}
+			>
 				<div
 					className='flex flex-1 overflow-hidden min-h-0'
-					style={{ touchAction: 'pan-y' }}
+					style={{ touchAction: 'pan-y', overflow: 'hidden' }}
 				>
 					{/* Левая колонка - список чатов */}
 					<div
 						className={`${
 							selectedChat ? 'hidden md:flex' : 'flex'
 						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30 overflow-hidden`}
+						style={{ overflow: 'hidden' }}
 					>
 						{/* Заголовок и поиск */}
 						<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg'>
@@ -2297,6 +2406,7 @@ function ChatsPageContent() {
 						className={`${
 							selectedChat ? 'flex' : 'hidden md:flex'
 						} flex-1 flex-col bg-gradient-to-br from-slate-900/35 via-slate-900/20 to-slate-900/8 min-h-0 h-full overflow-hidden backdrop-blur-lg`}
+						style={{ overflow: 'hidden' }}
 					>
 						{selectedChat ? (
 							<>
