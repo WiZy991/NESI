@@ -314,6 +314,11 @@ export default function UserPublicProfilePage() {
 	const [showHireModal, setShowHireModal] = useState(false)
 	const [hireMessage, setHireMessage] = useState('')
 	const [hireError, setHireError] = useState('')
+	const [showHireTooltip, setShowHireTooltip] = useState(false)
+	const [hireButtonRef, setHireButtonRef] = useState<HTMLButtonElement | null>(
+		null
+	)
+	const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
 
 	useEffect(() => {
 		let cancelled = false
@@ -375,6 +380,29 @@ export default function UserPublicProfilePage() {
 			cancelled = true
 		}
 	}, [userId, viewUser?.role])
+
+	// Расчет позиции подсказки для кнопки найма
+	useEffect(() => {
+		if (!showHireTooltip || !hireButtonRef) return
+
+		const updateTooltipPosition = () => {
+			if (!hireButtonRef) return
+			const rect = hireButtonRef.getBoundingClientRect()
+			setTooltipPosition({
+				top: rect.bottom + window.scrollY + 8,
+				left: rect.left + window.scrollX + rect.width / 2,
+			})
+		}
+
+		updateTooltipPosition()
+		window.addEventListener('scroll', updateTooltipPosition, true)
+		window.addEventListener('resize', updateTooltipPosition)
+
+		return () => {
+			window.removeEventListener('scroll', updateTooltipPosition, true)
+			window.removeEventListener('resize', updateTooltipPosition)
+		}
+	}, [showHireTooltip, hireButtonRef])
 
 	useEffect(() => {
 		if (!viewUser || user?.role !== 'customer' || viewUser.id === user?.id)
@@ -640,38 +668,17 @@ export default function UserPublicProfilePage() {
 												⏳ Запрос отправлен
 											</button>
 										) : (
-											<div className='relative group z-50'>
+											<div className='relative z-50'>
 												<button
+													ref={setHireButtonRef}
 													onClick={() => setShowHireModal(true)}
+													onMouseEnter={() => setShowHireTooltip(true)}
+													onMouseLeave={() => setShowHireTooltip(false)}
 													disabled={sendingHire}
 													className='px-6 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white disabled:opacity-50 font-semibold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] whitespace-nowrap'
 												>
 													💼 Нанять за 1990₽
 												</button>
-												{/* Подсказка под кнопкой - появляется при наведении */}
-												<div className='absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 p-4 bg-gray-900/95 backdrop-blur-sm border-2 border-emerald-500/50 rounded-lg shadow-2xl z-[9999] pointer-events-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200'>
-													<div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-0.5'>
-														<div className='w-3 h-3 bg-gray-900/95 border-l-2 border-t-2 border-emerald-500/50 rotate-45'></div>
-													</div>
-													<p className='text-sm text-white leading-relaxed mb-2'>
-														<span className='text-emerald-400 font-semibold'>
-															1990₽
-														</span>{' '}
-														— это плата за{' '}
-														<span className='text-emerald-300 font-medium'>
-															доступ к чату
-														</span>{' '}
-														с исполнителем.
-													</p>
-													<p className='text-sm text-white leading-relaxed'>
-														После оплаты вы сможете предложить ему{' '}
-														<span className='text-emerald-300 font-medium'>
-															офер на постоянную работу
-														</span>{' '}
-														(например, 5/2 с 9 до 18, удалёнка, частичная
-														занятость и т.д.).
-													</p>
-												</div>
 											</div>
 										)}
 									</div>
@@ -717,6 +724,37 @@ export default function UserPublicProfilePage() {
 					</div>
 				</div>
 			</div>
+
+			{/* Подсказка для кнопки найма - рендерится вне блока профиля */}
+			{showHireTooltip && canHire && hireState === 'none' && (
+				<div
+					className='fixed w-80 p-4 bg-gray-900/95 backdrop-blur-sm border-2 border-emerald-500/50 rounded-lg shadow-2xl z-[9999] pointer-events-auto transition-opacity duration-200'
+					style={{
+						top: `${tooltipPosition.top}px`,
+						left: `${tooltipPosition.left}px`,
+						transform: 'translateX(-50%)',
+					}}
+					onMouseEnter={() => setShowHireTooltip(true)}
+					onMouseLeave={() => setShowHireTooltip(false)}
+				>
+					<div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-0.5'>
+						<div className='w-3 h-3 bg-gray-900/95 border-l-2 border-t-2 border-emerald-500/50 rotate-45'></div>
+					</div>
+					<p className='text-sm text-white leading-relaxed mb-2'>
+						<span className='text-emerald-400 font-semibold'>1990₽</span> — это
+						плата за{' '}
+						<span className='text-emerald-300 font-medium'>доступ к чату</span>{' '}
+						с исполнителем.
+					</p>
+					<p className='text-sm text-white leading-relaxed'>
+						После оплаты вы сможете предложить ему{' '}
+						<span className='text-emerald-300 font-medium'>
+							офер на постоянную работу
+						</span>{' '}
+						(например, 5/2 с 9 до 18, удалёнка, частичная занятость и т.д.).
+					</p>
+				</div>
+			)}
 
 			{/* Табы */}
 			<div className='flex gap-2 mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
