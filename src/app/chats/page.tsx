@@ -2175,7 +2175,9 @@ function ChatsPageContent() {
 					<div
 						className={`${
 							selectedChat ? 'hidden md:flex' : 'flex'
-						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30`}
+						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30 ${
+							selectedChat ? 'overflow-hidden' : ''
+						}`}
 					>
 						{/* Заголовок и поиск */}
 						<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg'>
@@ -2208,7 +2210,11 @@ function ChatsPageContent() {
 
 						{/* Список чатов */}
 						<div
-							className='flex-1 overflow-y-auto custom-scrollbar'
+							className={`flex-1 ${
+								selectedChat
+									? 'overflow-hidden'
+									: 'overflow-y-auto custom-scrollbar'
+							}`}
 							style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
 						>
 							{filteredChats.length === 0 ? (
