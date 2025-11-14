@@ -1158,53 +1158,59 @@ function CommentNode({
 								</button>
 
 								{openMenu && (
-									<div
-										className='absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-[100]'
-										onClick={e => e.stopPropagation()}
-									>
-										<button
-											onClick={() => {
-												navigator.clipboard.writeText(
-													window.location.href + '#' + node.id
-												)
-												setOpenMenu(false)
-											}}
-											className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full'
+									<>
+										{/* Overlay для закрытия меню */}
+										<div 
+											className='fixed inset-0 z-[9997]'
+											onClick={() => setOpenMenu(false)}
+										/>
+										<div
+											className='absolute right-0 top-full mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-[9998]'
+											onClick={e => e.stopPropagation()}
 										>
-											<Copy className='w-4 h-4' /> Копировать ссылку
-										</button>
-										{userId === node.author.id ? (
-											<>
-												<button
-													onClick={() => {
-														setEditing(true)
-														setOpenMenu(false)
-													}}
-													className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-emerald-400 transition w-full'
-												>
-													<Edit3 className='w-4 h-4' /> Редактировать
-												</button>
-												<button
-													onClick={() => {
-														deleteComment()
-														setOpenMenu(false)
-													}}
-													className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full'
-												>
-													<Trash2 className='w-4 h-4' /> Удалить
-												</button>
-											</>
-										) : (
 											<button
 												onClick={() => {
-													onReport({ type: 'comment', id: node.id })
+													navigator.clipboard.writeText(
+														window.location.href + '#' + node.id
+													)
 													setOpenMenu(false)
 												}}
-												className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full'
+												className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full'
 											>
-												<Flag className='w-4 h-4' /> Пожаловаться
+												<Copy className='w-4 h-4' /> Копировать ссылку
 											</button>
-										)}
+											{userId === node.author.id ? (
+												<>
+													<button
+														onClick={() => {
+															setEditing(true)
+															setOpenMenu(false)
+														}}
+														className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-emerald-400 transition w-full'
+													>
+														<Edit3 className='w-4 h-4' /> Редактировать
+													</button>
+													<button
+														onClick={() => {
+															deleteComment()
+															setOpenMenu(false)
+														}}
+														className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full'
+													>
+														<Trash2 className='w-4 h-4' /> Удалить
+													</button>
+												</>
+											) : (
+												<button
+													onClick={() => {
+														onReport({ type: 'comment', id: node.id })
+														setOpenMenu(false)
+													}}
+													className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full'
+												>
+													<Flag className='w-4 h-4' /> Пожаловаться
+												</button>
+											)}
 										</div>
 									</>
 								)}
