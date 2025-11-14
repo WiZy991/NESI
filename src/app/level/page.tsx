@@ -285,9 +285,9 @@ export default function LevelPage() {
               <div>
                 <h3 className="text-lg font-semibold text-emerald-400 mb-4">✓ Полученные</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {data.badges.map((badge) => (
+                  {data.badges.map((badge, index) => (
                 <div
-                  key={badge.id}
+                  key={`${badge.id}-${index}`}
                   className="group relative overflow-hidden bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90 border-2 border-gray-700/50 rounded-xl p-5 transition-all duration-300 hover:border-emerald-500/60 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-[1.02] cursor-pointer"
                 >
                   {/* Декоративный фон */}
@@ -430,6 +430,184 @@ export default function LevelPage() {
           <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
             <p className="text-sm text-gray-300">
               <span className="text-emerald-400 font-semibold">💡 Совет:</span> Чем больше задач вы выполняете и чем выше качество вашей работы, тем быстрее вы повышаете уровень и получаете доступ к новым возможностям!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Преимущества уровней */}
+      <div className="mb-8">
+        <div className="bg-gradient-to-br from-black/60 via-gray-900/60 to-black/60 border border-emerald-500/30 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.25)] p-6 sm:p-8 lg:p-10 backdrop-blur-sm">
+          <h2 className="text-2xl sm:text-3xl font-bold text-emerald-400 flex items-center gap-3 mb-6">
+            <span className="text-3xl sm:text-4xl">🎁</span>
+            <span>Что дают повышения уровней</span>
+          </h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Снижение комиссии */}
+            <div className="bg-gradient-to-br from-emerald-900/30 via-black/40 to-emerald-900/30 border-2 border-emerald-500/40 rounded-2xl p-6 hover:border-emerald-500/60 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/40 to-emerald-600/30 border-2 border-emerald-500/60 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                  💰
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-emerald-300 transition">
+                    Снижение комиссии
+                  </h3>
+                  <p className="text-gray-300 text-sm mb-3">
+                    Чем выше уровень, тем меньше комиссия платформы. Реальная экономия денег!
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 1-2:</span>
+                      <span className="text-emerald-400 font-bold">20%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 3:</span>
+                      <span className="text-emerald-400 font-bold">19% <span className="text-emerald-500">(-1%)</span></span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 4:</span>
+                      <span className="text-emerald-400 font-bold">18% <span className="text-emerald-500">(-2%)</span></span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 5:</span>
+                      <span className="text-emerald-400 font-bold">17% <span className="text-emerald-500">(-3%)</span></span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 6:</span>
+                      <span className="text-yellow-400 font-bold">12-16% <span className="text-yellow-500">(до -8%)</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Увеличение лимита задач */}
+            <div className="bg-gradient-to-br from-blue-900/30 via-black/40 to-blue-900/30 border-2 border-blue-500/40 rounded-2xl p-6 hover:border-blue-500/60 hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/40 to-blue-600/30 border-2 border-blue-500/60 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                  📋
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition">
+                    Больше задач одновременно
+                  </h3>
+                  <p className="text-gray-300 text-sm mb-3">
+                    Выполняй несколько задач одновременно и зарабатывай больше!
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 1:</span>
+                      <span className="text-blue-400 font-bold">1 задача</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 2:</span>
+                      <span className="text-blue-400 font-bold">2 задачи</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 3:</span>
+                      <span className="text-blue-400 font-bold">3 задачи</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 4:</span>
+                      <span className="text-blue-400 font-bold">5 задач</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 5:</span>
+                      <span className="text-blue-400 font-bold">8 задач</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Уровень 6:</span>
+                      <span className="text-yellow-400 font-bold">10 задач</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Приоритет в откликах */}
+            <div className="bg-gradient-to-br from-purple-900/30 via-black/40 to-purple-900/30 border-2 border-purple-500/40 rounded-2xl p-6 hover:border-purple-500/60 hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500/40 to-purple-600/30 border-2 border-purple-500/60 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                  ⭐
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-300 transition">
+                    Приоритет в откликах
+                  </h3>
+                  <p className="text-gray-300 text-sm mb-3">
+                    Твои отклики показываются первыми заказчикам. Больше шансов получить задачу!
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                      <span className="text-gray-300">Уровень 2: <span className="text-emerald-400 font-semibold">Зеленая рамка</span></span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-3 h-3 rounded-full bg-amber-600"></div>
+                      <span className="text-gray-300">Уровень 3: <span className="text-amber-400 font-semibold">Бронзовая рамка</span></span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                      <span className="text-gray-300">Уровень 4: <span className="text-gray-300 font-semibold">Серебряная рамка</span></span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                      <span className="text-gray-300">Уровень 5: <span className="text-yellow-400 font-semibold">Золотая рамка</span></span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                      <span className="text-gray-300">Уровень 6: <span className="text-yellow-400 font-semibold">Легендарная рамка</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Визуальные привилегии */}
+            <div className="bg-gradient-to-br from-pink-900/30 via-black/40 to-pink-900/30 border-2 border-pink-500/40 rounded-2xl p-6 hover:border-pink-500/60 hover:shadow-[0_0_30px_rgba(236,72,153,0.4)] transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500/40 to-pink-600/30 border-2 border-pink-500/60 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                  ✨
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-pink-300 transition">
+                    Визуальные привилегии
+                  </h3>
+                  <p className="text-gray-300 text-sm mb-3">
+                    Выделяйся среди других исполнителей уникальным оформлением!
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-pink-400">🎨</span>
+                      <span className="text-gray-300">Рамка аватара (цвет зависит от уровня)</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-pink-400">⭐</span>
+                      <span className="text-gray-300">Иконка уровня рядом с именем</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-pink-400">🖼️</span>
+                      <span className="text-gray-300">Эксклюзивные фоны профиля</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-pink-400">👑</span>
+                      <span className="text-gray-300">Уровень 5+: <span className="text-yellow-400 font-semibold">Корона</span> и анимации</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-pink-400">💫</span>
+                      <span className="text-gray-300">Уровень 6: <span className="text-yellow-400 font-semibold">Легендарное</span> оформление</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 p-5 bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-pink-500/10 border-2 border-emerald-500/30 rounded-xl">
+            <p className="text-sm text-gray-300 leading-relaxed">
+              <span className="text-emerald-400 font-bold text-base">💎 Премиум статус:</span> На уровнях 5+ ты получаешь доступ к эксклюзивным анимациям, золотым рамкам и короне! Это не просто косметика — это признание твоего профессионализма и опыта.
             </p>
           </div>
         </div>
