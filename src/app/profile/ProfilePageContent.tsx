@@ -1,24 +1,26 @@
 'use client'
 
-import EditProfileModal from '@/components/EditProfileModal'
 import BadgeIcon from '@/components/BadgeIcon'
 import BadgesModal from '@/components/BadgesModal'
+import EditProfileModal from '@/components/EditProfileModal'
+import { LevelBadge } from '@/components/LevelBadge'
 import { ProfileBackgroundSelector } from '@/components/ProfileBackgroundSelector'
 import { useUser } from '@/context/UserContext'
 import { getBackgroundById } from '@/lib/level/profileBackgrounds'
-import { LevelBadge } from '@/components/LevelBadge'
 import { getLevelVisuals } from '@/lib/level/rewards'
 import '@/styles/level-animations.css'
-import Link from 'next/link'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import {
 	FaAward,
 	FaCalendarAlt,
 	FaCertificate,
 	FaChartLine,
+	FaChevronRight,
 	FaCode,
 	FaDatabase,
+	FaEdit,
 	FaGlobe,
 	FaJs,
 	FaPython,
@@ -28,8 +30,6 @@ import {
 	FaTrophy,
 	FaUserCircle,
 	FaWallet,
-	FaEdit,
-	FaChevronRight,
 } from 'react-icons/fa'
 
 type Review = {
@@ -112,51 +112,99 @@ type FullUser = {
 	}
 }
 
-type Tab = 'overview' | 'achievements' | 'reviews' | 'tasks' | 'wallet' | 'certifications'
+type Tab =
+	| 'overview'
+	| 'achievements'
+	| 'reviews'
+	| 'tasks'
+	| 'wallet'
+	| 'certifications'
 
 const getSkillIcon = (skill: string) => {
 	const lower = skill.toLowerCase()
 	// Языки программирования
 	if (lower.includes('python'))
 		return <FaPython className='mr-1 text-emerald-400' />
-	if (lower.includes('js') || lower.includes('javascript') || lower.includes('typescript'))
+	if (
+		lower.includes('js') ||
+		lower.includes('javascript') ||
+		lower.includes('typescript')
+	)
 		return <FaJs className='mr-1 text-yellow-400' />
-	if (lower.includes('java'))
-		return <FaCode className='mr-1 text-orange-400' />
-	if (lower.includes('c#') || lower.includes('csharp') || lower.includes('.net'))
+	if (lower.includes('java')) return <FaCode className='mr-1 text-orange-400' />
+	if (
+		lower.includes('c#') ||
+		lower.includes('csharp') ||
+		lower.includes('.net')
+	)
 		return <FaCode className='mr-1 text-purple-400' />
-	if (lower.includes('php'))
-		return <FaCode className='mr-1 text-indigo-400' />
+	if (lower.includes('php')) return <FaCode className='mr-1 text-indigo-400' />
 	if (lower.includes('go') || lower.includes('golang'))
 		return <FaCode className='mr-1 text-cyan-400' />
-	if (lower.includes('rust'))
-		return <FaCode className='mr-1 text-orange-500' />
-	if (lower.includes('ruby'))
-		return <FaCode className='mr-1 text-red-400' />
+	if (lower.includes('rust')) return <FaCode className='mr-1 text-orange-500' />
+	if (lower.includes('ruby')) return <FaCode className='mr-1 text-red-400' />
 	// Фреймворки и библиотеки
-	if (lower.includes('react') || lower.includes('next.js') || lower.includes('nextjs'))
+	if (
+		lower.includes('react') ||
+		lower.includes('next.js') ||
+		lower.includes('nextjs')
+	)
 		return <FaCode className='mr-1 text-blue-400' />
 	if (lower.includes('vue') || lower.includes('vue.js'))
 		return <FaCode className='mr-1 text-green-400' />
-	if (lower.includes('angular'))
-		return <FaCode className='mr-1 text-red-500' />
-	if (lower.includes('node') || lower.includes('nodejs') || lower.includes('node.js'))
+	if (lower.includes('angular')) return <FaCode className='mr-1 text-red-500' />
+	if (
+		lower.includes('node') ||
+		lower.includes('nodejs') ||
+		lower.includes('node.js')
+	)
 		return <FaCode className='mr-1 text-green-500' />
-	if (lower.includes('django') || lower.includes('flask') || lower.includes('fastapi'))
+	if (
+		lower.includes('django') ||
+		lower.includes('flask') ||
+		lower.includes('fastapi')
+	)
 		return <FaCode className='mr-1 text-emerald-500' />
 	if (lower.includes('laravel') || lower.includes('symfony'))
 		return <FaCode className='mr-1 text-red-500' />
 	// Базы данных
-	if (lower.includes('sql') || lower.includes('db') || lower.includes('database') || lower.includes('postgresql') || lower.includes('mysql') || lower.includes('mongodb'))
+	if (
+		lower.includes('sql') ||
+		lower.includes('db') ||
+		lower.includes('database') ||
+		lower.includes('postgresql') ||
+		lower.includes('mysql') ||
+		lower.includes('mongodb')
+	)
 		return <FaDatabase className='mr-1 text-blue-400' />
 	// Сеть и инфраструктура
-	if (lower.includes('dns') || lower.includes('network') || lower.includes('aws') || lower.includes('azure') || lower.includes('gcp') || lower.includes('docker') || lower.includes('kubernetes'))
+	if (
+		lower.includes('dns') ||
+		lower.includes('network') ||
+		lower.includes('aws') ||
+		lower.includes('azure') ||
+		lower.includes('gcp') ||
+		lower.includes('docker') ||
+		lower.includes('kubernetes')
+	)
 		return <FaGlobe className='mr-1 text-indigo-400' />
 	// Дизайн
-	if (lower.includes('figma') || lower.includes('ui/ux') || lower.includes('design') || lower.includes('photoshop') || lower.includes('illustrator'))
+	if (
+		lower.includes('figma') ||
+		lower.includes('ui/ux') ||
+		lower.includes('design') ||
+		lower.includes('photoshop') ||
+		lower.includes('illustrator')
+	)
 		return <FaCode className='mr-1 text-pink-400' />
 	// Контент
-	if (lower.includes('seo') || lower.includes('smm') || lower.includes('marketing') || lower.includes('копирайтинг') || lower.includes('контент'))
+	if (
+		lower.includes('seo') ||
+		lower.includes('smm') ||
+		lower.includes('marketing') ||
+		lower.includes('копирайтинг') ||
+		lower.includes('контент')
+	)
 		return <FaCode className='mr-1 text-yellow-500' />
 	// 1С
 	if (lower.includes('1с') || lower.includes('1c'))
@@ -171,7 +219,9 @@ export default function ProfilePageContent() {
 	const [profile, setProfile] = useState<FullUser | null>(null)
 	const [loadingProfile, setLoadingProfile] = useState(true)
 	const [activeTab, setActiveTab] = useState<Tab>('overview')
-	const [customerCompletedTasks, setCustomerCompletedTasks] = useState<any[]>([])
+	const [customerCompletedTasks, setCustomerCompletedTasks] = useState<any[]>(
+		[]
+	)
 	const [loadingCustomerTasks, setLoadingCustomerTasks] = useState(false)
 
 	const [transactions, setTransactions] = useState<any[]>([])
@@ -184,7 +234,9 @@ export default function ProfilePageContent() {
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
 	const [backgroundSelectorOpen, setBackgroundSelectorOpen] = useState(false)
-	const [profileBackground, setProfileBackground] = useState<string | null>(null)
+	const [profileBackground, setProfileBackground] = useState<string | null>(
+		null
+	)
 	const [userLevel, setUserLevel] = useState(1)
 
 	const fetchProfile = async () => {
@@ -195,10 +247,13 @@ export default function ProfilePageContent() {
 			})
 			if (!res.ok) throw new Error('Ошибка загрузки профиля')
 			const data = await res.json()
-			console.log('Профиль загружен:', { skills: data.user?.skills, role: data.user?.role })
+			console.log('Профиль загружен:', {
+				skills: data.user?.skills,
+				role: data.user?.role,
+			})
 			setProfile(data.user)
 			login(data.user, token)
-			
+
 			// Загружаем фон профиля
 			const bgRes = await fetch('/api/profile/background', {
 				headers: { Authorization: `Bearer ${token}` },
@@ -207,7 +262,7 @@ export default function ProfilePageContent() {
 				const bgData = await bgRes.json()
 				setProfileBackground(bgData.backgroundId || 'default')
 			}
-			
+
 			// Получаем уровень через API (так как getLevelFromXP использует Prisma и работает только на сервере)
 			const levelRes = await fetch('/api/users/me/level', {
 				headers: { Authorization: `Bearer ${token}` },
@@ -400,145 +455,210 @@ export default function ProfilePageContent() {
 	const avatarSrc = profile.avatarUrl
 		? profile.avatarUrl.startsWith('http')
 			? profile.avatarUrl
-			: `${typeof window !== 'undefined' ? window.location.origin : ''}${profile.avatarUrl}`
+			: `${typeof window !== 'undefined' ? window.location.origin : ''}${
+					profile.avatarUrl
+			  }`
 		: null
 
-	const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; count?: number }> = [
+	const tabs: Array<{
+		id: Tab
+		label: string
+		icon: React.ReactNode
+		count?: number
+	}> = [
 		{ id: 'overview', label: 'Обзор', icon: <FaUserCircle /> },
-		{ id: 'achievements', label: 'Достижения', icon: <FaTrophy />, count: profile.badges?.length },
-		{ id: 'reviews', label: 'Отзывы', icon: <FaStar />, count: profile._count?.reviewsReceived },
-		{ id: 'tasks', label: 'Задачи', icon: <FaTasks />, count: user.role === 'executor' ? profile.executedTasks?.length : undefined },
-		...(user.role === 'executor' ? [{ id: 'certifications' as Tab, label: 'Сертификации', icon: <FaCertificate />, count: profile.certifications?.length }] : []),
+		{
+			id: 'achievements',
+			label: 'Достижения',
+			icon: <FaTrophy />,
+			count: profile.badges?.length,
+		},
+		{
+			id: 'reviews',
+			label: 'Отзывы',
+			icon: <FaStar />,
+			count: profile._count?.reviewsReceived,
+		},
+		{
+			id: 'tasks',
+			label: 'Задачи',
+			icon: <FaTasks />,
+			count:
+				user.role === 'executor' ? profile.executedTasks?.length : undefined,
+		},
+		...(user.role === 'executor'
+			? [
+					{
+						id: 'certifications' as Tab,
+						label: 'Сертификации',
+						icon: <FaCertificate />,
+						count: profile.certifications?.length,
+					},
+			  ]
+			: []),
 		{ id: 'wallet', label: 'Кошелёк', icon: <FaWallet /> },
 	]
 
 	// Получаем градиент фона
-	const background = profileBackground ? getBackgroundById(profileBackground) : null
+	const background = profileBackground
+		? getBackgroundById(profileBackground)
+		: null
 	const backgroundStyle = background
 		? { background: background.gradient }
 		: { background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }
-	
+
 	// Определяем, нужна ли анимация (для премиум фонов уровня 5+)
 	const shouldAnimate = background?.isPremium && background?.unlockLevel >= 5
 	const backgroundClass = shouldAnimate ? 'level-legendary-gradient' : ''
-	
+
 	// Добавляем декоративные элементы для всех фонов
 	const decorativeClass = background?.id ? `${background.id}-background` : ''
 
 	return (
 		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
 			{/* Компактный Header профиля */}
-			<div 
+			<div
 				className={`rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden ${backgroundClass} ${decorativeClass}`}
 				style={backgroundStyle}
 			>
 				{/* Overlay для читаемости текста (более прозрачный для премиум фонов) */}
-				<div className={`absolute inset-0 pointer-events-none z-[2] ${shouldAnimate ? 'bg-black/30' : 'bg-black/40'}`} />
+				<div
+					className={`absolute inset-0 pointer-events-none z-[2] ${
+						shouldAnimate ? 'bg-black/30' : 'bg-black/40'
+					}`}
+				/>
 				<div className='relative z-10'>
-				<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
-					{/* Аватар */}
-					<div className='relative'>
-						{(() => {
-							const visuals = userLevel > 0 ? getLevelVisuals(userLevel) : null
-							const borderClass = visuals?.borderClass || 'border-emerald-500/50'
-							return avatarSrc ? (
-							<Image
-								src={avatarSrc}
-								alt='Аватар'
-								width={80}
-								height={80}
-									className={`w-20 h-20 rounded-full border-2 ${borderClass} shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover`}
-							/>
-						) : (
-								<div className={`w-20 h-20 rounded-full border-2 ${borderClass} bg-gray-800 flex items-center justify-center`}>
-								<FaUserCircle className='text-4xl text-gray-600' />
-							</div>
-							)
-						})()}
-					</div>
-
-					{/* Основная информация */}
-					<div className='flex-1 min-w-0'>
-						<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
-							<div>
-								<div className='flex items-center gap-2 flex-wrap mb-1'>
-									<h1 className='text-2xl sm:text-3xl font-bold text-white truncate'>
-									{profile.fullName || 'Без имени'}
-								</h1>
-									{userLevel > 0 && <LevelBadge level={userLevel} size='md' />}
-								</div>
-								<p className='text-gray-400 text-sm truncate'>{profile.email}</p>
-								{profile.location && (
-									<p className='text-emerald-300 text-sm mt-1'>📍 {profile.location}</p>
-								)}
-							</div>
-							<div className='flex gap-2'>
-								<button
-									onClick={() => setBackgroundSelectorOpen(true)}
-									className='flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
-									title='Выбрать фон профиля'
-								>
-									🎨 Фон
-								</button>
-							<button
-								onClick={() => setIsEditModalOpen(true)}
-								className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
-							>
-								<FaEdit />
-								Редактировать
-							</button>
-							</div>
+					<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
+						{/* Аватар */}
+						<div className='relative'>
+							{(() => {
+								const visuals =
+									userLevel > 0 ? getLevelVisuals(userLevel) : null
+								const borderClass =
+									visuals?.borderClass || 'border-emerald-500/50'
+								return avatarSrc ? (
+									<Image
+										src={avatarSrc}
+										alt='Аватар'
+										width={80}
+										height={80}
+										className={`w-20 h-20 rounded-full border-2 ${borderClass} shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover`}
+									/>
+								) : (
+									<div
+										className={`w-20 h-20 rounded-full border-2 ${borderClass} bg-gray-800 flex items-center justify-center`}
+									>
+										<FaUserCircle className='text-4xl text-gray-600' />
+									</div>
+								)
+							})()}
 						</div>
 
-						{/* Быстрая статистика */}
-						{user.role === 'executor' && (
-							<div className='flex flex-wrap gap-4 mt-4'>
-								<div className='flex items-center gap-2 text-sm'>
-									<FaChartLine className='text-emerald-400' />
-									<span className='text-gray-300'>{profile.xpComputed ?? profile.xp ?? 0} XP</span>
+						{/* Основная информация */}
+						<div className='flex-1 min-w-0'>
+							<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+								<div>
+									<div className='flex items-center gap-2 flex-wrap mb-1'>
+										<h1 className='text-2xl sm:text-3xl font-bold text-white truncate'>
+											{profile.fullName || 'Без имени'}
+										</h1>
+										{userLevel > 0 && (
+											<LevelBadge level={userLevel} size='md' />
+										)}
+									</div>
+									<p className='text-gray-400 text-sm truncate'>
+										{profile.email}
+									</p>
+									{profile.location && (
+										<p className='text-emerald-300 text-sm mt-1'>
+											📍 {profile.location}
+										</p>
+									)}
 								</div>
-								<div className='flex items-center gap-2 text-sm'>
-									<FaTasks className='text-blue-400' />
-									<span className='text-gray-300'>{profile._count?.executedTasks || 0} задач</span>
-								</div>
-								<div className='flex items-center gap-2 text-sm'>
-									<FaStar className='text-yellow-400' />
-									<span className='text-gray-300'>
-										{profile.avgRating != null ? Number(profile.avgRating).toFixed(1) : '—'} / 5
-									</span>
-								</div>
-								<div className='flex items-center gap-2 text-sm'>
-									<FaWallet className='text-green-400' />
-									<span className='text-gray-300'>{Number(profile.balance ?? 0).toFixed(2)} ₽</span>
+								<div className='flex gap-2'>
+									{/* Кнопка изменения фона только для исполнителей */}
+									{user.role === 'executor' && (
+										<button
+											onClick={() => setBackgroundSelectorOpen(true)}
+											className='flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+											title='Выбрать фон профиля'
+										>
+											🎨 Фон
+										</button>
+									)}
+									<button
+										onClick={() => setIsEditModalOpen(true)}
+										className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+									>
+										<FaEdit />
+										Редактировать
+									</button>
 								</div>
 							</div>
-						)}
-						{/* Быстрая статистика для заказчиков */}
-						{user.role === 'customer' && (
-							<div className='flex flex-wrap gap-4 mt-4'>
-								{profile.avgRating && (
+
+							{/* Быстрая статистика */}
+							{user.role === 'executor' && (
+								<div className='flex flex-wrap gap-4 mt-4'>
+									<div className='flex items-center gap-2 text-sm'>
+										<FaChartLine className='text-emerald-400' />
+										<span className='text-gray-300'>
+											{profile.xpComputed ?? profile.xp ?? 0} XP
+										</span>
+									</div>
+									<div className='flex items-center gap-2 text-sm'>
+										<FaTasks className='text-blue-400' />
+										<span className='text-gray-300'>
+											{profile._count?.executedTasks || 0} задач
+										</span>
+									</div>
 									<div className='flex items-center gap-2 text-sm'>
 										<FaStar className='text-yellow-400' />
 										<span className='text-gray-300'>
-											{Number(profile.avgRating).toFixed(1)} / 5 ({profile._count?.reviewsReceived || 0} отзывов)
+											{profile.avgRating != null
+												? Number(profile.avgRating).toFixed(1)
+												: '—'}{' '}
+											/ 5
 										</span>
 									</div>
-								)}
-								{profile.customerStats && (
-									<>
+									<div className='flex items-center gap-2 text-sm'>
+										<FaWallet className='text-green-400' />
+										<span className='text-gray-300'>
+											{Number(profile.balance ?? 0).toFixed(2)} ₽
+										</span>
+									</div>
+								</div>
+							)}
+							{/* Быстрая статистика для заказчиков */}
+							{user.role === 'customer' && (
+								<div className='flex flex-wrap gap-4 mt-4'>
+									{profile.avgRating && (
 										<div className='flex items-center gap-2 text-sm'>
-											<FaTasks className='text-blue-400' />
-											<span className='text-gray-300'>{profile.customerStats.completedTasks || 0} завершено</span>
+											<FaStar className='text-yellow-400' />
+											<span className='text-gray-300'>
+												{Number(profile.avgRating).toFixed(1)} / 5 (
+												{profile._count?.reviewsReceived || 0} отзывов)
+											</span>
 										</div>
-										<div className='flex items-center gap-2 text-sm'>
-											<FaWallet className='text-green-400' />
-											<span className='text-gray-300'>{Number(profile.balance ?? 0).toFixed(2)} ₽</span>
-										</div>
-									</>
-								)}
-							</div>
-						)}
-					</div>
+									)}
+									{profile.customerStats && (
+										<>
+											<div className='flex items-center gap-2 text-sm'>
+												<FaTasks className='text-blue-400' />
+												<span className='text-gray-300'>
+													{profile.customerStats.completedTasks || 0} завершено
+												</span>
+											</div>
+											<div className='flex items-center gap-2 text-sm'>
+												<FaWallet className='text-green-400' />
+												<span className='text-gray-300'>
+													{Number(profile.balance ?? 0).toFixed(2)} ₽
+												</span>
+											</div>
+										</>
+									)}
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 			</div>
@@ -576,35 +696,46 @@ export default function ProfilePageContent() {
 							{/* Описание */}
 							{profile.description && (
 								<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
-									<h3 className='text-lg font-semibold text-emerald-400 mb-2'>О себе</h3>
-									<p className='text-gray-300 text-sm leading-relaxed'>{profile.description}</p>
+									<h3 className='text-lg font-semibold text-emerald-400 mb-2'>
+										О себе
+									</h3>
+									<p className='text-gray-300 text-sm leading-relaxed'>
+										{profile.description}
+									</p>
 								</div>
 							)}
 
 							{/* Навыки - только для исполнителей */}
-							{user.role === 'executor' && profile.skills && Array.isArray(profile.skills) && profile.skills.length > 0 && (
-								<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
-									<h3 className='text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2'>
-										<FaToolbox />
-										Навыки
-									</h3>
-									<div className='flex flex-wrap gap-2'>
-										{profile.skills.filter(skill => skill && skill.trim()).map((skill, index) => (
-											<div
-												key={index}
-												className='flex items-center px-3 py-1.5 rounded-full text-xs border border-emerald-500/40 bg-black/60'
-											>
-												{getSkillIcon(skill)}
-												<span>{skill.trim()}</span>
-											</div>
-										))}
+							{user.role === 'executor' &&
+								profile.skills &&
+								Array.isArray(profile.skills) &&
+								profile.skills.length > 0 && (
+									<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
+										<h3 className='text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2'>
+											<FaToolbox />
+											Навыки
+										</h3>
+										<div className='flex flex-wrap gap-2'>
+											{profile.skills
+												.filter(skill => skill && skill.trim())
+												.map((skill, index) => (
+													<div
+														key={index}
+														className='flex items-center px-3 py-1.5 rounded-full text-xs border border-emerald-500/40 bg-black/60'
+													>
+														{getSkillIcon(skill)}
+														<span>{skill.trim()}</span>
+													</div>
+												))}
+										</div>
 									</div>
-								</div>
-							)}
+								)}
 
 							{/* Быстрые действия */}
 							<div className='bg-black/40 p-4 rounded-xl border border-emerald-500/30'>
-								<h3 className='text-lg font-semibold text-emerald-400 mb-3'>⚡ Быстрые действия</h3>
+								<h3 className='text-lg font-semibold text-emerald-400 mb-3'>
+									⚡ Быстрые действия
+								</h3>
 								<div className='space-y-2'>
 									<Link
 										href='/analytics'
@@ -624,7 +755,9 @@ export default function ProfilePageContent() {
 										>
 											<div className='flex items-center gap-3'>
 												<span className='text-xl'>💼</span>
-												<span className='text-white font-medium'>Портфолио</span>
+												<span className='text-white font-medium'>
+													Портфолио
+												</span>
 											</div>
 											<FaChevronRight className='text-gray-400 group-hover:text-blue-400 transition' />
 										</Link>
@@ -636,7 +769,9 @@ export default function ProfilePageContent() {
 										>
 											<div className='flex items-center gap-3'>
 												<span className='text-xl'>⭐</span>
-												<span className='text-white font-medium'>Мой уровень</span>
+												<span className='text-white font-medium'>
+													Мой уровень
+												</span>
 											</div>
 											<FaChevronRight className='text-gray-400 group-hover:text-indigo-400 transition' />
 										</Link>
@@ -659,7 +794,9 @@ export default function ProfilePageContent() {
 											<div className='text-2xl font-bold text-emerald-300'>
 												{profile._count?.executedTasks || 0}
 											</div>
-											<div className='text-xs text-gray-400 mt-1'>Задач выполнено</div>
+											<div className='text-xs text-gray-400 mt-1'>
+												Задач выполнено
+											</div>
 										</div>
 										<div className='text-center p-3 bg-blue-500/10 rounded-lg border border-blue-500/20'>
 											<div className='text-2xl font-bold text-blue-300'>
@@ -669,7 +806,9 @@ export default function ProfilePageContent() {
 										</div>
 										<div className='text-center p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20'>
 											<div className='text-2xl font-bold text-yellow-300'>
-												{profile.avgRating != null ? Number(profile.avgRating).toFixed(1) : '—'}
+												{profile.avgRating != null
+													? Number(profile.avgRating).toFixed(1)
+													: '—'}
 											</div>
 											<div className='text-xs text-gray-400 mt-1'>Рейтинг</div>
 										</div>
@@ -696,7 +835,9 @@ export default function ProfilePageContent() {
 												<div className='text-2xl font-bold text-yellow-300'>
 													{Number(profile.avgRating).toFixed(1)}
 												</div>
-												<div className='text-xs text-gray-400 mt-1'>Рейтинг</div>
+												<div className='text-xs text-gray-400 mt-1'>
+													Рейтинг
+												</div>
 											</div>
 										)}
 										<div className='text-center p-3 bg-blue-500/10 rounded-lg border border-blue-500/20'>
@@ -709,24 +850,33 @@ export default function ProfilePageContent() {
 											<div className='text-2xl font-bold text-emerald-300'>
 												{profile.customerStats.createdTasks || 0}
 											</div>
-											<div className='text-xs text-gray-400 mt-1'>Созданных задач</div>
+											<div className='text-xs text-gray-400 mt-1'>
+												Созданных задач
+											</div>
 										</div>
 										<div className='text-center p-3 bg-purple-500/10 rounded-lg border border-purple-500/20'>
 											<div className='text-2xl font-bold text-purple-300'>
 												{profile.customerStats.completedTasks || 0}
 											</div>
-											<div className='text-xs text-gray-400 mt-1'>Завершено</div>
+											<div className='text-xs text-gray-400 mt-1'>
+												Завершено
+											</div>
 										</div>
 										<div className='text-center p-3 bg-orange-500/10 rounded-lg border border-orange-500/20'>
 											<div className='text-2xl font-bold text-orange-300'>
-												{profile.customerStats.totalSpent ? Math.round(profile.customerStats.totalSpent).toLocaleString('ru-RU') : 0}
+												{profile.customerStats.totalSpent
+													? Math.round(
+															profile.customerStats.totalSpent
+													  ).toLocaleString('ru-RU')
+													: 0}
 											</div>
-											<div className='text-xs text-gray-400 mt-1'>Потрачено ₽</div>
+											<div className='text-xs text-gray-400 mt-1'>
+												Потрачено ₽
+											</div>
 										</div>
 									</div>
 								</div>
 							)}
-
 						</div>
 					</div>
 				)}
@@ -742,8 +892,10 @@ export default function ProfilePageContent() {
 								</div>
 							</div>
 						)}
-						
-						{profile.badges && Array.isArray(profile.badges) && profile.badges.length > 0 ? (
+
+						{profile.badges &&
+						Array.isArray(profile.badges) &&
+						profile.badges.length > 0 ? (
 							<div className='space-y-6'>
 								<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6'>
 									{profile.badges.map(userBadge => (
@@ -754,34 +906,37 @@ export default function ProfilePageContent() {
 											{/* Декоративный фон */}
 											<div className='absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
 											<div className='absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500'></div>
-											
+
 											<div className='relative z-10'>
 												<div className='flex items-start gap-4 mb-4'>
 													{/* Игровая иконка бейджа */}
 													<div className='flex-shrink-0'>
-														<BadgeIcon 
-															icon={userBadge.badge.icon} 
-															name={userBadge.badge.name} 
+														<BadgeIcon
+															icon={userBadge.badge.icon}
+															name={userBadge.badge.name}
 															size='md'
 															className='group-hover:scale-110'
 														/>
 													</div>
-													
+
 													{/* Название и дата */}
 													<div className='flex-1 min-w-0 pt-1'>
 														<h4 className='font-bold text-white text-base mb-1 group-hover:text-emerald-300 transition line-clamp-2'>
 															{userBadge.badge.name}
 														</h4>
 														<p className='text-xs text-gray-400'>
-															{new Date(userBadge.earnedAt).toLocaleDateString('ru-RU', { 
-																day: 'numeric', 
-																month: 'long', 
-																year: 'numeric' 
-															})}
+															{new Date(userBadge.earnedAt).toLocaleDateString(
+																'ru-RU',
+																{
+																	day: 'numeric',
+																	month: 'long',
+																	year: 'numeric',
+																}
+															)}
 														</p>
 													</div>
 												</div>
-												
+
 												{/* Описание */}
 												<div className='bg-black/30 border border-gray-800/50 rounded-lg p-3'>
 													<p className='text-xs text-gray-300 leading-relaxed'>
@@ -789,13 +944,13 @@ export default function ProfilePageContent() {
 													</p>
 												</div>
 											</div>
-											
+
 											{/* Блестящий эффект сверху */}
 											<div className='absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
 										</div>
 									))}
 								</div>
-								
+
 								{/* Кнопка показать скрытые достижения */}
 								{lockedBadges.length > 0 && (
 									<button
@@ -803,7 +958,9 @@ export default function ProfilePageContent() {
 										className='w-full py-4 bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl text-gray-400 hover:text-gray-300 hover:border-gray-600/50 transition-all text-base font-semibold flex items-center justify-center gap-2'
 									>
 										<span>🔒</span>
-										<span>Показать скрытые достижения ({lockedBadges.length})</span>
+										<span>
+											Показать скрытые достижения ({lockedBadges.length})
+										</span>
 									</button>
 								)}
 							</div>
@@ -813,13 +970,17 @@ export default function ProfilePageContent() {
 									<FaTrophy className='text-6xl text-gray-600 mx-auto mb-4' />
 									<p className='text-gray-400'>Пока нет достижений</p>
 									{user.role === 'customer' && (
-										<p className='text-gray-500 text-sm mt-2'>Создавайте задачи, завершайте их и получайте достижения!</p>
+										<p className='text-gray-500 text-sm mt-2'>
+											Создавайте задачи, завершайте их и получайте достижения!
+										</p>
 									)}
 									{user.role === 'executor' && (
-										<p className='text-gray-500 text-sm mt-2'>Выполняйте задачи и получайте достижения!</p>
+										<p className='text-gray-500 text-sm mt-2'>
+											Выполняйте задачи и получайте достижения!
+										</p>
 									)}
 								</div>
-								
+
 								{/* Кнопка показать скрытые достижения */}
 								{lockedBadges.length > 0 && (
 									<button
@@ -827,7 +988,9 @@ export default function ProfilePageContent() {
 										className='w-full py-4 bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl text-gray-400 hover:text-gray-300 hover:border-gray-600/50 transition-all text-base font-semibold flex items-center justify-center gap-2'
 									>
 										<span>🔒</span>
-										<span>Показать скрытые достижения ({lockedBadges.length})</span>
+										<span>
+											Показать скрытые достижения ({lockedBadges.length})
+										</span>
 									</button>
 								)}
 							</div>
@@ -854,7 +1017,9 @@ export default function ProfilePageContent() {
 													<FaStar
 														key={i}
 														className={`text-xs ${
-															i < review.rating ? 'text-yellow-400' : 'text-gray-600'
+															i < review.rating
+																? 'text-yellow-400'
+																: 'text-gray-600'
 														}`}
 													/>
 												))}
@@ -864,8 +1029,12 @@ export default function ProfilePageContent() {
 											"{review.comment?.trim() || 'Без комментария'}"
 										</p>
 										<div className='flex justify-between text-xs text-gray-400'>
-											<span>{review.fromUser?.fullName || review.fromUser?.email}</span>
-											<span>{new Date(review.createdAt).toLocaleDateString('ru-RU')}</span>
+											<span>
+												{review.fromUser?.fullName || review.fromUser?.email}
+											</span>
+											<span>
+												{new Date(review.createdAt).toLocaleDateString('ru-RU')}
+											</span>
 										</div>
 									</div>
 								))}
@@ -906,11 +1075,15 @@ export default function ProfilePageContent() {
 											<div className='flex items-center gap-2 text-xs text-gray-400'>
 												<FaCalendarAlt className='text-emerald-400' />
 												<span>
-													Получено: {new Date(cert.grantedAt).toLocaleDateString('ru-RU', {
-														day: 'numeric',
-														month: 'long',
-														year: 'numeric'
-													})}
+													Получено:{' '}
+													{new Date(cert.grantedAt).toLocaleDateString(
+														'ru-RU',
+														{
+															day: 'numeric',
+															month: 'long',
+															year: 'numeric',
+														}
+													)}
 												</span>
 											</div>
 										</div>
@@ -920,8 +1093,12 @@ export default function ProfilePageContent() {
 						) : (
 							<div className='text-center py-16 bg-black/40 rounded-xl border border-emerald-500/30'>
 								<FaCertificate className='text-6xl text-gray-600 mx-auto mb-4 opacity-50' />
-								<p className='text-gray-400 text-lg font-medium'>Пока нет сертификаций</p>
-								<p className='text-gray-500 text-sm mt-2'>Пройдите тесты по категориям, чтобы получить сертификацию</p>
+								<p className='text-gray-400 text-lg font-medium'>
+									Пока нет сертификаций
+								</p>
+								<p className='text-gray-500 text-sm mt-2'>
+									Пройдите тесты по категориям, чтобы получить сертификацию
+								</p>
 							</div>
 						)}
 					</div>
@@ -941,16 +1118,23 @@ export default function ProfilePageContent() {
 											className='block bg-black/40 p-4 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all'
 										>
 											<div className='flex justify-between items-start mb-2'>
-												<h4 className='font-semibold text-white'>{task.title}</h4>
+												<h4 className='font-semibold text-white'>
+													{task.title}
+												</h4>
 												{task.price && (
 													<span className='text-emerald-300 font-semibold text-sm'>
 														{task.price} ₽
 													</span>
 												)}
 											</div>
-											<p className='text-gray-300 text-sm mb-3 line-clamp-2'>{task.description}</p>
+											<p className='text-gray-300 text-sm mb-3 line-clamp-2'>
+												{task.description}
+											</p>
 											<div className='flex justify-between items-center text-xs text-gray-400'>
-												<span>Заказчик: {task.customer.fullName || task.customer.email}</span>
+												<span>
+													Заказчик:{' '}
+													{task.customer.fullName || task.customer.email}
+												</span>
 												{task.completedAt && (
 													<span className='flex items-center gap-1'>
 														<FaCalendarAlt />
@@ -965,56 +1149,67 @@ export default function ProfilePageContent() {
 								<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
 									<FaTasks className='text-6xl text-gray-600 mx-auto mb-4' />
 									<p className='text-gray-400'>Пока нет выполненных задач</p>
-									<Link href='/tasks' className='mt-4 inline-block text-emerald-400 hover:text-emerald-300 underline'>
+									<Link
+										href='/tasks'
+										className='mt-4 inline-block text-emerald-400 hover:text-emerald-300 underline'
+									>
 										Перейти к задачам
 									</Link>
 								</div>
 							)
+						) : // Для заказчика - завершенные задачи
+						loadingCustomerTasks ? (
+							<div className='text-center py-12'>
+								<div className='w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4' />
+								<p className='text-gray-400'>Загрузка задач...</p>
+							</div>
+						) : customerCompletedTasks.length > 0 ? (
+							<div className='space-y-3'>
+								{customerCompletedTasks.map((task: any) => (
+									<Link
+										key={task.id}
+										href={`/tasks/${task.id}`}
+										className='block bg-black/40 p-4 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all'
+									>
+										<div className='flex justify-between items-start mb-2'>
+											<h4 className='font-semibold text-white'>{task.title}</h4>
+											{task.price && (
+												<span className='text-emerald-300 font-semibold text-sm'>
+													{Number(task.price).toFixed(2)} ₽
+												</span>
+											)}
+										</div>
+										<p className='text-gray-300 text-sm mb-3 line-clamp-2'>
+											{task.description}
+										</p>
+										<div className='flex justify-between items-center text-xs text-gray-400'>
+											<span>
+												Исполнитель:{' '}
+												{task.executor?.fullName ||
+													task.executor?.email ||
+													'Не назначен'}
+											</span>
+											{task.completedAt && (
+												<span className='flex items-center gap-1'>
+													<FaCalendarAlt />
+													{new Date(task.completedAt).toLocaleDateString()}
+												</span>
+											)}
+										</div>
+									</Link>
+								))}
+							</div>
 						) : (
-							// Для заказчика - завершенные задачи
-							loadingCustomerTasks ? (
-								<div className='text-center py-12'>
-									<div className='w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4' />
-									<p className='text-gray-400'>Загрузка задач...</p>
-								</div>
-							) : customerCompletedTasks.length > 0 ? (
-								<div className='space-y-3'>
-									{customerCompletedTasks.map((task: any) => (
-										<Link
-											key={task.id}
-											href={`/tasks/${task.id}`}
-											className='block bg-black/40 p-4 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all'
-										>
-											<div className='flex justify-between items-start mb-2'>
-												<h4 className='font-semibold text-white'>{task.title}</h4>
-												{task.price && (
-													<span className='text-emerald-300 font-semibold text-sm'>
-														{Number(task.price).toFixed(2)} ₽
-													</span>
-												)}
-											</div>
-											<p className='text-gray-300 text-sm mb-3 line-clamp-2'>{task.description}</p>
-											<div className='flex justify-between items-center text-xs text-gray-400'>
-												<span>Исполнитель: {task.executor?.fullName || task.executor?.email || 'Не назначен'}</span>
-												{task.completedAt && (
-													<span className='flex items-center gap-1'>
-														<FaCalendarAlt />
-														{new Date(task.completedAt).toLocaleDateString()}
-													</span>
-												)}
-											</div>
-										</Link>
-									))}
-								</div>
-							) : (
-								<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
-									<FaTasks className='text-6xl text-gray-600 mx-auto mb-4' />
-									<p className='text-gray-400'>Пока нет завершенных задач</p>
-									<Link href='/tasks' className='mt-4 inline-block text-emerald-400 hover:text-emerald-300 underline'>
-										Перейти к задачам
-									</Link>
-								</div>
-							)
+							<div className='text-center py-12 bg-black/40 rounded-xl border border-emerald-500/30'>
+								<FaTasks className='text-6xl text-gray-600 mx-auto mb-4' />
+								<p className='text-gray-400'>Пока нет завершенных задач</p>
+								<Link
+									href='/tasks'
+									className='mt-4 inline-block text-emerald-400 hover:text-emerald-300 underline'
+								>
+									Перейти к задачам
+								</Link>
+							</div>
 						)}
 					</div>
 				)}
@@ -1033,17 +1228,23 @@ export default function ProfilePageContent() {
 									<p className='text-3xl font-bold text-emerald-300 mb-2'>
 										{Number(profile.balance ?? 0).toFixed(2)} ₽
 									</p>
-									{profile.frozenBalance && Number(profile.frozenBalance) > 0 && (
-										<div className='text-sm text-gray-400 space-y-1'>
-											<div className='text-yellow-400'>
-												🔒 Заморожено: {Number(profile.frozenBalance).toFixed(2)} ₽
+									{profile.frozenBalance &&
+										Number(profile.frozenBalance) > 0 && (
+											<div className='text-sm text-gray-400 space-y-1'>
+												<div className='text-yellow-400'>
+													🔒 Заморожено:{' '}
+													{Number(profile.frozenBalance).toFixed(2)} ₽
+												</div>
+												<div className='text-emerald-400'>
+													✓ Доступно:{' '}
+													{(
+														Number(profile.balance ?? 0) -
+														Number(profile.frozenBalance)
+													).toFixed(2)}{' '}
+													₽
+												</div>
 											</div>
-											<div className='text-emerald-400'>
-												✓ Доступно:{' '}
-												{(Number(profile.balance ?? 0) - Number(profile.frozenBalance)).toFixed(2)} ₽
-											</div>
-										</div>
-									)}
+										)}
 								</div>
 								<div className='flex gap-2'>
 									<input
@@ -1074,16 +1275,21 @@ export default function ProfilePageContent() {
 								</div>
 								{withdrawError && (
 									<div className='mt-3 bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
-										<span className='font-semibold'>⚠️ Ошибка:</span> {withdrawError}
+										<span className='font-semibold'>⚠️ Ошибка:</span>{' '}
+										{withdrawError}
 									</div>
 								)}
 							</div>
 
 							{/* История транзакций */}
 							<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
-								<h3 className='text-lg font-semibold text-emerald-400 mb-4'>История транзакций</h3>
+								<h3 className='text-lg font-semibold text-emerald-400 mb-4'>
+									История транзакций
+								</h3>
 								{transactions.length === 0 ? (
-									<p className='text-gray-500 text-sm text-center py-4'>Пока нет транзакций</p>
+									<p className='text-gray-500 text-sm text-center py-4'>
+										Пока нет транзакций
+									</p>
 								) : (
 									<div className='space-y-2 max-h-96 overflow-y-auto'>
 										{transactions.map(t => (
@@ -1092,7 +1298,9 @@ export default function ProfilePageContent() {
 												className='flex justify-between items-center p-3 bg-black/60 rounded-lg border border-emerald-500/10'
 											>
 												<div className='flex-1 min-w-0'>
-													<p className='text-sm text-gray-300 truncate'>{t.reason}</p>
+													<p className='text-sm text-gray-300 truncate'>
+														{t.reason}
+													</p>
 													<p className='text-xs text-gray-500'>
 														{new Date(t.createdAt).toLocaleDateString('ru-RU')}
 													</p>
@@ -1125,9 +1333,9 @@ export default function ProfilePageContent() {
 					onSuccess={handleProfileUpdateSuccess}
 				/>
 			)}
-			
-			{/* Модальное окно выбора фона профиля */}
-			{backgroundSelectorOpen && (
+
+			{/* Модальное окно выбора фона профиля - только для исполнителей */}
+			{backgroundSelectorOpen && user.role === 'executor' && (
 				<ProfileBackgroundSelector
 					currentLevel={userLevel}
 					onClose={() => {
@@ -1138,7 +1346,9 @@ export default function ProfilePageContent() {
 								headers: { Authorization: `Bearer ${token}` },
 							})
 								.then(res => res.json())
-								.then(data => setProfileBackground(data.backgroundId || 'default'))
+								.then(data =>
+									setProfileBackground(data.backgroundId || 'default')
+								)
 								.catch(() => {})
 						}
 					}}
@@ -1150,13 +1360,15 @@ export default function ProfilePageContent() {
 				<BadgesModal
 					isOpen={badgesModalOpen}
 					onClose={() => setBadgesModalOpen(false)}
-					earnedBadges={profile?.badges?.map(ub => ({
-						id: ub.badge.id,
-						name: ub.badge.name,
-						description: ub.badge.description,
-						icon: ub.badge.icon,
-						earnedAt: ub.earnedAt,
-					})) || []}
+					earnedBadges={
+						profile?.badges?.map(ub => ({
+							id: ub.badge.id,
+							name: ub.badge.name,
+							description: ub.badge.description,
+							icon: ub.badge.icon,
+							earnedAt: ub.earnedAt,
+						})) || []
+					}
 				/>
 			)}
 		</div>
