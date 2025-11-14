@@ -383,22 +383,34 @@ export default function UserPublicProfilePage() {
 
 	// Расчет позиции подсказки для кнопки найма
 	useEffect(() => {
-		if (!showHireTooltip || !hireButtonRef) return
+		if (!showHireTooltip || !hireButtonRef) {
+			return
+		}
 
 		const updateTooltipPosition = () => {
 			if (!hireButtonRef) return
 			const rect = hireButtonRef.getBoundingClientRect()
+			// Для fixed позиционирования используем координаты относительно viewport
 			setTooltipPosition({
 				top: rect.bottom + 8,
 				left: rect.left + rect.width / 2,
 			})
 		}
 
+		// Обновляем позицию сразу
 		updateTooltipPosition()
+
+		// Обновляем позицию в следующем кадре для точности
+		const rafId = requestAnimationFrame(() => {
+			updateTooltipPosition()
+		})
+
+		// Обновляем при скролле и изменении размера
 		window.addEventListener('scroll', updateTooltipPosition, true)
 		window.addEventListener('resize', updateTooltipPosition)
 
 		return () => {
+			cancelAnimationFrame(rafId)
 			window.removeEventListener('scroll', updateTooltipPosition, true)
 			window.removeEventListener('resize', updateTooltipPosition)
 		}
