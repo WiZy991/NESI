@@ -679,10 +679,16 @@ export default function CommunityPostPage() {
 									<MoreHorizontal className='w-5 h-5' />
 								</button>
 								{openMenu === post.id && (
-									<div
-										className='absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20'
-										onClick={e => e.stopPropagation()}
-									>
+									<>
+										{/* Overlay для закрытия меню */}
+										<div 
+											className='fixed inset-0 z-[9997]'
+											onClick={() => setOpenMenu(null)}
+										/>
+										<div
+											className='absolute right-0 top-full mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-[9998]'
+											onClick={e => e.stopPropagation()}
+										>
 										<button
 											onClick={() => {
 												copyLink(window.location.href)
@@ -723,7 +729,8 @@ export default function CommunityPostPage() {
 												</button>
 											</>
 										)}
-									</div>
+										</div>
+									</>
 								)}
 							</div>
 						</header>
@@ -1152,7 +1159,7 @@ function CommentNode({
 
 								{openMenu && (
 									<div
-										className='absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20'
+										className='absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-[100]'
 										onClick={e => e.stopPropagation()}
 									>
 										<button
@@ -1198,7 +1205,8 @@ function CommentNode({
 												<Flag className='w-4 h-4' /> Пожаловаться
 											</button>
 										)}
-									</div>
+										</div>
+									</>
 								)}
 							</div>
 						</div>

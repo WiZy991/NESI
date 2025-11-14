@@ -476,7 +476,7 @@ export default function LevelPage() {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Уровень 6:</span>
-                      <span className="text-yellow-400 font-bold">12-16% <span className="text-yellow-500">(до -8%)</span></span>
+                      <span className="text-yellow-400 font-bold">16% <span className="text-yellow-500">(-4%)</span></span>
                     </div>
                   </div>
                 </div>

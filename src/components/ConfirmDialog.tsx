@@ -100,7 +100,18 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999]"
+      style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem'
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget && !isLoading) {
           onClose()
@@ -108,11 +119,26 @@ export default function ConfirmDialog({
       }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        style={{ 
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0
+        }}
+      />
 
-      {/* Dialog */}
+      {/* Dialog - центрируем по viewport */}
       <div
         className={`relative bg-gray-900 rounded-2xl border-2 ${style.borderColor} shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-md w-full overflow-hidden`}
+        style={{ 
+          position: 'relative',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          zIndex: 1
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

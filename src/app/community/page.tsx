@@ -421,10 +421,10 @@ export default function CommunityPage() {
 							{filtered.map(post => (
 								<div
 									key={post.id}
-									className='group border border-gray-800 rounded-xl p-3 sm:p-4 lg:p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative'
+									className='group border border-gray-800 rounded-xl p-3 sm:p-4 lg:p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative overflow-visible'
 								>
 									{/* Автор */}
-									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative'>
+									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative z-0'>
 										<Link
 											href={`/users/${post.author.id}`}
 											className='group flex items-center gap-2 sm:gap-3 hover:bg-emerald-900/10 p-1.5 sm:p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition'
@@ -461,21 +461,27 @@ export default function CommunityPage() {
 										</Link>
 
 										{/* Меню */}
-										<div className='relative' data-menu-container>
+										<div className='relative z-[200]' data-menu-container>
 											<button
 												onClick={() =>
 													setOpenMenu(openMenu === post.id ? null : post.id)
 												}
-												className='p-1 hover:text-emerald-400 transition'
+												className='p-1 hover:text-emerald-400 transition relative z-[200]'
 											>
 												<MoreHorizontal className='w-4 h-4 sm:w-5 sm:h-5' />
 											</button>
 
 											{openMenu === post.id && (
-												<div 
-													className='absolute right-0 mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20'
-													onClick={(e) => e.stopPropagation()}
-												>
+												<>
+													{/* Overlay для закрытия меню */}
+													<div 
+														className='fixed inset-0 z-[9997]'
+														onClick={() => setOpenMenu(null)}
+													/>
+													<div 
+														className='absolute right-0 top-full mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-[9998]'
+														onClick={(e) => e.stopPropagation()}
+													>
 													<button
 														onClick={() => {
 															copyLink(post.id)
@@ -518,7 +524,8 @@ export default function CommunityPage() {
 															</button>
 														</>
 													)}
-												</div>
+													</div>
+												</>
 											)}
 										</div>
 									</div>

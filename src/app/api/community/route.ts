@@ -12,11 +12,48 @@ import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 // Схема валидации для создания поста
 const createPostSchema = z.object({
 	content: z
-		.string()
-		.max(5000, 'Содержимое поста слишком длинное (максимум 5000 символов)')
-		.trim()
-		.optional(),
-	imageUrl: imageUrlSchema,
+		.union([
+			z.string().max(5000, 'Содержимое поста слишком длинное (максимум 5000 символов)'),
+			z.literal(''),
+			z.null(),
+			z.undefined()
+		])
+		.optional()
+		.transform(val => {
+			if (val === null || val === undefined) return ''
+			if (typeof val === 'string') return val.trim()
+			return ''
+		}),
+	imageUrl: z
+		.union([
+			z.string().refine(
+				(val) => {
+					if (!val || val.trim() === '') return true
+					// Полный URL
+					if (val.startsWith('http://') || val.startsWith('https://')) {
+						try {
+							new URL(val)
+							return true
+						} catch {
+							return false
+						}
+					}
+					// Относительный путь
+					if (val.startsWith('/')) {
+						return val.startsWith('/api/files/') || val.startsWith('/uploads/') || val.startsWith('/api/')
+					}
+					// ID файла
+					return /^[a-zA-Z0-9_-]+$/.test(val)
+				},
+				{ message: 'Некорректный URL изображения' }
+			),
+			z.literal(''),
+			z.null(),
+			z.undefined()
+		])
+		.optional()
+		.nullable()
+		.transform(val => val === null || val === undefined || val === '' ? null : val),
 	mediaType: z.enum(['image', 'video']).optional(),
 	poll: z
 		.object({
@@ -328,24 +365,38 @@ export async function POST(req: NextRequest) {
     // Валидация данных
     const validation = validateWithZod(createPostSchema, body)
     if (!validation.success) {
+      logger.warn('Ошибка валидации создания поста', {
+        errors: validation.errors,
+        body: {
+          content: body.content ? `${body.content.substring(0, 50)}...` : 'empty',
+          hasImageUrl: !!body.imageUrl,
+          hasPoll: !!body.poll,
+        }
+      })
       return NextResponse.json(
-        { error: validation.errors.join(', ') },
+        { error: validation.errors.join(', ') || 'Неверные данные для создания поста' },
         { status: 400 }
       )
     }
 
     const { content, imageUrl, mediaType, poll } = validation.data
+    // content уже нормализован через transform в схеме (пустая строка, обрезаны пробелы)
     
     // Проверка, что пост не пустой
-    if (!content?.trim() && !imageUrl) {
+    // Разрешаем пустой content, если есть imageUrl или poll
+    const hasContent = content.length > 0
+    const hasImage = !!imageUrl
+    const hasPoll = poll?.isPoll || (Array.isArray(poll?.options) && poll.options.length > 0)
+    
+    if (!hasContent && !hasImage && !hasPoll) {
       return NextResponse.json(
-        { error: 'Пост не может быть пустым' },
+        { error: 'Пост не может быть пустым. Добавьте текст, изображение или создайте опрос.' },
         { status: 400 }
       )
     }
 
     // Дополнительная валидация длины содержимого
-    if (content) {
+    if (content && content.length > 0) {
       const contentValidation = validateStringLength(content, 5000, 'Содержимое поста')
       if (!contentValidation.valid) {
         return NextResponse.json(
@@ -396,7 +447,7 @@ export async function POST(req: NextRequest) {
     // mediaType добавим в ответе вручную
     const baseData: any = {
       title: '',
-      content: content?.trim() || '',
+      content: content, // content уже нормализован выше
       imageUrl: imageUrl || null,
       authorId: me.id,
       isPoll: isPoll,
