@@ -524,11 +524,32 @@ export async function POST(req: NextRequest) {
 	}
 	
 	const sent = sendNotificationToUser(recipientId, sseNotification)
+	
+	// 🔄 Синхронизация между устройствами: отправляем сообщение и отправителю
+	// Это позволяет видеть отправленные сообщения на всех устройствах в реальном времени
+	sendNotificationToUser(me.id, {
+		type: 'messageSent',
+		title: 'Сообщение отправлено',
+		message: formattedContent,
+		sender: msg.sender.fullName || msg.sender.email,
+		senderId: msg.sender.id,
+		recipientId: recipientId,
+		chatType: 'private',
+		chatId: `private_${recipientId}`,
+		messageId: msg.id,
+		messageData: result, // Полные данные сообщения для синхронизации
+		hasFile: !!fileUrl,
+		fileName: fileName,
+		link: `/chats?open=${recipientId}`,
+		playSound: false, // Не воспроизводим звук для собственных сообщений
+	})
+	
 	logger.debug('Сообщение отправлено и уведомление разослано', {
 		senderId: me.id,
 		recipientId,
 		messageId: msg.id,
 		sseSent: sent,
+		syncedToSender: true,
 	})
 
 		return NextResponse.json(result, { status: 201 })

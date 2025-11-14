@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
-import { hasActiveTask } from '@/lib/guards'
+import { canTakeMoreTasks } from '@/lib/level/taskLimit'
 import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 import { validateWithZod, taskResponseSchema } from '@/lib/validations'
 import { validateStringLength } from '@/lib/security'
@@ -81,10 +81,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 🔒 ГАРД: есть ли активная задача у исполнителя?
-  if (await hasActiveTask(me.id)) {
+  // 🔒 ГАРД: проверяем лимит задач по уровню
+  const taskLimit = await canTakeMoreTasks(me.id)
+  if (!taskLimit.canTake) {
     return NextResponse.json(
-      { error: 'У вас уже есть активная задача. Завершите её, чтобы взять следующую.' },
+      { 
+        error: `У вас уже максимальное количество активных задач (${taskLimit.activeCount}/${taskLimit.maxCount}). Завершите текущие задачи, чтобы взять новые.`,
+        activeCount: taskLimit.activeCount,
+        maxCount: taskLimit.maxCount
+      },
       { status: 409 }
     )
   }

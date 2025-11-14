@@ -313,21 +313,40 @@ function formatDateTime(value: string | null): string {
 	}
 }
 
-function pickCurrentTask(tasks: ExecutorTask[]): ExecutorTask | null {
-	const sorted = [...tasks].sort((a, b) => {
+function pickCurrentTasks(tasks: ExecutorTask[]): ExecutorTask[] {
+	// Активные задачи - это те, которые в работе или в активных колонках канбана
+	const activeTasks = tasks.filter(task => {
+		// Задача активна, если:
+		// 1. Статус "в работе" (in_progress)
+		// 2. ИЛИ колонка канбана в активных (TODO, IN_PROGRESS, REVIEW)
+		// 3. И НЕ завершена/отменена
+		const isActiveStatus = task.status === 'in_progress'
+		const isActiveColumn = ACTIVE_PRIORITY.includes(task.executorKanbanColumn)
+		const isNotCompleted = task.status !== 'completed' && task.status !== 'cancelled'
+		const isNotDone = task.executorKanbanColumn !== 'DONE'
+		
+		return (isActiveStatus || isActiveColumn) && isNotCompleted && isNotDone
+	})
+
+	// Сортируем по приоритету колонки и дате создания
+	return activeTasks.sort((a, b) => {
 		const priorityDiff =
 			ACTIVE_PRIORITY.indexOf(a.executorKanbanColumn) -
 			ACTIVE_PRIORITY.indexOf(b.executorKanbanColumn)
 		if (priorityDiff !== 0) return priorityDiff
 		return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
 	})
-
-	return sorted.find(task => ACTIVE_PRIORITY.includes(task.executorKanbanColumn)) ?? null
 }
 
-function pickHistoryTasks(tasks: ExecutorTask[], currentTaskId: string | null): ExecutorTask[] {
+function pickHistoryTasks(tasks: ExecutorTask[], currentTaskIds: string[]): ExecutorTask[] {
+	// В историю попадают только завершенные или отмененные задачи
 	return tasks
-		.filter(task => task.id !== currentTaskId)
+		.filter(task => {
+			const isCompleted = task.status === 'completed' || task.status === 'cancelled'
+			const isDone = task.executorKanbanColumn === 'DONE'
+			const isNotCurrent = !currentTaskIds.includes(task.id)
+			return (isCompleted || isDone) && isNotCurrent
+		})
 		.sort(
 			(a, b) =>
 				new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -609,7 +628,7 @@ function CurrentTaskCard({
 			<div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
 				<div>
 					<p className='text-xs uppercase tracking-[0.3em] text-emerald-300/70'>
-						Текущая задача
+						Активная задача
 					</p>
 					<h2 className='mt-2 text-2xl font-semibold text-white'>{task.title}</h2>
 					<p className='mt-2 text-sm text-gray-300'>
@@ -931,12 +950,14 @@ export default function ExecutorMyTasksPage() {
 		}
 	}, [token, user, loadTasks])
 
-	const currentTask = useMemo(() => pickCurrentTask(tasks), [tasks])
+	const currentTasks = useMemo(() => pickCurrentTasks(tasks), [tasks])
 	const historyTasks = useMemo(
-		() => pickHistoryTasks(tasks, currentTask?.id ?? null),
-		[tasks, currentTask?.id]
+		() => pickHistoryTasks(tasks, currentTasks.map(t => t.id)),
+		[tasks, currentTasks]
 	)
-	const hints = useMemo(() => buildHints(currentTask, historyTasks), [currentTask, historyTasks])
+	// Для подсказок используем первую задачу (или null, если нет активных)
+	const primaryTask = currentTasks.length > 0 ? currentTasks[0] : null
+	const hints = useMemo(() => buildHints(primaryTask, historyTasks), [primaryTask, historyTasks])
 	const stats = useMemo<StatsSnapshot>(() => {
 		const active = tasks.filter(task => task.status === 'in_progress').length
 		const done = tasks.filter(task => task.status === 'completed').length
@@ -1097,33 +1118,36 @@ export default function ExecutorMyTasksPage() {
 
 			<StatsSummary stats={stats} />
 
-			{hints.length > 0 && (
+			{hints.length > 0 && currentTasks.length > 0 && (
 				<div className='mt-8'>
 					<ContextHints hints={hints} />
 					</div>
-				)}
+			)}
 
 			<div className='mt-10 space-y-6'>
-				{currentTask ? (
-					<CurrentTaskCard
-						task={currentTask}
-						onSaveNote={note => handleSaveNote(currentTask.id, note)}
-						onSavePlan={plan => handleSavePlan(currentTask.id, plan)}
-						isSavingNote={savingNoteId === currentTask.id}
-						isSavingPlan={savingPlanId === currentTask.id}
-					/>
+				{currentTasks.length > 0 ? (
+					currentTasks.map(task => (
+						<CurrentTaskCard
+							key={task.id}
+							task={task}
+							onSaveNote={note => handleSaveNote(task.id, note)}
+							onSavePlan={plan => handleSavePlan(task.id, plan)}
+							isSavingNote={savingNoteId === task.id}
+							isSavingPlan={savingPlanId === task.id}
+						/>
+					))
 				) : (
 					<div className='flex items-center gap-3 rounded-3xl border border-white/10 bg-black/40 px-6 py-10 text-sm text-gray-300'>
 						<AlertCircle className='h-6 w-6 text-emerald-200' />
-								<div>
-							<p className='text-base font-semibold text-white'>Нет активной задачи</p>
+						<div>
+							<p className='text-base font-semibold text-white'>Нет активных задач</p>
 							<p className='mt-1 text-sm text-gray-400'>
 								Как только заказчик назначит тебя на задачу, здесь появится блок с подробностями.
-                  </p>
-                </div>
-								</div>
-									)}
-								</div>
+							</p>
+						</div>
+					</div>
+				)}
+			</div>
 
 			<div className='mt-12 space-y-4'>
 				<div className='flex items-center gap-2 text-sm font-semibold text-emerald-200'>

@@ -1,6 +1,8 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
+import { LevelBadge } from '@/components/LevelBadge'
+import { getLevelFromXPClient } from '@/lib/level/calculateClient'
 import { copyToClipboard } from '@/lib/copyToClipboard'
 import {
 	Archive,
@@ -61,6 +63,7 @@ type Props = {
 			fullName?: string
 			email: string
 			avatarUrl?: string
+			xp?: number | null
 		}
 	}
 	chatType: 'private' | 'task'
@@ -1269,7 +1272,13 @@ export default function ChatMessage({
 							className='text-emerald-400 hover:text-emerald-300 hover:underline transition-colors'
 							onClick={e => e.stopPropagation()}
 						>
-							{message.sender.fullName || message.sender.email}
+							<div className="flex items-center gap-2 flex-wrap">
+								<span>{message.sender.fullName || message.sender.email}</span>
+								{message.sender.xp != null && (() => {
+									const levelInfo = getLevelFromXPClient(message.sender.xp)
+									return <LevelBadge level={levelInfo.level} size="sm" />
+								})()}
+							</div>
 						</Link>
 					</div>
 				)}

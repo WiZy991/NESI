@@ -104,7 +104,8 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 					cache: 'no-store',
 				})
 				const data = await res.json()
-				if (!cancelled) setHasActive(Boolean(data?.has))
+				// Проверяем canTake вместо has - учитываем лимит по уровню
+				if (!cancelled) setHasActive(!data?.canTake)
 			} catch {
 				if (!cancelled) setHasActive(false)
 			} finally {

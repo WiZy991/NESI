@@ -1,0 +1,84 @@
+/* Анимации для высоких уровней (5+) */
+
+/* Анимация пульсации для золотых рамок (уровень 5) */
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(234, 179, 8, 0.6), 0 0 40px rgba(234, 179, 8, 0.3);
+  }
+}
+
+/* Анимация свечения для легендарных рамок (уровень 6+) */
+@keyframes glow-legendary {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.5),
+                0 0 40px rgba(251, 191, 36, 0.3),
+                0 0 60px rgba(251, 191, 36, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(234, 179, 8, 0.7),
+                0 0 50px rgba(251, 191, 36, 0.5),
+                0 0 70px rgba(251, 191, 36, 0.3);
+  }
+}
+
+/* Анимация градиента для легендарных фонов */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Анимация вращения для иконок высоких уровней */
+@keyframes rotate-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Анимация мерцания для премиум элементов */
+@keyframes shimmer {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Классы для применения анимаций */
+.level-5-animated {
+  animation: pulse-gold 2s ease-in-out infinite;
+}
+
+.level-6-animated {
+  animation: glow-legendary 3s ease-in-out infinite;
+}
+
+.level-legendary-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 5s ease infinite;
+}
+
+.level-icon-rotate {
+  animation: rotate-slow 20s linear infinite;
+}
+
+.level-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}
+

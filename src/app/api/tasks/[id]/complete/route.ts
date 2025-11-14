@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { awardXP } from '@/lib/level/awardXP'
 import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 import { logger } from '@/lib/logger'
+import { calculateCommissionRate } from '@/lib/level/rewards'
 
 export async function PATCH(req: NextRequest, { params }: any) {
 	try {
@@ -43,9 +44,24 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				{ status: 400 }
 			)
 
-		// Вычисляем комиссию 20% и выплату
+		// Вычисляем комиссию на основе уровня исполнителя
 		const escrowNum = toNumber(task.escrowAmount)
-		const commission = Math.floor(escrowNum * 100 * 0.2) / 100 // Округляем до копеек
+		
+		// Получаем XP исполнителя для расчета комиссии
+		const executor = await prisma.user.findUnique({
+			where: { id: task.executorId },
+			select: { xp: true },
+		})
+		
+		const baseXp = executor?.xp || 0
+		const passedTests = await prisma.certificationAttempt.count({
+			where: { userId: task.executorId, passed: true },
+		})
+		const executorXP = baseXp + passedTests * 10
+		
+		// Рассчитываем комиссию на основе уровня
+		const commissionRate = await calculateCommissionRate(executorXP)
+		const commission = Math.floor(escrowNum * 100 * commissionRate) / 100 // Округляем до копеек
 		const payout = escrowNum - commission
 
 		const commissionDecimal = new Prisma.Decimal(commission)
@@ -66,7 +82,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 							create: {
 								amount: commissionDecimal,
 								type: 'commission',
-								reason: `Комиссия платформы 20% с задачи "${task.title}"`,
+								reason: `Комиссия платформы ${Math.round(commissionRate * 100)}% с задачи "${task.title}"`,
 							},
 						},
 					},
@@ -106,7 +122,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 							{
 								amount: new Prisma.Decimal(-commission),
 								type: 'commission',
-								reason: `Комиссия 20% с задачи "${task.title}"`,
+								reason: `Комиссия ${Math.round(commissionRate * 100)}% с задачи "${task.title}"`,
 								taskId: task.id, // ✅ Добавляем связь с задачей
 							},
 						],

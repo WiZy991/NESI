@@ -4,6 +4,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 import { logger } from '@/lib/logger'
 import type { TaskResponse } from '@/types/api'
+import { getLevelFromXP } from '@/lib/level/calculate'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/tasks/[id]
@@ -47,6 +48,7 @@ export async function GET(
                 fullName: true,
                 email: true,
                 avgRating: true, // Используем предвычисленный avgRating вместо reviewsReceived
+                xp: true, // Добавляем XP для расчета уровня
               },
             },
             statusHistory: {
@@ -105,6 +107,7 @@ export async function GET(
                     fullName: true,
                     email: true,
                     avgRating: true, // Используем предвычисленный avgRating вместо reviewsReceived
+                    xp: true, // Добавляем XP для расчета уровня
                   },
                 },
                 statusHistory: {
@@ -124,6 +127,43 @@ export async function GET(
           task = updatedTask
         }
       }
+    }
+
+    // 🎯 Сортируем отклики по уровню (высокий уровень → низкий), затем по дате
+    if (task.responses && task.responses.length > 0) {
+      // Вычисляем уровни для всех откликов
+      const responsesWithLevels = await Promise.all(
+        task.responses.map(async (response: any) => {
+          const baseXp = response.user?.xp || 0
+          const passedTests = await prisma.certificationAttempt.count({
+            where: { userId: response.userId, passed: true },
+          })
+          const xpComputed = baseXp + passedTests * 10
+          const levelInfo = await getLevelFromXP(xpComputed)
+          
+          return {
+            ...response,
+            _level: levelInfo.level,
+            _levelInfo: levelInfo,
+          }
+        })
+      )
+
+      // Сортируем: сначала по уровню (убывание), затем по дате (убывание)
+      responsesWithLevels.sort((a, b) => {
+        if (b._level !== a._level) {
+          return b._level - a._level // Высокий уровень первым
+        }
+        // Если уровни равны, сортируем по дате
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      })
+
+      // Убираем временные поля _level и _levelInfo перед отправкой
+      task.responses = responsesWithLevels.map(({ _level, _levelInfo, ...rest }) => ({
+        ...rest,
+        userLevel: _level,
+        userLevelInfo: _levelInfo,
+      }))
     }
 
     return NextResponse.json({ task })

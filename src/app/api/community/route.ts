@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
             fullName: true,
             email: true,
             avatarFileId: true,
+            xp: true,
           },
         },
         _count: { select: { comments: true, likes: true } },

@@ -6,6 +6,7 @@ import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 import { NextRequest, NextResponse } from 'next/server'
 import { validateWithZod, taskResponseSchema } from '@/lib/validations'
 import { validateStringLength } from '@/lib/security'
+import { canTakeMoreTasks } from '@/lib/level/taskLimit'
 
 export async function POST(req: NextRequest) {
 	const { pathname } = req.nextUrl
@@ -78,6 +79,19 @@ export async function POST(req: NextRequest) {
 
 	if (existing) {
 		return NextResponse.json({ error: 'Вы уже откликались' }, { status: 400 })
+	}
+
+	// 🔒 Проверяем лимит задач по уровню
+	const taskLimit = await canTakeMoreTasks(user.id)
+	if (!taskLimit.canTake) {
+		return NextResponse.json(
+			{ 
+				error: `У вас уже максимальное количество активных задач (${taskLimit.activeCount}/${taskLimit.maxCount}). Завершите текущие задачи, чтобы взять новые.`,
+				activeCount: taskLimit.activeCount,
+				maxCount: taskLimit.maxCount
+			},
+			{ status: 409 }
+		)
 	}
 
 	// 💰 Проверка минимальной ставки

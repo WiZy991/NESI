@@ -44,8 +44,7 @@ export function ResponseFormSection({
 					<div className='flex items-center gap-3 text-yellow-300'>
 						<span className='text-lg'>⚠️</span>
 						<span>
-							У вас уже есть активная задача. Завершите её, чтобы откликнуться
-							на новые.
+							Вы достигли лимита активных задач. Завершите текущие задачи, чтобы откликнуться на новые.
 						</span>
 					</div>
 				</div>

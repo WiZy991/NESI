@@ -4,6 +4,10 @@ import BadgeIcon from '@/components/BadgeIcon'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import VideoPlayer from '@/components/VideoPlayer'
 import { useUser } from '@/context/UserContext'
+import { LevelBadge } from '@/components/LevelBadge'
+import { getLevelVisuals } from '@/lib/level/rewards'
+import { getBackgroundById } from '@/lib/level/profileBackgrounds'
+import { getLevelFromXPClient } from '@/lib/level/calculateClient'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -56,6 +60,7 @@ type PublicUser = {
 	xpComputed?: number
 	completedTasksCount?: number
 	avgRating?: number
+	profileBackground?: string
 	level?: {
 		id: string
 		name: string
@@ -393,6 +398,19 @@ export default function UserPublicProfilePage() {
 			: `${typeof window !== 'undefined' ? window.location.origin : ''}${viewUser.avatarUrl}`
 		: null
 
+	// Вычисляем уровень на основе XP
+	const xpValue = viewUser.xpComputed ?? viewUser.xp ?? 0
+	const levelInfo = getLevelFromXPClient(xpValue)
+	const userLevel = levelInfo.level
+	const visuals = getLevelVisuals(userLevel)
+
+	// Получаем фон профиля
+	const profileBackground = viewUser.profileBackground || 'default'
+	const backgroundData = getBackgroundById(profileBackground)
+	const backgroundStyle = backgroundData
+		? { background: backgroundData.gradient }
+		: undefined
+
 	const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; count?: number }> = [
 		{ id: 'overview' as Tab, label: 'Обзор', icon: <FaUserCircle /> },
 		{ id: 'reviews' as Tab, label: 'Отзывы', icon: <FaComments />, count: reviewsCount },
@@ -411,7 +429,13 @@ export default function UserPublicProfilePage() {
 	return (
 		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
 			{/* Компактный Header профиля */}
-			<div className='bg-gradient-to-r from-emerald-900/20 via-black/40 to-emerald-900/20 rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6'>
+			<div 
+				className='rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden'
+				style={backgroundStyle}
+			>
+				{/* Overlay для читаемости текста */}
+				<div className='absolute inset-0 bg-black/40 pointer-events-none' />
+				<div className='relative z-10'>
 				<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
 					{/* Аватар */}
 					<div className='relative'>
@@ -419,17 +443,17 @@ export default function UserPublicProfilePage() {
 							<img
 								src={avatarSrc}
 								alt='Аватар'
-								className='w-20 h-20 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover'
+								className={`w-20 h-20 rounded-full border-2 ${visuals.borderColor || 'border-emerald-500'} shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover`}
 								onError={() => setAvatarError(true)}
 							/>
 						) : (
-							<div className='w-20 h-20 rounded-full border-2 border-emerald-500 bg-gray-800 flex items-center justify-center'>
+							<div className={`w-20 h-20 rounded-full border-2 ${visuals.borderColor || 'border-emerald-500'} bg-gray-800 flex items-center justify-center`}>
 								<FaUserCircle className='text-4xl text-gray-600' />
 							</div>
 						)}
-						{viewUser.level && (
-							<div className='absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-1.5 border-2 border-black'>
-								<span className='text-xs font-bold text-black'>⭐{viewUser.level.slug}</span>
+						{userLevel > 0 && (
+							<div className='absolute -bottom-1 -right-1'>
+								<LevelBadge level={userLevel} size='sm' />
 							</div>
 						)}
 					</div>
@@ -438,9 +462,12 @@ export default function UserPublicProfilePage() {
 					<div className='flex-1 min-w-0'>
 						<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
 							<div>
-								<h1 className='text-2xl sm:text-3xl font-bold text-white mb-1 truncate'>
-									{viewUser.fullName || viewUser.email || 'Профиль пользователя'}
-								</h1>
+								<div className='flex items-center gap-2 flex-wrap mb-1'>
+									<h1 className='text-2xl sm:text-3xl font-bold text-white truncate'>
+										{viewUser.fullName || viewUser.email || 'Профиль пользователя'}
+									</h1>
+									{userLevel > 0 && <LevelBadge level={userLevel} size='md' />}
+								</div>
 								<div className='flex flex-wrap items-center gap-2 text-sm text-gray-400'>
 									<span>{getRoleName(viewUser.role)}</span>
 									{viewUser.location && (
@@ -531,6 +558,7 @@ export default function UserPublicProfilePage() {
 							</div>
 						)}
 					</div>
+				</div>
 				</div>
 			</div>
 

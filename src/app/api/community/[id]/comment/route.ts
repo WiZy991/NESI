@@ -62,6 +62,7 @@ export async function GET(
             fullName: true,
             email: true,
             avatarFileId: true,
+            xp: true,
           },
         },
       },

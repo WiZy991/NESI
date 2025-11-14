@@ -86,11 +86,11 @@ export async function GET(
 			messages = await prisma.message.findMany({
 				where: { taskId },
 				include: {
-					sender: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+					sender: { select: { id: true, fullName: true, email: true, avatarUrl: true, xp: true } },
 					file: { select: { id: true, filename: true, mimetype: true } },
 					replyTo: {
 						include: {
-							sender: { select: { id: true, fullName: true, email: true } },
+							sender: { select: { id: true, fullName: true, email: true, xp: true } },
 						},
 					},
 					reactions: {
@@ -109,7 +109,7 @@ export async function GET(
 				messages = await prisma.message.findMany({
 					where: { taskId },
 					include: {
-						sender: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+						sender: { select: { id: true, fullName: true, email: true, avatarUrl: true, xp: true } },
 						file: { select: { id: true, filename: true, mimetype: true } },
 					},
 					orderBy: { createdAt: 'asc' },
@@ -312,11 +312,11 @@ export async function POST(
 				message = await prisma.message.create({
 					data: messageData as any,
 					include: {
-						sender: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+						sender: { select: { id: true, fullName: true, email: true, avatarUrl: true, xp: true } },
 						file: { select: { id: true, filename: true, mimetype: true } },
 						replyTo: {
 							include: {
-								sender: { select: { id: true, fullName: true, email: true } },
+								sender: { select: { id: true, fullName: true, email: true, xp: true } },
 							},
 						},
 						task: {
@@ -344,7 +344,7 @@ export async function POST(
 					message = await prisma.message.create({
 						data: messageDataWithoutReply as any,
 						include: {
-							sender: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+							sender: { select: { id: true, fullName: true, email: true, avatarUrl: true, xp: true } },
 							file: { select: { id: true, filename: true, mimetype: true } },
 							task: {
 								select: {
@@ -371,11 +371,11 @@ export async function POST(
 						message = await prisma.message.findUnique({
 							where: { id: message.id },
 							include: {
-								sender: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+								sender: { select: { id: true, fullName: true, email: true, avatarUrl: true, xp: true } },
 								file: { select: { id: true, filename: true, mimetype: true } },
 								replyTo: {
 									include: {
-										sender: { select: { id: true, fullName: true, email: true } },
+										sender: { select: { id: true, fullName: true, email: true, xp: true } },
 									},
 								},
 								task: {
@@ -492,12 +492,53 @@ export async function POST(
 		}
 		
 		const sent = sendNotificationToUser(recipientId, sseNotification)
+		
+		// 🔄 Синхронизация между устройствами: отправляем сообщение и отправителю
+		// Это позволяет видеть отправленные сообщения на всех устройствах в реальном времени
+		const formattedContent = formatNotificationMessage(
+			content,
+			savedFile?.filename || null,
+			true
+		)
+		sendNotificationToUser(user.id, {
+			type: 'messageSent',
+			title: 'Сообщение отправлено',
+			message: formattedContent,
+			sender: message.sender.fullName || message.sender.email,
+			senderId: message.sender.id,
+			chatType: 'task',
+			chatId: `task_${taskId}`,
+			messageId: message.id,
+			messageData: {
+				id: message.id,
+				content: message.content,
+				createdAt: message.createdAt,
+				editedAt: message.editedAt,
+				sender: message.sender,
+				fileId: message.file?.id || null,
+				fileName: message.file?.filename || null,
+				fileMimetype: message.file?.mimetype || null,
+				fileUrl: message.file ? `/api/files/${message.file.id}` : null,
+				replyTo: message.replyTo ? {
+					id: message.replyTo.id,
+					content: message.replyTo.content,
+					sender: message.replyTo.sender,
+				} : null,
+			},
+			taskTitle: message.task.title,
+			hasFile: !!savedFile,
+			fileName: savedFile?.filename,
+			link: `/tasks/${taskId}`,
+			playSound: false, // Не воспроизводим звук для собственных сообщений
+		})
+		
 		logger.debug('Сообщение в задаче отправлено и уведомление разослано', {
 			senderId: user.id,
 			recipientId,
 			taskId,
 			messageId: message.id,
 			sseSent: sent,
+			syncedToSender: true,
 		})
 	}
 

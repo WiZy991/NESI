@@ -3,7 +3,11 @@
 import EditProfileModal from '@/components/EditProfileModal'
 import BadgeIcon from '@/components/BadgeIcon'
 import BadgesModal from '@/components/BadgesModal'
+import { ProfileBackgroundSelector } from '@/components/ProfileBackgroundSelector'
 import { useUser } from '@/context/UserContext'
+import { getBackgroundById } from '@/lib/level/profileBackgrounds'
+import { LevelBadge } from '@/components/LevelBadge'
+import { getLevelVisuals } from '@/lib/level/rewards'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
@@ -178,6 +182,9 @@ export default function ProfilePageContent() {
 	const [checkingBadges, setCheckingBadges] = useState(false)
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
+	const [backgroundSelectorOpen, setBackgroundSelectorOpen] = useState(false)
+	const [profileBackground, setProfileBackground] = useState<string | null>(null)
+	const [userLevel, setUserLevel] = useState(1)
 
 	const fetchProfile = async () => {
 		if (!token) return
@@ -190,6 +197,27 @@ export default function ProfilePageContent() {
 			console.log('Профиль загружен:', { skills: data.user?.skills, role: data.user?.role })
 			setProfile(data.user)
 			login(data.user, token)
+			
+			// Загружаем фон профиля
+			const bgRes = await fetch('/api/profile/background', {
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			if (bgRes.ok) {
+				const bgData = await bgRes.json()
+				setProfileBackground(bgData.backgroundId || 'default')
+			}
+			
+			// Получаем уровень через API (так как getLevelFromXP использует Prisma и работает только на сервере)
+			const levelRes = await fetch('/api/users/me/level', {
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			if (levelRes.ok) {
+				const levelData = await levelRes.json()
+				setUserLevel(levelData.level || 1)
+			} else {
+				// Fallback: используем уровень из профиля или дефолтный
+				setUserLevel(parseInt(data.user?.level?.slug || '1') || 1)
+			}
 		} catch (err) {
 			console.error('Ошибка загрузки профиля:', err)
 		} finally {
@@ -383,29 +411,45 @@ export default function ProfilePageContent() {
 		{ id: 'wallet', label: 'Кошелёк', icon: <FaWallet /> },
 	]
 
+	// Получаем градиент фона
+	const background = profileBackground ? getBackgroundById(profileBackground) : null
+	const backgroundStyle = background
+		? { background: background.gradient }
+		: { background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }
+
 	return (
 		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
 			{/* Компактный Header профиля */}
-			<div className='bg-gradient-to-r from-emerald-900/20 via-black/40 to-emerald-900/20 rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6'>
+			<div 
+				className='rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden'
+				style={backgroundStyle}
+			>
+				{/* Overlay для читаемости текста */}
+				<div className='absolute inset-0 bg-black/40 pointer-events-none' />
+				<div className='relative z-10'>
 				<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
 					{/* Аватар */}
 					<div className='relative'>
-						{avatarSrc ? (
-							<Image
-								src={avatarSrc}
-								alt='Аватар'
-								width={80}
-								height={80}
-								className='w-20 h-20 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover'
-							/>
-						) : (
-							<div className='w-20 h-20 rounded-full border-2 border-emerald-500 bg-gray-800 flex items-center justify-center'>
-								<FaUserCircle className='text-4xl text-gray-600' />
-							</div>
-						)}
-						{profile.level && (
-							<div className='absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-1.5 border-2 border-black'>
-								<span className='text-xs font-bold text-black'>⭐{profile.level.slug}</span>
+						{(() => {
+							const visuals = userLevel > 0 ? getLevelVisuals(userLevel) : null
+							const borderClass = visuals?.borderColor || 'border-emerald-500'
+							return avatarSrc ? (
+								<Image
+									src={avatarSrc}
+									alt='Аватар'
+									width={80}
+									height={80}
+									className={`w-20 h-20 rounded-full border-2 ${borderClass} shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover`}
+								/>
+							) : (
+								<div className={`w-20 h-20 rounded-full border-2 ${borderClass} bg-gray-800 flex items-center justify-center`}>
+									<FaUserCircle className='text-4xl text-gray-600' />
+								</div>
+							)
+						})()}
+						{userLevel > 0 && (
+							<div className='absolute -bottom-1 -right-1'>
+								<LevelBadge level={userLevel} size='sm' />
 							</div>
 						)}
 					</div>
@@ -414,21 +458,33 @@ export default function ProfilePageContent() {
 					<div className='flex-1 min-w-0'>
 						<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
 							<div>
-								<h1 className='text-2xl sm:text-3xl font-bold text-white mb-1 truncate'>
-									{profile.fullName || 'Без имени'}
-								</h1>
+								<div className='flex items-center gap-2 flex-wrap mb-1'>
+									<h1 className='text-2xl sm:text-3xl font-bold text-white truncate'>
+										{profile.fullName || 'Без имени'}
+									</h1>
+									{userLevel > 0 && <LevelBadge level={userLevel} size='md' />}
+								</div>
 								<p className='text-gray-400 text-sm truncate'>{profile.email}</p>
 								{profile.location && (
 									<p className='text-emerald-300 text-sm mt-1'>📍 {profile.location}</p>
 								)}
 							</div>
-							<button
-								onClick={() => setIsEditModalOpen(true)}
-								className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
-							>
-								<FaEdit />
-								Редактировать
-							</button>
+							<div className='flex gap-2'>
+								<button
+									onClick={() => setBackgroundSelectorOpen(true)}
+									className='flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+									title='Выбрать фон профиля'
+								>
+									🎨 Фон
+								</button>
+								<button
+									onClick={() => setIsEditModalOpen(true)}
+									className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+								>
+									<FaEdit />
+									Редактировать
+								</button>
+							</div>
 						</div>
 
 						{/* Быстрая статистика */}
@@ -480,6 +536,7 @@ export default function ProfilePageContent() {
 							</div>
 						)}
 					</div>
+				</div>
 				</div>
 			</div>
 
@@ -1063,6 +1120,25 @@ export default function ProfilePageContent() {
 					user={profile}
 					token={token}
 					onSuccess={handleProfileUpdateSuccess}
+				/>
+			)}
+			
+			{/* Модальное окно выбора фона профиля */}
+			{backgroundSelectorOpen && (
+				<ProfileBackgroundSelector
+					currentLevel={userLevel}
+					onClose={() => {
+						setBackgroundSelectorOpen(false)
+						// Обновляем фон после выбора
+						if (token) {
+							fetch('/api/profile/background', {
+								headers: { Authorization: `Bearer ${token}` },
+							})
+								.then(res => res.json())
+								.then(data => setProfileBackground(data.backgroundId || 'default'))
+								.catch(() => {})
+						}
+					}}
 				/>
 			)}
 

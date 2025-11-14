@@ -114,6 +114,7 @@ model UserSettings {
   notifyOnWarnings   Boolean @default(true)
   notifySound        Boolean @default(true)
   notifyDesktop      Boolean @default(false)
+  profileBackground  String? // ID выбранного фона профиля
   user               User    @relation(fields: [userId], references: [id])
 }
 

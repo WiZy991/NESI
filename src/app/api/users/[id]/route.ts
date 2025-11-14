@@ -167,6 +167,25 @@ export async function GET(
 		// Ограничиваем количество badges до 6 для отображения
 		const limitedBadges = filteredBadges.slice(0, 6)
 
+		// Получаем настройки пользователя (фон профиля) безопасно
+		let profileBackground = 'default'
+		try {
+			const userSettings = await prisma.userSettings.findUnique({
+				where: { userId: id },
+				select: { profileBackground: true },
+			})
+			if (userSettings?.profileBackground) {
+				profileBackground = userSettings.profileBackground
+			}
+		} catch (settingsError: any) {
+			// Если поле profileBackground еще не существует в БД или таблица не найдена
+			if (settingsError.message?.includes('profileBackground') || settingsError.code === 'P2021') {
+				logger.debug('Поле profileBackground не найдено в БД, используем дефолтное значение', { userId: id })
+			} else {
+				logger.warn('Ошибка получения настроек пользователя', settingsError, { userId: id })
+			}
+		}
+
 		return NextResponse.json({
 			user: {
 			...user,
@@ -175,6 +194,7 @@ export async function GET(
 				avgRating, // Вычисленный рейтинг
 				xpComputed, // XP с учетом бонуса за сертификации
 				_count: _count?._count, // Добавляем _count для статистики
+				profileBackground, // Фон профиля
 			},
 		})
 	} catch (error) {

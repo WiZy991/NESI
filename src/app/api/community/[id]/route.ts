@@ -34,6 +34,7 @@ export async function GET(
             fullName: true,
             email: true,
             avatarFileId: true,
+            xp: true,
           },
         },
         comments: {
@@ -51,6 +52,7 @@ export async function GET(
                 fullName: true,
                 email: true,
                 avatarFileId: true,
+                xp: true,
               },
             },
           },
