@@ -1087,29 +1087,29 @@ export default function ChatMessage({
 			confirmText: 'Удалить',
 			cancelText: 'Отмена',
 			onConfirm: async () => {
-				try {
-					const endpoint =
-						chatType === 'private'
-							? `/api/private-messages/delete/${message.id}`
-							: `/api/messages/delete/${message.id}`
+		try {
+			const endpoint =
+				chatType === 'private'
+					? `/api/private-messages/delete/${message.id}`
+					: `/api/messages/delete/${message.id}`
 
-					const res = await fetch(endpoint, {
-						method: 'DELETE',
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					})
+			const res = await fetch(endpoint, {
+				method: 'DELETE',
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			})
 
-					const data = await res.json()
-					if (res.ok) {
-						toast.success('Сообщение удалено')
-						if (onMessageDelete) onMessageDelete(message.id)
-					} else {
-						toast.error(data.error || 'Ошибка удаления')
-					}
-				} catch (error) {
-					toast.error('Ошибка удаления сообщения')
-				}
+			const data = await res.json()
+			if (res.ok) {
+				toast.success('Сообщение удалено')
+				if (onMessageDelete) onMessageDelete(message.id)
+			} else {
+				toast.error(data.error || 'Ошибка удаления')
+			}
+		} catch (error) {
+			toast.error('Ошибка удаления сообщения')
+		}
 			},
 		})
 	}

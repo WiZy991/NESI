@@ -114,6 +114,10 @@ const DEFAULT_PRESENCE: ChatPresence = {
 	typingAt: null,
 }
 
+// Кэш для пользователей без загруженных аватаров, чтобы не дергать API на каждый рендер
+const avatarAvailabilityCache = new Map<string, boolean>()
+const onlineStatusCache = new Map<string, boolean | null>()
+
 function isPresenceEqual(a?: ChatPresence | null, b?: ChatPresence | null) {
 	return (
 		(a?.lastReadAt ?? null) === (b?.lastReadAt ?? null) &&
@@ -1103,17 +1107,21 @@ function ChatsPageContent() {
 		const chatType = selectedChat.type
 		const otherUserId = selectedChat.otherUser?.id
 		const taskId = selectedChat.task?.id
+		let cancelled = false
 
-		const fetchMessages = async () => {
-			setMessagesLoading(true)
+		const fetchMessages = async ({ withLoader = true } = {}) => {
+			if (withLoader) {
+				setMessagesLoading(true)
+			}
 			try {
 				// Если это временный чат (только что созданный), просто показываем пустой список
 				if (chatId.startsWith('temp_')) {
 					clientLogger.debug(
 						'Временный чат, показываем пустой список сообщений'
 					)
-					setMessages([])
-					setMessagesLoading(false)
+					if (!cancelled) {
+						setMessages([])
+					}
 					return
 				}
 
@@ -1138,8 +1146,9 @@ function ChatsPageContent() {
 				const text = await res.text()
 				if (!text || text.trim() === '') {
 					clientLogger.warn('Пустой ответ от API', { status: res.status })
-					setMessages([])
-					setMessagesLoading(false)
+					if (!cancelled) {
+						setMessages([])
+					}
 					return
 				}
 
@@ -1150,8 +1159,9 @@ function ChatsPageContent() {
 					clientLogger.error('Ошибка парсинга JSON', parseError, {
 						textResponse: text?.substring(0, 200),
 					})
-					setMessages([])
-					setMessagesLoading(false)
+					if (!cancelled) {
+						setMessages([])
+					}
 					return
 				}
 
@@ -1185,41 +1195,45 @@ function ChatsPageContent() {
 							clientLogger.debug('Нет сообщений с ответами')
 						}
 					}
-					setMessages(messagesData)
+					if (!cancelled) {
+						setMessages(messagesData)
+					}
 
-					// Прокручиваем вниз после загрузки сообщений (плавно)
-					setTimeout(() => {
-						const container = messagesContainerRef.current
-						if (container) {
-							// Плавная прокрутка до самого низа
-							const targetScrollTop =
-								container.scrollHeight - container.clientHeight
-							const startScrollTop = container.scrollTop
-							const distance = targetScrollTop - startScrollTop
-							const duration = 400 // Длительность анимации в мс
-							const startTime = Date.now()
+					// Прокручиваем вниз после загрузки сообщений (плавно) только при первом показе
+					if (withLoader) {
+						setTimeout(() => {
+							const container = messagesContainerRef.current
+							if (container) {
+								// Плавная прокрутка до самого низа
+								const targetScrollTop =
+									container.scrollHeight - container.clientHeight
+								const startScrollTop = container.scrollTop
+								const distance = targetScrollTop - startScrollTop
+								const duration = 400 // Длительность анимации в мс
+								const startTime = Date.now()
 
-							const animateScroll = () => {
-								const elapsed = Date.now() - startTime
-								const progress = Math.min(elapsed / duration, 1)
-								// Используем easing функцию для плавности
-								const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-								const currentScrollTop =
-									startScrollTop + distance * easeOutCubic
+								const animateScroll = () => {
+									const elapsed = Date.now() - startTime
+									const progress = Math.min(elapsed / duration, 1)
+									// Используем easing функцию для плавности
+									const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+									const currentScrollTop =
+										startScrollTop + distance * easeOutCubic
 
-								container.scrollTop = currentScrollTop
+									container.scrollTop = currentScrollTop
 
-								if (progress < 1) {
-									requestAnimationFrame(animateScroll)
-								} else {
-									// Финальная проверка - убеждаемся что прокрутили до самого низа
-									container.scrollTop = container.scrollHeight
+									if (progress < 1) {
+										requestAnimationFrame(animateScroll)
+									} else {
+										// Финальная проверка - убеждаемся что прокрутили до самого низа
+										container.scrollTop = container.scrollHeight
+									}
 								}
-							}
 
-							requestAnimationFrame(animateScroll)
-						}
-					}, 200)
+								requestAnimationFrame(animateScroll)
+							}
+						}, 200)
+					}
 				} else {
 					// Если это ошибка, но есть данные, все равно пытаемся их использовать
 					if (
@@ -1231,7 +1245,9 @@ function ChatsPageContent() {
 						clientLogger.warn('API вернул ошибку, но есть данные', {
 							count: messagesData.length,
 						})
-						setMessages(messagesData)
+						if (!cancelled) {
+							setMessages(messagesData)
+						}
 					} else {
 						const errorMessage = data?.error || 'Неизвестная ошибка'
 						clientLogger.error(
@@ -1246,23 +1262,46 @@ function ChatsPageContent() {
 							}
 						)
 						// Если это ошибка сервера, но не критичная, просто показываем пустой список
-						if (res.status >= 500) {
-							clientLogger.error(
-								'Серверная ошибка, устанавливаем пустой список сообщений'
-							)
+						if (!cancelled) {
+							if (res.status >= 500) {
+								clientLogger.error(
+									'Серверная ошибка, устанавливаем пустой список сообщений'
+								)
+							}
+							setMessages([])
 						}
-						setMessages([])
 					}
 				}
 			} catch (error) {
 				clientLogger.error('Ошибка загрузки сообщений', error)
-				setMessages([])
+				if (!cancelled) {
+					setMessages([])
+				}
 			} finally {
-				setMessagesLoading(false)
+				if (withLoader) {
+					setMessagesLoading(false)
+				}
 			}
 		}
 
 		fetchMessages()
+
+		let pollingInterval: number | null = null
+		if (typeof window !== 'undefined') {
+			pollingInterval = window.setInterval(() => {
+				if (typeof document !== 'undefined' && document.hidden) {
+					return
+				}
+				void fetchMessages({ withLoader: false })
+			}, 10000)
+		}
+
+		return () => {
+			cancelled = true
+			if (pollingInterval !== null) {
+				window.clearInterval(pollingInterval)
+			}
+		}
 	}, [
 		selectedChat?.id,
 		selectedChat?.type,
@@ -1670,8 +1709,33 @@ function ChatsPageContent() {
 			fileMimetype: newMessage.fileMimetype,
 			fileUrl: newMessage.fileUrl,
 		})
-		// Добавляем новое сообщение в список
-		setMessages(prev => [...prev, newMessage])
+		// Добавляем новое сообщение в список без дубликатов
+		setMessages(prev => {
+			if (!newMessage) return prev
+
+			const hasId = Boolean(newMessage.id)
+			if (hasId) {
+				const existsIndex = prev.findIndex(msg => msg.id === newMessage.id)
+				if (existsIndex !== -1) {
+					// Обновляем существующее сообщение (например, если прилетели новые поля)
+					const next = [...prev]
+					next[existsIndex] = { ...prev[existsIndex], ...newMessage }
+					return next
+				}
+			} else if (newMessage.createdAt) {
+				const exists = prev.some(
+					msg =>
+						!msg.id &&
+						msg.createdAt === newMessage.createdAt &&
+						msg.content === newMessage.content
+				)
+				if (exists) {
+					return prev
+				}
+			}
+
+			return [...prev, newMessage]
+		})
 
 		// Если это было первое сообщение во временном чате, обновляем чат
 		if (selectedChat?.id.startsWith('temp_')) {
@@ -1824,22 +1888,37 @@ function ChatsPageContent() {
 	const getAvatarUrl = (avatarUrl: string | null | undefined) => {
 		if (!avatarUrl) return null
 
-		// Если URL уже абсолютный (начинается с http), возвращаем как есть
-		if (avatarUrl.startsWith('http')) {
-			return avatarUrl
+		const trimmed = avatarUrl.trim()
+		if (!trimmed) return null
+
+		// Абсолютные ссылки используем как есть
+		if (/^https?:\/\//i.test(trimmed)) {
+			return trimmed
 		}
 
-		// Если URL начинается с /uploads, убираем начальный слеш
-		if (avatarUrl.startsWith('/uploads')) {
-			return avatarUrl.substring(1)
+		// Пути, которые уже начинаются с / (например, /api/files/… или /uploads/…)
+		if (trimmed.startsWith('/')) {
+			return trimmed
 		}
 
-		// Если URL не начинается с uploads, добавляем uploads/
-		if (!avatarUrl.startsWith('uploads')) {
-			return `uploads/${avatarUrl}`
+		const normalized = trimmed.replace(/^\/+/, '')
+
+		// Если путь уже указывает на API или файл, не дописываем uploads
+		if (
+			normalized.startsWith('api/') ||
+			normalized.startsWith('files/') ||
+			normalized.startsWith('storage/')
+		) {
+			return `/${normalized}`
 		}
 
-		return avatarUrl
+		// Для путей uploads добавляем начальный слеш
+		if (normalized.startsWith('uploads/')) {
+			return `/${normalized}`
+		}
+
+		// Остальные относительные пути считаем файлом в uploads
+		return `/uploads/${normalized}`
 	}
 
 	// Компонент аватарки с fallback (мемоизирован для предотвращения моргания)
@@ -1857,11 +1936,33 @@ function ChatsPageContent() {
 		}) => {
 			const imageErrorRef = useRef(false)
 			const [imageError, setImageError] = useState(false)
-			const [isOnline, setIsOnline] = useState<boolean | null>(null)
+			const [isOnline, setIsOnline] = useState<boolean | null>(() => {
+				if (userId && onlineStatusCache.has(userId)) {
+					return onlineStatusCache.get(userId) ?? null
+				}
+				return null
+			})
 			const onlineStatusRef = useRef<{
 				userId: string | undefined
 				status: boolean | null
 			}>({ userId: undefined, status: null })
+			const normalizedAvatarPath = useMemo(() => {
+				if (!avatarUrl) return null
+				const normalized = getAvatarUrl(avatarUrl)
+				if (!normalized) return null
+				if (normalized.startsWith('http')) {
+					return normalized
+				}
+				const trimmed = normalized.replace(/^\/+/, '')
+				return `/${trimmed}`
+			}, [avatarUrl])
+			const shouldTryApiAvatar =
+				!normalizedAvatarPath &&
+				Boolean(userId) &&
+				avatarAvailabilityCache.get(userId!) !== false
+			const resolvedAvatarUrl =
+				normalizedAvatarPath ||
+				(shouldTryApiAvatar && userId ? `/api/avatars/${userId}` : null)
 
 			// Сбрасываем ошибку только при изменении userId или avatarUrl
 			useEffect(() => {
@@ -1875,6 +1976,12 @@ function ChatsPageContent() {
 					setIsOnline(null)
 					onlineStatusRef.current = { userId: undefined, status: null }
 					return
+				}
+
+				const cachedStatus = onlineStatusCache.get(userId)
+				if (cachedStatus !== undefined) {
+					setIsOnline(cachedStatus)
+					onlineStatusRef.current = { userId, status: cachedStatus }
 				}
 
 				// Если статус уже загружен для этого пользователя, не перезагружаем
@@ -1910,11 +2017,14 @@ function ChatsPageContent() {
 						}
 
 						onlineStatusRef.current = { userId, status }
+						onlineStatusCache.set(userId, status)
 						setIsOnline(status)
 					} catch (err) {
 						clientLogger.error('Ошибка проверки онлайн статуса', err)
 						onlineStatusRef.current = { userId, status: null }
-						setIsOnline(null)
+						if (cachedStatus === undefined) {
+							setIsOnline(null)
+						}
 					}
 				}
 
@@ -1925,11 +2035,8 @@ function ChatsPageContent() {
 				return () => clearInterval(interval)
 			}, [userId])
 
-			// Если есть userId, используем API для получения аватарки
-			const apiAvatarUrl = userId ? `/api/avatars/${userId}` : null
-
 			// Если нет URL или произошла ошибка загрузки, показываем fallback
-			if (!apiAvatarUrl || imageError || imageErrorRef.current) {
+			if (!resolvedAvatarUrl || imageError || imageErrorRef.current) {
 				return (
 					<div className='relative flex-shrink-0'>
 						<div
@@ -1942,7 +2049,7 @@ function ChatsPageContent() {
 						<div
 							className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
 								isOnline === true
-									? 'bg-emerald-400 animate-pulse'
+									? 'bg-emerald-400'
 									: isOnline === false
 									? 'bg-gray-500'
 									: 'bg-gray-600'
@@ -1966,7 +2073,7 @@ function ChatsPageContent() {
 					style={{ width: size, height: size }}
 				>
 					<img
-						src={apiAvatarUrl}
+						src={resolvedAvatarUrl}
 						alt='avatar'
 						width={size}
 						height={size}
@@ -1982,17 +2089,22 @@ function ChatsPageContent() {
 							if (!imageErrorRef.current) {
 								imageErrorRef.current = true
 								setImageError(true)
+								if (!normalizedAvatarPath && userId) {
+									avatarAvailabilityCache.set(userId, false)
+								}
 							}
 						}}
 						onLoad={() => {
-							// Аватарка успешно загружена
+							if (!normalizedAvatarPath && userId) {
+								avatarAvailabilityCache.set(userId, true)
+							}
 						}}
 					/>
 					{/* Индикатор онлайн статуса */}
 					{isOnline !== null && (
 						<div
 							className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
-								isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'
+								isOnline ? 'bg-emerald-400' : 'bg-gray-500'
 							}`}
 							style={{ width: size * 0.25, height: size * 0.25 }}
 							title={isOnline ? 'В сети' : 'Не в сети'}

@@ -748,6 +748,14 @@ export default function MessageInput({
 			if (fileInputRef.current) {
 				fileInputRef.current.value = ''
 			}
+
+			if (textareaRef.current) {
+				if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+					window.requestAnimationFrame(() => textareaRef.current?.focus())
+				} else {
+					textareaRef.current.focus()
+				}
+			}
 		} catch (error: any) {
 			console.error('Ошибка отправки сообщения:', error)
 			alert(

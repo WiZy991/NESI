@@ -484,6 +484,18 @@ export default function Header() {
 				id: data.id,
 			})
 
+			const normalizedTitle =
+				typeof data.title === 'string'
+					? data.title.trim().toLowerCase()
+					: undefined
+			if (
+				data.type === 'messageSent' ||
+				normalizedTitle === 'сообщение отправлено'
+			) {
+				clientLogger.debug('Пропускаем уведомление об отправленном сообщении')
+				return
+			}
+
 			// Создаем уникальный ключ для уведомления
 			// Приоритет: id из БД > messageId > комбинация type+link+timestamp
 			const notificationKey = data.id
