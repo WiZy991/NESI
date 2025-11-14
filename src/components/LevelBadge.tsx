@@ -34,6 +34,19 @@ export function LevelBadge({
     ? 'level-5-animated' 
     : ''
 
+  // Определяем tooltip текст
+  const tooltipText = level >= 6
+    ? 'Легенда — высший уровень мастерства'
+    : level === 5
+    ? 'Мастер — корона уровня 5'
+    : level === 4
+    ? 'Профессионал — 3 звезды'
+    : level === 3
+    ? 'Специалист — 2 звезды'
+    : level === 2
+    ? 'Ученик — 1 звезда'
+    : 'Новичок'
+
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full font-semibold ${sizeClasses[size]} ${animationClass} ${
@@ -49,9 +62,10 @@ export function LevelBadge({
           ? 'bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30'
           : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
       }`}
+      title={tooltipText}
     >
       {showIcon && visuals.icon && (
-        <span className={level >= 6 ? 'level-icon-rotate inline-block' : ''}>
+        <span className={(level >= 6 || level === 5) ? 'level-icon-rotate inline-block' : ''}>
           {visuals.icon}
         </span>
       )}

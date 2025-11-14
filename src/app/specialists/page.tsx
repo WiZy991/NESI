@@ -238,10 +238,6 @@ export default function SpecialistsPage() {
 											</div>
 										)
 									})()}
-									{/* Индикатор уровня с LevelBadge */}
-									<div className='absolute -bottom-1 -right-1'>
-										<LevelBadge level={calc.lvl} size='sm' />
-									</div>
 								</div>
 								<div className='flex-1 min-w-0'>
 									<div className='flex items-center gap-2 flex-wrap'>

@@ -447,11 +447,6 @@ export default function ProfilePageContent() {
 								</div>
 							)
 						})()}
-						{userLevel > 0 && (
-							<div className='absolute -bottom-1 -right-1'>
-								<LevelBadge level={userLevel} size='sm' />
-							</div>
-						)}
 					</div>
 
 					{/* Основная информация */}

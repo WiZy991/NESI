@@ -451,11 +451,6 @@ export default function UserPublicProfilePage() {
 								<FaUserCircle className='text-4xl text-gray-600' />
 							</div>
 						)}
-						{userLevel > 0 && (
-							<div className='absolute -bottom-1 -right-1'>
-								<LevelBadge level={userLevel} size='sm' />
-							</div>
-						)}
 					</div>
 
 					{/* Основная информация */}

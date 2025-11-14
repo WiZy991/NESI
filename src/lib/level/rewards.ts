@@ -58,7 +58,7 @@ export function getLevelVisuals(level: number): {
     return {
       borderColor: 'from-yellow-300 to-yellow-600',
       borderClass: 'border-yellow-400/50',
-      icon: '⭐⭐⭐⭐',
+      icon: '👑',
       name: 'Мастер'
     }
   }
