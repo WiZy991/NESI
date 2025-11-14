@@ -13,7 +13,7 @@ import { clientLogger } from '@/lib/clientLogger'
 import { MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import {
+import React, {
 	Suspense,
 	useCallback,
 	useEffect,
@@ -753,7 +753,14 @@ function ChatsPageContent() {
 									},
 								}
 
-								setMessages(prev => [...prev, newMessage])
+								// Проверяем, нет ли уже такого сообщения (защита от дубликатов)
+								setMessages(prev => {
+									const exists = prev.some(m => m.id === newMessage.id)
+									if (exists) {
+										return prev
+									}
+									return [...prev, newMessage]
+								})
 
 								// Обновляем список чатов с новым последним сообщением
 								setChats(prev =>
@@ -1835,135 +1842,175 @@ function ChatsPageContent() {
 		return avatarUrl
 	}
 
-	// Компонент аватарки с fallback
-	const AvatarComponent = ({
-		avatarUrl,
-		fallbackText,
-		size = 48,
-		userId,
-	}: {
-		avatarUrl?: string | null
-		fallbackText: string
-		size?: number
-		userId?: string
-	}) => {
-		const [imageError, setImageError] = useState(false)
-		const [isOnline, setIsOnline] = useState<boolean | null>(null)
+	// Компонент аватарки с fallback (мемоизирован для предотвращения моргания)
+	const AvatarComponent = React.memo(
+		({
+			avatarUrl,
+			fallbackText,
+			size = 48,
+			userId,
+		}: {
+			avatarUrl?: string | null
+			fallbackText: string
+			size?: number
+			userId?: string
+		}) => {
+			const imageErrorRef = useRef(false)
+			const [imageError, setImageError] = useState(false)
+			const [isOnline, setIsOnline] = useState<boolean | null>(null)
+			const onlineStatusRef = useRef<{
+				userId: string | undefined
+				status: boolean | null
+			}>({ userId: undefined, status: null })
 
-		// Проверяем онлайн статус пользователя
-		useEffect(() => {
-			if (!userId) {
-				setIsOnline(null)
-				return
-			}
+			// Сбрасываем ошибку только при изменении userId или avatarUrl
+			useEffect(() => {
+				imageErrorRef.current = false
+				setImageError(false)
+			}, [userId, avatarUrl])
 
-			const checkOnlineStatus = async () => {
-				try {
-					const res = await fetch(`/api/users/${userId}/online`, {
-						method: 'GET',
-						headers: { 'Content-Type': 'application/json' },
-					})
-
-					if (!res.ok) {
-						clientLogger.error('Ошибка проверки онлайн статуса', undefined, {
-							status: res.status,
-						})
-						return
-					}
-
-					const data = await res.json()
-					// Если privacy = true, значит пользователь скрыл статус
-					if (data.privacy) {
-						setIsOnline(null)
-					} else {
-						setIsOnline(data.online === true)
-					}
-				} catch (err) {
-					clientLogger.error('Ошибка проверки онлайн статуса', err)
+			// Проверяем онлайн статус пользователя
+			useEffect(() => {
+				if (!userId) {
 					setIsOnline(null)
+					onlineStatusRef.current = { userId: undefined, status: null }
+					return
 				}
+
+				// Если статус уже загружен для этого пользователя, не перезагружаем
+				if (
+					onlineStatusRef.current.userId === userId &&
+					onlineStatusRef.current.status !== null
+				) {
+					setIsOnline(onlineStatusRef.current.status)
+					return
+				}
+
+				const checkOnlineStatus = async () => {
+					try {
+						const res = await fetch(`/api/users/${userId}/online`, {
+							method: 'GET',
+							headers: { 'Content-Type': 'application/json' },
+						})
+
+						if (!res.ok) {
+							clientLogger.error('Ошибка проверки онлайн статуса', undefined, {
+								status: res.status,
+							})
+							return
+						}
+
+						const data = await res.json()
+						// Если privacy = true, значит пользователь скрыл статус
+						let status: boolean | null = null
+						if (data.privacy) {
+							status = null
+						} else {
+							status = data.online === true
+						}
+
+						onlineStatusRef.current = { userId, status }
+						setIsOnline(status)
+					} catch (err) {
+						clientLogger.error('Ошибка проверки онлайн статуса', err)
+						onlineStatusRef.current = { userId, status: null }
+						setIsOnline(null)
+					}
+				}
+
+				checkOnlineStatus()
+				// Обновляем статус каждые 30 секунд
+				const interval = setInterval(checkOnlineStatus, 30 * 1000)
+
+				return () => clearInterval(interval)
+			}, [userId])
+
+			// Если есть userId, используем API для получения аватарки
+			const apiAvatarUrl = userId ? `/api/avatars/${userId}` : null
+
+			// Если нет URL или произошла ошибка загрузки, показываем fallback
+			if (!apiAvatarUrl || imageError || imageErrorRef.current) {
+				return (
+					<div className='relative flex-shrink-0'>
+						<div
+							className='rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'
+							style={{ width: size, height: size }}
+						>
+							{fallbackText.charAt(0).toUpperCase()}
+						</div>
+						{/* Индикатор онлайн статуса */}
+						<div
+							className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
+								isOnline === true
+									? 'bg-emerald-400 animate-pulse'
+									: isOnline === false
+									? 'bg-gray-500'
+									: 'bg-gray-600'
+							}`}
+							style={{ width: size * 0.25, height: size * 0.25 }}
+							title={
+								isOnline === true
+									? 'В сети'
+									: isOnline === false
+									? 'Не в сети'
+									: 'Статус неизвестен'
+							}
+						/>
+					</div>
+				)
 			}
 
-			checkOnlineStatus()
-			// Обновляем статус каждые 30 секунд
-			const interval = setInterval(checkOnlineStatus, 30 * 1000)
-
-			return () => clearInterval(interval)
-		}, [userId])
-
-		// Если есть userId, используем API для получения аватарки
-		const apiAvatarUrl = userId ? `/api/avatars/${userId}` : null
-
-		// Если нет URL или произошла ошибка загрузки, показываем fallback
-		if (!apiAvatarUrl || imageError) {
 			return (
-				<div className='relative flex-shrink-0'>
-					<div
-						className='rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg'
-						style={{ width: size, height: size }}
-					>
-						{fallbackText.charAt(0).toUpperCase()}
-					</div>
-					{/* Индикатор онлайн статуса */}
-					<div
-						className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
-							isOnline === true
-								? 'bg-emerald-400 animate-pulse'
-								: isOnline === false
-								? 'bg-gray-500'
-								: 'bg-gray-600'
-						}`}
-						style={{ width: size * 0.25, height: size * 0.25 }}
-						title={
-							isOnline === true
-								? 'В сети'
-								: isOnline === false
-								? 'Не в сети'
-								: 'Статус неизвестен'
-						}
+				<div
+					className='relative flex-shrink-0'
+					style={{ width: size, height: size }}
+				>
+					<img
+						src={apiAvatarUrl}
+						alt='avatar'
+						width={size}
+						height={size}
+						className='rounded-full object-cover w-full h-full'
+						style={{
+							width: size,
+							height: size,
+							objectFit: 'cover',
+							objectPosition: 'center',
+						}}
+						onError={() => {
+							// Отсутствие аватарки - нормальная ситуация, не логируем как ошибку
+							if (!imageErrorRef.current) {
+								imageErrorRef.current = true
+								setImageError(true)
+							}
+						}}
+						onLoad={() => {
+							// Аватарка успешно загружена
+						}}
 					/>
+					{/* Индикатор онлайн статуса */}
+					{isOnline !== null && (
+						<div
+							className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
+								isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'
+							}`}
+							style={{ width: size * 0.25, height: size * 0.25 }}
+							title={isOnline ? 'В сети' : 'Не в сети'}
+						/>
+					)}
 				</div>
 			)
+		},
+		(prevProps, nextProps) => {
+			// Функция сравнения для мемоизации - компонент пересоздается только если изменились пропсы
+			return (
+				prevProps.userId === nextProps.userId &&
+				prevProps.avatarUrl === nextProps.avatarUrl &&
+				prevProps.fallbackText === nextProps.fallbackText &&
+				prevProps.size === nextProps.size
+			)
 		}
-
-		return (
-			<div
-				className='relative flex-shrink-0'
-				style={{ width: size, height: size }}
-			>
-				<img
-					src={apiAvatarUrl}
-					alt='avatar'
-					width={size}
-					height={size}
-					className='rounded-full object-cover w-full h-full'
-					style={{
-						width: size,
-						height: size,
-						objectFit: 'cover',
-						objectPosition: 'center',
-					}}
-					onError={() => {
-						// Отсутствие аватарки - нормальная ситуация, не логируем как ошибку
-						setImageError(true)
-					}}
-					onLoad={() => {
-						// Аватарка успешно загружена
-					}}
-				/>
-				{/* Индикатор онлайн статуса */}
-				{isOnline !== null && (
-					<div
-						className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
-							isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'
-						}`}
-						style={{ width: size * 0.25, height: size * 0.25 }}
-						title={isOnline ? 'В сети' : 'Не в сети'}
-					/>
-				)}
-			</div>
-		)
-	}
+	)
 
 	const getChatTitle = (chat: Chat) => {
 		if (chat.type === 'private') {
