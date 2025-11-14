@@ -440,7 +440,7 @@ export default function ProfilePageContent() {
 					<div className='relative'>
 						{(() => {
 							const visuals = userLevel > 0 ? getLevelVisuals(userLevel) : null
-							const borderClass = visuals?.borderColor || 'border-emerald-500'
+							const borderClass = visuals?.borderClass || 'border-emerald-500/50'
 							return avatarSrc ? (
 							<Image
 								src={avatarSrc}
