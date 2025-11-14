@@ -389,8 +389,8 @@ export default function UserPublicProfilePage() {
 			if (!hireButtonRef) return
 			const rect = hireButtonRef.getBoundingClientRect()
 			setTooltipPosition({
-				top: rect.bottom + window.scrollY + 8,
-				left: rect.left + window.scrollX + rect.width / 2,
+				top: rect.bottom + 8,
+				left: rect.left + rect.width / 2,
 			})
 		}
 
