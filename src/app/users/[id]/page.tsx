@@ -690,7 +690,7 @@ export default function UserPublicProfilePage() {
 													disabled={sendingHire}
 													className='px-6 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white disabled:opacity-50 font-semibold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] whitespace-nowrap'
 												>
-													💼 Нанять за 1990₽
+													💼 Нанять за 390₽
 												</button>
 											</div>
 										)}
@@ -758,7 +758,7 @@ export default function UserPublicProfilePage() {
 							<div className='w-3 h-3 bg-gray-900/95 border-l-2 border-t-2 border-emerald-500/50 rotate-45'></div>
 						</div>
 						<p className='text-sm text-white leading-relaxed mb-2'>
-							<span className='text-emerald-400 font-semibold'>1990₽</span> —
+							<span className='text-emerald-400 font-semibold'>390₽</span> —
 							это плата за{' '}
 							<span className='text-emerald-300 font-medium'>
 								доступ к чату
@@ -1161,7 +1161,7 @@ export default function UserPublicProfilePage() {
 									</p>
 									<p className='text-gray-300 text-sm leading-relaxed mb-2'>
 										<span className='text-emerald-400 font-semibold'>
-											1990₽
+											390₽
 										</span>{' '}
 										— это плата за{' '}
 										<span className='text-emerald-300 font-medium'>
