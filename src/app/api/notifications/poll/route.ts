@@ -2,6 +2,7 @@
 // API для polling уведомлений (fallback для SSE)
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { createUserRateLimit } from '@/lib/rateLimit'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
@@ -14,11 +15,38 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
 
+		// Rate limiting для polling: максимум 8 запросов в минуту на пользователя
+		// (для интервала 10 секунд это безопасно: 60/10 = 6, плюс запас)
+		const pollingRateLimit = createUserRateLimit({
+			windowMs: 60 * 1000, // 1 минута
+			maxRequests: 8, // Максимум 8 запросов в минуту
+		})
+		const rateLimitResult = await pollingRateLimit(req)
+
+		if (!rateLimitResult.success) {
+			return NextResponse.json(
+				{ error: 'Слишком частые запросы. Подождите немного.' },
+				{
+					status: 429,
+					headers: {
+						'Retry-After': Math.ceil(
+							(rateLimitResult.resetTime - Date.now()) / 1000
+						).toString(),
+						'X-RateLimit-Limit': '8',
+						'X-RateLimit-Remaining': '0',
+						'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+					},
+				}
+			)
+		}
+
 		const { searchParams } = new URL(req.url)
 		const sinceParam = searchParams.get('since')
 
 		// Если указана дата, берем уведомления после неё
-		const since = sinceParam ? new Date(sinceParam) : new Date(Date.now() - 10000) // по умолчанию последние 10 секунд
+		const since = sinceParam
+			? new Date(sinceParam)
+			: new Date(Date.now() - 10000) // по умолчанию последние 10 секунд
 		// Получаем новые уведомления
 		const notifications = await prisma.notification.findMany({
 			where: {
@@ -33,7 +61,9 @@ export async function GET(req: NextRequest) {
 			take: 20, // максимум 20 уведомлений за раз
 		})
 
-		console.log(`📡 Polling: найдено ${notifications.length} новых уведомлений для пользователя ${user.id}`)
+		console.log(
+			`📡 Polling: найдено ${notifications.length} новых уведомлений для пользователя ${user.id}`
+		)
 
 		// Преобразуем в формат совместимый с SSE
 		const formattedNotifications = notifications.map(n => ({
@@ -52,11 +82,14 @@ export async function GET(req: NextRequest) {
 		})
 	} catch (error) {
 		console.error('❌ Ошибка при polling уведомлений:', error)
-		console.error('❌ Stack:', error instanceof Error ? error.stack : 'No stack')
+		console.error(
+			'❌ Stack:',
+			error instanceof Error ? error.stack : 'No stack'
+		)
 		return NextResponse.json(
-			{ 
+			{
 				error: 'Ошибка сервера',
-				message: error instanceof Error ? error.message : 'Unknown error'
+				message: error instanceof Error ? error.message : 'Unknown error',
 			},
 			{ status: 500 }
 		)
@@ -75,4 +108,3 @@ function getNotificationTitle(type: string): string {
 	}
 	return titles[type] || 'Уведомление'
 }
-

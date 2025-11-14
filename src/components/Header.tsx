@@ -13,11 +13,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import AchievementModal from './AchievementModal'
 import LevelIndicator from './LevelIndicator'
 import { NotificationPolling } from './NotificationPolling'
 import { ToastContainer } from './ToastNotification'
-import { toast } from 'sonner'
 
 const FavoritesLink = ({ className }: { className?: string }) => (
 	<Link
@@ -127,7 +127,8 @@ export default function Header() {
 		() => 'nesi-notification-permission-state',
 		[]
 	)
-	const [shouldPromptNotifications, setShouldPromptNotifications] = useState(false)
+	const [shouldPromptNotifications, setShouldPromptNotifications] =
+		useState(false)
 
 	useEffect(() => {
 		if (typeof window === 'undefined' || notificationRequestRef.current) return
@@ -961,7 +962,7 @@ export default function Header() {
 					token={token}
 					onNotification={showNotification}
 					enabled={usePolling}
-					interval={5000}
+					interval={10000}
 				/>
 			)}
 			<header className='w-full px-4 md:px-8 py-3 md:py-4 flex justify-between items-center bg-black/70 backdrop-blur-md border-b border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans fixed md:sticky top-0 z-[10002]'>

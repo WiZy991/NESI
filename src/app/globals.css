@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+/* Google Fonts загружаются через Next.js font optimization в layout.tsx */
 @import 'tailwindcss';
 @import '../styles/animations.css';
 
@@ -25,8 +25,9 @@
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 
-	--font-sans: 'Inter', 'Poppins', system-ui, -apple-system, sans-serif;
-	--font-mono: 'JetBrains Mono', monospace;
+	--font-sans: var(--font-inter), var(--font-poppins), system-ui, -apple-system,
+		sans-serif;
+	--font-mono: var(--font-mono), monospace;
 }
 
 /* 🧠 Базовый стиль html и body */
@@ -37,7 +38,9 @@ html {
 body {
 	color: var(--foreground);
 	background-color: #111827;
-	font-family: 'Inter', 'Poppins', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
+	font-family: var(--font-inter), var(--font-poppins), system-ui, -apple-system,
+		'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji',
+		sans-serif;
 	font-weight: 400;
 	letter-spacing: 0.02em;
 	position: relative;
@@ -286,12 +289,12 @@ textarea:active {
 }
 
 /* Для закругленных полей ввода используем ТОЛЬКО border */
-input[class*="rounded-full"]:focus,
-input[class*="rounded-full"]:focus-visible,
-input[class*="rounded-full"]:active,
-textarea[class*="rounded-full"]:focus,
-textarea[class*="rounded-full"]:focus-visible,
-textarea[class*="rounded-full"]:active {
+input[class*='rounded-full']:focus,
+input[class*='rounded-full']:focus-visible,
+input[class*='rounded-full']:active,
+textarea[class*='rounded-full']:focus,
+textarea[class*='rounded-full']:focus-visible,
+textarea[class*='rounded-full']:active {
 	outline: none !important;
 	outline-offset: 0 !important;
 	box-shadow: none !important;
