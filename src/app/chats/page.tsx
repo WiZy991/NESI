@@ -765,6 +765,153 @@ function ChatsPageContent() {
 							setIsTyping(false)
 							setTypingUser(null)
 						}
+					} else if (data.type === 'messageSent') {
+						// Обработка сообщений, отправленных с других устройств того же пользователя
+						// Это позволяет синхронизировать сообщения между устройствами
+						if (data.messageData && currentSelectedChat) {
+							const messageData = data.messageData
+							
+							// Проверяем, относится ли сообщение к текущему открытому чату
+							const isCurrentChat =
+								(data.chatType === 'private' &&
+									currentSelectedChat.type === 'private' &&
+									currentSelectedChat.otherUser?.id === data.recipientId) ||
+								(data.chatType === 'task' &&
+									currentSelectedChat.type === 'task' &&
+									currentSelectedChat.task?.id ===
+										data.chatId.replace('task_', ''))
+
+							if (isCurrentChat) {
+								// Проверяем, нет ли уже такого сообщения (защита от дубликатов)
+								setMessages(prev => {
+									const exists = prev.some(m => m.id === messageData.id)
+									if (exists) {
+										return prev
+									}
+									
+									// Добавляем новое сообщение
+									const newMessage: Message = {
+										id: messageData.id,
+										content: messageData.content,
+										fileUrl: messageData.fileUrl || undefined,
+										fileName: messageData.fileName || undefined,
+										fileMimetype: messageData.fileMimetype || undefined,
+										fileId: messageData.fileId || undefined,
+										createdAt: messageData.createdAt,
+										editedAt: messageData.editedAt || null,
+										replyTo: messageData.replyTo || null,
+										sender: {
+											id: messageData.sender.id,
+											fullName: messageData.sender.fullName,
+											email: messageData.sender.email,
+											avatarUrl: messageData.sender.avatarUrl,
+										},
+									}
+									
+									return [...prev, newMessage]
+								})
+
+								// Обновляем список чатов с новым последним сообщением
+								setChats(prev =>
+									prev.map(chat => {
+										if (chat.id === currentSelectedChat.id) {
+											const newMessage: Message = {
+												id: messageData.id,
+												content: messageData.content,
+												fileUrl: messageData.fileUrl || undefined,
+												fileName: messageData.fileName || undefined,
+												fileMimetype: messageData.fileMimetype || undefined,
+												fileId: messageData.fileId || undefined,
+												createdAt: messageData.createdAt,
+												editedAt: messageData.editedAt || null,
+												replyTo: messageData.replyTo || null,
+												sender: {
+													id: messageData.sender.id,
+													fullName: messageData.sender.fullName,
+													email: messageData.sender.email,
+													avatarUrl: messageData.sender.avatarUrl,
+												},
+											}
+											
+											return {
+												...chat,
+												lastMessage: newMessage,
+											}
+										}
+										return chat
+									})
+								)
+
+								// Автоматически прокручиваем вниз при новом сообщении
+								setTimeout(() => {
+									const container = messagesContainerRef.current
+									if (container) {
+										const targetScrollTop =
+											container.scrollHeight - container.clientHeight
+										const startScrollTop = container.scrollTop
+										const distance = targetScrollTop - startScrollTop
+										const duration = 300
+										const startTime = Date.now()
+
+										const animateScroll = () => {
+											const elapsed = Date.now() - startTime
+											const progress = Math.min(elapsed / duration, 1)
+											const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+											const currentScrollTop =
+												startScrollTop + distance * easeOutCubic
+
+											container.scrollTop = currentScrollTop
+
+											if (progress < 1) {
+												requestAnimationFrame(animateScroll)
+											} else {
+												container.scrollTop = container.scrollHeight
+											}
+										}
+
+										requestAnimationFrame(animateScroll)
+									}
+								}, 100)
+							} else {
+								// Если чат не открыт, обновляем список чатов
+								setChats(prev =>
+									prev.map(chat => {
+										if (
+											(data.chatType === 'private' &&
+												chat.type === 'private' &&
+												chat.otherUser?.id === data.recipientId) ||
+											(data.chatType === 'task' &&
+												chat.type === 'task' &&
+												chat.task?.id === data.chatId.replace('task_', ''))
+										) {
+											const newMessage: Message = {
+												id: messageData.id,
+												content: messageData.content,
+												fileUrl: messageData.fileUrl || undefined,
+												fileName: messageData.fileName || undefined,
+												fileMimetype: messageData.fileMimetype || undefined,
+												fileId: messageData.fileId || undefined,
+												createdAt: messageData.createdAt,
+												editedAt: messageData.editedAt || null,
+												replyTo: messageData.replyTo || null,
+												sender: {
+													id: messageData.sender.id,
+													fullName: messageData.sender.fullName,
+													email: messageData.sender.email,
+													avatarUrl: messageData.sender.avatarUrl,
+												},
+											}
+											
+											return {
+												...chat,
+												lastMessage: newMessage,
+											}
+										}
+										return chat
+									})
+								)
+							}
+						}
 					} else if (data.type === 'chatPresence') {
 						const chatId: string | undefined = data.chatId
 						if (chatId) {

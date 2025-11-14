@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, MessageSquare, CheckCircle2, Star, DollarSign, Settings, Filter } from 'lucide-react'
+import { Bell, MessageSquare, CheckCircle2, Star, Settings, Filter } from 'lucide-react'
 import { useState } from 'react'
 
 interface NotificationFilterProps {
@@ -21,7 +21,7 @@ const filterOptions = [
   { value: 'unread', label: 'Непрочитанные', icon: CheckCircle2, color: 'blue' },
   { value: 'message', label: 'Сообщения', icon: MessageSquare, color: 'cyan' },
   { value: 'task', label: 'Задачи', icon: Star, color: 'yellow' },
-  { value: 'payment', label: 'Платежи', icon: DollarSign, color: 'green' },
+  { value: 'payment', label: 'Платежи', icon: () => <span className="text-xl font-bold">₽</span>, color: 'green' },
   { value: 'system', label: 'Системные', icon: Settings, color: 'gray' },
 ]
 
@@ -73,7 +73,7 @@ export default function NotificationFilter({
         aria-expanded={isOpen}
       >
         <Filter className="w-4 h-4" />
-        <CurrentIcon className="w-4 h-4" />
+        {typeof CurrentIcon === 'function' ? <CurrentIcon /> : <CurrentIcon className="w-4 h-4" />}
         <span className="font-medium">{currentFilter.label}</span>
         {notificationCounts && (
           <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-600/20 text-xs text-emerald-400 border border-emerald-500/30">
@@ -113,7 +113,7 @@ export default function NotificationFilter({
                     aria-label={option.label}
                   >
                     <div className="flex items-center gap-3">
-                      <OptionIcon className="w-5 h-5 flex-shrink-0" />
+                      {typeof OptionIcon === 'function' ? <OptionIcon /> : <OptionIcon className="w-5 h-5 flex-shrink-0" />}
                       <span className="font-medium">{option.label}</span>
                     </div>
                     {count !== undefined && (

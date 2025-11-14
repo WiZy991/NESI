@@ -46,6 +46,28 @@ export async function awardXP(
     throw new Error(`Пользователь с ID ${userId} не найден`)
   }
 
+  // Проверяем текущий уровень пользователя
+  const { getLevelFromXP } = await import('@/lib/level/calculate')
+  const baseXp = user.xp || 0
+  const passedTests = await prisma.certificationAttempt.count({
+    where: { userId, passed: true }
+  })
+  const xpComputed = baseXp + passedTests * 10
+  const currentLevelInfo = await getLevelFromXP(xpComputed)
+  
+  // Если пользователь уже достиг максимального уровня (6), не начисляем XP
+  if (currentLevelInfo.level >= 6) {
+    console.log(`[XP] Пользователь ${userId} уже достиг максимального уровня (6). XP не начисляется.`)
+    return {
+      oldXP: baseXp,
+      newXP: baseXp,
+      levelChanged: false,
+      oldLevelId: user.levelId,
+      newLevelId: user.levelId || null,
+      newLevelName: user.level?.name
+    }
+  }
+
   const oldXP = user.xp || 0
   const newXP = oldXP + amount
   const oldLevelId = user.levelId

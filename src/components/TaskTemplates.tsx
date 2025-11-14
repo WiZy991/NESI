@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useTaskTemplates, type TaskTemplate } from '@/hooks/useTaskTemplates'
+import { useConfirm } from '@/lib/confirm'
 import { Trash2, FileText, X } from 'lucide-react'
 
 type TaskTemplatesProps = {
@@ -19,6 +20,7 @@ export default function TaskTemplates({
   currentData,
 }: TaskTemplatesProps) {
   const { templates, deleteTemplate } = useTaskTemplates()
+  const { confirm, Dialog } = useConfirm()
   const [isOpen, setIsOpen] = useState(false)
 
   if (templates.length === 0 && !isOpen) {
@@ -96,11 +98,18 @@ export default function TaskTemplates({
                       </p>
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation()
-                        if (confirm('Удалить шаблон?')) {
-                          deleteTemplate(template.id)
-                        }
+                        await confirm({
+                          title: 'Удаление шаблона',
+                          message: 'Вы уверены, что хотите удалить этот шаблон? Это действие нельзя отменить.',
+                          type: 'danger',
+                          confirmText: 'Удалить',
+                          cancelText: 'Отмена',
+                          onConfirm: () => {
+                            deleteTemplate(template.id)
+                          },
+                        })
                       }}
                       className="opacity-0 group-hover:opacity-100 transition text-red-400 hover:text-red-300 p-1"
                       type="button"
@@ -115,6 +124,7 @@ export default function TaskTemplates({
           </div>
         </div>
       )}
+      {Dialog}
     </div>
   )
 }

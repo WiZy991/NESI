@@ -25,6 +25,7 @@ const DEFAULT_LEVELS = [
 
 /**
  * Получает уровень пользователя на основе XP (клиентская версия)
+ * Максимальный уровень - 6
  */
 export function getLevelFromXPClient(xp: number): LevelInfo {
   const xpValue = Math.max(0, xp || 0)
@@ -32,11 +33,20 @@ export function getLevelFromXPClient(xp: number): LevelInfo {
   // Находим максимальный уровень, который подходит
   let currentLevel = DEFAULT_LEVELS[0]
   for (const lvl of DEFAULT_LEVELS) {
+    // Ограничиваем максимальный уровень до 6
+    if (lvl.level > 6) {
+      break
+    }
     if (xpValue >= lvl.minScore) {
       currentLevel = lvl
     } else {
       break
     }
+  }
+  
+  // Убеждаемся, что уровень не превышает 6
+  if (currentLevel.level > 6) {
+    currentLevel = DEFAULT_LEVELS.find(lvl => lvl.level === 6) || DEFAULT_LEVELS[DEFAULT_LEVELS.length - 1]
   }
   
   return currentLevel

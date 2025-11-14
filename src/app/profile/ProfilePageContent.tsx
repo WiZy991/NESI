@@ -8,6 +8,7 @@ import { useUser } from '@/context/UserContext'
 import { getBackgroundById } from '@/lib/level/profileBackgrounds'
 import { LevelBadge } from '@/components/LevelBadge'
 import { getLevelVisuals } from '@/lib/level/rewards'
+import '@/styles/level-animations.css'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
@@ -416,16 +417,23 @@ export default function ProfilePageContent() {
 	const backgroundStyle = background
 		? { background: background.gradient }
 		: { background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }
+	
+	// Определяем, нужна ли анимация (для премиум фонов уровня 5+)
+	const shouldAnimate = background?.isPremium && background?.unlockLevel >= 5
+	const backgroundClass = shouldAnimate ? 'level-legendary-gradient' : ''
+	
+	// Добавляем декоративные элементы для всех фонов
+	const decorativeClass = background?.id ? `${background.id}-background` : ''
 
 	return (
 		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
 			{/* Компактный Header профиля */}
 			<div 
-				className='rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden'
+				className={`rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden ${backgroundClass} ${decorativeClass}`}
 				style={backgroundStyle}
 			>
-				{/* Overlay для читаемости текста */}
-				<div className='absolute inset-0 bg-black/40 pointer-events-none' />
+				{/* Overlay для читаемости текста (более прозрачный для премиум фонов) */}
+				<div className={`absolute inset-0 pointer-events-none z-[2] ${shouldAnimate ? 'bg-black/30' : 'bg-black/40'}`} />
 				<div className='relative z-10'>
 				<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
 					{/* Аватар */}
@@ -434,17 +442,17 @@ export default function ProfilePageContent() {
 							const visuals = userLevel > 0 ? getLevelVisuals(userLevel) : null
 							const borderClass = visuals?.borderColor || 'border-emerald-500'
 							return avatarSrc ? (
-								<Image
-									src={avatarSrc}
-									alt='Аватар'
-									width={80}
-									height={80}
+							<Image
+								src={avatarSrc}
+								alt='Аватар'
+								width={80}
+								height={80}
 									className={`w-20 h-20 rounded-full border-2 ${borderClass} shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover`}
-								/>
-							) : (
+							/>
+						) : (
 								<div className={`w-20 h-20 rounded-full border-2 ${borderClass} bg-gray-800 flex items-center justify-center`}>
-									<FaUserCircle className='text-4xl text-gray-600' />
-								</div>
+								<FaUserCircle className='text-4xl text-gray-600' />
+							</div>
 							)
 						})()}
 					</div>
@@ -455,8 +463,8 @@ export default function ProfilePageContent() {
 							<div>
 								<div className='flex items-center gap-2 flex-wrap mb-1'>
 									<h1 className='text-2xl sm:text-3xl font-bold text-white truncate'>
-										{profile.fullName || 'Без имени'}
-									</h1>
+									{profile.fullName || 'Без имени'}
+								</h1>
 									{userLevel > 0 && <LevelBadge level={userLevel} size='md' />}
 								</div>
 								<p className='text-gray-400 text-sm truncate'>{profile.email}</p>
@@ -472,13 +480,13 @@ export default function ProfilePageContent() {
 								>
 									🎨 Фон
 								</button>
-								<button
-									onClick={() => setIsEditModalOpen(true)}
-									className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
-								>
-									<FaEdit />
-									Редактировать
-								</button>
+							<button
+								onClick={() => setIsEditModalOpen(true)}
+								className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+							>
+								<FaEdit />
+								Редактировать
+							</button>
 							</div>
 						</div>
 
@@ -531,7 +539,7 @@ export default function ProfilePageContent() {
 							</div>
 						)}
 					</div>
-				</div>
+					</div>
 				</div>
 			</div>
 

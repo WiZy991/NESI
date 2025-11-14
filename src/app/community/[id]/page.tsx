@@ -5,6 +5,8 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import ReportModal from '@/components/ReportModal'
 import VideoPlayer from '@/components/VideoPlayer'
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import {
 	Check,
 	Copy,
@@ -126,6 +128,7 @@ export default function CommunityPostPage() {
 	const { user, token } = useUser()
 	const { id } = useParams()
 	const router = useRouter()
+	const { confirm, Dialog } = useConfirm()
 
 	const [post, setPost] = useState<Post | null>(null)
 	const [loading, setLoading] = useState(true)
@@ -505,15 +508,25 @@ export default function CommunityPostPage() {
 	}
 
 	const deleteItem = async (endpoint: string) => {
-		if (!confirm('Удалить пост?')) return
-		const res = await fetch(endpoint, {
-			method: 'DELETE',
-			headers: { Authorization: `Bearer ${token}` },
+		await confirm({
+			title: 'Удаление поста',
+			message: 'Вы уверены, что хотите удалить этот пост? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				const res = await fetch(endpoint, {
+					method: 'DELETE',
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				if (res.ok) {
+					toast.success('Пост удалён')
+					router.push('/community')
+				} else {
+					toast.error('Ошибка при удалении поста')
+				}
+			},
 		})
-		if (res.ok) {
-			alert('✅ Пост удалён')
-			router.push('/community')
-		} else alert('Ошибка при удалении поста')
 	}
 
 	const startEditingPost = () => {
@@ -1000,6 +1013,7 @@ export default function CommunityPostPage() {
 					</section>
 				</main>
 			</div>
+			{Dialog}
 		</div>
 	)
 }
@@ -1063,17 +1077,29 @@ function CommentNode({
 	}
 
 	const deleteComment = async () => {
-		if (!confirm('Удалить комментарий?')) return
-		try {
-			const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
-				method: 'DELETE',
-				headers: { Authorization: `Bearer ${token}` },
-			})
-			if (res.ok) fetchPost()
-			else alert('Ошибка удаления комментария')
-		} catch {
-			alert('Ошибка сети при удалении комментария')
-		}
+		await confirm({
+			title: 'Удаление комментария',
+			message: 'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				try {
+					const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
+						method: 'DELETE',
+						headers: { Authorization: `Bearer ${token}` },
+					})
+					if (res.ok) {
+						toast.success('Комментарий удалён')
+						fetchPost()
+					} else {
+						toast.error('Ошибка удаления комментария')
+					}
+				} catch {
+					toast.error('Ошибка сети при удалении комментария')
+				}
+			},
+		})
 	}
 
 	return (

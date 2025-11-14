@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Plus, Edit2, Trash2, X, ExternalLink, ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import VideoPlayer from '@/components/VideoPlayer'
 
 type PortfolioItem = {
@@ -25,6 +27,7 @@ type PortfolioItem = {
 export default function PortfolioPage() {
   const router = useRouter()
   const { user, loading: userLoading } = useUser()
+  const { confirm, Dialog } = useConfirm()
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -211,16 +214,24 @@ export default function PortfolioPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Удалить этот элемент портфолио?')) return
-    
-    try {
-      const res = await fetch(`/api/portfolio/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Ошибка удаления')
-      await fetchPortfolio()
-    } catch (err) {
-      console.error(err)
-      alert('Ошибка удаления')
-    }
+    await confirm({
+      title: 'Удаление элемента портфолио',
+      message: 'Вы уверены, что хотите удалить этот элемент портфолио? Это действие нельзя отменить.',
+      type: 'danger',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/portfolio/${id}`, { method: 'DELETE' })
+          if (!res.ok) throw new Error('Ошибка удаления')
+          await fetchPortfolio()
+          toast.success('Элемент портфолио удалён')
+        } catch (err) {
+          console.error(err)
+          toast.error('Ошибка удаления')
+        }
+      },
+    })
   }
 
   if (loading) {

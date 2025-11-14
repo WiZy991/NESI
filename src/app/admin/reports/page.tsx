@@ -1,10 +1,13 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import { AlertTriangle, ExternalLink, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 export default function AdminReportsPage() {
+	const { confirm, Dialog } = useConfirm()
 	const [reports, setReports] = useState<any[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
@@ -46,31 +49,37 @@ export default function AdminReportsPage() {
 		console.log('🗑️ Удаление:', { type: report.type, id: targetId, report })
 
 		if (!targetId) {
-			alert(`Ошибка: не найден ID для ${typeName}`)
+			toast.error(`Ошибка: не найден ID для ${typeName}`)
 			return
 		}
 
-		if (!confirm(`Удалить ${typeName}?`))
-			return
+		await confirm({
+			title: `Удаление ${typeName}`,
+			message: `Вы уверены, что хотите удалить этот ${typeName}? Это действие нельзя отменить.`,
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				try {
+					const res = await fetch('/api/admin/reports', {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							type: report.type,
+							id: targetId,
+						}),
+					})
 
-		try {
-			const res = await fetch('/api/admin/reports', {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					type: report.type,
-					id: targetId,
-				}),
-			})
+					const data = await res.json()
+					if (!res.ok) throw new Error(data.error || 'Ошибка удаления')
 
-			const data = await res.json()
-			if (!res.ok) throw new Error(data.error || 'Ошибка удаления')
-
-			alert(data.message || 'Удалено')
-			await fetchReports()
-		} catch (err: any) {
-			alert('Ошибка при удалении: ' + err.message)
-		}
+					toast.success(data.message || 'Удалено')
+					await fetchReports()
+				} catch (err: any) {
+					toast.error('Ошибка при удалении: ' + err.message)
+				}
+			},
+		})
 	}
 
 	if (loading)
@@ -170,6 +179,7 @@ export default function AdminReportsPage() {
 					</Card>
 				))}
 			</div>
+			{Dialog}
 		</div>
 	)
 }

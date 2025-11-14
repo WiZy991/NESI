@@ -6,6 +6,8 @@ import VideoPlayer from '@/components/VideoPlayer'
 import { SkeletonLoader } from '@/components/SkeletonLoader'
 import { PostListSkeleton } from '@/components/SkeletonLoader/PostSkeleton'
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import {
 	Check,
 	Compass,
@@ -40,6 +42,7 @@ function resolveAvatarUrl(avatar?: string | null) {
 export default function CommunityPage() {
 	const { user, token } = useUser()
 	const router = useRouter()
+	const { confirm, Dialog } = useConfirm()
 	const [posts, setPosts] = useState<any[]>([])
 	const [loading, setLoading] = useState(true)
 	const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
@@ -181,26 +184,34 @@ export default function CommunityPage() {
 
 	// удаление поста
 	const deletePost = async (id: string) => {
-		if (!confirm('Удалить этот пост?')) return
-		try {
-			const res = await fetch(`/api/community/${id}`, {
-				method: 'DELETE',
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'Content-Type': 'application/json',
-				},
-			})
-			if (res.ok) {
-				setPosts(prev => prev.filter(p => p.id !== id))
-				alert('✅ Пост удалён')
-			} else {
-				const err = await res.json().catch(() => ({}))
-				alert('Ошибка удаления: ' + (err.error || res.statusText))
-			}
-		} catch (e) {
-			alert('Ошибка сети при удалении поста')
-			console.error(e)
-		}
+		await confirm({
+			title: 'Удаление поста',
+			message: 'Вы уверены, что хотите удалить этот пост? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				try {
+					const res = await fetch(`/api/community/${id}`, {
+						method: 'DELETE',
+						headers: {
+							Authorization: `Bearer ${token}`,
+							'Content-Type': 'application/json',
+						},
+					})
+					if (res.ok) {
+						setPosts(prev => prev.filter(p => p.id !== id))
+						toast.success('Пост удалён')
+					} else {
+						const err = await res.json().catch(() => ({}))
+						toast.error('Ошибка удаления: ' + (err.error || res.statusText))
+					}
+				} catch (e) {
+					toast.error('Ошибка сети при удалении поста')
+					console.error(e)
+				}
+			},
+		})
 	}
 
 	// начало редактирования поста
@@ -743,7 +754,7 @@ export default function CommunityPage() {
 					onClose={() => setReportTarget(null)}
 				/>
 			)}
-			
+			{Dialog}
 		</div>
 	)
 }

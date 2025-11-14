@@ -1,8 +1,11 @@
 'use client'
 
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import { useEffect, useState } from 'react'
 
 export default function AdminReviews() {
+	const { confirm, Dialog } = useConfirm()
 	const [reviews, setReviews] = useState<any[]>([])
 	const [loading, setLoading] = useState(true)
 	const [filter, setFilter] = useState('all')
@@ -18,9 +21,22 @@ export default function AdminReviews() {
 	}, [])
 
 	const handleDelete = async (id: string) => {
-		if (!confirm('Удалить этот отзыв?')) return
-		await fetch(`/api/admin/reviews/${id}`, { method: 'DELETE' })
-		location.reload()
+		await confirm({
+			title: 'Удаление отзыва',
+			message: 'Вы уверены, что хотите удалить этот отзыв? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				const res = await fetch(`/api/admin/reviews/${id}`, { method: 'DELETE' })
+				if (res.ok) {
+					toast.success('Отзыв удалён')
+					location.reload()
+				} else {
+					toast.error('Ошибка при удалении отзыва')
+				}
+			},
+		})
 	}
 
 	const filteredReviews =
@@ -139,6 +155,7 @@ export default function AdminReviews() {
 					))
 				)}
 			</div>
+			{Dialog}
 		</div>
 	)
 }

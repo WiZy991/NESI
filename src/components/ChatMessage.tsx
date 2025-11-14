@@ -4,6 +4,7 @@ import { useUser } from '@/context/UserContext'
 import { LevelBadge } from '@/components/LevelBadge'
 import { getLevelFromXPClient } from '@/lib/level/calculateClient'
 import { copyToClipboard } from '@/lib/copyToClipboard'
+import { useConfirm } from '@/lib/confirm'
 import {
 	Archive,
 	Check,
@@ -91,6 +92,7 @@ export default function ChatMessage({
 	onMessageDelete,
 	onReply,
 }: Props) {
+	const { confirm, Dialog } = useConfirm()
 	const { user, token } = useUser()
 	const [isEditing, setIsEditing] = useState(false)
 	const [editedContent, setEditedContent] = useState(message.content)
@@ -1078,31 +1080,38 @@ export default function ChatMessage({
 	}
 
 	const handleDelete = async () => {
-		if (!confirm('Удалить это сообщение?')) return
+		await confirm({
+			title: 'Удаление сообщения',
+			message: 'Вы уверены, что хотите удалить это сообщение? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				try {
+					const endpoint =
+						chatType === 'private'
+							? `/api/private-messages/delete/${message.id}`
+							: `/api/messages/delete/${message.id}`
 
-		try {
-			const endpoint =
-				chatType === 'private'
-					? `/api/private-messages/delete/${message.id}`
-					: `/api/messages/delete/${message.id}`
+					const res = await fetch(endpoint, {
+						method: 'DELETE',
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					})
 
-			const res = await fetch(endpoint, {
-				method: 'DELETE',
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			})
-
-			const data = await res.json()
-			if (res.ok) {
-				toast.success('Сообщение удалено')
-				if (onMessageDelete) onMessageDelete(message.id)
-			} else {
-				toast.error(data.error || 'Ошибка удаления')
-			}
-		} catch (error) {
-			toast.error('Ошибка удаления сообщения')
-		}
+					const data = await res.json()
+					if (res.ok) {
+						toast.success('Сообщение удалено')
+						if (onMessageDelete) onMessageDelete(message.id)
+					} else {
+						toast.error(data.error || 'Ошибка удаления')
+					}
+				} catch (error) {
+					toast.error('Ошибка удаления сообщения')
+				}
+			},
+		})
 	}
 
 	const handleCopyText = async () => {
@@ -2276,7 +2285,7 @@ export default function ChatMessage({
 					</div>
 				)}
 			</div>
-
+			{Dialog}
 		</div>
 	)
 }

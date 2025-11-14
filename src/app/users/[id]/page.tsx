@@ -8,6 +8,7 @@ import { LevelBadge } from '@/components/LevelBadge'
 import { getLevelVisuals } from '@/lib/level/rewards'
 import { getBackgroundById } from '@/lib/level/profileBackgrounds'
 import { getLevelFromXPClient } from '@/lib/level/calculateClient'
+import '@/styles/level-animations.css'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -410,6 +411,13 @@ export default function UserPublicProfilePage() {
 	const backgroundStyle = backgroundData
 		? { background: backgroundData.gradient }
 		: undefined
+	
+	// Определяем, нужна ли анимация (для премиум фонов уровня 5+)
+	const shouldAnimate = backgroundData?.isPremium && backgroundData?.unlockLevel >= 5
+	const backgroundClass = shouldAnimate ? 'level-legendary-gradient' : ''
+	
+	// Добавляем декоративные элементы для всех фонов
+	const decorativeClass = backgroundData?.id ? `${backgroundData.id}-background` : ''
 
 	const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; count?: number }> = [
 		{ id: 'overview' as Tab, label: 'Обзор', icon: <FaUserCircle /> },
@@ -430,11 +438,11 @@ export default function UserPublicProfilePage() {
 		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
 			{/* Компактный Header профиля */}
 			<div 
-				className='rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden'
+				className={`rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden ${backgroundClass} ${decorativeClass}`}
 				style={backgroundStyle}
 			>
-				{/* Overlay для читаемости текста */}
-				<div className='absolute inset-0 bg-black/40 pointer-events-none' />
+				{/* Overlay для читаемости текста (более прозрачный для премиум фонов) */}
+				<div className={`absolute inset-0 pointer-events-none z-[2] ${shouldAnimate ? 'bg-black/30' : 'bg-black/40'}`} />
 				<div className='relative z-10'>
 				<div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
 					{/* Аватар */}
@@ -459,8 +467,8 @@ export default function UserPublicProfilePage() {
 							<div>
 								<div className='flex items-center gap-2 flex-wrap mb-1'>
 									<h1 className='text-2xl sm:text-3xl font-bold text-white truncate'>
-										{viewUser.fullName || viewUser.email || 'Профиль пользователя'}
-									</h1>
+									{viewUser.fullName || viewUser.email || 'Профиль пользователя'}
+								</h1>
 									{userLevel > 0 && <LevelBadge level={userLevel} size='md' />}
 								</div>
 								<div className='flex flex-wrap items-center gap-2 text-sm text-gray-400'>
@@ -553,7 +561,7 @@ export default function UserPublicProfilePage() {
 							</div>
 						)}
 					</div>
-				</div>
+					</div>
 				</div>
 			</div>
 

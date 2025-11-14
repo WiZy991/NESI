@@ -1,5 +1,6 @@
 'use client'
 
+import { useConfirm } from '@/lib/confirm'
 import { useEffect, useState } from 'react'
 
 type ActivityLog = {
@@ -26,6 +27,7 @@ type SuspiciousPair = {
 }
 
 export default function AntiFraudPage() {
+  const { confirm, Dialog } = useConfirm()
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [suspiciousPairs, setSuspiciousPairs] = useState<SuspiciousPair[]>([])
   const [loading, setLoading] = useState(true)
@@ -237,10 +239,17 @@ export default function AntiFraudPage() {
                               </a>
                               {!log.user.blocked && (
                                 <button
-                                  onClick={() => {
-                                    if (confirm(`Заблокировать пользователя ${log.user.email}?`)) {
-                                      window.location.href = `/admin/users/${log.user.id}`
-                                    }
+                                  onClick={async () => {
+                                    await confirm({
+                                      title: 'Блокировка пользователя',
+                                      message: `Вы уверены, что хотите заблокировать пользователя ${log.user.email}?`,
+                                      type: 'warning',
+                                      confirmText: 'Заблокировать',
+                                      cancelText: 'Отмена',
+                                      onConfirm: () => {
+                                        window.location.href = `/admin/users/${log.user.id}`
+                                      },
+                                    })
                                   }}
                                   className='px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1'
                                   title='Заблокировать'
@@ -371,6 +380,7 @@ export default function AntiFraudPage() {
           )}
         </>
       )}
+      {Dialog}
     </div>
   )
 }
