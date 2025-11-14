@@ -225,7 +225,7 @@ export default function SpecialistsPage() {
 								<div className='relative flex-shrink-0'>
 									{(() => {
 										const visuals = getLevelVisuals(calc.lvl)
-										const borderClass = visuals.borderColor || 'border-emerald-500/40'
+										const borderClass = visuals.borderClass || 'border-emerald-500/50'
 										return u.avatarUrl ? (
 											<img
 												src={u.avatarUrl}

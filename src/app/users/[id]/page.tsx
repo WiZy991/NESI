@@ -438,7 +438,7 @@ export default function UserPublicProfilePage() {
 		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
 			{/* Компактный Header профиля */}
 			<div 
-				className={`rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden ${backgroundClass} ${decorativeClass}`}
+				className={`rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-visible ${backgroundClass} ${decorativeClass}`}
 				style={backgroundStyle}
 			>
 				{/* Overlay для читаемости текста (более прозрачный для премиум фонов) */}
@@ -451,11 +451,11 @@ export default function UserPublicProfilePage() {
 							<img
 								src={avatarSrc}
 								alt='Аватар'
-								className={`w-20 h-20 rounded-full border-2 ${visuals.borderColor || 'border-emerald-500'} shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover`}
+								className={`w-20 h-20 rounded-full border-2 ${visuals.borderClass || 'border-emerald-500/50'} shadow-[0_0_15px_rgba(16,185,129,0.5)] object-cover`}
 								onError={() => setAvatarError(true)}
 							/>
 						) : (
-							<div className={`w-20 h-20 rounded-full border-2 ${visuals.borderColor || 'border-emerald-500'} bg-gray-800 flex items-center justify-center`}>
+							<div className={`w-20 h-20 rounded-full border-2 ${visuals.borderClass || 'border-emerald-500/50'} bg-gray-800 flex items-center justify-center`}>
 								<FaUserCircle className='text-4xl text-gray-600' />
 							</div>
 						)}
@@ -500,7 +500,7 @@ export default function UserPublicProfilePage() {
 											⏳ Запрос отправлен
 										</button>
 									) : (
-										<div className='relative group'>
+										<div className='relative z-50'>
 											<button
 												onClick={() => setShowHireModal(true)}
 												disabled={sendingHire}
@@ -508,16 +508,16 @@ export default function UserPublicProfilePage() {
 											>
 												💼 Нанять за 1990₽
 											</button>
-											{/* Подсказка под кнопкой */}
-											<div className='absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-80 p-4 bg-gray-900 border border-emerald-500/30 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 pointer-events-none'>
-												<div className='absolute bottom-full left-1/2 transform -translate-x-1/2 mb-0.5'>
-													<div className='w-3 h-3 bg-gray-900 border-l border-t border-emerald-500/30 transform rotate-45'></div>
+											{/* Подсказка под кнопкой - всегда видима */}
+											<div className='absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 p-4 bg-gray-900 border-2 border-emerald-500/50 rounded-lg shadow-2xl z-[9999] pointer-events-auto' style={{ position: 'absolute', zIndex: 9999 }}>
+												<div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-0.5'>
+													<div className='w-3 h-3 bg-gray-900 border-l-2 border-t-2 border-emerald-500/50 rotate-45'></div>
 												</div>
-												<p className='text-sm text-gray-300 leading-relaxed mb-2'>
+												<p className='text-sm text-white leading-relaxed mb-2'>
 													<span className='text-emerald-400 font-semibold'>1990₽</span> — это плата за{' '}
 													<span className='text-emerald-300 font-medium'>доступ к чату</span> с исполнителем.
 												</p>
-												<p className='text-sm text-gray-300 leading-relaxed'>
+												<p className='text-sm text-white leading-relaxed'>
 													После оплаты вы сможете предложить ему{' '}
 													<span className='text-emerald-300 font-medium'>офер на постоянную работу</span> (например, 5/2 с 9 до 18, удалёнка, частичная занятость и т.д.).
 												</p>

@@ -194,8 +194,8 @@ export async function GET(req: Request) {
       } else if (sort === 'reviews') {
         score = (reviews || 0) * 1000 + (avgRating || 0) * 50 + lvl * 5
       } else {
-        // sort === 'xp'
-        score = lvl * 1000 + progress * 3 + avgRating * 20 + reviews * 1.5
+        // sort === 'xp' - сортируем напрямую по опыту
+        score = xpComputed
       }
 
       return {

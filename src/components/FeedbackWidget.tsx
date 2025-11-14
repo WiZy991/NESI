@@ -67,13 +67,18 @@ export default function FeedbackWidget() {
 		<>
 			{/* Плавающая кнопка */}
 			{!isProfileModalOpen && (
-				<button
-					onClick={() => setIsOpen(true)}
-					className='fixed bottom-6 left-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:shadow-[0_0_30px_rgba(16,185,129,0.7)] transition-all duration-300 hover:scale-110'
-					aria-label='Отправить обратную связь'
-				>
-					<MessageSquare className='w-6 h-6' />
-				</button>
+				<div className='fixed bottom-6 left-6 z-50 flex flex-col items-center gap-2 group'>
+					<button
+						onClick={() => setIsOpen(true)}
+						className='w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:shadow-[0_0_30px_rgba(16,185,129,0.7)] transition-all duration-300 hover:scale-110'
+						aria-label='Отправить обратную связь'
+					>
+						<MessageSquare className='w-6 h-6' />
+					</button>
+					<span className='text-xs text-emerald-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap bg-black/60 px-2 py-1 rounded backdrop-blur-sm'>
+						Обратная связь
+					</span>
+				</div>
 			)}
 
 			{/* Модальное окно */}
