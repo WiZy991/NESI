@@ -6,8 +6,10 @@ import { createNotificationWithSettings } from '@/lib/notify'
 import prisma from '@/lib/prisma'
 import { recordTaskResponseStatus } from '@/lib/taskResponseStatus'
 import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
+import { canTakeMoreTasks } from '@/lib/level/taskLimit'
 import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request, context: { params: { id: string } }) {
 	try {
@@ -16,7 +18,23 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
 		const { id: taskId } = context.params
-		const { executorId } = await req.json()
+		
+		let body
+		try {
+			body = await req.json()
+		} catch (error) {
+			return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+		}
+
+		// Валидация executorId
+		if (!body.executorId || typeof body.executorId !== 'string' || !body.executorId.trim()) {
+			return NextResponse.json(
+				{ error: 'ID исполнителя обязателен' },
+				{ status: 400 }
+			)
+		}
+
+		const executorId = body.executorId.trim()
 
 		const task = await prisma.task.findUnique({ where: { id: taskId } })
 		if (!task)
@@ -33,6 +51,19 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 			return NextResponse.json(
 				{ error: 'Исполнитель уже назначен' },
 				{ status: 400 }
+			)
+		}
+
+		// 🔒 Проверяем лимит задач по уровню исполнителя
+		const taskLimit = await canTakeMoreTasks(executorId)
+		if (!taskLimit.canTake) {
+			return NextResponse.json(
+				{ 
+					error: `У исполнителя уже максимальное количество активных задач (${taskLimit.activeCount}/${taskLimit.maxCount}). Завершите текущие задачи, чтобы взять новые.`,
+					activeCount: taskLimit.activeCount,
+					maxCount: taskLimit.maxCount
+				},
+				{ status: 409 }
 			)
 		}
 
@@ -83,19 +114,74 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 		// Конвертируем в Prisma Decimal для транзакции
 		const priceDecimal = new Prisma.Decimal(toNumber(price))
 
-		await prisma.$transaction([
+		await prisma.$transaction(async (tx) => {
+			// 🔒 Дополнительная проверка в транзакции (защита от race condition)
+			const taskCheck = await tx.task.findUnique({
+				where: { id: taskId },
+				select: { executorId: true, status: true },
+			})
+
+			if (!taskCheck) {
+				throw new Error('Задача не найдена')
+			}
+
+			if (taskCheck.executorId) {
+				throw new Error('Исполнитель уже назначен')
+			}
+
+			if (taskCheck.status !== 'open') {
+				throw new Error('Задача недоступна для назначения')
+			}
+
+			// 🔒 Проверяем лимит задач по уровню внутри транзакции
+			// Получаем данные исполнителя для расчета уровня
+			const executor = await tx.user.findUnique({
+				where: { id: executorId },
+				select: { xp: true },
+			})
+
+			if (!executor) {
+				throw new Error('Исполнитель не найден')
+			}
+
+			// Подсчитываем активные задачи (исключая текущую)
+			const activeTasksCount = await tx.task.count({
+				where: {
+					executorId,
+					status: 'in_progress',
+					id: { not: taskId },
+				},
+			})
+
+			// Получаем бонусный XP за сертификации
+			const passedTests = await tx.certificationAttempt.count({
+				where: { userId: executorId, passed: true },
+			})
+			const xpComputed = (executor.xp || 0) + passedTests * 10
+
+			// Получаем уровень и лимит
+			const { getLevelFromXP } = await import('@/lib/level/calculate')
+			const { getMaxTasksForLevel } = await import('@/lib/level/rewards')
+			const levelInfo = await getLevelFromXP(xpComputed)
+			const maxCount = getMaxTasksForLevel(levelInfo.level)
+
+			// Проверяем лимит (учитывая, что мы собираемся добавить еще одну задачу)
+			if (activeTasksCount >= maxCount) {
+				throw new Error(`У исполнителя уже максимальное количество активных задач (${activeTasksCount}/${maxCount})`)
+			}
+
 			// Обновляем задачу
-			prisma.task.update({
+			await tx.task.update({
 				where: { id: taskId },
 				data: {
 					executorId,
 					status: 'in_progress',
-					escrowAmount: priceDecimal, // 💰 сумма заморозки
+					escrowAmount: priceDecimal,
 				},
-			}),
+			})
 
 			// У заказчика: только морозим средства (без списания с баланса)
-			prisma.user.update({
+			await tx.user.update({
 				where: { id: user.id },
 				data: {
 					frozenBalance: { increment: priceDecimal },
@@ -109,8 +195,19 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 						},
 					},
 				},
-			}),
-		])
+			})
+
+			// 🗑️ Автоматически удаляем все отклики этого исполнителя из других открытых задач
+			await tx.taskResponse.deleteMany({
+				where: {
+					userId: executorId,
+					task: {
+						status: 'open',
+						id: { not: taskId }, // Не удаляем отклик из текущей задачи
+					},
+				},
+			})
+		})
 
 		await recordTaskResponseStatus(response.id, 'hired', {
 			changedById: user.id,
@@ -144,19 +241,16 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 				playSound: true,
 			})
 
-			console.log(
-				'✅ Уведомление о назначении отправлено исполнителю:',
-				executorId
-			)
+			logger.debug('Уведомление о назначении отправлено исполнителю', { executorId, taskId })
 			}
 		} catch (notifError) {
-			console.error('❌ Ошибка отправки уведомления о назначении:', notifError)
+			logger.error('Ошибка отправки уведомления о назначении', notifError, { executorId, taskId })
 		}
 
 		// 🎯 Проверяем достижения для заказчика после назначения исполнителя (для uniqueExecutors)
 		let awardedBadges: Array<{ id: string; name: string; icon: string; description?: string }> = []
 		try {
-			console.log(`[Badges] 🔍 Проверяем достижения для заказчика ${user.id} после назначения исполнителя для задачи ${taskId}`)
+			logger.debug('Проверяем достижения для заказчика после назначения исполнителя', { userId: user.id, taskId })
 			const newBadges = await checkAndAwardBadges(user.id)
 			if (newBadges.length > 0) {
 				const badgeIds = newBadges.map(b => b.id)
@@ -170,15 +264,19 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 					icon: badge.icon,
 					description: badge.description
 				}))
-				console.log(`[Badges] ✅ Заказчику ${user.id} начислено ${awardedBadges.length} достижений:`, awardedBadges.map(b => b.name))
+				logger.info('Заказчику начислены достижения', { 
+					userId: user.id, 
+					badgesCount: awardedBadges.length,
+					badgeNames: awardedBadges.map(b => b.name)
+				})
 			}
 		} catch (badgeError) {
-			console.error('[Badges] ❌ Ошибка проверки достижений для заказчика:', badgeError)
+			logger.error('Ошибка проверки достижений для заказчика', badgeError, { userId: user.id, taskId })
 		}
 
 		return NextResponse.json({ task, awardedBadges })
 	} catch (err: any) {
-		console.error('Ошибка при назначении исполнителя:', err)
+		logger.error('Ошибка при назначении исполнителя', err, { taskId })
 		return NextResponse.json({ error: err.message || 'Ошибка сервера' }, { status: 500 })
 	}
 }

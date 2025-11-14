@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useUser } from '@/context/UserContext'
+import { LevelBadge } from '@/components/LevelBadge'
+import { getLevelFromXPClient } from '@/lib/level/calculateClient'
 
 // Функция для определения типа медиа по расширению файла
 function detectMediaType(imageUrl: string | null, currentType?: string | null): 'image' | 'video' {
@@ -47,6 +49,7 @@ type Author = {
   fullName: string | null
   email: string
   avatarFileId?: string | null
+  xp?: number | null
 }
 
 type Comment = {
@@ -277,7 +280,13 @@ export default function CommunityPost({ post }: { post: Post }) {
         <div className="flex items-start gap-2">
           <Avatar author={reply.author} />
           <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
-            <p className="text-sm font-semibold">{reply.author.fullName || reply.author.email}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold">{reply.author.fullName || reply.author.email}</p>
+              {reply.author.xp != null && (() => {
+                const levelInfo = getLevelFromXPClient(reply.author.xp)
+                return <LevelBadge level={levelInfo.level} size="sm" />
+              })()}
+            </div>
             <p className="text-sm">{reply.content}</p>
             {reply.imageUrl && (() => {
               const itemMediaType = detectMediaType(reply.imageUrl, reply.mediaType)
@@ -317,7 +326,13 @@ export default function CommunityPost({ post }: { post: Post }) {
         <div className="flex items-start gap-2">
           <Avatar author={c.author} />
           <div className="bg-gray-800 px-3 py-2 rounded-lg w-full">
-            <p className="text-sm font-semibold">{c.author.fullName || c.author.email}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold">{c.author.fullName || c.author.email}</p>
+              {c.author.xp != null && (() => {
+                const levelInfo = getLevelFromXPClient(c.author.xp)
+                return <LevelBadge level={levelInfo.level} size="sm" />
+              })()}
+            </div>
             <p className="text-sm">{c.content}</p>
             {c.imageUrl && (() => {
               const itemMediaType = detectMediaType(c.imageUrl, c.mediaType)
@@ -417,8 +432,14 @@ export default function CommunityPost({ post }: { post: Post }) {
     <div className="p-5 border border-emerald-500/30 rounded-xl bg-black/40 shadow-md space-y-4">
       <div className="flex items-center gap-3">
         <Avatar author={post.author} />
-        <div>
-          <p className="font-semibold">{post.author.fullName || post.author.email}</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold">{post.author.fullName || post.author.email}</p>
+            {post.author.xp != null && (() => {
+              const levelInfo = getLevelFromXPClient(post.author.xp)
+              return <LevelBadge level={levelInfo.level} size="sm" />
+            })()}
+          </div>
           <p className="text-xs text-gray-400">{new Date(post.createdAt).toLocaleString()}</p>
         </div>
       </div>

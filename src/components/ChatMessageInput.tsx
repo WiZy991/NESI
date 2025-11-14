@@ -1,11 +1,12 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
-import { ChevronDown, FileText, Mic } from 'lucide-react'
+import { ChevronDown, FileText, Mic, Send, X, Download, RotateCw, Trash2, Smile } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import MessageTemplatesModal from './MessageTemplatesModal'
 import VoicePlayer from './VoicePlayer'
+import VideoPlayer from './VideoPlayer'
 
 type MessageInputProps = {
 	chatType: 'private' | 'task'
@@ -115,6 +116,8 @@ type ComposerAttachment = {
 	voiceMetadata?: VoiceMetadata | null
 	audioPreviewUrl?: string | null
 	waveform?: number[]
+	caption?: string
+	compress?: boolean
 }
 
 const WAVEFORM_SAMPLES = 48
@@ -181,7 +184,12 @@ export default function MessageInput({
 	const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
 	const [selectedMicrophoneId, setSelectedMicrophoneId] =
 		useState<string>('default')
-	const [microphoneMenuOpen, setMicrophoneMenuOpen] = useState(false)
+	const [showSendMenu, setShowSendMenu] = useState(false)
+	const [preferSendMode, setPreferSendMode] = useState(true)
+	const [previewModalAttachment, setPreviewModalAttachment] = useState<ComposerAttachment | null>(null)
+	const [previewModalCaption, setPreviewModalCaption] = useState('')
+	const [previewModalCompress, setPreviewModalCompress] = useState(true)
+	const [previewModalShowEmojiPicker, setPreviewModalShowEmojiPicker] = useState(false)
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -194,8 +202,8 @@ export default function MessageInput({
 	const audioChunksRef = useRef<Blob[]>([])
 	const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
 	const audioRef = useRef<HTMLAudioElement | null>(null)
-	const microphoneMenuRef = useRef<HTMLDivElement | null>(null)
-	const microphoneButtonRef = useRef<HTMLButtonElement | null>(null)
+	const sendMenuRef = useRef<HTMLDivElement | null>(null)
+	const sendMenuButtonRef = useRef<HTMLButtonElement | null>(null)
 
 	const typingContext = useMemo<TypingContext | null>(() => {
 		if (!otherUserId) return null
@@ -310,7 +318,7 @@ export default function MessageInput({
 					keepalive: true,
 				})
 			} catch (error) {
-				console.error('Ошибка отправки события набора:', error)
+				// Игнорируем ошибки отправки события набора (не критично)
 			}
 		},
 		[token, typingContext]
@@ -339,6 +347,10 @@ export default function MessageInput({
 	const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
 		const value = e.target.value
 		setMessage(value)
+		// Если пользователь начал вводить текст, показываем кнопку отправки
+		if (value.trim().length > 0) {
+			setPreferSendMode(true)
+		}
 
 		if (!typingContext) {
 			if (typingTimeoutRef.current) {
@@ -480,10 +492,43 @@ export default function MessageInput({
 		refreshMicrophones()
 	}, [refreshMicrophones])
 
+	// Закрытие модального окна предпросмотра по Escape
 	useEffect(() => {
-		if (!microphoneMenuOpen) return
-		refreshMicrophones()
-	}, [microphoneMenuOpen, refreshMicrophones])
+		if (!previewModalAttachment) return
+
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				setPreviewModalAttachment(null)
+			}
+		}
+
+		window.addEventListener('keydown', handleEscape)
+		return () => window.removeEventListener('keydown', handleEscape)
+	}, [previewModalAttachment])
+
+	// Закрытие меню выбора при клике вне его
+	useEffect(() => {
+		if (!showSendMenu) return
+
+		const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+			if (
+				sendMenuRef.current &&
+				sendMenuButtonRef.current &&
+				!sendMenuRef.current.contains(event.target as Node) &&
+				!sendMenuButtonRef.current.contains(event.target as Node)
+			) {
+				setShowSendMenu(false)
+			}
+		}
+
+		document.addEventListener('mousedown', handleClickOutside)
+		document.addEventListener('touchstart', handleClickOutside)
+
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside)
+			document.removeEventListener('touchstart', handleClickOutside)
+		}
+	}, [showSendMenu])
 
 	useEffect(() => {
 		if (!audioPreviewUrl) {
@@ -628,7 +673,9 @@ export default function MessageInput({
 
 			if (readyAttachments.length > 0) {
 				readyAttachments.forEach((attachment, index) => {
-					queue.push({ attachment, content: index === 0 ? trimmedContent : '' })
+					// Используем подпись из attachment, если есть, иначе текст сообщения для первого вложения
+					const content = attachment.caption || (index === 0 ? trimmedContent : '')
+					queue.push({ attachment, content })
 				})
 			} else if (trimmedContent.length > 0) {
 				queue.push({ content: trimmedContent })
@@ -686,6 +733,7 @@ export default function MessageInput({
 			setAttachments([])
 			setShowEmojiPicker(false)
 			setShowTemplatesModal(false)
+			setPreferSendMode(true)
 			clearVoiceState()
 			attachmentUploadsRef.current.clear()
 
@@ -916,11 +964,21 @@ export default function MessageInput({
 						const result =
 							typeof reader.result === 'string' ? reader.result : null
 						if (result) {
-							setAttachments(prev =>
-								prev.map(att =>
+							setAttachments(prev => {
+								const updated = prev.map(att =>
 									att.id === attachmentId ? { ...att, previewUrl: result } : att
 								)
-							)
+								// Открываем модальное окно для предпросмотра медиа файлов
+								const updatedAttachment = updated.find(att => att.id === attachmentId)
+								if (updatedAttachment && (kind === 'image' || kind === 'video')) {
+									setTimeout(() => {
+										setPreviewModalAttachment(updatedAttachment)
+										setPreviewModalCaption(updatedAttachment.caption || '')
+										setPreviewModalCompress(updatedAttachment.compress !== false)
+									}, 100)
+								}
+								return updated
+							})
 						}
 					}
 					reader.readAsDataURL(fileToAttach)
@@ -1007,7 +1065,6 @@ export default function MessageInput({
 						previewUrl,
 					})
 
-					setMicrophoneMenuOpen(false)
 				} catch (error) {
 					console.error('Ошибка обработки голосового сообщения:', error)
 					alert('Не удалось сохранить голосовое сообщение')
@@ -1092,7 +1149,6 @@ export default function MessageInput({
 		await stopRecording(false)
 		clearVoiceState()
 		setRecordingTime(0)
-		setMicrophoneMenuOpen(false)
 	}, [clearVoiceState, stopRecording])
 
 	const toggleVoicePlayback = useCallback(() => {
@@ -1332,7 +1388,9 @@ export default function MessageInput({
 					position: 'relative',
 					zIndex: 10,
 					touchAction: 'manipulation',
-				}}
+					WebkitTapHighlightColor: 'transparent',
+					WebkitTouchCallout: 'none',
+				} as React.CSSProperties}
 			>
 				{/* Информация об ответе на сообщение */}
 				{replyTo && (
@@ -1371,6 +1429,32 @@ export default function MessageInput({
 					</div>
 				)}
 
+				{/* Индикатор записи */}
+				{isRecording && (
+					<div className='mb-3 px-4 py-2.5 bg-red-500/20 backdrop-blur-sm border border-red-400/40 rounded-xl flex items-center justify-between text-sm transition-all duration-200 animate-in fade-in-0 slide-in-from-top-2 shadow-lg'>
+						<div className='flex items-center gap-2'>
+							<span className='inline-flex w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse'></span>
+							<span className='text-red-200 font-medium'>Идёт запись...</span>
+						</div>
+						<div className='flex items-center gap-3'>
+							<span className='text-red-300 font-mono text-sm'>
+								{formatDuration(recordingTime)}
+							</span>
+							<button
+								type='button'
+								onClick={() =>
+									cancelRecording().catch(err =>
+										console.error('Ошибка отмены записи:', err)
+									)
+								}
+								className='text-xs text-red-300 hover:text-red-200 transition px-2 py-1 rounded-md hover:bg-red-500/20'
+							>
+								Отменить
+							</button>
+						</div>
+					</div>
+				)}
+
 				{/* Вложения */}
 				{attachments.length > 0 && (
 					<div className='mb-3 space-y-3'>
@@ -1390,7 +1474,7 @@ export default function MessageInput({
 								return (
 									<div
 										key={attachment.id}
-										className='rounded-2xl border border-slate-700/60 bg-slate-800/60 backdrop-blur-sm px-4 py-3 shadow-lg'
+										className='rounded-lg border border-slate-700/50 bg-slate-800/50 backdrop-blur-sm px-2 py-1.5 shadow-sm max-w-fit'
 									>
 										<VoicePlayer
 											audioUrl={attachment.audioPreviewUrl}
@@ -1398,7 +1482,7 @@ export default function MessageInput({
 											duration={attachment.voiceMetadata.duration || 0}
 										/>
 										{isUploading && (
-											<div className='mt-2 w-full bg-emerald-500/10 rounded-full h-1 overflow-hidden'>
+											<div className='mt-1.5 w-full bg-emerald-500/10 rounded-full h-0.5 overflow-hidden'>
 												<div
 													className='h-full bg-gradient-to-r from-emerald-400 to-emerald-300 transition-all duration-200'
 													style={{ width: `${progress}%` }}
@@ -1406,28 +1490,28 @@ export default function MessageInput({
 											</div>
 										)}
 										{isError && (
-											<div className='mt-2 flex items-center gap-2'>
+											<div className='mt-1.5 flex items-center gap-2'>
 												<button
 													type='button'
 													onClick={() => retryAttachment(attachment.id)}
-													className='px-2 py-1 text-[11px] rounded-md bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition-colors'
+													className='px-2 py-0.5 text-[10px] rounded-md bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition-colors'
 												>
 													Повторить
 												</button>
 											</div>
 										)}
-										<div className='mt-2 flex items-center justify-between'>
-											<div className='text-xs text-gray-400 truncate'>
+										<div className='mt-1.5 flex items-center justify-between'>
+											<div className='text-[10px] text-gray-400 truncate'>
 												{getTruncatedFileName(attachment.name)}
 											</div>
 											<button
 												type='button'
 												onClick={() => removeAttachment(attachment.id)}
-												className='w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/20 text-red-300 transition-colors flex-shrink-0'
+												className='w-6 h-6 flex items-center justify-center rounded-md hover:bg-red-500/20 text-red-300 transition-colors flex-shrink-0'
 												aria-label='Удалить вложение'
 											>
 												<svg
-													className='w-4 h-4'
+													className='w-3 h-3'
 													fill='none'
 													stroke='currentColor'
 													viewBox='0 0 24 24'
@@ -1451,14 +1535,22 @@ export default function MessageInput({
 										<img
 											src={attachment.previewUrl}
 											alt={attachment.name}
-											className='w-16 h-16 rounded-xl object-cover border border-slate-700/60'
+											className='w-16 h-16 rounded-xl object-cover border border-slate-700/60 cursor-pointer hover:opacity-80 transition-opacity'
+											onClick={() => {
+												setPreviewModalAttachment(attachment)
+												setPreviewModalCaption(attachment.caption || '')
+												setPreviewModalCompress(attachment.compress !== false)
+											}}
 										/>
 									)
 								}
 
 								if (attachment.kind === 'video') {
 									return (
-										<div className='w-16 h-16 rounded-xl bg-slate-700/70 border border-slate-600/60 flex items-center justify-center text-slate-300'>
+										<div 
+											className='w-16 h-16 rounded-xl bg-slate-700/70 border border-slate-600/60 flex items-center justify-center text-slate-300 cursor-pointer hover:opacity-80 transition-opacity'
+											onClick={() => setPreviewModalAttachment(attachment)}
+										>
 											<svg
 												className='w-6 h-6'
 												fill='none'
@@ -1592,7 +1684,7 @@ export default function MessageInput({
 				)}
 
 				{/* Поле ввода сообщения */}
-				<div className='flex items-end gap-2'>
+				<div className='flex items-center gap-2'>
 					<label
 						className='group cursor-pointer flex-shrink-0 w-11 h-11 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:bg-slate-700/80 hover:border-emerald-400/50 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
 						style={{
@@ -1661,8 +1753,8 @@ export default function MessageInput({
 							disabled={sending}
 							style={
 								{
-									height: '40px',
-									minHeight: '40px',
+									height: '44px',
+									minHeight: '44px',
 									maxHeight: '140px',
 									lineHeight: '1.5',
 									overflow: 'auto',
@@ -1707,8 +1799,6 @@ export default function MessageInput({
 									: 'border-slate-600/50'
 							} hover:border-emerald-400/50 hover:bg-slate-700/80 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button text-2xl touch-manipulation transition-all duration-200 active:scale-95`}
 							style={{
-								minHeight: '44px',
-								minWidth: '44px',
 								touchAction: 'manipulation',
 								WebkitTapHighlightColor: 'transparent',
 								pointerEvents: 'auto',
@@ -1770,8 +1860,6 @@ export default function MessageInput({
 							}}
 							className='flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 hover:border-emerald-400/50 hover:bg-slate-700/80 hover:shadow-[0_0_12px_rgba(16,185,129,0.15)] ios-button touch-manipulation transition-all duration-200 active:scale-95'
 							style={{
-								minHeight: '44px',
-								minWidth: '44px',
 								touchAction: 'manipulation',
 								WebkitTapHighlightColor: 'transparent',
 								pointerEvents: 'auto',
@@ -1783,9 +1871,118 @@ export default function MessageInput({
 						</button>
 					)}
 
-					{/* Кнопка отправки и меню микрофона */}
-					<div className='relative flex flex-col items-center gap-1'>
-						<div className='flex items-center gap-1'>
+					{/* Кнопка отправки или микрофона */}
+					{isRecording ? (
+						// Кнопка остановки записи
+						<button
+							type='button'
+							onClick={() => {
+								stopRecording(true).catch(err =>
+									console.error('Ошибка остановки записи:', err)
+								)
+							}}
+							onTouchStart={e => {
+								e.stopPropagation()
+							}}
+							className='flex-shrink-0 w-11 h-11 bg-gradient-to-br from-red-500/90 to-red-600/90 hover:from-red-400 hover:to-red-500 text-white rounded-xl active:scale-95 ios-button shadow-md hover:shadow-lg hover:shadow-red-500/20 flex items-center justify-center touch-manipulation border border-red-400/30 transition-all duration-200'
+							style={{
+								position: 'relative',
+								zIndex: 20,
+								touchAction: 'manipulation',
+								WebkitTapHighlightColor: 'transparent',
+								pointerEvents: 'auto',
+							}}
+						>
+							<div className='relative'>
+								<Mic className='w-5 h-5' />
+								<span className='absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-white animate-pulse'></span>
+							</div>
+						</button>
+					) : !trimmedMessage && !hasReadyAttachment && !preferSendMode ? (
+						// Группа: кнопка микрофона + меню выбора
+						<div className='relative flex items-center gap-1'>
+							<button
+								type='button'
+								onClick={() => {
+									startRecording().catch(err =>
+										console.error('Ошибка запуска записи:', err)
+									)
+								}}
+								onTouchStart={e => {
+									e.stopPropagation()
+								}}
+								className='flex-shrink-0 w-11 h-11 bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-xl active:scale-95 ios-button shadow-md hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center touch-manipulation border border-emerald-400/30 transition-all duration-200'
+								style={{
+									position: 'relative',
+									zIndex: 20,
+									touchAction: 'manipulation',
+									WebkitTapHighlightColor: 'transparent',
+									pointerEvents: 'auto',
+								}}
+							>
+								<Mic className='w-5 h-5' />
+							</button>
+							<button
+								ref={sendMenuButtonRef}
+								type='button'
+								onClick={e => {
+									e.stopPropagation()
+									setShowSendMenu(prev => !prev)
+								}}
+								onTouchStart={e => {
+									e.stopPropagation()
+								}}
+								className='w-8 h-11 flex items-center justify-center rounded-xl border border-emerald-400/30 bg-slate-700/50 hover:bg-slate-700/70 text-emerald-300 transition-all duration-200 active:scale-95'
+								style={{
+									touchAction: 'manipulation',
+									WebkitTapHighlightColor: 'transparent',
+									position: 'relative',
+									zIndex: 21,
+								}}
+							>
+								<ChevronDown
+									className={`w-4 h-4 transition-transform duration-200 ${
+										showSendMenu ? 'rotate-180' : ''
+									}`}
+								/>
+							</button>
+							{showSendMenu && (
+								<div
+									ref={sendMenuRef}
+									className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 space-y-1 animate-fadeIn z-50'
+									onClick={e => e.stopPropagation()}
+								>
+									<button
+										type='button'
+										onClick={() => {
+											startRecording().catch(err =>
+												console.error('Ошибка запуска записи:', err)
+											)
+											setShowSendMenu(false)
+										}}
+										className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+									>
+										<Mic className='w-5 h-5 text-emerald-400' />
+									</button>
+									<button
+										type='button'
+										onClick={() => {
+											setPreferSendMode(true)
+											setShowSendMenu(false)
+											if (textareaRef.current) {
+												textareaRef.current.focus()
+											}
+										}}
+										className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+									>
+										<Send className='w-5 h-5 text-emerald-400' />
+									</button>
+								</div>
+							)}
+						</div>
+					) : (
+						// Кнопка отправки (с меню, если preferSendMode и поле пустое)
+						<div className='relative flex items-center gap-1'>
 							<button
 								type='submit'
 								disabled={sendDisabled}
@@ -1797,168 +1994,103 @@ export default function MessageInput({
 								}}
 								className='flex-shrink-0 w-11 h-11 bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-xl active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ios-button shadow-md hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center touch-manipulation border border-emerald-400/30 transition-all duration-200'
 								style={{
-									minHeight: '44px',
-									minWidth: '44px',
 									position: 'relative',
 									zIndex: 20,
 									touchAction: 'manipulation',
 									WebkitTapHighlightColor: 'transparent',
 									pointerEvents: 'auto',
 								}}
-								title={sendButtonTitle}
 							>
-								{sending ? (
-									<svg
-										className='animate-spin w-5 h-5'
-										fill='none'
-										viewBox='0 0 24 24'
-									>
-										<circle
-											className='opacity-25'
-											cx='12'
-											cy='12'
-											r='10'
-											stroke='currentColor'
-											strokeWidth='4'
-										></circle>
-										<path
-											className='opacity-75'
-											fill='currentColor'
-											d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938л3-2.647z'
-										></path>
-									</svg>
-								) : (
-									<svg
-										className='w-5 h-5'
+							{sending ? (
+								<svg
+									className='animate-spin w-5 h-5'
+									fill='none'
+									viewBox='0 0 24 24'
+								>
+									<circle
+										className='opacity-25'
+										cx='12'
+										cy='12'
+										r='10'
+										stroke='currentColor'
+										strokeWidth='4'
+									></circle>
+									<path
+										className='opacity-75'
 										fill='currentColor'
-										viewBox='0 0 24 24'
-									>
-										<path d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' />
-									</svg>
-								)}
+										d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938л3-2.647z'
+									></path>
+								</svg>
+							) : (
+								<svg
+									className='w-5 h-5'
+									fill='currentColor'
+									viewBox='0 0 24 24'
+								>
+									<path d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' />
+								</svg>
+							)}
 							</button>
-
-							<button
-								type='button'
-								ref={microphoneButtonRef}
-								onClick={() => {
-									setMicrophoneMenuOpen(prev => !prev)
-								}}
-								onTouchStart={e => {
-									e.stopPropagation()
-								}}
-								className='w-8 h-11 flex items-center justify-center rounded-xl border border-emerald-400/30 bg-slate-700/50 hover:bg-slate-700/70 text-emerald-300 transition-all duration-200 active:scale-95'
-								style={{
-									minHeight: '44px',
-									touchAction: 'manipulation',
-									WebkitTapHighlightColor: 'transparent',
-								}}
-								title='Настройки голосового сообщения'
-								aria-label='Настройки голосового сообщения'
-							>
-								<ChevronDown
-									className={`w-4 h-4 transition-transform duration-200 ${
-										microphoneMenuOpen ? 'rotate-180' : ''
-									}`}
-								/>
-							</button>
-						</div>
-
-						{microphoneMenuOpen && (
-							<div
-								ref={microphoneMenuRef}
-								className='absolute bottom-[calc(100%+0.5rem)] right-0 w-64 sm:w-72 bg-slate-900/95 border border-slate-700/60 rounded-2xl shadow-2xl p-4 space-y-3 animate-fadeIn'
-							>
-								<div className='flex items-center gap-2 text-sm font-semibold text-emerald-200'>
-									<Mic className='w-4 h-4' />
-									<span>Голосовые сообщения</span>
-								</div>
-								<div className='space-y-2 text-xs text-gray-300'>
-									<label className='block text-[11px] uppercase tracking-wider text-gray-400'>
-										Микрофон
-									</label>
-									{audioDevices.length > 0 ? (
-										<select
-											value={selectedMicrophoneId}
-											onChange={e => setSelectedMicrophoneId(e.target.value)}
-											className='w-full px-3 py-2 rounded-lg bg-slate-800/70 border border-slate-700/60 text-sm text-gray-200 focus:outline-none focus:border-emerald-400/60 transition'
-										>
-											<option value='default'>Системный (по умолчанию)</option>
-											{audioDevices.map((device, index) => (
-												<option
-													key={device.deviceId || `${index}-device`}
-													value={device.deviceId || 'default'}
-												>
-													{device.label || `Микрофон ${index + 1}`}
-												</option>
-											))}
-										</select>
-									) : (
-										<div className='px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/50 text-[11px] text-gray-400'>
-											Микрофоны не найдены. Убедитесь, что предоставили доступ в
-											браузере.
-										</div>
-									)}
-								</div>
-								<div className='space-y-2'>
+							{preferSendMode && !trimmedMessage && !hasReadyAttachment && (
+								<>
 									<button
+										ref={sendMenuButtonRef}
 										type='button'
-										onClick={() => {
-											if (isRecording) {
-												stopRecording(true).catch(err =>
-													console.error('Ошибка остановки записи:', err)
-												)
-											} else {
-												startRecording().catch(err =>
-													console.error('Ошибка запуска записи:', err)
-												)
-											}
+										onClick={e => {
+											e.stopPropagation()
+											setShowSendMenu(prev => !prev)
 										}}
-										className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition ${
-											isRecording
-												? 'bg-red-500/20 text-red-200 border border-red-400/40 hover:bg-red-500/30'
-												: 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 hover:bg-emerald-500/25'
-										}`}
+										onTouchStart={e => {
+											e.stopPropagation()
+										}}
+										className='w-8 h-11 flex items-center justify-center rounded-xl border border-emerald-400/30 bg-slate-700/50 hover:bg-slate-700/70 text-emerald-300 transition-all duration-200 active:scale-95'
+										style={{
+											touchAction: 'manipulation',
+											WebkitTapHighlightColor: 'transparent',
+											position: 'relative',
+											zIndex: 21,
+										}}
 									>
-										{isRecording ? (
-											<>
-												<span className='inline-flex w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse'></span>
-												<span>Остановить и сохранить</span>
-											</>
-										) : (
-											<>
-												<Mic className='w-4 h-4' />
-												<span>Записать голосовое</span>
-											</>
-										)}
+										<ChevronDown
+											className={`w-4 h-4 transition-transform duration-200 ${
+												showSendMenu ? 'rotate-180' : ''
+											}`}
+										/>
 									</button>
-									{isRecording && (
-										<>
-											<div className='text-[11px] text-emerald-200 text-right'>
-												{formatDuration(recordingTime)}
-											</div>
+									{showSendMenu && (
+										<div
+											ref={sendMenuRef}
+											className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 space-y-1 animate-fadeIn z-50'
+											onClick={e => e.stopPropagation()}
+										>
 											<button
 												type='button'
-												onClick={() =>
-													cancelRecording().catch(err =>
-														console.error('Ошибка отмены записи:', err)
-													)
-												}
-												className='w-full text-xs text-gray-400 hover:text-gray-200 transition'
+												onClick={() => {
+													setPreferSendMode(false)
+													setShowSendMenu(false)
+												}}
+												className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
 											>
-												Отменить запись
+												<Mic className='w-5 h-5 text-emerald-400' />
 											</button>
-										</>
-									)}
-									{voiceMetadata && !isRecording && (
-										<div className='text-[11px] text-emerald-200'>
-											Голосовое сообщение готово к отправке
+											<button
+												type='button'
+												onClick={() => {
+													setShowSendMenu(false)
+													if (textareaRef.current) {
+														textareaRef.current.focus()
+													}
+												}}
+												className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+											>
+												<Send className='w-5 h-5 text-emerald-400' />
+											</button>
 										</div>
 									)}
-								</div>
-							</div>
-						)}
-					</div>
+								</>
+							)}
+						</div>
+					)}
 				</div>
 			</form>
 
@@ -1979,6 +2111,239 @@ export default function MessageInput({
 					}, 100)
 				}}
 			/>
+
+			{/* Модальное окно предпросмотра медиа файлов (как в Telegram) */}
+			{previewModalAttachment &&
+				typeof window !== 'undefined' &&
+				(previewModalAttachment.kind === 'image' || previewModalAttachment.kind === 'video') &&
+				createPortal(
+					<div
+						className={`fixed inset-0 flex ${isMobileView ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm z-[99999]`}
+						onClick={() => {
+							removeAttachment(previewModalAttachment.id)
+							setPreviewModalAttachment(null)
+							setPreviewModalCaption('')
+							setPreviewModalCompress(true)
+						}}
+					>
+						{/* Модальное окно */}
+						<div
+							className={`relative w-full ${isMobileView ? 'max-w-full h-[90vh] rounded-t-3xl' : 'max-w-lg rounded-3xl'} bg-gradient-to-br from-[#0a140f] via-[#05150a] to-[#0a140f] border border-emerald-500/30 shadow-2xl flex flex-col ${isMobileView ? 'max-h-[90vh]' : 'max-h-[90vh]'} overflow-hidden backdrop-blur-xl`}
+							onClick={e => e.stopPropagation()}
+							style={{
+								boxShadow: isMobileView 
+									? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1)'
+									: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 30px rgba(16, 185, 129, 0.15)',
+							}}
+						>
+							{/* Заголовок */}
+							<div className={`flex items-center justify-between ${isMobileView ? 'px-4 py-3' : 'px-6 py-5'} border-b border-emerald-500/20 bg-gradient-to-r from-emerald-950/30 to-transparent`}>
+								<h2 className={`${isMobileView ? 'text-lg' : 'text-xl'} font-bold bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent`}>
+									{previewModalAttachment.kind === 'image' ? 'Отправить изображение' : 'Отправить видео'}
+								</h2>
+								<div className='flex items-center gap-2'>
+									{previewModalAttachment.kind === 'image' && (
+										<button
+											onClick={(e) => {
+												e.stopPropagation()
+												setAttachments(prev =>
+													prev.map(att =>
+														att.id === previewModalAttachment.id
+															? { ...att, rotation: ((att.rotation || 0) + 90) % 360 }
+															: att
+													)
+												)
+												setPreviewModalAttachment(prev =>
+													prev
+														? { ...prev, rotation: ((prev.rotation || 0) + 90) % 360 }
+														: null
+												)
+											}}
+											className={`${isMobileView ? 'w-9 h-9' : 'w-8 h-8'} flex items-center justify-center rounded-lg bg-emerald-900/40 hover:bg-emerald-500/20 border border-emerald-700/40 hover:border-emerald-500/50 text-emerald-300 hover:text-emerald-200 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation`}
+											title='Повернуть'
+										>
+											<RotateCw className={`${isMobileView ? 'w-5 h-5' : 'w-4 h-4'}`} />
+										</button>
+									)}
+									<button
+										onClick={(e) => {
+											e.stopPropagation()
+											removeAttachment(previewModalAttachment.id)
+											setPreviewModalAttachment(null)
+											setPreviewModalCaption('')
+											setPreviewModalCompress(true)
+										}}
+										className={`${isMobileView ? 'w-9 h-9' : 'w-8 h-8'} flex items-center justify-center rounded-lg bg-emerald-900/40 hover:bg-red-500/20 border border-emerald-700/40 hover:border-red-500/50 text-emerald-300 hover:text-red-400 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation`}
+										title='Удалить'
+									>
+										<Trash2 className={`${isMobileView ? 'w-5 h-5' : 'w-4 h-4'}`} />
+									</button>
+								</div>
+							</div>
+
+							{/* Область предпросмотра */}
+							<div className={`relative bg-gradient-to-b from-[#01150d]/60 to-[#000000]/80 flex-1 ${isMobileView ? 'min-h-[200px] max-h-[40vh]' : 'min-h-[320px] max-h-[55vh]'} flex items-center justify-center overflow-hidden`}>
+								{previewModalAttachment.kind === 'image' && previewModalAttachment.previewUrl ? (
+									<div className={`relative w-full h-full flex items-center justify-center ${isMobileView ? 'p-3' : 'p-6'}`}>
+										<img
+											src={previewModalAttachment.previewUrl}
+											alt={previewModalAttachment.name}
+											className={`max-w-full max-h-full object-contain ${isMobileView ? 'rounded-xl' : 'rounded-2xl'} shadow-2xl`}
+											style={{
+												transform: `rotate(${previewModalAttachment.rotation || 0}deg)`,
+												transition: 'transform 0.3s ease',
+											}}
+										/>
+									</div>
+								) : previewModalAttachment.kind === 'video' && previewModalAttachment.previewUrl ? (
+									<div className={`relative w-full h-full flex items-center justify-center ${isMobileView ? 'p-3' : 'p-6'}`}>
+										<VideoPlayer
+											src={previewModalAttachment.previewUrl}
+											className={`max-w-full max-h-full ${isMobileView ? 'rounded-xl' : 'rounded-2xl'} shadow-2xl`}
+										/>
+									</div>
+								) : null}
+							</div>
+
+							{/* Опция сжатия (только для изображений) */}
+							{previewModalAttachment.kind === 'image' && (
+								<label className={`flex items-center gap-3 ${isMobileView ? 'px-4 py-3' : 'px-6 py-4'} border-b border-emerald-500/20 cursor-pointer hover:bg-emerald-950/20 transition-all duration-200 group touch-manipulation`}>
+									<input
+										type='checkbox'
+										checked={previewModalCompress}
+										onChange={e => setPreviewModalCompress(e.target.checked)}
+										className={`${isMobileView ? 'w-6 h-6' : 'w-5 h-5'} rounded-md border-2 border-emerald-700/50 bg-emerald-950/30 text-emerald-500 focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-[#0a140f] transition-all group-hover:border-emerald-500/70`}
+									/>
+									<span className={`${isMobileView ? 'text-base' : 'text-sm'} font-medium text-emerald-200 group-hover:text-emerald-300 transition-colors`}>Сжать изображение</span>
+								</label>
+							)}
+
+							{/* Поле подписи */}
+							<div className={`${isMobileView ? 'px-4 py-4' : 'px-6 py-5'} border-b border-emerald-500/20`}>
+								<label className={`block ${isMobileView ? 'text-base' : 'text-sm'} font-semibold text-emerald-200 ${isMobileView ? 'mb-2.5' : 'mb-3'}`}>Подпись</label>
+								<div className='relative flex items-center'>
+									<input
+										type='text'
+										value={previewModalCaption}
+										onChange={e => setPreviewModalCaption(e.target.value)}
+										placeholder='Добавьте подпись...'
+										className={`flex-1 w-full ${isMobileView ? 'px-3 py-3 text-base' : 'px-4 py-3.5 text-sm'} bg-emerald-950/40 backdrop-blur-sm border-2 border-emerald-800/40 rounded-xl text-white placeholder:text-emerald-400/50 focus:outline-none focus:border-emerald-500/60 focus:bg-emerald-950/60 focus:ring-2 focus:ring-emerald-500/20 pr-12 transition-all duration-200 shadow-inner hover:border-emerald-700/60`}
+									/>
+									<button
+										type='button'
+										onClick={() => setPreviewModalShowEmojiPicker(!previewModalShowEmojiPicker)}
+										className={`absolute ${isMobileView ? 'right-2' : 'right-3'} p-2 text-emerald-400/70 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation`}
+									>
+										<Smile className={`${isMobileView ? 'w-6 h-6' : 'w-5 h-5'}`} />
+									</button>
+								</div>
+								{/* Эмодзи пикер */}
+								{previewModalShowEmojiPicker && (
+									<div className={`mt-3 ${isMobileView ? 'p-3' : 'p-4'} bg-emerald-950/60 backdrop-blur-sm rounded-xl border border-emerald-700/40 ${isMobileView ? 'max-h-48' : 'max-h-40'} overflow-y-auto shadow-lg`}>
+										<div className={`grid ${isMobileView ? 'grid-cols-10 gap-1.5' : 'grid-cols-8 gap-2'}`}>
+											{emojiList.map(emoji => (
+												<button
+													key={emoji}
+													type='button'
+													onClick={() => {
+														setPreviewModalCaption(prev => prev + emoji)
+													}}
+													className={`${isMobileView ? 'text-2xl p-2' : 'text-xl p-1.5'} hover:bg-emerald-500/20 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation`}
+												>
+													{emoji}
+												</button>
+											))}
+										</div>
+									</div>
+								)}
+							</div>
+
+							{/* Кнопки действий */}
+							<div className={`flex ${isMobileView ? 'flex-col' : 'flex-row'} items-stretch ${isMobileView ? 'gap-2' : 'gap-3'} ${isMobileView ? 'px-4 py-4' : 'px-6 py-5'} bg-gradient-to-r from-emerald-950/20 to-transparent safe-area-inset-bottom`}>
+								{!isMobileView && (
+									<button
+										type='button'
+										onClick={() => {
+											// Обновляем подпись и сжатие в attachment
+											setAttachments(prev =>
+												prev.map(att =>
+													att.id === previewModalAttachment.id
+														? {
+																...att,
+																caption: previewModalCaption,
+																compress: previewModalCompress,
+															}
+														: att
+												)
+											)
+											setPreviewModalAttachment(null)
+											setPreviewModalCaption('')
+											setPreviewModalCompress(true)
+											// Открываем выбор файла для добавления еще одного
+											setTimeout(() => {
+												if (fileInputRef.current) {
+													fileInputRef.current.click()
+												}
+											}, 100)
+										}}
+										className='flex-1 px-5 py-3 rounded-xl bg-emerald-900/50 hover:bg-emerald-900/70 border border-emerald-700/50 hover:border-emerald-600/70 text-emerald-200 hover:text-white font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm'
+									>
+										Добавить
+									</button>
+								)}
+								<button
+									type='button'
+									onClick={() => {
+										// Удаляем attachment при отмене
+										removeAttachment(previewModalAttachment.id)
+										setPreviewModalAttachment(null)
+										setPreviewModalCaption('')
+										setPreviewModalCompress(true)
+									}}
+									className={`${isMobileView ? 'w-full' : 'flex-1'} ${isMobileView ? 'px-4 py-3.5' : 'px-5 py-3'} rounded-xl bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-800/50 hover:border-emerald-700/70 text-emerald-300 hover:text-white ${isMobileView ? 'text-base font-semibold' : 'font-semibold'} transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm touch-manipulation`}
+								>
+									Отмена
+								</button>
+								<button
+									type='button'
+									onClick={async () => {
+										// Обновляем подпись и сжатие в attachment
+										setAttachments(prev =>
+											prev.map(att =>
+												att.id === previewModalAttachment.id
+													? {
+															...att,
+															caption: previewModalCaption,
+															compress: previewModalCompress,
+														}
+													: att
+											)
+										)
+										setPreviewModalAttachment(null)
+										setPreviewModalCaption('')
+										setPreviewModalCompress(true)
+										// Если есть подпись, добавляем её в сообщение
+										if (previewModalCaption.trim()) {
+											setMessage(prev => (prev ? prev + '\n' + previewModalCaption.trim() : previewModalCaption.trim()))
+										}
+										// Отправляем сообщение
+										setTimeout(() => {
+											const form = document.querySelector('form') as HTMLFormElement
+											if (form) {
+												const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
+												form.dispatchEvent(submitEvent)
+											}
+										}, 100)
+									}}
+									className={`${isMobileView ? 'w-full' : 'flex-1'} ${isMobileView ? 'px-4 py-4' : 'px-5 py-3'} rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white ${isMobileView ? 'text-lg' : ''} font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] border border-emerald-400/30 touch-manipulation`}
+								>
+									Отправить
+								</button>
+							</div>
+						</div>
+					</div>,
+					document.body
+				)}
 		</>
 	)
 }

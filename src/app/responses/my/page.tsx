@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ClipboardList, BarChart3, Mail, User, Clock, Download } from 'lucide-react'
@@ -292,19 +294,31 @@ export default function MyResponsesPage() {
     fetchResponses()
   }, [token, fetchResponses])
 
+  const { confirm, Dialog } = useConfirm()
+
   const handleWithdraw = async (responseId: string) => {
     if (!token) return
-    if (typeof window !== 'undefined' && !window.confirm('Отозвать отклик?')) return
-    try {
-      const res = await fetch(`/api/responses/${responseId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) throw new Error('Не удалось удалить')
-      setResponses(prev => prev.filter(r => r.id !== responseId))
-    } catch (err) {
-      console.error(err)
-    }
+    await confirm({
+      title: 'Отзыв отклика',
+      message: 'Вы уверены, что хотите отозвать этот отклик? Это действие нельзя отменить.',
+      type: 'warning',
+      confirmText: 'Отозвать',
+      cancelText: 'Отмена',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/responses/${responseId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (!res.ok) throw new Error('Не удалось удалить')
+          setResponses(prev => prev.filter(r => r.id !== responseId))
+          toast.success('Отклик отозван')
+        } catch (err) {
+          console.error(err)
+          toast.error('Ошибка при отзыве отклика')
+        }
+      },
+    })
   }
 
   const handleExportJSON = useCallback(() => {
@@ -776,6 +790,7 @@ export default function MyResponsesPage() {
           })}
         </motion.ul>
       )}
+      {Dialog}
     </div>
   )
 }

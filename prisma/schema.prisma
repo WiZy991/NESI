@@ -1,52 +1,54 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-model User {
-  id          String               @id @default(cuid())
-  email       String               @unique
-  password    String
-  resetTokens PasswordResetToken[]
-  role        Role                 @default(user)
-  verified    Boolean              @default(false)
-  blocked     Boolean              @default(false)
-  blockedUntil DateTime?
-  blockedReason String?
-  fullName    String?
-  createdAt   DateTime             @default(now())
-  description  String?
-  avatarUrl    String?
-  avatarFileId String? @unique
-  avatarFile   File?   @relation("UserAvatar", fields: [avatarFileId], references: [id])
-  lastPrivateMessageReadAt DateTime?          @map("lastPrivateMessageReadAt")
-  location String?
-  skills   String[]
-  tasks           Task[]         @relation("Customer")
-  executedTasks   Task[]         @relation("Executor")
-  responses       TaskResponse[]
-  reviewsAuthored Review[]       @relation("FromUser")
-  reviewsReceived Review[]       @relation("ToUser")
-  messages        Message[]      @relation("MessageSender")
-  notifications   Notification[]
-  certificationAttempts CertificationAttempt[]
-  certifications        UserCertification[]
-  levelId             String?    @map("level_id")
-  level               UserLevel? @relation(fields: [levelId], references: [id])
-  xp                  Int        @default(0)
-  completedTasksCount Int        @default(0)
-  avgRating           Float      @default(0)
-  badges               UserBadge[]
-  hireRequestsSent     HireRequest[] @relation("HireCustomer")
-  hireRequestsReceived HireRequest[] @relation("HireExecutor")
-  privateMessagesSent     PrivateMessage[] @relation("PrivateMessageSender")
-  privateMessagesReceived PrivateMessage[] @relation("PrivateMessageRecipient")
 
-  balance       Decimal       @default(0.00) @db.Decimal(15, 2)
-  transactions  Transaction[]
-  frozenBalance Decimal       @default(0.00) @db.Decimal(15, 2)
+model User {
+  id                       String                 @id @default(cuid())
+  email                    String                 @unique
+  password                 String
+  resetTokens              PasswordResetToken[]
+  role                     Role                   @default(user)
+  verified                 Boolean                @default(false)
+  blocked                  Boolean                @default(false)
+  blockedUntil             DateTime?
+  blockedReason            String?
+  fullName                 String?
+  createdAt                DateTime               @default(now())
+  description              String?
+  avatarUrl                String?
+  avatarFileId             String?                @unique
+  avatarFile               File?                  @relation("UserAvatar", fields: [avatarFileId], references: [id])
+  lastPrivateMessageReadAt DateTime?              @map("lastPrivateMessageReadAt")
+  location                 String?
+  skills                   String[]
+  tasks                    Task[]                 @relation("Customer")
+  executedTasks            Task[]                 @relation("Executor")
+  responses                TaskResponse[]
+  reviewsAuthored          Review[]               @relation("FromUser")
+  reviewsReceived          Review[]               @relation("ToUser")
+  messages                 Message[]              @relation("MessageSender")
+  notifications            Notification[]
+  certificationAttempts    CertificationAttempt[]
+  certifications           UserCertification[]
+  levelId                  String?                @map("level_id")
+  level                    UserLevel?             @relation(fields: [levelId], references: [id])
+  xp                       Int                    @default(0)
+  completedTasksCount      Int                    @default(0)
+  avgRating                Float                  @default(0)
+  badges                   UserBadge[]
+  hireRequestsSent         HireRequest[]          @relation("HireCustomer")
+  hireRequestsReceived     HireRequest[]          @relation("HireExecutor")
+  privateMessagesSent      PrivateMessage[]       @relation("PrivateMessageSender")
+  privateMessagesReceived  PrivateMessage[]       @relation("PrivateMessageRecipient")
+
+  balance                 Decimal                  @default(0.00) @db.Decimal(15, 2)
+  transactions            Transaction[]
+  frozenBalance           Decimal                  @default(0.00) @db.Decimal(15, 2)
   communityPosts          CommunityPost[]
   communityComments       CommunityComment[]
   communityLikes          CommunityLike[]
@@ -54,26 +56,26 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   adminLogs               AdminActionLog[]
   disputes                Dispute[]
-  settings UserSettings?
-  reports   CommunityReport[]  @relation("UserReports")
-  activityLogs ActivityLog[]
-  
+  settings                UserSettings?
+  reports                 CommunityReport[]        @relation("UserReports")
+  activityLogs            ActivityLog[]
+
   // Портфолио
   portfolioItems Portfolio[]
-  
+
   // Реакции на сообщения
   messageReactions MessageReaction[]
-  
+
   // Ежедневные задания
   dailyQuestProgress DailyQuestProgress[]
   lastQuestResetDate DateTime?
-  
+
   // Закладки задач
   favoriteTasks UserFavoriteTask[]
-  
+
   // Шаблоны сообщений
   messageTemplates MessageTemplate[]
-  
+
   // Отслеживание онлайн статуса
   lastActivityAt DateTime? @default(now())
 
@@ -98,6 +100,7 @@ enum KanbanColumn {
   REVIEW
   DONE
 }
+
 model UserSettings {
   userId             String  @id
   emailNotifications Boolean @default(true)
@@ -111,58 +114,60 @@ model UserSettings {
   notifyOnWarnings   Boolean @default(true)
   notifySound        Boolean @default(true)
   notifyDesktop      Boolean @default(false)
-  user User @relation(fields: [userId], references: [id])
+  profileBackground  String? // ID выбранного фона профиля
+  user               User    @relation(fields: [userId], references: [id])
 }
 
 model MessageTemplate {
-  id          String   @id @default(cuid())
-  userId      String
-  title       String
-  content     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId])
   @@index([createdAt])
 }
+
 model Task {
-  id                 String         @id @default(uuid())
-  title              String
-  description        String
-  price              Decimal?       @db.Decimal(15, 2)
-  deadline           DateTime?
-  status             String         @default("open")
-  kanbanColumn       KanbanColumn   @default(TODO)
-  kanbanOrder        Int            @default(0)
-  executorKanbanColumn String       @default("TODO")
-  executorKanbanOrder  Int          @default(0)
-  executorNote         String?
-  executorPlannedStart DateTime?
+  id                      String             @id @default(uuid())
+  title                   String
+  description             String
+  price                   Decimal?           @db.Decimal(15, 2)
+  deadline                DateTime?
+  status                  String             @default("open")
+  kanbanColumn            KanbanColumn       @default(TODO)
+  kanbanOrder             Int                @default(0)
+  executorKanbanColumn    String             @default("TODO")
+  executorKanbanOrder     Int                @default(0)
+  executorNote            String?
+  executorPlannedStart    DateTime?
   executorPlannedDeadline DateTime?
-  executorPlanNote     String?
-  customerId         String
-  executorId         String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  completedAt        DateTime?
-  subcategoryId      String?
-  escrowAmount       Decimal       @default(0.00) @db.Decimal(15, 2)
-  customerLastReadAt DateTime?
-  executorLastReadAt DateTime?
-  Dispute            Dispute[]
-  files              File[]         @relation("TaskFiles")
-  messages           Message[]
-  review             Review[]
-  customer           User           @relation("Customer", fields: [customerId], references: [id])
-  executor           User?          @relation("Executor", fields: [executorId], references: [id])
-  subcategory        Subcategory?   @relation(fields: [subcategoryId], references: [id])
-  responses          TaskResponse[]
-  Transaction        Transaction[]
-  reports            CommunityReport[]  // Жалобы на задачу
-  portfolioItems     Portfolio[]
-  favorites          UserFavoriteTask[] // Закладки пользователей
+  executorPlanNote        String?
+  customerId              String
+  executorId              String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  completedAt             DateTime?
+  subcategoryId           String?
+  escrowAmount            Decimal            @default(0.00) @db.Decimal(15, 2)
+  customerLastReadAt      DateTime?
+  executorLastReadAt      DateTime?
+  Dispute                 Dispute[]
+  files                   File[]             @relation("TaskFiles")
+  messages                Message[]
+  review                  Review[]
+  customer                User               @relation("Customer", fields: [customerId], references: [id])
+  executor                User?              @relation("Executor", fields: [executorId], references: [id])
+  subcategory             Subcategory?       @relation(fields: [subcategoryId], references: [id])
+  responses               TaskResponse[]
+  Transaction             Transaction[]
+  reports                 CommunityReport[] // Жалобы на задачу
+  portfolioItems          Portfolio[]
+  favorites               UserFavoriteTask[] // Закладки пользователей
 
   @@index([status])
   @@index([kanbanColumn])
@@ -175,18 +180,20 @@ model Task {
   @@index([customerId, status])
   @@index([executorId, status])
 }
+
 model TaskResponse {
-  id        String   @id @default(uuid())
-  taskId    String
-  userId    String
-  message   String?
-  createdAt DateTime @default(now())
-  price     Decimal? @db.Decimal(15, 2)
-  status    TaskResponseStatus @default(pending)
-  updatedAt DateTime @default(now()) @updatedAt
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
+  id            String                      @id @default(uuid())
+  taskId        String
+  userId        String
+  message       String?
+  createdAt     DateTime                    @default(now())
+  price         Decimal?                    @db.Decimal(15, 2)
+  status        TaskResponseStatus          @default(pending)
+  updatedAt     DateTime                    @default(now()) @updatedAt
+  task          Task                        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user          User                        @relation(fields: [userId], references: [id])
   statusHistory TaskResponseStatusHistory[]
+
   @@unique([taskId, userId], name: "taskId_userId")
   @@index([taskId])
   @@index([userId])
@@ -194,17 +201,18 @@ model TaskResponse {
 }
 
 model TaskResponseStatusHistory {
-  id          String              @id @default(cuid())
+  id          String             @id @default(cuid())
   responseId  String
   status      TaskResponseStatus
   note        String?
   changedById String?
-  createdAt   DateTime            @default(now())
-  response    TaskResponse        @relation(fields: [responseId], references: [id], onDelete: Cascade)
-  changedBy   User?               @relation("StatusChangedBy", fields: [changedById], references: [id])
+  createdAt   DateTime           @default(now())
+  response    TaskResponse       @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  changedBy   User?              @relation("StatusChangedBy", fields: [changedById], references: [id])
 
   @@index([responseId, createdAt])
 }
+
 model Review {
   id         String   @id @default(cuid())
   rating     Int
@@ -216,8 +224,10 @@ model Review {
   fromUser   User?    @relation("FromUser", fields: [fromUserId], references: [id])
   toUser     User?    @relation("ToUser", fields: [toUserId], references: [id])
   task       Task     @relation(fields: [taskId], references: [id])
+
   @@unique([taskId, fromUserId], name: "task_from_reviewer")
 }
+
 model Message {
   id        String    @id @default(uuid())
   createdAt DateTime  @default(now())
@@ -228,13 +238,13 @@ model Message {
   content   String
   fileUrl   String?
   fileId    String?
-  replyToId String?   // ID сообщения, на которое отвечаем
+  replyToId String? // ID сообщения, на которое отвечаем
   replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id])
   replies   Message[] @relation("MessageReplies")
   file      File?     @relation("MessageFile", fields: [fileId], references: [id])
   sender    User      @relation("MessageSender", fields: [senderId], references: [id])
   task      Task      @relation(fields: [taskId], references: [id])
-  
+
   reactions MessageReaction[]
 
   @@index([taskId])
@@ -243,6 +253,7 @@ model Message {
   @@index([taskId, createdAt])
   @@index([replyToId])
 }
+
 model Notification {
   id        String   @id @default(cuid())
   userId    String
@@ -252,12 +263,16 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
   @@index([userId, isRead])
   @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt(sort: Desc)]) // Составной индекс для пагинации уведомлений
+  @@index([userId, type, createdAt(sort: Desc)]) // Для фильтрации по типу
 }
+
 model PasswordResetToken {
   id        String   @id @default(uuid())
   userId    String
@@ -265,6 +280,7 @@ model PasswordResetToken {
   expiresAt DateTime
   User      User     @relation(fields: [userId], references: [id])
 }
+
 model Category {
   id            String        @id @default(uuid())
   name          String        @unique
@@ -272,6 +288,7 @@ model Category {
   updatedAt     DateTime      @updatedAt
   subcategories Subcategory[]
 }
+
 model Subcategory {
   id                 String              @id @default(uuid())
   name               String              @unique
@@ -284,6 +301,7 @@ model Subcategory {
   tasks              Task[]
   userCertifications UserCertification[]
 }
+
 model CertificationTest {
   id            String                  @id @default(uuid())
   subcategoryId String                  @unique
@@ -297,6 +315,7 @@ model CertificationTest {
   questions     CertificationQuestion[]
   subcategory   Subcategory             @relation(fields: [subcategoryId], references: [id])
 }
+
 model CertificationQuestion {
   id        String                @id @default(uuid())
   testId    String
@@ -304,16 +323,20 @@ model CertificationQuestion {
   createdAt DateTime              @default(now())
   options   CertificationOption[]
   test      CertificationTest     @relation(fields: [testId], references: [id])
+
   @@index([testId])
 }
+
 model CertificationOption {
   id         String                @id @default(uuid())
   questionId String
   text       String
   isCorrect  Boolean               @default(false)
   question   CertificationQuestion @relation(fields: [questionId], references: [id])
+
   @@index([questionId])
 }
+
 model CertificationAttempt {
   id         String            @id @default(uuid())
   userId     String
@@ -324,10 +347,12 @@ model CertificationAttempt {
   passed     Boolean?
   test       CertificationTest @relation(fields: [testId], references: [id])
   user       User              @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([testId])
   @@index([userId, testId, startedAt])
 }
+
 model UserCertification {
   id            String      @id @default(uuid())
   userId        String
@@ -336,9 +361,11 @@ model UserCertification {
   grantedAt     DateTime    @default(now())
   subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
   user          User        @relation(fields: [userId], references: [id])
+
   @@unique([userId, subcategoryId], name: "userId_subcategoryId")
   @@index([subcategoryId])
 }
+
 model UserLevel {
   id          String @id @default(uuid())
   slug        String @unique
@@ -347,15 +374,17 @@ model UserLevel {
   minScore    Int
   users       User[]
 }
+
 model Badge {
   id          String      @id @default(cuid())
   name        String
   description String
   icon        String
   condition   String
-  targetRole  String?     // 'executor', 'customer', или null для всех ролей
+  targetRole  String? // 'executor', 'customer', или null для всех ролей
   users       UserBadge[]
 }
+
 model UserBadge {
   id       String   @id @default(cuid())
   userId   String
@@ -364,6 +393,7 @@ model UserBadge {
   badge    Badge    @relation(fields: [badgeId], references: [id])
   user     User     @relation(fields: [userId], references: [id])
 }
+
 model HireRequest {
   id         String   @id @default(uuid())
   customerId String
@@ -376,8 +406,9 @@ model HireRequest {
   customer   User     @relation("HireCustomer", fields: [customerId], references: [id])
   executor   User     @relation("HireExecutor", fields: [executorId], references: [id])
 }
+
 model PrivateMessage {
-  id          String    @id @default(cuid())
+  id          String           @id @default(cuid())
   senderId    String
   recipientId String
   content     String?
@@ -385,20 +416,26 @@ model PrivateMessage {
   mimeType    String?
   fileName    String?
   size        Int?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime         @default(now())
   editedAt    DateTime?
   deletedAt   DateTime?
   fileId      String?
-  replyToId   String?   // ID сообщения, на которое отвечаем
-  replyTo     PrivateMessage? @relation("PrivateMessageReplies", fields: [replyToId], references: [id])
+  replyToId   String? // ID сообщения, на которое отвечаем
+  replyTo     PrivateMessage?  @relation("PrivateMessageReplies", fields: [replyToId], references: [id])
   replies     PrivateMessage[] @relation("PrivateMessageReplies")
-  file        File?     @relation("PrivateMessageFile", fields: [fileId], references: [id])
-  recipient   User      @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
-  sender      User      @relation("PrivateMessageSender", fields: [senderId], references: [id])
-  
+  file        File?            @relation("PrivateMessageFile", fields: [fileId], references: [id])
+  recipient   User             @relation("PrivateMessageRecipient", fields: [recipientId], references: [id])
+  sender      User             @relation("PrivateMessageSender", fields: [senderId], references: [id])
+
   reactions PrivateMessageReaction[]
-  
+
   @@index([replyToId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([senderId, recipientId])
+  @@index([createdAt])
+  @@index([senderId, createdAt])
+  @@index([recipientId, createdAt])
 }
 
 model ChatActivity {
@@ -409,8 +446,8 @@ model ChatActivity {
   lastReadAt     DateTime?
   lastActivityAt DateTime?
   typingAt       DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -418,6 +455,7 @@ model ChatActivity {
   @@index([userId])
   @@index([chatType, chatId])
 }
+
 model AdminInvite {
   id        String   @id @default(cuid())
   token     String   @unique
@@ -426,6 +464,7 @@ model AdminInvite {
   used      Boolean  @default(false)
   usedBy    String?  @db.Uuid
 }
+
 model Transaction {
   id         String   @id @default(cuid())
   userId     String
@@ -438,10 +477,12 @@ model Transaction {
   taskId     String?
   Task       Task?    @relation(fields: [taskId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([createdAt])
   @@index([status])
 }
+
 model File {
   id          String           @id @default(cuid())
   filename    String
@@ -456,76 +497,83 @@ model File {
   privateMsgs PrivateMessage[] @relation("PrivateMessageFile")
   userAvatar  User?            @relation("UserAvatar")
 }
+
 model CommunityPost {
-  id        String             @id @default(cuid())
-  authorId  String
-  title     String
-  content   String
-  imageUrl  String?
-  mediaType String?  @default("image") // "image" или "video"
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  isPoll    Boolean            @default(false)
-  likes     CommunityLike[]
-  views     CommunityView[]
-  pollOptions CommunityPollOption[]
-  isDeleted       Boolean  @default(false)
-  deletedReason   String?  // "Нарушение правил", "Спам" и т.д.
-  author       User?       @relation(fields: [authorId], references: [id])
-  comments     CommunityComment[]
-  reports      CommunityReport[]
+  id            String                @id @default(cuid())
+  authorId      String
+  title         String
+  content       String
+  imageUrl      String?
+  mediaType     String?               @default("image") // "image" или "video"
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  isPoll        Boolean               @default(false)
+  likes         CommunityLike[]
+  views         CommunityView[]
+  pollOptions   CommunityPollOption[]
+  isDeleted     Boolean               @default(false)
+  deletedReason String? // "Нарушение правил", "Спам" и т.д.
+  author        User?                 @relation(fields: [authorId], references: [id])
+  comments      CommunityComment[]
+  reports       CommunityReport[]
+
   @@index([authorId])
   @@index([createdAt])
   @@index([authorId, createdAt])
 }
 
 model CommunityPollOption {
-  id      String         @id @default(cuid())
-  postId  String
-  text    String
-  order   Int            @default(0)
-  post    CommunityPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
-  votes   CommunityPollVote[]
+  id     String              @id @default(cuid())
+  postId String
+  text   String
+  order  Int                 @default(0)
+  post   CommunityPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  votes  CommunityPollVote[]
 
   @@index([postId])
 }
 
 model CommunityPollVote {
-  id        String               @id @default(cuid())
+  id        String              @id @default(cuid())
   optionId  String
   userId    String
-  createdAt DateTime             @default(now())
-  option    CommunityPollOption  @relation(fields: [optionId], references: [id], onDelete: Cascade)
-  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime            @default(now())
+  option    CommunityPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([optionId, userId])
   @@index([userId])
 }
+
 model CommunityComment {
-  id        String        @id @default(cuid())
+  id        String            @id @default(cuid())
   postId    String
   authorId  String
   content   String
-  createdAt DateTime      @default(now())
+  createdAt DateTime          @default(now())
   parentId  String?
   imageUrl  String?
-  mediaType String?  @default("image") // "image" или "video"
-  author    User          @relation(fields: [authorId], references: [id])
-  post      CommunityPost @relation(fields: [postId], references: [id])
-  reports     CommunityReport[]
+  mediaType String?           @default("image") // "image" или "video"
+  author    User              @relation(fields: [authorId], references: [id])
+  post      CommunityPost     @relation(fields: [postId], references: [id])
+  reports   CommunityReport[]
+
   @@index([postId])
   @@index([authorId])
   @@index([createdAt])
   @@index([postId, createdAt])
 }
+
 model CommunityLike {
   id     String        @id @default(cuid())
   postId String
   userId String
   post   CommunityPost @relation(fields: [postId], references: [id])
   user   User          @relation(fields: [userId], references: [id])
+
   @@unique([postId, userId], name: "postId_userId")
 }
+
 model CommunityView {
   id        String        @id @default(cuid())
   postId    String
@@ -533,6 +581,7 @@ model CommunityView {
   createdAt DateTime      @default(now())
   post      CommunityPost @relation(fields: [postId], references: [id])
 }
+
 model EmailVerificationToken {
   id        String   @id @default(uuid())
   userId    String
@@ -540,6 +589,7 @@ model EmailVerificationToken {
   expiresAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
 model AdminActionLog {
   id         String   @id @default(uuid())
   adminId    String
@@ -550,6 +600,7 @@ model AdminActionLog {
   createdAt  DateTime @default(now())
   admin      User     @relation(fields: [adminId], references: [id])
 }
+
 model SystemMetric {
   id        String   @id @default(uuid())
   key       String   @unique
@@ -557,6 +608,7 @@ model SystemMetric {
   stringVal String?
   createdAt DateTime @default(now())
 }
+
 model Dispute {
   id            String    @id
   taskId        String
@@ -570,52 +622,56 @@ model Dispute {
   adminDecision String?
   Task          Task      @relation(fields: [taskId], references: [id])
   User          User      @relation(fields: [userId], references: [id])
+
   @@index([status])
   @@index([taskId])
   @@index([userId])
 }
+
 model CommunityReport {
-  id          String   @id @default(cuid())
-  type        String   // "post", "comment", "task"
+  id          String            @id @default(cuid())
+  type        String // "post", "comment", "task"
   postId      String?
   commentId   String?
-  taskId      String?  // Новое поле для жалоб на задачи
+  taskId      String? // Новое поле для жалоб на задачи
   reason      String
   description String?
   reporterId  String?
-  createdAt   DateTime @default(now())
-  reporter    User?    @relation("UserReports", fields: [reporterId], references: [id])
-  post        CommunityPost?     @relation(fields: [postId], references: [id])
+  createdAt   DateTime          @default(now())
+  reporter    User?             @relation("UserReports", fields: [reporterId], references: [id])
+  post        CommunityPost?    @relation(fields: [postId], references: [id])
   comment     CommunityComment? @relation(fields: [commentId], references: [id])
-  task        Task?              @relation(fields: [taskId], references: [id])
- 
+  task        Task?             @relation(fields: [taskId], references: [id])
+
   @@index([taskId])
   @@index([reporterId])
   @@index([type])
 }
+
 model Feedback {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?
-  message   String   @db.Text
-  type      String   @default("general")
-  status    String   @default("new")
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  name       String
+  email      String?
+  message    String    @db.Text
+  type       String    @default("general")
+  status     String    @default("new")
+  createdAt  DateTime  @default(now())
   reviewedAt DateTime?
   reviewedBy String?
-  notes     String?  @db.Text
+  notes      String?   @db.Text
 }
+
 model ActivityLog {
-  id         String   @id @default(cuid())
-  userId     String
-  action     String
-  ipAddress  String?
-  userAgent  String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
- 
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
   user User @relation(fields: [userId], references: [id])
- 
+
   @@index([userId])
   @@index([action])
   @@index([createdAt])
@@ -637,10 +693,10 @@ model Portfolio {
   taskId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  
+
   @@index([userId])
   @@index([createdAt])
 }
@@ -650,12 +706,12 @@ model MessageReaction {
   id        String   @id @default(cuid())
   messageId String
   userId    String
-  emoji     String   // "👍", "❤️", "😂", "😮", "😢", "🔥"
+  emoji     String // "👍", "❤️", "😂", "😮", "😢", "🔥"
   createdAt DateTime @default(now())
-  
+
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([messageId, userId, emoji])
   @@index([messageId])
   @@index([userId])
@@ -668,9 +724,9 @@ model PrivateMessageReaction {
   userId    String
   emoji     String
   createdAt DateTime @default(now())
-  
+
   message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  
+
   @@unique([messageId, userId, emoji])
   @@index([messageId])
 }
@@ -678,30 +734,30 @@ model PrivateMessageReaction {
 // Ежедневные задания для геймификации
 model DailyQuest {
   id          String   @id @default(cuid())
-  code        String   @unique  // "respond_3_tasks", "complete_task_on_time"
+  code        String   @unique // "respond_3_tasks", "complete_task_on_time"
   title       String
   description String
   xpReward    Int      @default(10)
-  targetCount Int      @default(1)  // Сколько раз нужно выполнить
+  targetCount Int      @default(1) // Сколько раз нужно выполнить
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
-  
+
   progress DailyQuestProgress[]
 }
 
 // Прогресс пользователя по ежедневным заданиям
 model DailyQuestProgress {
-  id          String   @id @default(cuid())
-  userId      String
-  questId     String
-  currentCount Int     @default(0)
-  completed   Boolean  @default(false)
-  completedAt DateTime?
-  date        DateTime @default(now())  // Дата для отслеживания дневного прогресса
-  
+  id           String    @id @default(cuid())
+  userId       String
+  questId      String
+  currentCount Int       @default(0)
+  completed    Boolean   @default(false)
+  completedAt  DateTime?
+  date         DateTime  @default(now()) // Дата для отслеживания дневного прогресса
+
   user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   quest DailyQuest @relation(fields: [questId], references: [id], onDelete: Cascade)
-  
+
   @@unique([userId, questId, date])
   @@index([userId])
   @@index([questId])
@@ -713,10 +769,10 @@ model UserFavoriteTask {
   userId    String
   taskId    String
   createdAt DateTime @default(now())
-  
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
+
   @@unique([userId, taskId], name: "user_task_favorite")
   @@index([userId])
   @@index([taskId])

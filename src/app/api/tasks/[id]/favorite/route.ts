@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 // POST /api/tasks/[id]/favorite - Добавить/удалить задачу в избранное
 export async function POST(
@@ -64,7 +65,10 @@ export async function POST(
       })
     }
   } catch (error: any) {
-    console.error('Ошибка при работе с закладкой:', error)
+    logger.error('Ошибка при работе с закладкой', error, {
+      taskId,
+      userId: user?.id,
+    })
     return NextResponse.json(
       { error: error.message || 'Ошибка при работе с закладкой' },
       { status: 500 }
@@ -99,7 +103,10 @@ export async function GET(
 
     return NextResponse.json({ isFavorite: !!favorite })
   } catch (error: any) {
-    console.error('Ошибка при проверке закладки:', error)
+    logger.error('Ошибка при проверке закладки', error, {
+      taskId,
+      userId: user?.id,
+    })
     return NextResponse.json(
       { error: error.message || 'Ошибка при проверке закладки' },
       { status: 500 }

@@ -3,7 +3,11 @@
 import LoadingSpinner from '@/components/LoadingSpinner'
 import ReportModal from '@/components/ReportModal'
 import VideoPlayer from '@/components/VideoPlayer'
+import { SkeletonLoader } from '@/components/SkeletonLoader'
+import { PostListSkeleton } from '@/components/SkeletonLoader/PostSkeleton'
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import {
 	Check,
 	Compass,
@@ -38,6 +42,7 @@ function resolveAvatarUrl(avatar?: string | null) {
 export default function CommunityPage() {
 	const { user, token } = useUser()
 	const router = useRouter()
+	const { confirm, Dialog } = useConfirm()
 	const [posts, setPosts] = useState<any[]>([])
 	const [loading, setLoading] = useState(true)
 	const [filter, setFilter] = useState<'new' | 'popular' | 'my'>('new')
@@ -70,7 +75,7 @@ export default function CommunityPage() {
 				const data = await res.json()
 				setPosts(data.posts || [])
 			} catch (err) {
-				console.error('Ошибка загрузки постов:', err)
+				// Ошибка загрузки постов обрабатывается через состояние loading
 			} finally {
 				setLoading(false)
 			}
@@ -99,7 +104,18 @@ export default function CommunityPage() {
 		else router.push('/community')
 	}
 
-	if (loading) return <LoadingSpinner />
+	if (loading) {
+		return (
+			<div className='max-w-6xl mx-auto p-4 md:p-6 space-y-6'>
+				<div className='flex items-center gap-4 mb-6'>
+					<SkeletonLoader height={32} rounded='md' variant='text' className='w-48' />
+					<SkeletonLoader height={32} rounded='md' variant='text' className='w-32' />
+					<SkeletonLoader height={32} rounded='md' variant='text' className='w-32' />
+				</div>
+				<PostListSkeleton />
+			</div>
+		)
+	}
 
 	// фильтрация постов
 	const filtered =
@@ -168,26 +184,34 @@ export default function CommunityPage() {
 
 	// удаление поста
 	const deletePost = async (id: string) => {
-		if (!confirm('Удалить этот пост?')) return
-		try {
-			const res = await fetch(`/api/community/${id}`, {
-				method: 'DELETE',
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'Content-Type': 'application/json',
-				},
-			})
-			if (res.ok) {
-				setPosts(prev => prev.filter(p => p.id !== id))
-				alert('✅ Пост удалён')
-			} else {
-				const err = await res.json().catch(() => ({}))
-				alert('Ошибка удаления: ' + (err.error || res.statusText))
-			}
-		} catch (e) {
-			alert('Ошибка сети при удалении поста')
-			console.error(e)
-		}
+		await confirm({
+			title: 'Удаление поста',
+			message: 'Вы уверены, что хотите удалить этот пост? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				try {
+					const res = await fetch(`/api/community/${id}`, {
+						method: 'DELETE',
+						headers: {
+							Authorization: `Bearer ${token}`,
+							'Content-Type': 'application/json',
+						},
+					})
+					if (res.ok) {
+						setPosts(prev => prev.filter(p => p.id !== id))
+						toast.success('Пост удалён')
+					} else {
+						const err = await res.json().catch(() => ({}))
+						toast.error('Ошибка удаления: ' + (err.error || res.statusText))
+					}
+				} catch (e) {
+					toast.error('Ошибка сети при удалении поста')
+					console.error(e)
+				}
+			},
+		})
 	}
 
 	// начало редактирования поста
@@ -397,10 +421,10 @@ export default function CommunityPage() {
 							{filtered.map(post => (
 								<div
 									key={post.id}
-									className='group border border-gray-800 rounded-xl p-3 sm:p-4 lg:p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative'
+									className='group border border-gray-800 rounded-xl p-3 sm:p-4 lg:p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative overflow-visible'
 								>
 									{/* Автор */}
-									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative'>
+									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative z-0'>
 										<Link
 											href={`/users/${post.author.id}`}
 											className='group flex items-center gap-2 sm:gap-3 hover:bg-emerald-900/10 p-1.5 sm:p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition'
@@ -437,21 +461,27 @@ export default function CommunityPage() {
 										</Link>
 
 										{/* Меню */}
-										<div className='relative' data-menu-container>
+										<div className='relative z-[200]' data-menu-container>
 											<button
 												onClick={() =>
 													setOpenMenu(openMenu === post.id ? null : post.id)
 												}
-												className='p-1 hover:text-emerald-400 transition'
+												className='p-1 hover:text-emerald-400 transition relative z-[200]'
 											>
 												<MoreHorizontal className='w-4 h-4 sm:w-5 sm:h-5' />
 											</button>
 
 											{openMenu === post.id && (
-												<div 
-													className='absolute right-0 mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20'
-													onClick={(e) => e.stopPropagation()}
-												>
+												<>
+													{/* Overlay для закрытия меню */}
+													<div 
+														className='fixed inset-0 z-[9997]'
+														onClick={() => setOpenMenu(null)}
+													/>
+													<div 
+														className='absolute right-0 top-full mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-[9998]'
+														onClick={(e) => e.stopPropagation()}
+													>
 													<button
 														onClick={() => {
 															copyLink(post.id)
@@ -494,7 +524,8 @@ export default function CommunityPage() {
 															</button>
 														</>
 													)}
-												</div>
+													</div>
+												</>
 											)}
 										</div>
 									</div>
@@ -730,7 +761,7 @@ export default function CommunityPage() {
 					onClose={() => setReportTarget(null)}
 				/>
 			)}
-			
+			{Dialog}
 		</div>
 	)
 }

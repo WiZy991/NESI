@@ -1,6 +1,8 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
 type Props = {
@@ -12,19 +14,29 @@ type Props = {
 export default function TaskActions({ taskId, authorId, status }: Props) {
   const { user } = useUser()
   const router = useRouter()
+  const { confirm, Dialog } = useConfirm()
 
   const handleEdit = () => {
     router.push(`/tasks/${taskId}/edit`)
   }
 
   const handleDelete = async () => {
-    if (!confirm('Удалить задачу?')) return
-    const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
-    if (res.ok) {
-      router.push('/tasks')
-    } else {
-      alert('Ошибка при удалении')
-    }
+    await confirm({
+      title: 'Удаление задачи',
+      message: 'Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.',
+      type: 'danger',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+      onConfirm: async () => {
+        const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+        if (res.ok) {
+          toast.success('Задача удалена')
+          router.push('/tasks')
+        } else {
+          toast.error('Ошибка при удалении')
+        }
+      },
+    })
   }
 
   // Кнопки видит только автор задачи и только если задача открыта
@@ -44,6 +56,7 @@ export default function TaskActions({ taskId, authorId, status }: Props) {
       >
         Удалить
       </button>
+      {Dialog}
     </div>
   )
 }

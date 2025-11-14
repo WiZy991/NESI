@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
 import ProtectedPage from '@/components/ProtectedPage'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import TaskCreateProgress from '@/components/TaskCreateProgress'
@@ -22,6 +23,7 @@ type Category = {
 export default function CreateTaskPage() {
   const { token } = useUser()
   const router = useRouter()
+  const { confirm, Dialog } = useConfirm()
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -72,15 +74,25 @@ export default function CreateTaskPage() {
 
   // Загрузка черновика при монтировании
   useEffect(() => {
-    const draft = loadDraft()
-    if (draft && (draft.title || draft.description)) {
-      if (window.confirm('Найден сохраненный черновик. Загрузить?')) {
-        setTitle(draft.title || '')
-        setDescription(draft.description || '')
-        setCategoryId(draft.categoryId || '')
-        setSubcategoryId(draft.subcategoryId || '')
+    const loadDraftIfConfirmed = async () => {
+      const draft = loadDraft()
+      if (draft && (draft.title || draft.description)) {
+        await confirm({
+          title: 'Найден черновик',
+          message: 'Найден сохраненный черновик. Загрузить?',
+          type: 'info',
+          confirmText: 'Загрузить',
+          cancelText: 'Отмена',
+          onConfirm: () => {
+            setTitle(draft.title || '')
+            setDescription(draft.description || '')
+            setCategoryId(draft.categoryId || '')
+            setSubcategoryId(draft.subcategoryId || '')
+          },
+        })
       }
     }
+    loadDraftIfConfirmed()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -434,6 +446,7 @@ export default function CreateTaskPage() {
       {currentBadge && (
         <BadgeUnlockedModal badge={currentBadge} onClose={handleBadgeClose} />
       )}
+      {Dialog}
     </ProtectedPage>
   )
 }

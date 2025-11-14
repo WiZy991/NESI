@@ -3,6 +3,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotificationToUser } from '../../notifications/stream/route'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
 	const user = await getUserFromRequest(req)
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
-		console.log('📖 Пометка сообщений задачи как прочитанных:', {
+		logger.debug('Пометка сообщений задачи как прочитанных', {
 			userId: user.id,
 			taskId,
 		})
@@ -94,9 +95,11 @@ export async function POST(req: NextRequest) {
 			})
 		}
 
-		console.log(
-			`✅ Сообщения задачи помечены как прочитанные, удалено уведомлений: ${deletedNotifications.count}`
-		)
+		logger.debug('Сообщения задачи помечены как прочитанные', {
+			taskId,
+			userId: user.id,
+			deletedNotifications: deletedNotifications.count,
+		})
 
 		return NextResponse.json({
 			success: true,
@@ -104,7 +107,10 @@ export async function POST(req: NextRequest) {
 			lastReadAt: now.toISOString(),
 		})
 	} catch (error) {
-		console.error('Ошибка при пометке сообщений задачи как прочитанных:', error)
+		logger.error('Ошибка при пометке сообщений задачи как прочитанных', error, {
+			taskId,
+			userId: user?.id,
+		})
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

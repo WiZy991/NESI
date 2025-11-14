@@ -1,6 +1,7 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
+import { clientLogger } from '@/lib/clientLogger'
 import {
 	AlertTriangle,
 	Bell,
@@ -13,7 +14,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
 import AchievementModal from './AchievementModal'
 import LevelIndicator from './LevelIndicator'
 import { NotificationPolling } from './NotificationPolling'
@@ -175,7 +175,7 @@ export default function Header() {
 				})
 			}
 		} catch (error) {
-			console.error('Ошибка запроса разрешения на уведомления:', error)
+			clientLogger.error('Ошибка запроса разрешения на уведомления', error)
 			toast.error('Не удалось запросить разрешение на уведомления.')
 			setShouldPromptNotifications(false)
 		}
@@ -229,7 +229,10 @@ export default function Header() {
 	// Слушатель для автоматического открытия меню из онбординга
 	useEffect(() => {
 		const handleOpenMoreMenu = (e?: Event) => {
-			console.log('🔓 Получен запрос на открытие меню "Ещё" из онбординга', e)
+			clientLogger.debug(
+				'Получен запрос на открытие меню "Ещё" из онбординга',
+				{ event: e?.type }
+			)
 			// Принудительно открываем меню
 			setMenuOpen(true)
 			// Дополнительная проверка через небольшую задержку
@@ -302,11 +305,13 @@ export default function Header() {
 				if (res.ok) {
 					setNotifications(data.notifications || [])
 				} else {
-					console.error('Ошибка уведомлений:', data)
+					clientLogger.error('Ошибка уведомлений', undefined, {
+						response: data,
+					})
 					setNotifications([])
 				}
 			} catch (err) {
-				console.error('Ошибка уведомлений:', err)
+				clientLogger.error('Ошибка уведомлений', err)
 			}
 		}
 		fetchNotifications()
@@ -331,16 +336,15 @@ export default function Header() {
 				})
 				if (!res.ok) {
 					const errorText = await res.text()
-					console.error(
-						'❌ Ошибка обновления активности:',
-						res.status,
-						errorText
-					)
+					clientLogger.error('Ошибка обновления активности', undefined, {
+						status: res.status,
+						errorText,
+					})
 				} else {
-					console.log('✅ Активность обновлена')
+					clientLogger.debug('Активность обновлена')
 				}
 			} catch (err) {
-				console.error('❌ Ошибка обновления активности:', err)
+				clientLogger.error('Ошибка обновления активности', err)
 			}
 		}
 
@@ -378,16 +382,18 @@ export default function Header() {
 				try {
 					const data = JSON.parse(event.data)
 					if (data.type === 'onlineCount') {
-						console.log('📊 Обновление онлайн счетчика через SSE:', data.count)
+						clientLogger.debug('Обновление онлайн счетчика через SSE', {
+							count: data.count,
+						})
 						setOnlineCount(data.count || 0)
 					}
 				} catch (err) {
-					console.error('❌ Ошибка парсинга SSE данных:', err)
+					clientLogger.error('Ошибка парсинга SSE данных', err)
 				}
 			}
 
 			eventSource.onerror = error => {
-				console.error('❌ Ошибка SSE соединения для онлайн счетчика:', error)
+				clientLogger.error('Ошибка SSE соединения для онлайн счетчика', error)
 				// Переподключаемся через 5 секунд
 				setTimeout(() => {
 					if (eventSource) {
@@ -398,9 +404,9 @@ export default function Header() {
 				}, 5000)
 			}
 
-			console.log('✅ SSE подключение для онлайн счетчика установлено')
+			clientLogger.debug('SSE подключение для онлайн счетчика установлено')
 		} catch (err) {
-			console.error('❌ Ошибка создания SSE соединения:', err)
+			clientLogger.error('Ошибка создания SSE соединения', err)
 			// Fallback на polling если SSE не работает
 			const fetchOnlineCount = async () => {
 				try {
@@ -414,7 +420,7 @@ export default function Header() {
 						setOnlineCount(data.onlineCount || 0)
 					}
 				} catch (fetchErr) {
-					console.error(
+					clientLogger.error(
 						'❌ Ошибка fallback получения онлайн пользователей:',
 						fetchErr
 					)
@@ -450,12 +456,12 @@ export default function Header() {
 		const handleChatOpened = (e: CustomEvent) => {
 			const { chatType, chatId } = e.detail
 			setCurrentChatInfo({ chatType, chatId })
-			console.log('📱 Чат открыт:', chatType, chatId)
+			clientLogger.debug('Чат открыт', { chatType, chatId })
 		}
 
 		const handleChatClosed = () => {
 			setCurrentChatInfo(null)
-			console.log('📱 Чат закрыт')
+			clientLogger.debug('Чат закрыт')
 		}
 
 		window.addEventListener('chatOpened', handleChatOpened as EventListener)
@@ -473,7 +479,10 @@ export default function Header() {
 	// Функция показа уведомлений (вынесена до useEffect чтобы использовать в NotificationPolling)
 	const showNotification = useCallback(
 		(data: any) => {
-			console.log('🎉 showNotification вызвана с data:', data)
+			clientLogger.debug('showNotification вызвана', {
+				type: data.type,
+				id: data.id,
+			})
 
 			// Создаем уникальный ключ для уведомления
 			// Приоритет: id из БД > messageId > комбинация type+link+timestamp
@@ -485,7 +494,9 @@ export default function Header() {
 
 			// Проверяем, не показывали ли мы уже это уведомление
 			if (shownNotificationsRef.current.has(notificationKey)) {
-				console.log('⏭️ Пропускаем дубликат уведомления:', notificationKey)
+				clientLogger.debug('Пропускаем дубликат уведомления', {
+					notificationKey,
+				})
 				return
 			}
 
@@ -528,12 +539,14 @@ export default function Header() {
 
 			// Если пользователь в чате и это уведомление для открытого чата - не показываем toast и не увеличиваем счетчик
 			if (isInChatsPage && isCurrentChatNotification) {
-				console.log('⏭️ Пользователь в открытом чате, пропускаем уведомление')
+				clientLogger.debug(
+					'Пользователь в открытом чате, пропускаем уведомление'
+				)
 				return
 			}
 
 			if (data.playSound) {
-				console.log('🔊 Попытка воспроизвести звук')
+				clientLogger.debug('Попытка воспроизвести звук')
 				try {
 					const AudioContextClass =
 						window.AudioContext || (window as any).webkitAudioContext
@@ -557,6 +570,70 @@ export default function Header() {
 				} catch {}
 			}
 
+			// Показываем десктопное уведомление браузера
+			if (typeof window !== 'undefined' && 'Notification' in window) {
+				if (Notification.permission === 'granted') {
+					try {
+						// Определяем иконку (аватар отправителя или логотип платформы)
+						const iconUrl = data.senderAvatar || data.icon || '/logo.png'
+
+						// Формируем заголовок и текст уведомления
+						const notificationTitle = data.title || 'Новое уведомление'
+						const notificationBody =
+							data.message || data.sender
+								? `${data.sender}: ${data.message || 'Новое сообщение'}`
+								: 'У вас новое уведомление'
+
+						const notification = new Notification(notificationTitle, {
+							body: notificationBody,
+							icon: iconUrl,
+							badge: '/logo.png',
+							tag: notificationKey, // Чтобы не дублировать одинаковые уведомления
+							requireInteraction: false, // Автоматически исчезнет
+							data: {
+								url: data.link || '/',
+								notificationId: data.id,
+								senderId: data.senderId,
+								chatType: data.chatType,
+							},
+						})
+
+						// Обработка клика на уведомление
+						notification.onclick = () => {
+							window.focus() // Фокус на окно браузера
+							notification.close() // Закрыть уведомление
+
+							// Переход по ссылке из уведомления
+							if (data.link) {
+								window.location.href = data.link
+							} else if (data.senderId && data.chatType) {
+								// Если это сообщение, открываем чат
+								if (data.chatType === 'private') {
+									window.location.href = `/chats?open=${data.senderId}`
+								} else if (data.chatType === 'task' && data.chatId) {
+									const taskId = data.chatId.replace('task_', '')
+									window.location.href = `/tasks/${taskId}`
+								}
+							}
+						}
+
+						// Автоматически закрыть уведомление через 5 секунд
+						setTimeout(() => {
+							notification.close()
+						}, 5000)
+
+						clientLogger.debug('Десктопное уведомление показано', {
+							title: notificationTitle,
+						})
+					} catch (error) {
+						clientLogger.error('Ошибка показа десктопного уведомления', error)
+					}
+				} else if (Notification.permission === 'default') {
+					// Если разрешение еще не запрошено, можно показать подсказку
+					clientLogger.debug('Разрешение на уведомления еще не запрошено')
+				}
+			}
+
 			// Обновляем уведомления и счетчик непрочитанных (используем функциональное обновление)
 			setNotifications(prev => {
 				// Проверяем, нет ли уже такого уведомления в списке (по ключу)
@@ -569,7 +646,7 @@ export default function Header() {
 					return nKey === notificationKey
 				})
 				if (existingKey) {
-					console.log('⏭️ Уведомление уже в списке, не добавляем')
+					clientLogger.debug('Уведомление уже в списке, не добавляем')
 					return prev
 				}
 				return [data, ...prev.slice(0, 4)]
@@ -583,10 +660,9 @@ export default function Header() {
 				data.badgeName &&
 				data.badgeIcon
 			) {
-				console.log(
-					'🏅 Показываем модальный попап для достижения:',
-					data.badgeName
-				)
+				clientLogger.debug('Показываем модальный попап для достижения', {
+					badgeName: data.badgeName,
+				})
 				setAchievementBadge({
 					id: data.badgeId,
 					name: data.badgeName,
@@ -616,7 +692,10 @@ export default function Header() {
 					timestamp: data.timestamp || new Date().toISOString(),
 				}
 
-				console.log('🎉 Добавление toast уведомления:', toastNotification)
+				clientLogger.debug('Добавление toast уведомления', {
+					type: toastNotification.type,
+					id: toastNotification.id,
+				})
 				setToastNotifications(prev => {
 					// Проверяем, нет ли уже такого toast уведомления
 					const existingToast = prev.find(t => {
@@ -641,15 +720,17 @@ export default function Header() {
 					})
 
 					if (existingToast) {
-						console.log(
-							'⏭️ Toast уведомление уже существует, не добавляем:',
-							existingToast.id
+						clientLogger.debug(
+							'Toast уведомление уже существует, не добавляем',
+							{ toastId: existingToast.id }
 						)
 						return prev
 					}
 
 					const newNotifications = [...prev, toastNotification]
-					console.log('📋 Текущие toast уведомления:', newNotifications.length)
+					clientLogger.debug('Текущие toast уведомления', {
+						count: newNotifications.length,
+					})
 					return newNotifications
 				})
 			}
@@ -670,7 +751,9 @@ export default function Header() {
 				// Проверяем, есть ли содержимое в ответе
 				const text = await res.text()
 				if (!text || text.trim() === '') {
-					console.warn('⚠️ Пустой ответ от API непрочитанных сообщений')
+					clientLogger.warn('Пустой ответ от API непрочитанных сообщений', {
+						status: res.status,
+					})
 					setUnreadMessagesCount(0)
 					return
 				}
@@ -679,7 +762,7 @@ export default function Header() {
 				try {
 					data = JSON.parse(text)
 				} catch (parseError) {
-					console.error('❌ Ошибка парсинга JSON:', parseError)
+					clientLogger.error('Ошибка парсинга JSON', parseError)
 					setUnreadMessagesCount(0)
 					return
 				}
@@ -687,16 +770,19 @@ export default function Header() {
 				if (res.ok) {
 					setUnreadMessagesCount(data.unreadCount || 0)
 				} else {
-					console.error('Ошибка получения непрочитанных сообщений:', {
-						status: res.status,
-						statusText: res.statusText,
-						data: data,
-						error: data?.error || 'Неизвестная ошибка',
-					})
+					clientLogger.error(
+						'Ошибка получения непрочитанных сообщений',
+						undefined,
+						{
+							status: res.status,
+							statusText: res.statusText,
+							error: data?.error || 'Неизвестная ошибка',
+						}
+					)
 					setUnreadMessagesCount(0)
 				}
 			} catch (err: any) {
-				console.error('Ошибка получения непрочитанных сообщений:', err)
+				clientLogger.error('Ошибка получения непрочитанных сообщений', err)
 				setUnreadMessagesCount(0)
 			}
 		}
@@ -705,30 +791,29 @@ export default function Header() {
 		const isProduction = process.env.NODE_ENV === 'production'
 
 		if (isProduction) {
-			console.log('🌐 Production окружение: используем polling вместо SSE')
+			clientLogger.debug('Production окружение: используем polling вместо SSE')
 			setUsePolling(true)
 			fetchUnreadMessages()
 			const interval = setInterval(fetchUnreadMessages, 30000)
 			return () => {
-				console.log('🧹 Header: Cleanup (polling mode)')
+				clientLogger.debug('Header: Cleanup (polling mode)')
 				clearInterval(interval)
 			}
 		}
 
 		const connectSSE = () => {
 			if (eventSourceRef.current) {
-				console.log('⚠️ Закрываю старое SSE подключение')
+				clientLogger.debug('Закрываю старое SSE подключение')
 				eventSourceRef.current.close()
 			}
 
-			console.log(
-				'🔌 Подключение к SSE:',
-				`/api/notifications/stream?token=${token.substring(0, 10)}...`
-			)
+			clientLogger.debug('Подключение к SSE', {
+				tokenPrefix: token.substring(0, 10),
+			})
 
 			// Таймаут для определения что SSE не работает
 			const sseTimeout = setTimeout(() => {
-				console.log('⏰ SSE таймаут: подключение не установлено за 5 секунд')
+				clientLogger.warn('SSE таймаут: подключение не установлено за 5 секунд')
 				sseFailCountRef.current = 3
 				setUsePolling(true)
 				if (eventSourceRef.current) {
@@ -742,7 +827,7 @@ export default function Header() {
 			)
 
 			eventSource.onopen = () => {
-				console.log('✅ SSE подключение установлено успешно')
+				clientLogger.debug('SSE подключение установлено успешно')
 				clearTimeout(sseTimeout)
 				setSseConnected(true)
 				sseFailCountRef.current = 0 // Сбрасываем счетчик
@@ -750,17 +835,17 @@ export default function Header() {
 
 			eventSource.onmessage = event => {
 				try {
-					console.log('📨 SSE сообщение:', event.data)
+					clientLogger.debug('SSE сообщение', { data: event.data })
 					const data = JSON.parse(event.data)
 
 					// Пропускаем служебные события
 					if (data.type === 'heartbeat') {
-						console.log('💓 Heartbeat')
+						clientLogger.debug('Heartbeat')
 						return
 					}
 
 					if (data.type === 'connected') {
-						console.log('✅ Подтверждение подключения')
+						clientLogger.debug('Подтверждение подключения')
 						return
 					}
 
@@ -774,46 +859,52 @@ export default function Header() {
 					}
 
 					// Обрабатываем остальные уведомления
-					console.log('🔔 Обработка уведомления:', data)
+					clientLogger.debug('Обработка уведомления', {
+						type: data.type,
+						id: data.id,
+					})
 					showNotification(data)
 					if (data.type === 'message') {
 						fetchUnreadMessages()
 					}
 				} catch (error) {
-					console.error('❌ Ошибка SSE:', error)
+					clientLogger.error('❌ Ошибка SSE:', error)
 				}
 			}
 
 			eventSource.onerror = error => {
-				console.error('❌ Ошибка SSE подключения:', error)
-				console.log('📊 SSE readyState:', eventSource.readyState)
+				clientLogger.error('Ошибка SSE подключения', error, {
+					readyState: eventSource.readyState,
+				})
 				setSseConnected(false)
 				clearTimeout(sseTimeout)
 
 				eventSourceRef.current = null
 				sseFailCountRef.current++
 
-				console.log('⚠️ Количество ошибок SSE:', sseFailCountRef.current)
+				clientLogger.warn('Количество ошибок SSE', {
+					count: sseFailCountRef.current,
+				})
 
 				// После 2 неудачных попыток переключаемся на polling (было 3, уменьшил до 2)
 				if (sseFailCountRef.current >= 2) {
-					console.log('🔄 SSE не работает, переключаюсь на polling')
+					clientLogger.warn('SSE не работает, переключаюсь на polling')
 					setUsePolling(true)
 					return
 				}
 
 				setTimeout(() => {
-					console.log('🔄 Попытка переподключения SSE...')
+					clientLogger.debug('Попытка переподключения SSE')
 					if (user && token) connectSSE()
 				}, 3000)
 			}
 
 			eventSourceRef.current = eventSource
-			console.log('📡 SSE EventSource создан')
+			clientLogger.debug('SSE EventSource создан')
 		}
 
 		// Development окружение: используем SSE
-		console.log(
+		clientLogger.debug(
 			'🚀 Header: Инициализация с user:',
 			user?.id,
 			'token:',
@@ -825,7 +916,7 @@ export default function Header() {
 
 		const interval = setInterval(fetchUnreadMessages, 30000)
 		return () => {
-			console.log('🧹 Header: Cleanup (SSE mode)')
+			clientLogger.debug('Header: Cleanup (SSE mode)')
 			clearInterval(interval)
 			if (eventSourceRef.current) {
 				eventSourceRef.current.close()
@@ -844,7 +935,7 @@ export default function Header() {
 			})
 			setUnreadCount(0)
 		} catch (err) {
-			console.error('Ошибка при отметке уведомлений', err)
+			clientLogger.error('Ошибка при отметке уведомлений', err)
 		}
 	}
 
@@ -853,7 +944,9 @@ export default function Header() {
 		setMobileMenuOpen(false)
 
 		// Не блокируем навигацию ожиданием markAllRead
-		markAllRead().catch(console.error)
+		markAllRead().catch(err =>
+			clientLogger.error('Ошибка при отметке уведомлений', err)
+		)
 
 		// Определяем URL для перехода
 		let targetUrl = '/notifications'
@@ -884,10 +977,12 @@ export default function Header() {
 		'font-medium text-[15px] tracking-wide px-2 py-1 relative transition-all duration-300 hover:text-emerald-400 hover:drop-shadow-[0_0_6px_rgba(16,185,129,0.6)] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-emerald-400 after:transition-all after:duration-300 hover:after:w-full'
 
 	const handleToastClose = (id: string) => {
-		console.log('🗑️ Закрытие toast уведомления:', id)
+		clientLogger.debug('Закрытие toast уведомления', { id })
 		setToastNotifications(prev => {
 			const filtered = prev.filter(toast => toast.id !== id)
-			console.log('📋 Осталось toast уведомлений:', filtered.length)
+			clientLogger.debug('Осталось toast уведомлений', {
+				count: filtered.length,
+			})
 			return filtered
 		})
 	}
@@ -903,7 +998,7 @@ export default function Header() {
 				setUnreadCount(notifData.count || 0)
 			}
 		} catch (error) {
-			console.error('Ошибка обновления счетчика:', error)
+			clientLogger.error('Ошибка обновления счетчика', error)
 		}
 	}
 

@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import crypto from 'crypto'
 import { sendResetPasswordEmail } from '@/lib/mail'
 import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
       message: 'Ссылка для сброса отправлена, проверьте почту',
     })
   } catch (error) {
-    console.error('Ошибка восстановления пароля:', error)
+    logger.error('Ошибка восстановления пароля', error)
     return NextResponse.json(
       { error: 'Ошибка сервера, попробуйте позже' },
       { status: 500 }

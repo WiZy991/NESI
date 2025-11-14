@@ -1,6 +1,8 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import { useState } from 'react'
 
 export default function CancelExecutorButton({
@@ -11,6 +13,7 @@ export default function CancelExecutorButton({
 	onCancelled?: () => void
 }) {
 	const { token } = useUser()
+	const { confirm, Dialog } = useConfirm()
 	const [loading, setLoading] = useState(false)
 	const [err, setErr] = useState<string | null>(null)
 
@@ -19,24 +22,33 @@ export default function CancelExecutorButton({
 			setErr('Нет авторизации')
 			return
 		}
-		if (!confirm('Отменить исполнителя и вернуть средства?')) return
+		await confirm({
+			title: 'Отмена исполнителя',
+			message: 'Вы уверены, что хотите отменить исполнителя и вернуть средства? Это действие нельзя отменить.',
+			type: 'warning',
+			confirmText: 'Отменить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				setLoading(true)
+				setErr(null)
+				try {
+					const res = await fetch(`/api/tasks/${taskId}/cancel`, {
+						method: 'POST',
+						headers: { Authorization: `Bearer ${token}` },
+					})
+					const data = await res.json().catch(() => ({}))
+					if (!res.ok) throw new Error(data?.error || `Ошибка ${res.status}`)
 
-		setLoading(true)
-		setErr(null)
-		try {
-			const res = await fetch(`/api/tasks/${taskId}/cancel`, {
-				method: 'POST',
-				headers: { Authorization: `Bearer ${token}` },
-			})
-			const data = await res.json().catch(() => ({}))
-			if (!res.ok) throw new Error(data?.error || `Ошибка ${res.status}`)
-
-			onCancelled?.()
-		} catch (e: any) {
-			setErr(e.message || 'Не удалось отменить')
-		} finally {
-			setLoading(false)
-		}
+					toast.success('Исполнитель отменён, средства возвращены')
+					onCancelled?.()
+				} catch (e: any) {
+					setErr(e.message || 'Не удалось отменить')
+					toast.error(e.message || 'Не удалось отменить')
+				} finally {
+					setLoading(false)
+				}
+			},
+		})
 	}
 
 	return (
@@ -63,6 +75,7 @@ export default function CancelExecutorButton({
 					{err}
 				</p>
 			)}
+			{Dialog}
 		</div>
 	)
 }

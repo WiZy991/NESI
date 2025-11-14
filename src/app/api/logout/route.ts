@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { broadcastOnlineCountUpdate } from '../users/activity/stream/route'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,17 +20,17 @@ export async function POST(req: NextRequest) {
         },
       }).catch(err => {
         // Игнорируем ошибки обновления активности при выходе
-        console.error('Ошибка обновления активности при выходе:', err)
+        logger.warn('Ошибка обновления активности при выходе', err, { userId: user.id })
       })
 
       // Broadcast обновление онлайн счетчика всем подключенным клиентам
       broadcastOnlineCountUpdate().catch(err => {
-        console.error('Ошибка broadcast при выходе:', err)
+        logger.warn('Ошибка broadcast при выходе', err, { userId: user.id })
       })
     }
   } catch (error) {
     // Игнорируем ошибки аутентификации при выходе
-    console.error('Ошибка при выходе:', error)
+    logger.warn('Ошибка при выходе', error)
   }
 
   const cookieStore = cookies()

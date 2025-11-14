@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import jwt from 'jsonwebtoken'
+import { logger } from '@/lib/logger'
+import { getUserFromRequest } from '@/lib/auth'
+import { z } from 'zod'
+import { validateWithZod } from '@/lib/validations'
+import { validateStringLength } from '@/lib/security'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+// Схема валидации для редактирования сообщения
+const editMessageSchema = z.object({
+	content: z
+		.string()
+		.min(1, 'Текст сообщения не может быть пустым')
+		.max(5000, 'Сообщение слишком длинное (максимум 5000 символов)')
+		.trim(),
+})
 
 // PATCH - Редактирование сообщения
 export async function PATCH(
@@ -10,27 +21,36 @@ export async function PATCH(
 	{ params }: { params: { messageId: string } }
 ) {
 	try {
-		console.log('✏️ PATCH запрос на редактирование:', params.messageId)
+		logger.debug('PATCH запрос на редактирование сообщения', { messageId: params.messageId })
 		
-		const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-		if (!token) {
+		const user = await getUserFromRequest(req)
+		if (!user) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
 
-		let decoded: any
+		let body
 		try {
-			decoded = jwt.verify(token, JWT_SECRET)
-		} catch (err) {
-			console.error('❌ Ошибка токена:', err)
-			return NextResponse.json({ error: 'Неверный токен' }, { status: 401 })
+			body = await req.json()
+		} catch (error) {
+			return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
 		}
 
-		const { content } = await req.json()
-		console.log('📝 Новый контент:', content)
-		
-		if (!content || !content.trim()) {
+		// Валидация данных
+		const validation = validateWithZod(editMessageSchema, body)
+		if (!validation.success) {
 			return NextResponse.json(
-				{ error: 'Текст сообщения не может быть пустым' },
+				{ error: validation.errors.join(', ') },
+				{ status: 400 }
+			)
+		}
+
+		const { content } = validation.data
+
+		// Дополнительная валидация длины
+		const contentValidation = validateStringLength(content, 5000, 'Сообщение')
+		if (!contentValidation.valid) {
+			return NextResponse.json(
+				{ error: contentValidation.error },
 				{ status: 400 }
 			)
 		}
@@ -40,8 +60,6 @@ export async function PATCH(
 			where: { id: params.messageId },
 		})
 
-		console.log('📨 Сообщение найдено:', message ? 'Да' : 'Нет')
-
 		if (!message) {
 			return NextResponse.json(
 				{ error: 'Сообщение не найдено' },
@@ -49,8 +67,8 @@ export async function PATCH(
 			)
 		}
 
-		if (message.senderId !== decoded.userId) {
-			console.log('❌ Нет прав:', message.senderId, '!==', decoded.userId)
+		if (message.senderId !== user.id) {
+			logger.warn('Попытка редактирования чужого сообщения', { messageId: params.messageId, senderId: message.senderId, userId: user.id })
 			return NextResponse.json(
 				{ error: 'Нет прав для редактирования' },
 				{ status: 403 }
@@ -66,23 +84,23 @@ export async function PATCH(
 			},
 		})
 
-		console.log('✅ Сообщение обновлено')
+		logger.debug('Сообщение обновлено', { messageId: params.messageId })
 		
 		// Возвращаем в том же формате что получили
 		return NextResponse.json({ 
 			message: {
 				...updatedMessage,
 				sender: {
-					id: decoded.userId,
-					fullName: null,
-					email: null
+					id: user.id,
+					fullName: user.fullName,
+					email: user.email
 				}
 			}
 		})
 	} catch (error: any) {
-		console.error('❌ Ошибка редактирования:', error)
+		logger.error('Ошибка редактирования сообщения', error, { messageId: params.messageId })
 		return NextResponse.json({ 
-			error: 'Ошибка сервера: ' + (error.message || String(error))
+			error: 'Ошибка сервера'
 		}, { status: 500 })
 	}
 }

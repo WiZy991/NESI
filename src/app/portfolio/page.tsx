@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Plus, Edit2, Trash2, X, ExternalLink, ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import VideoPlayer from '@/components/VideoPlayer'
 
 type PortfolioItem = {
@@ -25,6 +27,7 @@ type PortfolioItem = {
 export default function PortfolioPage() {
   const router = useRouter()
   const { user, loading: userLoading } = useUser()
+  const { confirm, Dialog } = useConfirm()
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -211,16 +214,24 @@ export default function PortfolioPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Удалить этот элемент портфолио?')) return
-    
-    try {
-      const res = await fetch(`/api/portfolio/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Ошибка удаления')
-      await fetchPortfolio()
-    } catch (err) {
-      console.error(err)
-      alert('Ошибка удаления')
-    }
+    await confirm({
+      title: 'Удаление элемента портфолио',
+      message: 'Вы уверены, что хотите удалить этот элемент портфолио? Это действие нельзя отменить.',
+      type: 'danger',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/portfolio/${id}`, { method: 'DELETE' })
+          if (!res.ok) throw new Error('Ошибка удаления')
+          await fetchPortfolio()
+          toast.success('Элемент портфолио удалён')
+        } catch (err) {
+          console.error(err)
+          toast.error('Ошибка удаления')
+        }
+      },
+    })
   }
 
   if (loading) {
@@ -405,49 +416,87 @@ export default function PortfolioPage() {
 
 // Функция для определения типа медиа по расширению файла
 function detectMediaType(imageUrl: string | null, currentType?: string | null): 'image' | 'video' | 'document' {
-  // Сначала проверяем расширение файла (приоритет)
-  if (imageUrl) {
-    const lower = imageUrl.toLowerCase()
-    // Видео
-    if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.avi') || lower.endsWith('.mkv')) {
-      return 'video'
-    }
-    // Документы
-    if (lower.endsWith('.pdf') || lower.endsWith('.doc') || lower.endsWith('.docx') || 
-        lower.endsWith('.txt') || lower.endsWith('.rtf') || lower.endsWith('.odt')) {
-      return 'document'
-    }
-    // Изображения
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || 
-        lower.endsWith('.gif') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
-      return 'image'
-    }
-  }
-  // Если currentType валидный, используем его
+  // Если currentType валидный и передан, используем его (приоритет)
   if (currentType === 'video' || currentType === 'image' || currentType === 'document') {
     return currentType as 'image' | 'video' | 'document'
   }
+  
+  // Затем проверяем расширение файла в URL
+  if (imageUrl) {
+    const lower = imageUrl.toLowerCase()
+    
+    // Извлекаем расширение файла из URL (может быть в любом месте пути)
+    const extensionMatch = lower.match(/\.(mp4|webm|mov|avi|mkv|wmv|flv|m4v|3gp|ogv)$/i)
+    if (extensionMatch) {
+      // Видео форматы
+      return 'video'
+    }
+    
+    const documentMatch = lower.match(/\.(pdf|doc|docx|txt|rtf|odt|xls|xlsx|ppt|pptx)$/i)
+    if (documentMatch) {
+      // Документы
+      return 'document'
+    }
+    
+    const imageMatch = lower.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)$/i)
+    if (imageMatch) {
+      // Изображения
+      return 'image'
+    }
+    
+    // Проверяем расширения в любом месте URL (для путей типа /uploads/portfolio/file.mp4)
+    if (lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.mov') || 
+        lower.includes('.avi') || lower.includes('.mkv') || lower.includes('.wmv') || 
+        lower.includes('.flv') || lower.includes('.m4v')) {
+      return 'video'
+    }
+    
+    if (lower.includes('.pdf') || lower.includes('.doc') || lower.includes('.docx') || 
+        lower.includes('.txt') || lower.includes('.rtf') || lower.includes('.odt')) {
+      return 'document'
+    }
+    
+    if (lower.includes('.jpg') || lower.includes('.jpeg') || lower.includes('.png') || 
+        lower.includes('.gif') || lower.includes('.webp') || lower.includes('.svg') ||
+        lower.includes('.bmp') || lower.includes('.ico')) {
+      return 'image'
+    }
+  }
+  
   // По умолчанию - изображение
   return 'image'
 }
 
 // Функция для получения правильного URL медиа
 function getMediaUrl(imageUrl: string | null): string {
-  if (!imageUrl) return ''
+  if (!imageUrl || imageUrl.trim() === '') return ''
+  
+  const trimmedUrl = imageUrl.trim()
+  
   // Если уже полный URL (http/https), используем как есть
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    return imageUrl
+  if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+    return trimmedUrl
   }
+  
   // Если уже начинается с /api/files/ или /uploads/, используем как есть
-  if (imageUrl.startsWith('/api/files/') || imageUrl.startsWith('/uploads/')) {
-    return imageUrl
+  if (trimmedUrl.startsWith('/api/files/') || trimmedUrl.startsWith('/uploads/')) {
+    return trimmedUrl
   }
-  // Если начинается с /, используем как есть
-  if (imageUrl.startsWith('/')) {
-    return imageUrl
+  
+  // Если начинается с /, используем как есть (для других API путей)
+  if (trimmedUrl.startsWith('/')) {
+    return trimmedUrl
   }
-  // Иначе используем через /api/files/
-  return `/api/files/${imageUrl}`
+  
+  // Если это выглядит как ID файла (UUID или cuid), используем через /api/files/
+  // UUID формат: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  // CUID формат: cxxxxxxxxxxxxxxxxxxxxx (примерно 25 символов)
+  if (/^[a-zA-Z0-9_-]+$/.test(trimmedUrl)) {
+    return `/api/files/${trimmedUrl}`
+  }
+  
+  // По умолчанию возвращаем как есть (может быть относительный путь)
+  return trimmedUrl
 }
 
 function PortfolioGrid({ portfolio, onEdit, onDelete }: { portfolio: PortfolioItem[], onEdit: (item: PortfolioItem) => void, onDelete: (id: string) => void }) {

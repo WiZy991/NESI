@@ -66,7 +66,7 @@ export default function NewPostPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          content,
+          content: content || '', // Отправляем пустую строку вместо null/undefined
           imageUrl: fileId ? `/api/files/${fileId}` : null,
           mediaType: mediaType,
           poll: pollPayload,

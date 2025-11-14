@@ -4,6 +4,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { createUserRateLimit } from '@/lib/rateLimit'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -61,9 +62,17 @@ export async function GET(req: NextRequest) {
 			take: 20, // максимум 20 уведомлений за раз
 		})
 
+<<<<<<< HEAD
 		console.log(
 			`📡 Polling: найдено ${notifications.length} новых уведомлений для пользователя ${user.id}`
 		)
+=======
+		logger.debug('Polling: найдено новых уведомлений', {
+			count: notifications.length,
+			userId: user.id,
+			since: sinceParam,
+		})
+>>>>>>> 4d599b495509cae62f8ac20d8451e4d977ff419b
 
 		// Преобразуем в формат совместимый с SSE
 		const formattedNotifications = notifications.map(n => ({
@@ -81,11 +90,18 @@ export async function GET(req: NextRequest) {
 			count: notifications.length,
 		})
 	} catch (error) {
+<<<<<<< HEAD
 		console.error('❌ Ошибка при polling уведомлений:', error)
 		console.error(
 			'❌ Stack:',
 			error instanceof Error ? error.stack : 'No stack'
 		)
+=======
+		logger.error('Ошибка при polling уведомлений', error, {
+			userId: user?.id,
+			stack: error instanceof Error ? error.stack : undefined,
+		})
+>>>>>>> 4d599b495509cae62f8ac20d8451e4d977ff419b
 		return NextResponse.json(
 			{
 				error: 'Ошибка сервера',

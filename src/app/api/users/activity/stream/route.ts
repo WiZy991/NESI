@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getUserFromToken } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 		return new Response('Unauthorized', { status: 401 })
 	}
 
-	console.log('📊 SSE подключение для онлайн счетчика от пользователя:', user.id)
+	logger.debug('SSE подключение для онлайн счетчика', { userId: user.id })
 
 	// Функция для получения текущего количества онлайн пользователей
 	const getOnlineCount = async (): Promise<number> => {
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
 
 			return onlineCount
 		} catch (error) {
-			console.error('Ошибка получения онлайн счетчика:', error)
+			logger.error('Ошибка получения онлайн счетчика', error)
 			return 0
 		}
 	}
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
 				})
 				controller.enqueue(`data: ${data}\n\n`)
 			} catch (error) {
-				console.error('Ошибка отправки начального счетчика:', error)
+				logger.error('Ошибка отправки начального счетчика', error, { userId: user.id })
 			}
 
 			// Сохраняем контроллер для отправки обновлений
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
 					// Функция сама проверит, изменился ли счетчик
 					await broadcastOnlineCountUpdate()
 				} catch (error) {
-					console.error('Ошибка отправки heartbeat:', error)
+					logger.error('Ошибка отправки heartbeat', error, { userId: user.id, connectionId })
 					clearInterval(heartbeatInterval)
 					globalThis.onlineCountSSEConnections?.delete(connectionId)
 				}
@@ -97,14 +98,14 @@ export async function GET(req: NextRequest) {
 
 			// Очистка при закрытии соединения
 			req.signal.addEventListener('abort', () => {
-				console.log('🔌 SSE соединение онлайн счетчика закрыто для пользователя:', user.id)
+				logger.debug('SSE соединение онлайн счетчика закрыто', { userId: user.id, connectionId })
 				clearInterval(heartbeatInterval)
 				globalThis.onlineCountSSEConnections?.delete(connectionId)
 				controller.close()
 			})
 		},
 		cancel() {
-			console.log('🔌 SSE соединение онлайн счетчика отменено для пользователя:', user.id)
+			logger.debug('SSE соединение онлайн счетчика отменено', { userId: user.id })
 		},
 	})
 
@@ -192,7 +193,7 @@ export async function broadcastOnlineCountUpdate() {
 			try {
 				controller.enqueue(message)
 			} catch (error) {
-				console.error(`Ошибка отправки обновления счетчика для соединения ${connectionId}:`, error)
+				logger.error('Ошибка отправки обновления счетчика для соединения', error, { connectionId })
 				connectionsToRemove.push(connectionId)
 			}
 		})
@@ -202,7 +203,10 @@ export async function broadcastOnlineCountUpdate() {
 			globalThis.onlineCountSSEConnections?.delete(id)
 		})
 
-		console.log(`📢 Broadcast онлайн счетчика: ${onlineCount} пользователей (${globalThis.onlineCountSSEConnections.size} подключений)`)
+		logger.debug('Broadcast онлайн счетчика', {
+			onlineCount,
+			connectionsCount: globalThis.onlineCountSSEConnections.size,
+		})
 	} catch (error: any) {
 		// Проверяем, является ли это ошибкой подключения к БД
 		const isConnectionError = 
@@ -216,12 +220,14 @@ export async function broadcastOnlineCountUpdate() {
 			// Логируем ошибку БД не чаще раза в минуту, чтобы не спамить консоль
 			const now = Date.now()
 			if (now - lastBroadcastDbErrorLog > BROADCAST_DB_ERROR_LOG_INTERVAL) {
-				console.error('❌ Ошибка подключения к БД при broadcast онлайн счетчика. Проверьте доступность PostgreSQL.')
+				logger.error('Ошибка подключения к БД при broadcast онлайн счетчика. Проверьте доступность PostgreSQL.', error, {
+					errorCode: error?.code,
+				})
 				lastBroadcastDbErrorLog = now
 			}
 		} else {
 			// Для других ошибок логируем всегда
-			console.error('Ошибка broadcast онлайн счетчика:', error)
+			logger.error('Ошибка broadcast онлайн счетчика', error)
 		}
 	}
 }

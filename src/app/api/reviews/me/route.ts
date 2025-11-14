@@ -2,6 +2,7 @@
 import { getUserFromRequest } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: Request) {
   const user = await getUserFromRequest(req)
@@ -47,9 +48,10 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' },
     })
 
+    logger.debug('Получены отзывы пользователя', { userId: user.id, type, count: reviews.length })
     return NextResponse.json({ reviews })
   } catch (error) {
-    console.error('❌ Ошибка получения отзывов:', error)
+    logger.error('Ошибка получения отзывов', error, { userId: user.id, type })
     return NextResponse.json(
       { error: 'Ошибка получения отзывов' },
       { status: 500 }

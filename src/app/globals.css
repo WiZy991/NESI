@@ -1,6 +1,7 @@
 /* Google Fonts загружаются через Next.js font optimization в layout.tsx */
 @import 'tailwindcss';
 @import '../styles/animations.css';
+@import '../styles/level-animations.css';
 
 /* 🎨 Основные переменные - светлая тема по умолчанию */
 :root {

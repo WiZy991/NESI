@@ -4,6 +4,21 @@ import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { createNotificationWithSettings } from '@/lib/notify'
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
+import { logger } from '@/lib/logger'
+import { awardXP } from '@/lib/level/awardXP'
+import { z } from 'zod'
+import { validateWithZod } from '@/lib/validations'
+import { validateStringLength } from '@/lib/security'
+
+// Схема валидации для создания отзыва
+const createReviewSchema = z.object({
+	rating: z.number().int().min(1, 'Оценка должна быть от 1 до 5').max(5, 'Оценка должна быть от 1 до 5'),
+	comment: z
+		.string()
+		.max(1000, 'Комментарий слишком длинный (максимум 1000 символов)')
+		.trim()
+		.optional(),
+})
 
 export async function POST(
   req: Request,
@@ -17,15 +32,39 @@ export async function POST(
 
     // ✅ Берём и taskId, и id, чтобы работало в любом случае
     const taskId = params.taskId || params.id
-    console.log('🧩 POST review for taskId =', taskId)
+    logger.debug('POST review for taskId', { taskId, userId: user.id })
 
     if (!taskId) {
       return NextResponse.json({ error: 'Не передан ID задачи' }, { status: 400 })
     }
 
-    const { rating, comment } = await req.json()
-    if (!rating || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: 'Оценка от 1 до 5 обязательна' }, { status: 400 })
+    let body
+    try {
+      body = await req.json()
+    } catch (error) {
+      return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+    }
+
+    // Валидация данных
+    const validation = validateWithZod(createReviewSchema, body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.errors.join(', ') },
+        { status: 400 }
+      )
+    }
+
+    const { rating, comment } = validation.data
+
+    // Дополнительная валидация длины комментария
+    if (comment) {
+      const commentValidation = validateStringLength(comment, 1000, 'Комментарий')
+      if (!commentValidation.valid) {
+        return NextResponse.json(
+          { error: commentValidation.error },
+          { status: 400 }
+        )
+      }
     }
 
     const task = await prisma.task.findUnique({
@@ -115,13 +154,21 @@ export async function POST(
         await checkAndAwardBadges(user.id)
       } catch (xpError) {
         // Логируем ошибку, но не прерываем выполнение
-        console.error('[XP] Ошибка начисления XP при отзыве:', xpError)
+        logger.error('Ошибка начисления XP при отзыве', xpError, {
+          taskId,
+          toUserId,
+          fromUserId: user.id,
+          rating,
+        })
       }
     }
 
     return NextResponse.json({ review })
   } catch (e) {
-    console.error('❌ Ошибка при создании отзыва:', e)
+    logger.error('Ошибка при создании отзыва', e, {
+      taskId: params.taskId || params.id,
+      userId: user?.id,
+    })
     return NextResponse.json({ error: 'Ошибка при создании отзыва' }, { status: 500 })
   }
 }

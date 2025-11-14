@@ -5,6 +5,7 @@ import { validateFile } from '@/lib/fileValidation';
 import { normalizeFileName, isValidFileName } from '@/lib/security';
 import { getUserFromRequest } from '@/lib/auth';
 import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id: savedFile.id });
   } catch (err) {
-    console.error("Ошибка загрузки файла:", err);
+    logger.error("Ошибка загрузки аватара", err, { userId });
     return NextResponse.json({ error: "Ошибка загрузки файла" }, { status: 500 });
   }
 }

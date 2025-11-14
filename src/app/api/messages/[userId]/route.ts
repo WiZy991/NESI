@@ -1,5 +1,6 @@
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
@@ -34,6 +35,7 @@ export async function GET(
 							fullName: true,
 							email: true,
 							avatarUrl: true,
+							xp: true,
 						},
 					},
 					recipient: {
@@ -67,10 +69,10 @@ export async function GET(
 				orderBy: { createdAt: 'asc' },
 			})
 		} catch (prismaError: any) {
-			console.error('❌ Ошибка Prisma при получении приватных сообщений:', prismaError)
+			logger.error('Ошибка Prisma при получении приватных сообщений', prismaError, { userId, meId: me.id })
 			// Если ошибка связана с отсутствующими полями, делаем базовый запрос
 			if (prismaError.message?.includes('replyTo') || prismaError.message?.includes('reactions') || prismaError.code === 'P2021') {
-				console.warn('⚠️ Поля replyTo/reactions недоступны, используем базовый запрос')
+				logger.warn('Поля replyTo/reactions недоступны, используем базовый запрос', { userId })
 				messages = await prisma.privateMessage.findMany({
 					where: {
 						OR: [
@@ -140,18 +142,13 @@ export async function GET(
 		}
 	})
 
-		console.log('📨 Приватные сообщения найдены:', result.length)
-		if (result.length > 0) {
-			console.log('📝 Первое сообщение:', result[0])
-		} else {
-			console.log('📝 Сообщений нет, возвращаем пустой массив')
-		}
+		logger.debug('Приватные сообщения найдены', { userId, count: result.length })
 
 		return NextResponse.json(result, { status: 200 })
 	} catch (error: any) {
-		console.error('❌ Ошибка получения приватных сообщений:', error)
+		logger.error('Ошибка получения приватных сообщений', error, { userId, meId: me?.id })
 		return NextResponse.json(
-			{ error: 'Ошибка сервера', details: error.message },
+			{ error: 'Ошибка сервера' },
 			{ status: 500 }
 		)
 	}

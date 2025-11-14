@@ -3,23 +3,32 @@ import { toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(
 	req: Request,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
+		const { id: taskId } = await params
 		const user = await getUserFromRequest(req)
 		if (!user)
-			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
 		const task = await prisma.task.findUnique({
-			where: { id: params.id },
-			include: { customer: true, executor: true },
+			where: { id: taskId },
+			select: {
+				id: true,
+				title: true,
+				customerId: true,
+				executorId: true,
+				status: true,
+				escrowAmount: true,
+			},
 		})
 
 		if (!task)
-			return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+			return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
 
 		if (task.customerId !== user.id) {
 			return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -56,7 +65,7 @@ export async function POST(
 		}
 
 		await prisma.task.update({
-			where: { id: params.id },
+			where: { id: taskId },
 			data: {
 				executorId: null,
 				status: 'open',
@@ -76,10 +85,13 @@ export async function POST(
 		}
 
 		return NextResponse.json({ success: true })
-	} catch (err: any) {
-		console.error('Cancel error:', err)
+	} catch (err: unknown) {
+		logger.error('Ошибка при отмене задачи', err, {
+			taskId,
+			userId: user?.id,
+		})
 		return NextResponse.json(
-			{ error: 'Internal Server Error' },
+			{ error: 'Ошибка сервера' },
 			{ status: 500 }
 		)
 	}

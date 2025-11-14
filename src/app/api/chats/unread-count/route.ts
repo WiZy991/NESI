@@ -1,6 +1,7 @@
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
 	const user = await getUserFromRequest(req)
@@ -9,10 +10,9 @@ export async function GET(req: NextRequest) {
 	}
 
 	try {
-		console.log(
-			'🔔 Получение количества непрочитанных сообщений для пользователя:',
-			user.id
-		)
+		logger.debug('Получение количества непрочитанных сообщений для пользователя', {
+			userId: user.id,
+		})
 
 		// Получаем данные пользователя для времени последнего прочтения
 		const userData = await prisma.user.findUnique({
@@ -72,15 +72,18 @@ export async function GET(req: NextRequest) {
 
 		const totalUnread = unreadPrivateMessages + unreadTaskMessages
 
-		console.log('📊 Непрочитанные сообщения:', {
+		logger.debug('Непрочитанные сообщения', {
 			private: unreadPrivateMessages,
 			task: unreadTaskMessages,
 			total: totalUnread,
+			userId: user.id,
 		})
 
 		return NextResponse.json({ unreadCount: totalUnread })
 	} catch (error) {
-		console.error('Ошибка получения количества непрочитанных сообщений:', error)
+		logger.error('Ошибка получения количества непрочитанных сообщений', error, {
+			userId: user?.id,
+		})
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

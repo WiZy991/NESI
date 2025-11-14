@@ -1,9 +1,12 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
+import { SpecialistListSkeleton } from '@/components/SkeletonLoader/SpecialistCardSkeleton'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { LevelBadge } from '@/components/LevelBadge'
+import { getLevelVisuals } from '@/lib/level/rewards'
 
 type SpecialistItem = {
 	id: string
@@ -91,23 +94,27 @@ export default function SpecialistsPage() {
 				setLoading(true)
 				setError(null)
 				try {
-					const res = await fetch(`/api/specialists?${queryString}`, {
-						cache: 'no-store',
-						signal: ctrl.signal,
-					})
-					const data: ApiResponse = await res.json()
-					if (!res.ok)
-						throw new Error(
-							(data as any)?.error || `${res.status} ${res.statusText}`
-						)
+					const { fetchJsonWithRetry } = await import('@/lib/retry')
+					const data = await fetchJsonWithRetry<ApiResponse>(
+						`/api/specialists?${queryString}`,
+						{
+							cache: 'no-store',
+							signal: ctrl.signal,
+						},
+						{ maxRetries: 2, retryDelay: 800 }
+					)
 
 					// сортировка теперь идёт на бэке
 					setItems(data.items || [])
 					setTotal(data.total || 0)
 					setPages(data.pages || 1)
-				} catch (e: any) {
-					if (e?.name === 'AbortError') return
-					setError(e?.message || 'Ошибка загрузки исполнителей')
+				} catch (e: unknown) {
+					if (e instanceof Error && e.name === 'AbortError') return
+					const errorMessage =
+						e instanceof Error
+							? e.message
+							: 'Ошибка загрузки исполнителей'
+					setError(errorMessage)
 					setItems([])
 					setTotal(0)
 					setPages(1)
@@ -216,26 +223,29 @@ export default function SpecialistsPage() {
 							{/* Аватар и имя */}
 							<div className='flex items-start gap-4'>
 								<div className='relative flex-shrink-0'>
-									{u.avatarUrl ? (
-										<img
-											src={u.avatarUrl}
-											alt={name}
-											className='w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-emerald-500/40 group-hover:border-emerald-400/60 transition-colors'
-										/>
-									) : (
-										<div className='w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-emerald-600/30 to-emerald-800/30 border-2 border-emerald-500/40 group-hover:border-emerald-400/60 flex items-center justify-center text-lg sm:text-xl font-bold text-emerald-300 transition-colors'>
-											{letter}
-										</div>
-									)}
-									{/* Индикатор уровня */}
-									<div className='absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 border-2 border-black flex items-center justify-center text-xs font-bold text-white shadow-[0_0_8px_rgba(16,185,129,0.5)]'>
-										{calc.lvl}
-									</div>
+									{(() => {
+										const visuals = getLevelVisuals(calc.lvl)
+										const borderClass = visuals.borderColor || 'border-emerald-500/40'
+										return u.avatarUrl ? (
+											<img
+												src={u.avatarUrl}
+												alt={name}
+												className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 ${borderClass} group-hover:border-emerald-400/60 transition-colors`}
+											/>
+										) : (
+											<div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-emerald-600/30 to-emerald-800/30 border-2 ${borderClass} group-hover:border-emerald-400/60 flex items-center justify-center text-lg sm:text-xl font-bold text-emerald-300 transition-colors`}>
+												{letter}
+											</div>
+										)
+									})()}
 								</div>
 								<div className='flex-1 min-w-0'>
-									<h3 className='text-lg sm:text-xl font-bold leading-tight text-white group-hover:text-emerald-300 transition-colors line-clamp-1'>
-										{name}
-									</h3>
+									<div className='flex items-center gap-2 flex-wrap'>
+										<h3 className='text-lg sm:text-xl font-bold leading-tight text-white group-hover:text-emerald-300 transition-colors line-clamp-1'>
+											{name}
+										</h3>
+										<LevelBadge level={calc.lvl} size='sm' />
+									</div>
 									<p className='text-xs sm:text-sm text-gray-400 mt-1 flex items-center gap-1'>
 										<span>📍</span>
 										<span className='line-clamp-1'>

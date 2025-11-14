@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
-import { Bell, CheckCircle2, Star, MessageSquare } from 'lucide-react'
+import { Bell, CheckCircle2, Star, MessageSquare, DollarSign } from 'lucide-react'
 import NotificationSkeleton from '@/components/NotificationSkeleton'
 import EmptyState from '@/components/EmptyState'
 import NotificationFilter from '@/components/NotificationFilter'
@@ -17,16 +17,51 @@ interface Notification {
   createdAt: string
 }
 
+/**
+ * Определяет категорию уведомления на основе его типа
+ * Это нужно для правильной фильтрации, так как типы уведомлений не совпадают с категориями фильтров
+ */
+function getNotificationCategory(type: string): 'task' | 'message' | 'payment' | 'system' {
+  // Задачи: назначение, отклики, отмена, найм
+  if (['assignment', 'response', 'task_cancelled', 'hire', 'hire_request', 'task'].includes(type)) {
+    return 'task'
+  }
+  
+  // Сообщения
+  if (['message', 'messageSent'].includes(type)) {
+    return 'message'
+  }
+  
+  // Платежи: оплата, комиссия, возврат, депозит, вывод
+  if (['payment', 'commission', 'refund', 'deposit', 'withdraw', 'earn', 'expense', 'income'].includes(type)) {
+    return 'payment'
+  }
+  
+  // Системные: бейджи, отзывы, блокировка, предупреждения, информационные
+  if (['badge', 'review', 'block', 'warning', 'system', 'info', 'login', 'test'].includes(type)) {
+    return 'system'
+  }
+  
+  // По умолчанию - системное
+  return 'system'
+}
+
 const typeIcon = (type: string) => {
   const base =
     'w-5 h-5 drop-shadow-[0_0_6px_rgba(0,255,180,0.6)] transition-transform duration-300 group-hover:scale-110'
+  
+  // Определяем категорию для правильного отображения иконки
+  const category = getNotificationCategory(type)
 
-  switch (type) {
+  switch (category) {
     case 'task':
       return <Star className={`${base} text-yellow-400`} />
 
     case 'message':
       return <MessageSquare className={`${base} text-blue-400`} />
+
+    case 'payment':
+      return <span className={`${base} text-emerald-400 text-xl font-bold`}>₽</span>
 
     case 'system':
       return <CheckCircle2 className={`${base} text-green-400`} />
@@ -94,10 +129,10 @@ export default function NotificationsPage() {
     return {
       all: notifications.length,
       unread: notifications.filter((n) => !n.isRead).length,
-      message: notifications.filter((n) => n.type === 'message').length,
-      task: notifications.filter((n) => n.type === 'task').length,
-      payment: notifications.filter((n) => n.type === 'payment').length,
-      system: notifications.filter((n) => n.type === 'system').length,
+      message: notifications.filter((n) => getNotificationCategory(n.type) === 'message').length,
+      task: notifications.filter((n) => getNotificationCategory(n.type) === 'task').length,
+      payment: notifications.filter((n) => getNotificationCategory(n.type) === 'payment').length,
+      system: notifications.filter((n) => getNotificationCategory(n.type) === 'system').length,
     }
   }, [notifications])
 
@@ -105,7 +140,7 @@ export default function NotificationsPage() {
   const filteredNotifications = useMemo(() => {
     if (filterType === 'all') return notifications
     if (filterType === 'unread') return notifications.filter((n) => !n.isRead)
-    return notifications.filter((n) => n.type === filterType)
+    return notifications.filter((n) => getNotificationCategory(n.type) === filterType)
   }, [notifications, filterType])
 
   const groupedNotifications = useMemo(() => {

@@ -1,31 +1,59 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
+import { validateStringLength } from '@/lib/security'
 
 export async function POST(
 	req: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		console.log('📝 Получен запрос на создание жалобы')
+		logger.debug('Получен запрос на создание жалобы')
 		
 		const user = await getUserFromRequest(req)
 		if (!user) {
-			console.log('❌ Пользователь не авторизован')
+			logger.warn('Пользователь не авторизован при создании жалобы')
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
 
 		const { id: taskId } = await params
-		console.log('🎯 Task ID:', taskId)
+		logger.debug('Создание жалобы на задачу', { taskId, userId: user.id })
 		
-		const { reason, description } = await req.json()
-		console.log('📋 Reason:', reason, 'Description:', description)
+		let body
+		try {
+			body = await req.json()
+		} catch (error) {
+			return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+		}
 
-		if (!reason || !reason.trim()) {
+		const { reason, description } = body || {}
+
+		// Валидация причины жалобы
+		if (!reason || typeof reason !== 'string' || !reason.trim()) {
 			return NextResponse.json(
 				{ error: 'Укажите причину жалобы' },
 				{ status: 400 }
 			)
+		}
+
+		const reasonValidation = validateStringLength(reason.trim(), 200, 'Причина жалобы')
+		if (!reasonValidation.valid) {
+			return NextResponse.json(
+				{ error: reasonValidation.error },
+				{ status: 400 }
+			)
+		}
+
+		// Валидация описания (если указано)
+		if (description && typeof description === 'string') {
+			const descriptionValidation = validateStringLength(description.trim(), 1000, 'Описание жалобы')
+			if (!descriptionValidation.valid) {
+				return NextResponse.json(
+					{ error: descriptionValidation.error },
+					{ status: 400 }
+				)
+			}
 		}
 
 		// Проверяем существование задачи
@@ -34,6 +62,7 @@ export async function POST(
 		})
 
 		if (!task) {
+			logger.warn('Задача не найдена при создании жалобы', { taskId })
 			return NextResponse.json(
 				{ error: 'Задача не найдена' },
 				{ status: 404 }
@@ -41,25 +70,23 @@ export async function POST(
 		}
 
 		// Создаём жалобу
-		console.log('💾 Создание жалобы в БД...')
 		const report = await prisma.communityReport.create({
 			data: {
 				type: 'task',
 				taskId: taskId,
-				reason,
-				description: description?.trim() || null,
+				reason: reason.trim(),
+				description: description && typeof description === 'string' ? description.trim() : null,
 				reporterId: user.id,
 			},
 		})
 
-		console.log('✅ Жалоба создана:', report.id)
+		logger.info('Жалоба создана', { reportId: report.id, taskId, userId: user.id })
 		return NextResponse.json(
 			{ success: true, report },
 			{ status: 201 }
 		)
 	} catch (error: any) {
-		console.error('❌ Ошибка создания жалобы:', error)
-		console.error('Stack:', error.stack)
+		logger.error('Ошибка создания жалобы', error)
 		return NextResponse.json(
 			{ error: 'Ошибка сервера: ' + (error.message || String(error)) },
 			{ status: 500 }

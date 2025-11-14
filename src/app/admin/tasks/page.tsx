@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import { useEffect, useState } from 'react'
 
 const statusColors: Record<string, string> = {
@@ -11,6 +13,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default function AdminTasks() {
+	const { confirm, Dialog } = useConfirm()
 	const [tasks, setTasks] = useState<any[]>([])
 	const [loading, setLoading] = useState(true)
 	const [filter, setFilter] = useState('all')
@@ -26,9 +29,22 @@ export default function AdminTasks() {
 	}, [])
 
 	const handleDelete = async (id: string) => {
-		if (!confirm('Удалить эту задачу?')) return
-		await fetch(`/api/admin/tasks/${id}`, { method: 'DELETE' })
-		location.reload()
+		await confirm({
+			title: 'Удаление задачи',
+			message: 'Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				const res = await fetch(`/api/admin/tasks/${id}`, { method: 'DELETE' })
+				if (res.ok) {
+					toast.success('Задача удалена')
+					location.reload()
+				} else {
+					toast.error('Ошибка при удалении задачи')
+				}
+			},
+		})
 	}
 
 	const filteredTasks =
@@ -164,6 +180,7 @@ export default function AdminTasks() {
 					</table>
 				</div>
 			</div>
+			{Dialog}
 		</div>
 	)
 }

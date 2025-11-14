@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt'
 import { verifyJWT } from './jwt'
 import prisma from './prisma'
 import { NextRequest } from 'next/server'
+import { logger } from './logger'
 
 export async function hashPassword(password: string) {
   return await bcrypt.hash(password, 10)
@@ -25,7 +26,7 @@ export async function getUserFromToken(token: string) {
 
     // 🟢 если пользователь найден, но флаги не выставлены — просто предупреждаем, но не ломаем
     if (user && (!user.emailVerified || !user.verified)) {
-      console.warn('⚠️ Пользователь без подтверждения:', user.email)
+      logger.warn('Пользователь без подтверждения', { email: user.email })
     }
 
     return user
@@ -78,14 +79,17 @@ export async function getUserFromRequest(req: Request) {
     if (user.blocked) {
       // Постоянная блокировка
       if (!user.blockedUntil) {
-        console.warn(`🚫 Попытка доступа заблокированного пользователя: ${user.email}`)
+        logger.warn('Попытка доступа заблокированного пользователя', { email: user.email })
         return null
       }
       
       // Временная блокировка
       const now = new Date()
       if (user.blockedUntil > now) {
-        console.warn(`🚫 Попытка доступа временно заблокированного пользователя: ${user.email} (до ${user.blockedUntil})`)
+        logger.warn('Попытка доступа временно заблокированного пользователя', { 
+          email: user.email, 
+          blockedUntil: user.blockedUntil 
+        })
         return null
       } else {
         // Блокировка истекла, снимаем её
@@ -94,7 +98,7 @@ export async function getUserFromRequest(req: Request) {
             where: { id: user.id },
             data: { blocked: false, blockedUntil: null, blockedReason: null },
           })
-          console.log(`✅ Временная блокировка снята: ${user.email}`)
+          logger.info('Временная блокировка снята', { email: user.email })
           user.blocked = false
           user.blockedUntil = null
           user.blockedReason = null
@@ -107,7 +111,7 @@ export async function getUserFromRequest(req: Request) {
             updateError?.message?.includes('FATAL')
           
           if (!isConnectionError) {
-            console.error('Ошибка при снятии блокировки:', updateError)
+            logger.error('Ошибка при снятии блокировки', updateError, { userId: user.id })
           }
         }
       }
@@ -134,9 +138,9 @@ export async function getUserFromRequest(req: Request) {
       // Логируем ошибку схемы БД не чаще раза в минуту
       const now = Date.now()
       if (now - lastDbErrorLog > DB_ERROR_LOG_INTERVAL * 2) {
-        console.error('❌ Ошибка схемы базы данных: таблицы не найдены.')
-        console.error('💡 Решение: Выполните команду: npx prisma migrate deploy')
-        console.error('   Или: npx prisma db push (для разработки)')
+        logger.error('Ошибка схемы базы данных: таблицы не найдены', error, {
+          solution: 'Выполните команду: npx prisma migrate deploy или npx prisma db push (для разработки)'
+        })
         lastDbErrorLog = now
       }
       return null
@@ -146,15 +150,14 @@ export async function getUserFromRequest(req: Request) {
       // Логируем ошибку БД не чаще раза в 30 секунд, чтобы не спамить консоль
       const now = Date.now()
       if (now - lastDbErrorLog > DB_ERROR_LOG_INTERVAL) {
-        console.error('❌ Ошибка подключения к базе данных. Проверьте доступность PostgreSQL.')
-        console.error('Детали:', error?.message || error)
+        logger.error('Ошибка подключения к базе данных. Проверьте доступность PostgreSQL', error)
         lastDbErrorLog = now
       }
       return null
     }
     
     // Для других ошибок (не связанных с БД) логируем всегда
-    console.error('❌ Ошибка при декодировании токена:', error)
+    logger.error('Ошибка при декодировании токена', error)
     return null
   }
 }

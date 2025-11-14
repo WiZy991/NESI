@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/users/activity/online
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
     // Используем 5 минут для определения неактивности
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
     
-    console.log('🔍 Начало подсчета онлайн пользователей:', {
+    logger.debug('Начало подсчета онлайн пользователей', {
       fiveMinutesAgo: fiveMinutesAgo.toISOString(),
       now: new Date().toISOString(),
     })
@@ -34,15 +35,14 @@ export async function GET(req: NextRequest) {
       return user.lastActivityAt >= fiveMinutesAgo
     }).length
 
-    console.log('📊 Подсчет онлайн пользователей завершен:', {
+    logger.debug('Подсчет онлайн пользователей завершен', {
       onlineCount,
       timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ onlineCount })
   } catch (error: any) {
-    console.error('❌ Ошибка получения онлайн пользователей:', error)
-    console.error('❌ Детали ошибки:', {
+    logger.error('Ошибка получения онлайн пользователей', error, {
       message: error?.message,
       stack: error?.stack,
       name: error?.name,

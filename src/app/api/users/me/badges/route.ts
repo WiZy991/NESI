@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromToken } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
   try {
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
       }))
     })
   } catch (e) {
-    console.error('GET /api/users/me/badges error:', e)
+    logger.error('GET /api/users/me/badges error', e)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

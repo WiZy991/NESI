@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import { getTaskRecommendations } from '@/lib/taskReco'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
 	try {
@@ -21,7 +22,9 @@ export async function GET(req: NextRequest) {
 
 		return NextResponse.json({ recommendations })
 	} catch (error: any) {
-		console.error('❌ Ошибка получения рекомендаций задач:', error)
+		logger.error('Ошибка получения рекомендаций задач', error, {
+			userId: user?.id,
+		})
 		return NextResponse.json(
 			{
 				error: 'Не удалось получить рекомендации',

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -20,7 +21,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('🔥 Ошибка удаления поста админом:', err)
+    logger.error('Ошибка удаления поста админом', err, { postId: params.id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

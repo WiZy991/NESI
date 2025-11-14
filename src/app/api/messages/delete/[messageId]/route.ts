@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
+import { logger } from '@/lib/logger'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
@@ -10,7 +11,7 @@ export async function DELETE(
 	{ params }: { params: { messageId: string } }
 ) {
 	try {
-		console.log('🗑️ DELETE запрос на удаление сообщения:', params.messageId)
+		logger.debug('DELETE запрос на удаление сообщения', { messageId: params.messageId })
 		
 		const token = req.headers.get('Authorization')?.replace('Bearer ', '')
 		if (!token) {
@@ -21,18 +22,16 @@ export async function DELETE(
 		try {
 			decoded = jwt.verify(token, JWT_SECRET)
 		} catch (err) {
-			console.error('❌ Ошибка проверки токена:', err)
+			logger.error('Ошибка проверки токена', err, { messageId: params.messageId })
 			return NextResponse.json({ error: 'Неверный токен' }, { status: 401 })
 		}
 
-		console.log('✅ Пользователь:', decoded.userId)
+		logger.debug('Пользователь авторизован', { userId: decoded.userId })
 
 		// Проверяем существование сообщения и права доступа
 		const message = await prisma.message.findUnique({
 			where: { id: params.messageId },
 		})
-
-		console.log('📝 Найденное сообщение:', message)
 
 		if (!message) {
 			return NextResponse.json(
@@ -42,7 +41,11 @@ export async function DELETE(
 		}
 
 		if (message.senderId !== decoded.userId) {
-			console.log('❌ Нет прав:', message.senderId, '!==', decoded.userId)
+			logger.warn('Нет прав для удаления сообщения', {
+				messageId: params.messageId,
+				messageSenderId: message.senderId,
+				userId: decoded.userId,
+			})
 			return NextResponse.json(
 				{ error: 'Нет прав для удаления' },
 				{ status: 403 }
@@ -59,14 +62,14 @@ export async function DELETE(
 				},
 			})
 
-			console.log('✅ Сообщение удалено:', updatedMessage.id)
+			logger.info('Сообщение удалено', { messageId: updatedMessage.id })
 			return NextResponse.json({ message: updatedMessage })
 		} catch (updateError) {
-			console.error('❌ Ошибка обновления:', updateError)
+			logger.error('Ошибка обновления сообщения', updateError, { messageId: params.messageId })
 			return NextResponse.json({ error: 'Ошибка обновления сообщения' }, { status: 500 })
 		}
 	} catch (error) {
-		console.error('❌ Ошибка удаления сообщения:', error)
+		logger.error('Ошибка удаления сообщения', error, { messageId: params.messageId })
 		return NextResponse.json({ error: 'Ошибка сервера: ' + String(error) }, { status: 500 })
 	}
 }

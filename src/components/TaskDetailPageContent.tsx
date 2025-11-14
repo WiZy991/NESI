@@ -3,185 +3,22 @@
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import AssignExecutorButton from './AssignExecutorButton'
-import CancelExecutorButton from './CancelExecutorButton'
-import CompleteTaskButton from './CompleteTaskButton'
-import ResponseForm from './ResponseForm'
-import ReviewForm from './ReviewForm'
-import TaskActionsClient from './TaskActionsClient'
-import FavoriteTaskButton from './FavoriteTaskButton'
-import { Link as LinkIcon } from 'lucide-react'
-import { copyToClipboard, getTaskUrl } from '@/lib/copyToClipboard'
-import { toast } from 'sonner'
-
-function DisputeForm({
-	taskId,
-	onSuccess,
-	token,
-}: {
-	taskId: string
-	onSuccess: () => void
-	token: string
-}) {
-	const [isOpen, setIsOpen] = useState(false)
-	const [reason, setReason] = useState('')
-	const [details, setDetails] = useState('')
-	const [loading, setLoading] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-
-	const handleSubmit = async () => {
-		if (!reason.trim()) {
-			setError('Укажите причину спора')
-			return
-		}
-		setLoading(true)
-		setError(null)
-		try {
-			const res = await fetch('/api/disputes', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({ taskId, reason, details }),
-			})
-			if (res.ok) {
-				setIsOpen(false)
-				setReason('')
-				setDetails('')
-				// Добавляем небольшую задержку перед обновлением состояния
-				setTimeout(() => {
-					onSuccess()
-				}, 100)
-			} else {
-				const data = await res.json().catch(() => ({}))
-				setError((data as any)?.error || 'Ошибка при создании спора')
-			}
-		} catch (err) {
-			console.error(err)
-			setError('Ошибка соединения с сервером')
-		} finally {
-			setLoading(false)
-		}
-	}
-
-	if (!isOpen)
-		return (
-			<button
-				onClick={() => setIsOpen(true)}
-				className='flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] hover:scale-[1.02]'
-			>
-				<span className='text-lg'>⚖️</span>
-				<span>Открыть спор</span>
-			</button>
-		)
-
-	return (
-		<div className='space-y-4'>
-			<div>
-				<label className='block text-sm font-medium text-red-300 mb-2'>
-					<span className='flex items-center gap-2'>
-						<span>📝</span>
-						Причина спора
-					</span>
-				</label>
-				<textarea
-					placeholder='Опишите суть проблемы...'
-					value={reason}
-					onChange={e => setReason(e.target.value)}
-					rows={3}
-					className='w-full p-4 rounded-xl bg-black/60 border border-red-700/50 text-white placeholder-gray-500 focus:border-red-400 focus:ring-2 focus:ring-red-400/30 outline-none transition-all duration-300 resize-none'
-				/>
-			</div>
-
-			<div>
-				<label className='block text-sm font-medium text-red-300 mb-2'>
-					<span className='flex items-center gap-2'>
-						<span>📄</span>
-						Дополнительные детали (опционально)
-					</span>
-				</label>
-				<textarea
-					placeholder='Дополнительная информация, которая поможет разобраться в ситуации...'
-					value={details}
-					onChange={e => setDetails(e.target.value)}
-					rows={4}
-					className='w-full p-4 rounded-xl bg-black/60 border border-red-700/50 text-white placeholder-gray-500 focus:border-red-400 focus:ring-2 focus:ring-red-400/30 outline-none transition-all duration-300 resize-none'
-				/>
-			</div>
-
-			{error && (
-				<div className='bg-red-900/20 border border-red-500/30 rounded-xl p-3'>
-					<p className='text-red-400 text-sm'>{error}</p>
-				</div>
-			)}
-
-			<div className='flex gap-3 pt-2'>
-				<button
-					onClick={handleSubmit}
-					disabled={loading}
-					className='flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100'
-				>
-					{loading ? (
-						<>
-							<span className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin' />
-							<span>Отправка...</span>
-						</>
-					) : (
-						<>
-							<span className='text-lg'>📨</span>
-							<span>Отправить спор</span>
-						</>
-					)}
-				</button>
-
-				<button
-					onClick={() => setIsOpen(false)}
-					disabled={loading}
-					className='px-5 py-3 rounded-xl font-semibold text-gray-300 bg-gray-800/50 border border-gray-700 hover:bg-gray-700/50 hover:border-gray-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]'
-				>
-					Отмена
-				</button>
-			</div>
-		</div>
-	)
-}
-
-// Цвета статусов
-const statusColors: Record<string, string> = {
-	open: 'bg-emerald-900/40 border border-emerald-500/50 text-emerald-300',
-	in_progress: 'bg-yellow-900/40 border border-yellow-500/50 text-yellow-300',
-	completed: 'bg-blue-900/40 border border-blue-500/50 text-blue-300',
-	cancelled: 'bg-red-900/40 border border-red-500/50 text-red-300',
-}
-
-// Названия статусов
-function getStatusName(status: string) {
-	switch (status) {
-		case 'open':
-			return 'Открыта'
-		case 'in_progress':
-			return 'В работе'
-		case 'completed':
-			return 'Выполнена'
-		case 'cancelled':
-			return 'Отменена'
-		default:
-			return status
-	}
-}
-
-// Профиль
-function getUserProfileLink(
-	currentUserId: string | undefined,
-	targetUserId: string
-) {
-	return currentUserId === targetUserId ? '/profile' : `/users/${targetUserId}`
-}
+import { DisputeForm } from './TaskDetailPageContent/DisputeForm'
+import { DisputeStatus } from './TaskDetailPageContent/DisputeStatus'
+import { TaskHeader } from './TaskDetailPageContent/TaskHeader'
+import { TaskInfoPanel } from './TaskDetailPageContent/TaskInfoPanel'
+import { TaskFiles } from './TaskDetailPageContent/TaskFiles'
+import { ReviewSection } from './TaskDetailPageContent/ReviewSection'
+import { ResponsesSection } from './TaskDetailPageContent/ResponsesSection'
+import { TaskActionsSection } from './TaskDetailPageContent/TaskActionsSection'
+import { ResponseFormSection } from './TaskDetailPageContent/ResponseFormSection'
+import { ChatLinkButton } from './TaskDetailPageContent/ChatLinkButton'
+import type { Task, DisputeInfo } from './TaskDetailPageContent/types'
+import { TaskCardSkeleton, InfoPanelSkeleton } from './SkeletonLoader'
 
 export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	const { token, user } = useUser()
-	const [task, setTask] = useState<any>(null)
+	const [task, setTask] = useState<Task | null>(null)
 
 	// Сертификация
 	const [isCertChecking, setIsCertChecking] = useState(false)
@@ -204,14 +41,18 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	}
 	// ✅ Спор
 	const [hasDispute, setHasDispute] = useState(false)
-	const [disputeInfo, setDisputeInfo] = useState<any>(null)
+	const [disputeInfo, setDisputeInfo] = useState<DisputeInfo | null>(null)
 
 	const loadDispute = async () => {
 		if (!token) return
 		try {
-			const res = await fetch(`/api/disputes/by-task/${taskId}`, {
+			const { fetchWithRetry } = await import('@/lib/retry')
+			const res = await fetchWithRetry(`/api/disputes/by-task/${taskId}`, {
 				headers: { Authorization: `Bearer ${token}` },
 				cache: 'no-store',
+			}, {
+				maxRetries: 2,
+				retryDelay: 800,
 			})
 			if (res.ok) {
 				const data = await res.json()
@@ -231,8 +72,12 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 		if (!token) return
 		const fetchTask = async () => {
 			try {
-				const res = await fetch(`/api/tasks/${taskId}`, {
+				const { fetchWithRetry } = await import('@/lib/retry')
+				const res = await fetchWithRetry(`/api/tasks/${taskId}`, {
 					headers: { Authorization: `Bearer ${token}` },
+				}, {
+					maxRetries: 2,
+					retryDelay: 1000,
 				})
 				const data = await res.json()
 				setTask(data.task)
@@ -259,7 +104,8 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 					cache: 'no-store',
 				})
 				const data = await res.json()
-				if (!cancelled) setHasActive(Boolean(data?.has))
+				// Проверяем canTake вместо has - учитываем лимит по уровню
+				if (!cancelled) setHasActive(!data?.canTake)
 			} catch {
 				if (!cancelled) setHasActive(false)
 			} finally {
@@ -298,7 +144,12 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	}, [task, token, user])
 
 	if (!task)
-		return <p className='text-center mt-10 text-gray-400'>Загрузка задачи...</p>
+		return (
+			<div className='max-w-4xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8'>
+				<TaskCardSkeleton />
+				<InfoPanelSkeleton />
+			</div>
+		)
 
 	const isExecutor = user?.id === task.executorId
 	const isCustomer = user?.id === task.customerId
@@ -312,524 +163,63 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	const subcategoryName: string | undefined = task?.subcategory?.name
 	const minPrice: number = task?.subcategory?.minPrice ?? 0
 
+	const taskData: Task = task as Task
+
 	return (
 		<div className='max-w-4xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8 animate-fade-in'>
 			{/* Главная карточка задачи */}
-			<div className='relative overflow-hidden rounded-2xl bg-gradient-to-br from-black/60 via-black/40 to-emerald-900/20 border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.3)] backdrop-blur-sm hover:shadow-[0_0_60px_rgba(16,185,129,0.4)] transition-all duration-500 group'>
-				{/* Декоративные элементы */}
-				<div className='absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-full blur-2xl group-hover:scale-110 transition-transform duration-700' />
-				<div className='absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-500/20 to-transparent rounded-full blur-xl group-hover:scale-110 transition-transform duration-700' />
-
-				<div className='relative p-6 md:p-8 space-y-4 md:space-y-6'>
-					{/* Заголовок с иконкой */}
-					<div className='flex items-start gap-4'>
-						<div className='flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg'>
-							<span className='text-2xl'>📋</span>
-						</div>
-						<div className='flex-1'>
-							<div className='flex items-start justify-between gap-4 mb-2'>
-								<h1 className='text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight flex-1'>
-									{task.title}
-								</h1>
-								{/* Кнопки действий */}
-								<div className='flex items-center gap-2 flex-shrink-0'>
-									{user?.role === 'executor' && (
-										<FavoriteTaskButton 
-											taskId={task.id}
-											size='md'
-											className='p-2 hover:bg-emerald-500/20 rounded-lg'
-										/>
-									)}
-									<button
-										onClick={async () => {
-											const url = getTaskUrl(task.id)
-											const success = await copyToClipboard(url)
-											if (success) {
-												toast.success('Ссылка скопирована')
-											} else {
-												toast.error('Не удалось скопировать ссылку')
-											}
-										}}
-										className='p-2 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-all'
-										title='Копировать ссылку на задачу'
-										aria-label='Копировать ссылку'
-									>
-										<LinkIcon className='w-5 h-5' />
-									</button>
-								</div>
-							</div>
-							<div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-400'>
-								<div className='flex items-center gap-2'>
-									<span className='w-2 h-2 rounded-full bg-emerald-400'></span>
-									<span>Автор</span>
-									<Link
-										href={getUserProfileLink(user?.id, task.customer.id)}
-										className='text-emerald-400 hover:text-emerald-300 font-medium transition-colors'
-									>
-										{task.customer?.fullName || 'Без имени'}
-									</Link>
-								</div>
-								<div className='flex items-center gap-2'>
-									<span className='text-gray-500'>•</span>
-									<span>
-										📅 {new Date(task.createdAt).toLocaleDateString('ru-RU')}
-									</span>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					{/* Описание */}
-					<div className='bg-black/30 rounded-xl p-4 md:p-6 border border-gray-700/50'>
-						<h3 className='text-base md:text-lg font-semibold text-emerald-300 mb-3 flex items-center gap-2'>
-							<span>📝</span>
-							Описание задачи
-						</h3>
-						<p className='text-gray-200 text-base md:text-lg leading-relaxed'>
-							{task.description}
-						</p>
-					</div>
-				</div>
-			</div>
+			<TaskHeader task={taskData} currentUserId={user?.id} />
 
 			{/* Информационная панель */}
-			<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-				{/* Статус */}
-				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] group'>
-					<div className='flex items-center gap-3 mb-3'>
-						<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
-							<span className='text-sm'>📊</span>
-						</div>
-						<h3 className='text-lg font-semibold text-emerald-300'>Статус</h3>
-					</div>
-					<span
-						className={`inline-block px-4 py-2 text-sm rounded-full font-medium ${
-							statusColors[task.status] || ''
-						}`}
-					>
-						{getStatusName(task.status)}
-					</span>
-				</div>
-
-				{/* Подкатегория */}
-				{subcategoryName && (
-					<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-blue-500/20 hover:border-blue-500/40 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(59,130,246,0.2)] group'>
-						<div className='flex items-center gap-3 mb-3'>
-							<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center'>
-								<span className='text-sm'>🏷️</span>
-							</div>
-							<h3 className='text-lg font-semibold text-blue-300'>Категория</h3>
-						</div>
-						<p className='text-gray-200 font-medium mb-2'>{subcategoryName}</p>
-						{minPrice > 0 && (
-							<p className='text-emerald-400 font-semibold text-sm'>
-								💰 Мин. ставка: {minPrice} ₽
-							</p>
-						)}
-					</div>
-				)}
-
-				{/* Исполнитель */}
-				{task.executor && (
-					<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(147,51,234,0.2)] group'>
-						<div className='flex items-center gap-3 mb-3'>
-							<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center'>
-								<span className='text-sm'>👤</span>
-							</div>
-							<h3 className='text-lg font-semibold text-purple-300'>
-								Исполнитель
-							</h3>
-						</div>
-						<Link
-							href={getUserProfileLink(user?.id, task.executor.id)}
-							className='text-emerald-400 hover:text-emerald-300 font-medium transition-colors'
-						>
-							{task.executor.fullName || task.executor.email}
-						</Link>
-					</div>
-				)}
-			</div>
+			<TaskInfoPanel task={taskData} />
 
 			{/* Файлы */}
-			{task.files?.length > 0 && (
-				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-gray-500/20 hover:border-gray-400/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(107,114,128,0.1)]'>
-					<div className='flex items-center gap-3 mb-4'>
-						<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center'>
-							<span className='text-sm'>📎</span>
-						</div>
-						<h3 className='text-lg font-semibold text-gray-300'>
-							Прикрепленные файлы
-						</h3>
-					</div>
-					<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-						{task.files.map((file: any) => {
-							const isImage = file.mimetype?.startsWith('image/')
-							return (
-								<div
-									key={file.id}
-									className='bg-black/30 rounded-lg p-3 md:p-4 border border-gray-600/30 hover:border-gray-500/50 transition-all duration-300 hover:scale-105 hover:shadow-lg'
-								>
-									{isImage ? (
-										<div className='space-y-3'>
-											<img
-												src={`/api/files/${file.id}`}
-												alt={file.filename}
-												className='w-full max-h-48 object-cover rounded-lg border border-gray-600/50'
-											/>
-											<p className='text-sm text-gray-300 font-medium'>
-												{file.filename}
-											</p>
-										</div>
-									) : (
-										<div className='flex items-center gap-3'>
-											<div className='w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
-												<span className='text-lg'>📄</span>
-											</div>
-											<div className='flex-1'>
-												<a
-													href={`/api/files/${file.id}`}
-													download={file.filename}
-													className='text-emerald-300 hover:text-emerald-200 font-medium transition-colors block'
-												>
-													{file.filename}
-												</a>
-												<p className='text-xs text-gray-400'>
-													{Math.round(file.size / 1024)} КБ
-												</p>
-											</div>
-										</div>
-									)}
-								</div>
-							)
-						})}
-					</div>
-				</div>
+			{task.files && task.files.length > 0 && (
+				<TaskFiles files={task.files} />
 			)}
 
 			{/* Действия - только для создателя задачи */}
-			{isCustomer && (
-				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
-					<div className='flex items-center gap-3 mb-4'>
-						<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
-							<span className='text-sm'>⚡</span>
-						</div>
-						<h3 className='text-lg font-semibold text-emerald-300'>Действия</h3>
-					</div>
-					<div className='space-y-4'>
-						<TaskActionsClient
-							taskId={task.id}
-							authorId={task.customerId}
-							status={task.status}
-						/>
-
-						{task.status === 'in_progress' && (
-							<div className='flex flex-wrap gap-3'>
-								<CompleteTaskButton
-									taskId={task.id}
-									authorId={task.customerId}
-								/>
-								<CancelExecutorButton taskId={task.id} />
-							</div>
-						)}
-					</div>
-				</div>
-			)}
+			<TaskActionsSection task={taskData} isCustomer={isCustomer} />
 
 			{/* 🟢 Блок отзывов */}
-			{task.status === 'completed' && (
-				<div className='space-y-6'>
-					{/* ==== Уже оставленный отзыв (только тот, который адресован текущему пользователю) ==== */}
-					{task.review
-						?.filter((r: any) => r.toUserId === user?.id)
-						.map((review: any) => (
-							<div
-								key={review.id}
-								className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'
-							>
-								<div className='flex items-center gap-3 mb-3'>
-									<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
-										<span className='text-sm text-black'>⭐</span>
-									</div>
-									<h3 className='text-lg font-semibold text-emerald-300'>
-										Отзыв{' '}
-										{review.fromUserId === task.customerId
-											? 'заказчика'
-											: 'исполнителя'}
-									</h3>
-								</div>
-
-								<div className='space-y-3'>
-									<div className='flex items-center gap-2'>
-										<span className='text-xl text-yellow-400'>⭐</span>
-										<span className='text-lg font-bold text-yellow-400'>
-											{review.rating}
-										</span>
-										<span className='text-gray-400 text-sm'>/ 5</span>
-									</div>
-
-									<p className='text-gray-200 text-base leading-relaxed italic'>
-										“{review.comment || 'Без комментария'}”
-									</p>
-
-									<div className='flex items-center justify-between text-sm text-gray-500'>
-										<span>
-											📅{' '}
-											{new Date(review.createdAt).toLocaleDateString('ru-RU')}
-										</span>
-										<span className='text-emerald-400'>
-											👤 {review.fromUser?.fullName || 'Пользователь'}
-										</span>
-									</div>
-								</div>
-							</div>
-						))}
-
-					{/* ==== Форма: заказчик -> отзыв исполнителю ==== */}
-					{isCustomer &&
-						!task.review?.some((r: any) => r.fromUserId === user?.id) && (
-							<div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
-								<div className='flex items-center gap-3 mb-4'>
-									<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
-										<span className='text-sm text-black'>⭐</span>
-									</div>
-									<h3 className='text-lg font-semibold text-emerald-300'>
-										Оставить отзыв исполнителю
-									</h3>
-								</div>
-								<ReviewForm taskId={task.id} />
-							</div>
-						)}
-
-					{/* ==== Форма: исполнитель -> отзыв заказчику ==== */}
-					{isExecutor &&
-						!isCustomer &&
-						!task.review?.some((r: any) => r.fromUserId === user?.id) && (
-							<div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
-								<div className='flex items-center gap-3 mb-4'>
-									<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
-										<span className='text-sm text-black'>⭐</span>
-									</div>
-									<h3 className='text-lg font-semibold text-emerald-300'>
-										Оставить отзыв заказчику
-									</h3>
-								</div>
-								<ReviewForm taskId={task.id} />
-							</div>
-						)}
-				</div>
-			)}
+			<ReviewSection
+				task={taskData}
+				currentUserId={user?.id}
+				isCustomer={isCustomer}
+				isExecutor={isExecutor}
+			/>
 
 			{/* Форма отклика */}
 			{user?.role === 'executor' &&
 				task.status === 'open' &&
 				!task.executorId && (
-					<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
-						<div className='flex items-center gap-3 mb-4'>
-							<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
-								<span className='text-sm'>✍️</span>
-							</div>
-							<h3 className='text-lg font-semibold text-emerald-300'>
-								Откликнуться на задачу
-							</h3>
-						</div>
-
-						{loadingActive ? (
-							<div className='flex items-center gap-3 text-gray-400'>
-								<div className='w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin'></div>
-								<span>Проверка доступности отклика…</span>
-							</div>
-						) : hasActive ? (
-							<div className='bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4'>
-								<div className='flex items-center gap-3 text-yellow-300'>
-									<span className='text-lg'>⚠️</span>
-									<span>
-										У вас уже есть активная задача. Завершите её, чтобы
-										откликнуться на новые.
-									</span>
-								</div>
-							</div>
-						) : isCertChecking ? (
-							<div className='flex items-center gap-3 text-gray-400'>
-								<div className='w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin'></div>
-								<span>Проверка сертификации…</span>
-							</div>
-						) : (
-							<ResponseForm
-								taskId={task.id}
-								minPrice={minPrice}
-								isCertified={isCertified}
-								subcategoryId={subcategoryId}
-								subcategoryName={subcategoryName}
-							/>
-						)}
-					</div>
+					<ResponseFormSection
+						taskId={task.id}
+						minPrice={minPrice}
+						isCertified={isCertified}
+						subcategoryId={subcategoryId}
+						subcategoryName={subcategoryName}
+						loadingActive={loadingActive}
+						hasActive={hasActive}
+						isCertChecking={isCertChecking}
+					/>
 				)}
 
 			{/* Отклики */}
-			{isCustomer && (
-				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
-					<div className='flex items-center gap-3 mb-6'>
-						<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
-							<span className='text-sm'>💬</span>
-						</div>
-						<h3 className='text-lg font-semibold text-emerald-300'>
-							Отклики исполнителей
-						</h3>
-						<span className='bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-full text-sm font-medium'>
-							{task.responses.length}
-						</span>
-					</div>
-
-					{task.responses.length === 0 ? (
-						<div className='text-center py-8'>
-							<div className='w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800/50 flex items-center justify-center'>
-								<span className='text-2xl text-gray-500'>💭</span>
-							</div>
-							<p className='text-gray-500 text-lg'>Пока нет откликов</p>
-							<p className='text-gray-600 text-sm mt-1'>
-								Исполнители смогут откликнуться на вашу задачу
-							</p>
-						</div>
-					) : (
-						<div className='space-y-4'>
-							{task.responses.map((response: any) => (
-								<div
-									key={response.id}
-									className='bg-black/30 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] hover:scale-[1.02]'
-								>
-									<div className='flex items-start justify-between mb-4'>
-										<div className='flex items-center gap-3'>
-											<div className='w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
-												<span className='text-lg'>👤</span>
-											</div>
-											<div>
-												<Link
-													href={getUserProfileLink(user?.id, response.user.id)}
-													className='text-emerald-400 hover:text-emerald-300 font-semibold text-lg transition-colors'
-												>
-													{response.user.fullName || response.user.email}
-												</Link>
-												<p className='text-sm text-gray-400'>
-													📅{' '}
-													{new Date(response.createdAt).toLocaleDateString(
-														'ru-RU'
-													)}
-												</p>
-											</div>
-										</div>
-										{response.price && (
-											<div className='bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-sm font-semibold'>
-												💰 {response.price} ₽
-											</div>
-										)}
-									</div>
-
-									{response.message && (
-										<div className='bg-black/20 rounded-lg p-3 md:p-4 mb-4'>
-											<p className='text-gray-200 leading-relaxed'>
-												{response.message}
-											</p>
-										</div>
-									)}
-
-									{task.status === 'open' && isCustomer && (
-										<div className='flex justify-end'>
-											<AssignExecutorButton
-												taskId={task.id}
-												executorId={response.userId}
-											/>
-										</div>
-									)}
-								</div>
-							))}
-						</div>
-					)}
-				</div>
-			)}
+			<ResponsesSection
+				task={taskData}
+				currentUserId={user?.id}
+				isCustomer={isCustomer}
+			/>
 
 			{/* Кнопка перехода в чат по задаче */}
 			{canChat && (
-				<Link
-					href={`/chats?taskId=${task.id}`}
-					className='block bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] group'
-				>
-					<div className='flex items-center justify-between'>
-						<div className='flex items-center gap-3'>
-							<div className='w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform'>
-								<span className='text-lg'>💬</span>
-							</div>
-							<div>
-								<h3 className='text-lg font-semibold text-emerald-300 group-hover:text-emerald-400 transition-colors'>
-									Чат по задаче
-								</h3>
-								<p className='text-sm text-gray-400'>
-									Общайтесь с {isCustomer ? 'исполнителем' : 'заказчиком'} в реальном времени
-								</p>
-							</div>
-						</div>
-						<svg 
-							className='w-6 h-6 text-emerald-400 group-hover:translate-x-1 transition-transform' 
-							fill='none' 
-							stroke='currentColor' 
-							viewBox='0 0 24 24'
-						>
-							<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
-						</svg>
-					</div>
-				</Link>
+				<ChatLinkButton taskId={task.id} isCustomer={isCustomer} />
 			)}
 
 			{/* ⚖️ Отображение статуса спора */}
-			{hasDispute && disputeInfo?.status === 'open' && (
-				<div className='mt-6 p-5 rounded-xl bg-yellow-900/20 border border-yellow-700/40 backdrop-blur-sm shadow-[0_0_15px_rgba(234,179,8,0.1)]'>
-					<h2 className='text-lg font-semibold text-yellow-400 mb-2 flex items-center gap-2'>
-						⚖️ Спор на рассмотрении
-					</h2>
-					<p className='text-gray-300 leading-relaxed'>
-						Администратор изучает материалы по задаче. Пожалуйста, ожидайте
-						решения — как только оно будет принято, вы увидите его здесь.
-					</p>
-				</div>
-			)}
-
-			{hasDispute && disputeInfo?.status === 'resolved' && (
-				<div className='mt-6 p-5 rounded-xl bg-emerald-900/20 border border-emerald-600/40 backdrop-blur-sm shadow-[0_0_20px_rgba(16,185,129,0.25)]'>
-					<h2 className='text-lg font-semibold text-emerald-400 mb-3 flex items-center gap-2'>
-						✅ Решение администратора
-					</h2>
-					<p className='text-gray-200 mb-1'>
-						Спор решён{' '}
-						<span className='font-semibold text-emerald-400'>
-							{disputeInfo.adminDecision === 'customer'
-								? 'в пользу заказчика'
-								: 'в пользу исполнителя'}
-						</span>
-					</p>
-					{disputeInfo.resolution ? (
-						<blockquote className='text-gray-300 italic border-l-4 border-emerald-500/60 pl-3 mt-2'>
-							«{disputeInfo.resolution}»
-						</blockquote>
-					) : (
-						<p className='text-gray-500 italic mt-2'>
-							Комментарий администратора отсутствует.
-						</p>
-					)}
-					<p className='text-xs text-gray-500 mt-3 italic'>
-						Система автоматически обновила статус задачи на основании решения
-						администратора.
-					</p>
-				</div>
-			)}
-
-			{hasDispute && disputeInfo?.status === 'rejected' && (
-				<div className='mt-6 p-5 rounded-xl bg-red-900/20 border border-red-700/40 backdrop-blur-sm shadow-[0_0_15px_rgba(239,68,68,0.15)]'>
-					<h2 className='text-lg font-semibold text-red-400 mb-2 flex items-center gap-2'>
-						❌ Спор отклонён
-					</h2>
-					<p className='text-gray-300 leading-relaxed'>
-						Администратор отклонил спор. Решение считается окончательным.
-					</p>
-				</div>
+			{hasDispute && disputeInfo && (
+				<DisputeStatus disputeInfo={disputeInfo} />
 			)}
 
 		{/* 💥 Кнопка открытия спора */}

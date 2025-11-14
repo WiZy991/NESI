@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { createNotificationWithSettings } from '@/lib/notify'
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request, context: { params: { id: string } }) {
   try {
@@ -106,14 +107,25 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       })
       }
       
-      console.log('✅ Уведомление о новом отклике отправлено заказчику:', task.customerId)
+      logger.debug('Уведомление о новом отклике отправлено заказчику', {
+        customerId: task.customerId,
+        taskId,
+        executorId: user.id,
+      })
     } catch (notifError) {
-      console.error('❌ Ошибка отправки уведомления о новом отклике:', notifError)
+      logger.error('Ошибка отправки уведомления о новом отклике', notifError, {
+        customerId: task.customerId,
+        taskId,
+        executorId: user.id,
+      })
     }
 
     return NextResponse.json({ ok: true, response })
   } catch (e) {
-    console.error('POST /api/tasks/[id]/respond error:', e)
+    logger.error('POST /api/tasks/[id]/respond error', e, {
+      taskId: context.params.id,
+      userId: user?.id,
+    })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

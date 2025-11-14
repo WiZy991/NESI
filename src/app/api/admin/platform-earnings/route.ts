@@ -2,6 +2,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import { toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
 	try {
@@ -140,7 +141,7 @@ export async function GET(req: NextRequest) {
 			})),
 		})
 	} catch (err) {
-		console.error('Ошибка получения статистики платформы:', err)
+		logger.error('Ошибка получения статистики платформы', err)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

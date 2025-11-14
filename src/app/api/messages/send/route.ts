@@ -6,7 +6,65 @@ import prisma from '@/lib/prisma'
 import { createUserRateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 import { validateFile } from '@/lib/fileValidation'
 import { normalizeFileName, isValidFileName, sanitizeText, validateStringLength } from '@/lib/security'
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+
+// Функция для проверки, является ли сообщение голосовым
+function isVoiceMessage(content: string | null | undefined): boolean {
+	if (!content || typeof content !== 'string') return false
+	try {
+		// Пробуем распарсить как JSON
+		let parsed
+		try {
+			parsed = JSON.parse(content)
+		} catch {
+			// Если не получилось, пробуем заменить экранированные кавычки
+			const unescaped = content.replace(/&quot;/g, '"')
+			parsed = JSON.parse(unescaped)
+		}
+		return (
+			parsed &&
+			parsed.type === 'voice' &&
+			typeof parsed.duration === 'number' &&
+			Array.isArray(parsed.waveform)
+		)
+	} catch {
+		return false
+	}
+}
+
+// Функция для декодирования HTML entities (серверная версия)
+function decodeHtmlEntities(text: string): string {
+	if (!text) return text
+	return text
+		.replace(/&quot;/g, '"')
+		.replace(/&#x2F;/g, '/')
+		.replace(/&#x2f;/g, '/')
+		.replace(/&amp;/g, '&')
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&#39;/g, "'")
+		.replace(/&apos;/g, "'")
+		.replace(/&#x27;/g, "'")
+}
+
+// Функция для форматирования текста уведомления
+function formatNotificationMessage(
+	content: string | null | undefined,
+	fileName: string | null | undefined
+): string {
+	if (!content && !fileName) return 'Новое сообщение'
+	if (fileName) return `Файл: ${fileName}`
+	if (!content) return 'Новое сообщение'
+	
+	// Проверяем, является ли сообщение голосовым
+	if (isVoiceMessage(content)) {
+		return '🎤 Голосовое сообщение'
+	}
+	
+	// Декодируем HTML entities
+	return decodeHtmlEntities(content)
+}
 
 export const runtime = 'nodejs'
 
@@ -194,9 +252,9 @@ export async function POST(req: NextRequest) {
 					)
 				}
 			} catch (validationError: any) {
-				console.error('❌ Ошибка валидации replyToId:', validationError)
+				logger.error('Ошибка валидации replyToId', validationError, { replyToId, recipientId, userId: me.id })
 				return NextResponse.json(
-					{ error: 'Ошибка проверки сообщения для ответа', details: validationError.message },
+					{ error: 'Ошибка проверки сообщения для ответа' },
 					{ status: 500 }
 				)
 			}
@@ -271,7 +329,7 @@ export async function POST(req: NextRequest) {
 		} catch (prismaError: any) {
 			// Если ошибка из-за Unknown argument replyToId, создаем без него и обновляем через SQL
 			if (prismaError.message?.includes('Unknown argument') && prismaError.message?.includes('replyToId')) {
-				console.warn('⚠️ Prisma Client не поддерживает replyToId, используем SQL обновление')
+				logger.warn('Prisma Client не поддерживает replyToId, используем SQL обновление')
 				
 				// Создаем сообщение без replyToId
 				const messageDataWithoutReply = { ...messageData }
@@ -365,7 +423,7 @@ export async function POST(req: NextRequest) {
 			throw new Error('Не удалось создать сообщение')
 		}
 		} catch (createError: any) {
-			console.error('❌ Ошибка создания приватного сообщения:', createError)
+			logger.error('Ошибка создания приватного сообщения', createError, { recipientId, userId: me.id })
 			
 			// Если это ошибка Prisma о foreign key, даем более понятное сообщение
 			if (createError.code === 'P2003' || createError.message?.includes('Foreign key constraint')) {
@@ -427,14 +485,12 @@ export async function POST(req: NextRequest) {
 			})
 		}
 
-	console.log('🔔 Подготовка уведомления для получателя:', recipientId)
+	logger.debug('Подготовка уведомления для получателя', { recipientId, senderId: me.id })
 	
 	// Создаем уведомление в базе данных
-	const notificationMessage = `${msg.sender.fullName || msg.sender.email}: ${
-		content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение')
-	}`
+	const formattedContent = formatNotificationMessage(content, fileName || null)
+	const notificationMessage = `${msg.sender.fullName || msg.sender.email}: ${formattedContent}`
 	
-	console.log('💾 Сохраняю уведомление в БД...')
 	const dbNotification = await createNotificationWithSettings({
 		userId: recipientId,
 		message: notificationMessage,
@@ -444,18 +500,18 @@ export async function POST(req: NextRequest) {
 	
 	// Если уведомление отключено в настройках, не отправляем SSE
 	if (!dbNotification) {
-		console.log('🔕 Уведомление отключено в настройках пользователя')
+		logger.debug('Уведомление отключено в настройках пользователя', { recipientId })
 		return NextResponse.json(result, { status: 201 })
 	}
 	
-	console.log('✅ Уведомление сохранено в БД, ID:', dbNotification.id)
+	logger.debug('Уведомление сохранено в БД', { notificationId: dbNotification.id, recipientId })
 
 	// Отправляем уведомление получателю в реальном времени
 	const sseNotification = {
 		id: dbNotification.id, // Включаем ID из БД для дедупликации
 		type: 'message',
 		title: 'Новое сообщение',
-		message: content || (fileName ? `Файл: ${fileName}` : 'Новое сообщение'),
+		message: formattedContent,
 		sender: msg.sender.fullName || msg.sender.email,
 		senderId: msg.sender.id,
 		chatType: 'private',
@@ -467,20 +523,38 @@ export async function POST(req: NextRequest) {
 		link: `/chats?open=${me.id}`,
 	}
 	
-	console.log('📡 Отправка SSE уведомления:', sseNotification)
 	const sent = sendNotificationToUser(recipientId, sseNotification)
-	console.log('📨 Результат отправки SSE:', sent ? 'успешно' : 'ошибка')
-
-	console.log('📨 Сообщение отправлено и уведомление разослано:', {
+	
+	// 🔄 Синхронизация между устройствами: отправляем сообщение и отправителю
+	// Это позволяет видеть отправленные сообщения на всех устройствах в реальном времени
+	sendNotificationToUser(me.id, {
+		type: 'messageSent',
+		title: 'Сообщение отправлено',
+		message: formattedContent,
+		sender: msg.sender.fullName || msg.sender.email,
+		senderId: msg.sender.id,
+		recipientId: recipientId,
+		chatType: 'private',
+		chatId: `private_${recipientId}`,
+		messageId: msg.id,
+		messageData: result, // Полные данные сообщения для синхронизации
+		hasFile: !!fileUrl,
+		fileName: fileName,
+		link: `/chats?open=${recipientId}`,
+		playSound: false, // Не воспроизводим звук для собственных сообщений
+	})
+	
+	logger.debug('Сообщение отправлено и уведомление разослано', {
 		senderId: me.id,
 		recipientId,
 		messageId: msg.id,
 		sseSent: sent,
+		syncedToSender: true,
 	})
 
 		return NextResponse.json(result, { status: 201 })
 	} catch (err) {
-		console.error('🔥 Ошибка при отправке сообщения:', err)
+		logger.error('Ошибка при отправке сообщения', err)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

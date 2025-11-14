@@ -8,6 +8,7 @@ import {
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(
 	req: Request,
@@ -18,9 +19,30 @@ export async function POST(
 		if (!customer)
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-		const { executorId, price } = await req.json()
-		if (!executorId || !price)
-			return NextResponse.json({ error: 'Данные не указаны' }, { status: 400 })
+		let body: { executorId?: string; price?: unknown }
+		try {
+			body = await req.json()
+		} catch (error) {
+			return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+		}
+
+		const { executorId, price } = body
+
+		// Валидация executorId
+		if (!executorId || typeof executorId !== 'string' || !executorId.trim()) {
+			return NextResponse.json(
+				{ error: 'ID исполнителя обязателен' },
+				{ status: 400 }
+			)
+		}
+
+		// Валидация price
+		if (!price) {
+			return NextResponse.json(
+				{ error: 'Цена обязательна' },
+				{ status: 400 }
+			)
+		}
 
 		// Парсим цену
 		const parsedPrice = parseUserInput(price)
@@ -85,7 +107,11 @@ export async function POST(
 
 		return NextResponse.json({ task })
 	} catch (err) {
-		console.error('Ошибка при назначении исполнителя:', err)
+		logger.error('Ошибка при назначении исполнителя', err, {
+			taskId: params?.id,
+			customerId: customer?.id,
+			executorId,
+		})
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

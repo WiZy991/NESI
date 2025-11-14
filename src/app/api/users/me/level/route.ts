@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromToken } from '@/lib/auth'
 import { getLevelFromXP, getNextLevel } from '@/lib/level/calculate'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
   try {
@@ -79,7 +80,12 @@ export async function GET(req: NextRequest) {
         return true
       }
       // Исключаем неправильно присвоенные достижения
-      console.log(`[Level API] Исключаем достижение "${badge.name}" (targetRole: ${badge.targetRole}, роль пользователя: ${user.role})`)
+      logger.debug('Исключаем достижение', {
+        badgeName: badge.name,
+        badgeTargetRole: badge.targetRole,
+        userRole: user.role,
+        userId: user.id,
+      })
       return false
     })
 
@@ -129,7 +135,7 @@ export async function GET(req: NextRequest) {
       }
     })
   } catch (e) {
-    console.error('GET /api/users/me/level error:', e)
+    logger.error('GET /api/users/me/level error', e)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import { logActivity } from '@/lib/antifraud'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 const VALID_COLUMNS = new Set(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const)
 
@@ -123,7 +124,7 @@ export async function PATCH(req: NextRequest) {
 			)
 		)
 	} catch (error) {
-		console.error('Ошибка обновления executor kanban:', error)
+		logger.error('Ошибка обновления executor kanban', error, { userId: user?.id, updatesCount: sanitized.length })
 		return NextResponse.json({ error: 'Не удалось обновить канбан' }, { status: 500 })
 	}
 

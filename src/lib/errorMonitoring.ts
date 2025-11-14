@@ -3,6 +3,8 @@
  * В продакшене можно интегрировать Sentry или другой сервис
  */
 
+import { clientLogger } from './clientLogger'
+
 export interface ErrorContext {
   userId?: string
   url?: string
@@ -45,11 +47,11 @@ export async function reportError(
       })
     } else {
       // В разработке просто логируем
-      console.error('🚨 Error:', errorData)
+      clientLogger.error('Error reported', error instanceof Error ? error : new Error(String(error)), errorData)
     }
   } catch (err) {
     // Игнорируем ошибки при логировании
-    console.error('Failed to report error:', err)
+    clientLogger.error('Failed to report error', err instanceof Error ? err : new Error(String(err)))
   }
 }
 
@@ -67,7 +69,7 @@ export function trackWebVitals(metric: any) {
     //   metric_delta: metric.delta,
     // })
     
-    console.log('📊 Web Vital:', {
+    clientLogger.debug('Web Vital metric', {
       name: metric.name,
       value: metric.value,
       id: metric.id,

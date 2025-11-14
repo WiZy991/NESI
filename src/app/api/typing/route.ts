@@ -2,6 +2,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import { getChatKey, updateChatActivity } from '@/lib/chatActivity'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotificationToUser } from '../notifications/stream/route'
+import { logger } from '@/lib/logger'
 
 type ChatType = 'private' | 'task'
 
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
 			typingStates.delete(typingKey)
 
 			if (wasTyping || options.forceBroadcast) {
-				console.log('⌨️ Событие остановки набора:', {
+				logger.debug('Событие остановки набора', {
 					senderId: user.id,
 					recipientId,
 					chatType,
@@ -153,14 +154,14 @@ export async function POST(req: NextRequest) {
 					chatId: broadcastChatId,
 				})
 
-				console.log('⌨️ Событие набора отправлено:', {
+				logger.debug('Событие набора отправлено', {
 					senderId: user.id,
 					recipientId,
 					chatType,
 					chatId: broadcastChatId,
 				})
 			} else {
-				console.log('⌨️ Событие набора пропущено (дебаунс):', {
+				logger.debug('Событие набора пропущено (дебаунс)', {
 					senderId: user.id,
 					recipientId,
 					chatType,
@@ -174,7 +175,11 @@ export async function POST(req: NextRequest) {
 
 			const timeout = setTimeout(() => {
 				stopTyping('timeout').catch(error =>
-					console.error('Ошибка auto-stop typing:', error)
+					logger.error('Ошибка auto-stop typing', error, {
+						senderId: user.id,
+						recipientId,
+						chatType,
+					})
 				)
 			}, AUTO_STOP_MS)
 
@@ -197,7 +202,7 @@ export async function POST(req: NextRequest) {
 
 		return NextResponse.json({ success: true })
 	} catch (error) {
-		console.error('Ошибка отправки события набора:', error)
+		logger.error('Ошибка отправки события набора', error)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

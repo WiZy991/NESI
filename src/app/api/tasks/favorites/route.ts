@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 // GET /api/tasks/favorites - Получить все избранные задачи пользователя
 export async function GET(req: Request) {
@@ -87,7 +88,9 @@ export async function GET(req: Request) {
       },
     })
   } catch (error: any) {
-    console.error('Ошибка при получении избранных задач:', error)
+    logger.error('Ошибка при получении избранных задач', error, {
+      userId: user?.id,
+    })
     return NextResponse.json(
       { error: error.message || 'Ошибка при получении избранных задач' },
       { status: 500 }

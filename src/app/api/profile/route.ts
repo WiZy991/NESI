@@ -2,6 +2,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { randomUUID } from 'crypto'
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import { Buffer } from 'node:buffer'
 
@@ -65,7 +66,7 @@ export async function GET(req: Request) {
 									icon: true,
 									targetRole: true, // Добавляем targetRole для фильтрации
 									condition: true, // Добавляем condition для проверки универсальных badges
-								} as any,
+								},
 							},
 						},
 						orderBy: { earnedAt: 'desc' },
@@ -146,54 +147,42 @@ export async function GET(req: Request) {
 			? `/api/files/${fullUser.avatarFileId}`
 			: null
 
-		// 4️⃣ Добавляем статистику для заказчика
+		// 4️⃣ Добавляем статистику для заказчика (оптимизировано - один запрос вместо нескольких)
 		let customerStats = null
 		if (fullUser.role === 'customer') {
-			const [
-				createdTasksCount,
-				completedTasksCount,
-				totalSpentResult,
-				uniqueExecutorsResult,
-			] = await Promise.all([
-				// Созданные задачи
-				prisma.task.count({
+			// Используем один запрос с агрегацией вместо множественных запросов
+			const [taskStats, totalSpentResult, uniqueExecutorsResult] = await Promise.all([
+				// Агрегируем задачи заказчика одним запросом
+				prisma.task.groupBy({
+					by: ['status'],
 					where: { customerId: user.id },
+					_count: { id: true },
 				}),
-				// Завершенные задачи
-				prisma.task.count({
-					where: {
-						customerId: user.id,
-						status: 'completed',
-					},
-				}),
-				// Сумма всех расходов заказчика (транзакции типа 'payment' с отрицательным amount)
+				// Сумма всех расходов заказчика
 				prisma.transaction.aggregate({
 					where: {
 						userId: user.id,
 						type: 'payment',
-						amount: { lt: 0 }, // Только отрицательные (расходы)
+						amount: { lt: 0 },
 					},
-					_sum: {
-						amount: true,
-					},
+					_sum: { amount: true },
 				}),
-				// Уникальные исполнители (только по завершенным задачам)
+				// Уникальные исполнители через distinct
 				prisma.task.findMany({
 					where: {
 						customerId: user.id,
 						executorId: { not: null },
 						status: 'completed',
 					},
-					select: {
-						executorId: true,
-					},
+					select: { executorId: true },
 					distinct: ['executorId'],
 				}),
 			])
 
+			// Вычисляем статистику из группировки
+			const createdTasksCount = taskStats.reduce((sum, stat) => sum + stat._count.id, 0)
+			const completedTasksCount = taskStats.find(s => s.status === 'completed')?._count.id || 0
 			const uniqueExecutors = uniqueExecutorsResult.length
-
-			// Вычисляем totalSpent из суммы всех отрицательных транзакций типа 'payment'
 			const totalSpent = totalSpentResult._sum.amount
 				? Math.abs(Number(totalSpentResult._sum.amount))
 				: 0
@@ -333,7 +322,7 @@ export async function GET(req: Request) {
 			},
 		})
 	} catch (error) {
-		console.error('❌ Ошибка загрузки профиля:', error)
+		logger.error('Ошибка загрузки профиля', error, { userId: user?.id })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }
@@ -477,11 +466,10 @@ export async function PATCH(req: Request) {
 						const arrayBuffer = await avatar.arrayBuffer()
 						bytes = Buffer.from(arrayBuffer)
 					} catch (bufferError: any) {
-						console.error('❌ Ошибка при чтении файла в буфер:', bufferError)
+						logger.error('Ошибка при чтении файла в буфер', bufferError, { userId: user.id })
 						return NextResponse.json(
 							{
 								error: 'Ошибка при обработке файла',
-								details: bufferError.message,
 							},
 							{ status: 500 }
 						)
@@ -503,17 +491,10 @@ export async function PATCH(req: Request) {
 
 					dataToUpdate.avatarFileId = savedFile.id
 				} catch (avatarError: any) {
-					console.error('❌ Ошибка при сохранении аватара:', avatarError)
-					console.error('❌ Детали ошибки аватара:', {
-						message: avatarError.message,
-						stack: avatarError.stack,
-						name: avatarError.name,
-						code: avatarError.code,
-					})
+					logger.error('Ошибка при сохранении аватара', avatarError, { userId: user.id })
 					return NextResponse.json(
 						{
 							error: 'Ошибка при сохранении аватара',
-							details: avatarError.message || 'Неизвестная ошибка',
 						},
 						{ status: 500 }
 					)
@@ -614,16 +595,10 @@ export async function PATCH(req: Request) {
 
 		return NextResponse.json({ user: { ...updatedUser, avatarUrl } })
 	} catch (err: any) {
-		console.error('❌ Ошибка обновления профиля:', err)
-		console.error('❌ Детали ошибки:', {
-			message: err.message,
-			stack: err.stack,
-			name: err.name,
-		})
+		logger.error('Ошибка обновления профиля', err, { userId: user?.id })
 		return NextResponse.json(
 			{
 				error: 'Ошибка обновления профиля',
-				details: err.message || 'Неизвестная ошибка',
 			},
 			{ status: 500 }
 		)

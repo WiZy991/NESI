@@ -3,6 +3,7 @@ import { isPositiveAmount, parseUserInput, toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
 	try {
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
 			balance: toNumber(updated.balance),
 		})
 	} catch (err) {
-		console.error('Ошибка пополнения:', err)
+		logger.error('Ошибка пополнения баланса', err, { userId: user?.id })
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

@@ -81,7 +81,7 @@ export async function GET(req: Request) {
 
 		return response
 	} catch (e) {
-		console.error('/api/users error:', e)
+		logger.error('Ошибка получения пользователей', e)
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }

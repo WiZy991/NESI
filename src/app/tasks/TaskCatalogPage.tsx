@@ -785,6 +785,7 @@ export default function TaskCatalogPage() {
 																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors whitespace-normal break-normal'>
 																	{task.title}
 																</h3>
+																{task.createdAt && (
 																<p className='text-xs text-slate-400 mt-1'>
 																	{new Date(task.createdAt).toLocaleDateString(
 																		'ru-RU',
@@ -794,17 +795,11 @@ export default function TaskCatalogPage() {
 																		}
 																	)}
 																</p>
+																)}
 															</div>
 
-															<div
-																className='relative flex flex-col items-end text-right gap-1 w-full sm:w-auto sm:min-w-[110px] sm:self-start px-1 sm:px-0 sm:shrink-0'
-																onMouseLeave={() => {
-																	if (activeReasonId === reasonsKey) {
-																		setActiveReasonId(null)
-																	}
-																}}
-																onClick={e => e.stopPropagation()}
-															>
+															<div className='flex-1 min-w-0'>
+																<div className='flex flex-col items-end text-right gap-1'>
 																<span className='block text-[9px] uppercase tracking-[0.18em] text-emerald-300/60 whitespace-nowrap'>
 																	Рейтинг релевантности
 																</span>
@@ -826,77 +821,60 @@ export default function TaskCatalogPage() {
 																			width: `${normalizedScore}%`,
 																		}}
 																	/>
+																	</div>
 																</div>
-																{recommendation.reasons?.length ? (
-																	<>
-																		<button
-																			type='button'
-																			className='text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none'
-																			onMouseEnter={() =>
-																				setActiveReasonId(reasonsKey)
-																			}
-																			onFocus={() =>
-																				setActiveReasonId(reasonsKey)
-																			}
-																			onBlur={() => {
-																				if (activeReasonId === reasonsKey) {
-																					setActiveReasonId(null)
-																				}
-																			}}
-																			onClick={() =>
-																				setActiveReasonId(prev =>
-																					prev === reasonsKey
-																						? null
-																						: reasonsKey
-																				)
-																			}
-																		>
-																			Почему подобрали
-																		</button>
-																		<div
-																			onMouseEnter={() =>
-																				setActiveReasonId(reasonsKey)
-																			}
-																			onMouseLeave={() => {
-																				if (activeReasonId === reasonsKey) {
-																					setActiveReasonId(null)
-																				}
-																			}}
-																			className={`absolute z-30 top-[calc(100%+0.5rem)] right-0 w-60 rounded-xl border border-emerald-500/25 bg-slate-950/95 px-3 py-3 text-left shadow-[0_18px_40px_rgba(16,185,129,0.25)] transition-all duration-150 ${
-																				showReasons
-																					? 'opacity-100 visible pointer-events-auto'
-																					: 'opacity-0 invisible pointer-events-none'
-																			}`}
-																		>
-																			<div className='text-[10px] uppercase tracking-[0.12em] text-emerald-300/60 mb-2'>
+																</div>
+															{recommendation.reasons?.length ? (
+																<div className='w-full'>
+																	<button
+																		type='button'
+																		className='inline-block text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none text-left'
+																		onMouseEnter={() =>
+																			setActiveReasonId(reasonsKey)
+																		}
+																		onMouseLeave={() =>
+																			setActiveReasonId(null)
+																		}
+																		onFocus={() =>
+																			setActiveReasonId(reasonsKey)
+																		}
+																		onBlur={() => {
+																			setActiveReasonId(null)
+																		}}
+																	>
+																		Почему подобрали
+																	</button>
+																	{showReasons && (
+																		<div className='mt-2 w-full rounded-lg border border-emerald-500/30 bg-slate-950/98 backdrop-blur-md px-3 py-2.5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)]'>
+																			<div className='text-[10px] uppercase tracking-wider text-emerald-400/80 mb-2 font-semibold'>
 																				Почему подобрали
 																			</div>
+																			<div className='space-y-1.5'>
 																			{recommendation.reasons
 																				.slice(0, 3)
-																				.map(reason => (
+																					.map((reason, idx) => (
 																					<div
-																						key={`${task.id}-popover-${reason}`}
-																						className='flex gap-2 text-[11px] text-emerald-100/85'
+																							key={`${task.id}-popover-${idx}-${reason}`}
+																							className='text-[11px] text-emerald-100/95 leading-relaxed break-words'
 																					>
-																						<span className='text-emerald-400/80'>
-																							•
-																						</span>
-																						<span className='flex-1'>
 																							{reason}
-																						</span>
 																					</div>
 																				))}
-																			{recommendation.reasons.length > 3 ? (
-																				<div className='text-[10px] text-emerald-300/45 mt-2'>
-																					и ещё{' '}
-																					{recommendation.reasons.length - 3}{' '}
-																					фактора
+																				{recommendation.reasons.length > 3 && (
+																					<div className='text-[10px] text-emerald-300/60 mt-2 pt-2 border-t border-emerald-500/20'>
+																						И ещё {recommendation.reasons.length - 3}{' '}
+																						{recommendation.reasons.length - 3 === 1
+																							? 'фактор'
+																							: recommendation.reasons.length - 3 < 5
+																							? 'фактора'
+																							: 'факторов'}
 																				</div>
-																			) : null}
+																				)}
 																		</div>
-																	</>
-																) : null}
 															</div>
+																	)}
+																</div>
+															) : null}
 
 														</div>
 
@@ -906,7 +884,18 @@ export default function TaskCatalogPage() {
 														{task.price && (
 															<p className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm font-semibold'>
 																<span>💰</span>
-																<span>{task.price} ₽</span>
+																<span>
+																	{typeof task.price === 'number'
+																		? task.price.toLocaleString('ru-RU', {
+																				minimumFractionDigits: 0,
+																				maximumFractionDigits: 0,
+																		  })
+																		: Number(task.price || 0).toLocaleString('ru-RU', {
+																				minimumFractionDigits: 0,
+																				maximumFractionDigits: 0,
+																		  })}{' '}
+																	₽
+																</span>
 															</p>
 														)}
 
@@ -1056,7 +1045,9 @@ export default function TaskCatalogPage() {
 											<span>{task.customer?.fullName || 'Без имени'}</span>
 											<span className='text-gray-600'>•</span>
 											<span className='text-gray-500'>📅</span>
-											{new Date(task.createdAt).toLocaleDateString('ru-RU')}
+											{task.createdAt
+												? new Date(task.createdAt).toLocaleDateString('ru-RU')
+												: '—'}
 										</p>
 									</div>
 								</div>

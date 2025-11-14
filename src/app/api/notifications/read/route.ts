@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -52,7 +53,12 @@ export async function POST(req: Request) {
       updated: result.count 
     })
   } catch (error: any) {
-    console.error('Ошибка пометки уведомлений как прочитанных:', error)
+    logger.error('Ошибка пометки уведомлений как прочитанных', error, {
+      userId: user?.id,
+      messageId,
+      chatType,
+      chatId,
+    })
     return NextResponse.json(
       { error: 'Ошибка сервера', details: error.message },
       { status: 500 }

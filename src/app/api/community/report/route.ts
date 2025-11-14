@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   try { 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    console.log('✅ Жалоба создана:', {
+    logger.info('Жалоба создана', {
       id: report.id,
       type: report.type,
       postId: report.postId,
@@ -49,11 +50,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, report })
   } catch (err: any) {
-    console.error('🔥 Ошибка отправки жалобы:', {
+    logger.error('Ошибка отправки жалобы', err, {
       message: err?.message,
       code: err?.code,
       meta: err?.meta,
-      stack: err?.stack,
     })
     return NextResponse.json({ 
       error: err?.message || 'Ошибка сервера при обработке жалобы',

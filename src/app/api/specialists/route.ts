@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { getLevelFromXP, getNextLevel } from '@/lib/level/calculate'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/specialists
+ * Оптимизированная версия: убраны N+1 запросы, добавлена пагинация на уровне БД
  */
 export async function GET(req: Request) {
   try {
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
     const city = (searchParams.get('city') || '').trim()
     const skill = (searchParams.get('skill') || '').trim()
     const category = (searchParams.get('category') || '').trim()
-    const sort = (searchParams.get('sort') || 'rating') as 'rating' | 'reviews' | 'xp' // 💡 новый параметр
+    const sort = (searchParams.get('sort') || 'rating') as 'rating' | 'reviews' | 'xp'
 
     const minXp = toInt(searchParams.get('minXp'))
     const maxXp = toInt(searchParams.get('maxXp'))
@@ -56,63 +57,129 @@ export async function GET(req: Request) {
 
     if (minRating != null) where.avgRating = { gte: minRating }
 
-    // ── получаем всех подходящих пользователей
-    const users = await prisma.user.findMany({
+    // Оптимизация: загружаем уровни один раз вместо N+1 запросов
+    const [dbLevels, total] = await Promise.all([
+      prisma.userLevel.findMany({
+        orderBy: { minScore: 'asc' }
+      }),
+      prisma.user.count({ where })
+    ])
+
+    // Функция для расчета уровня в памяти (без запросов к БД)
+    const calculateLevel = (xp: number) => {
+      if (dbLevels.length > 0) {
+        let currentLevel = dbLevels[0]
+        for (const lvl of dbLevels) {
+          if (xp >= lvl.minScore) {
+            currentLevel = lvl
+          } else {
+            break
+          }
+        }
+        const nextLevel = dbLevels.find(lvl => lvl.minScore > xp)
+        return {
+          level: parseInt(currentLevel.slug) || 1,
+          name: currentLevel.name,
+          minScore: currentLevel.minScore,
+          nextLevel: nextLevel ? {
+            level: parseInt(nextLevel.slug) || 1,
+            minScore: nextLevel.minScore,
+          } : null
+        }
+      }
+      // Fallback на дефолтные уровни
+      const defaultLevels = [
+        { level: 1, requiredXP: 0 },
+        { level: 2, requiredXP: 100 },
+        { level: 3, requiredXP: 300 },
+        { level: 4, requiredXP: 700 },
+        { level: 5, requiredXP: 1500 }
+      ]
+      let currentLevel = defaultLevels[0]
+      for (const lvl of defaultLevels) {
+        if (xp >= lvl.requiredXP) {
+          currentLevel = lvl
+        } else {
+          break
+        }
+      }
+      const nextLevel = defaultLevels.find(lvl => lvl.requiredXP > xp)
+      return {
+        level: currentLevel.level,
+        name: `Уровень ${currentLevel.level}`,
+        minScore: currentLevel.requiredXP,
+        nextLevel: nextLevel ? {
+          level: nextLevel.level,
+          minScore: nextLevel.requiredXP,
+        } : null
+      }
+    }
+
+    // Оптимизация: получаем пользователей с пагинацией на уровне БД
+    // Сначала получаем ID всех подходящих пользователей для агрегаций
+    const allUserIds = await prisma.user.findMany({
       where,
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        avatarFileId: true,
-        location: true,
-        skills: true,
-        xp: true,
-        completedTasksCount: true,
-        level: { select: { id: true, name: true } },
-        badges: { select: { badge: { select: { id: true, name: true, icon: true } } } },
-        _count: { select: { reviewsReceived: true } },
-      },
+      select: { id: true },
     })
+    const ids = allUserIds.map(u => u.id)
 
-    const ids = users.map((u) => u.id)
-
-    // ── бонусный XP за сертификации (10 XP за каждую пройденную сертификацию)
-    let passedByUser: Record<string, number> = {}
-    if (ids.length) {
-      const grouped = await prisma.certificationAttempt.groupBy({
+    // Параллельно загружаем данные
+    const [users, passedByUserGroup, ratingByUserGroup] = await Promise.all([
+      // Получаем пользователей с пагинацией
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          avatarFileId: true,
+          location: true,
+          skills: true,
+          xp: true,
+          completedTasksCount: true,
+          level: { select: { id: true, name: true } },
+          badges: { 
+            select: { badge: { select: { id: true, name: true, icon: true } } },
+            take: 6 // Ограничиваем количество badges
+          },
+          _count: { select: { reviewsReceived: true } },
+        },
+        skip,
+        take,
+      }),
+      // Бонусный XP за сертификации (один запрос для всех)
+      ids.length > 0 ? prisma.certificationAttempt.groupBy({
         by: ['userId'],
         where: { userId: { in: ids }, passed: true },
         _count: { _all: true },
-      })
-      passedByUser = Object.fromEntries(grouped.map((g) => [g.userId, g._count._all]))
-    }
-
-    // ── средний рейтинг по отзывам
-    let ratingByUser: Record<string, number> = {}
-    if (ids.length) {
-      const ratings = await prisma.review.groupBy({
+      }) : [],
+      // Средний рейтинг по отзывам (один запрос для всех)
+      ids.length > 0 ? prisma.review.groupBy({
         by: ['toUserId'],
         where: { toUserId: { in: ids } },
         _avg: { rating: true },
-      })
-      ratingByUser = Object.fromEntries(ratings.map((r) => [r.toUserId, r._avg.rating ?? 0]))
-    }
+      }) : [],
+    ])
 
-    // ── финальная подготовка данных
-    const scored = await Promise.all(users.map(async (u) => {
-      // Базовый XP из профиля + бонусный XP за сертификации (10 XP за каждую)
+    // Создаем мапы для быстрого доступа
+    const passedByUser = Object.fromEntries(
+      passedByUserGroup.map((g) => [g.userId, g._count._all])
+    )
+    const ratingByUser = Object.fromEntries(
+      ratingByUserGroup.map((r) => [r.toUserId, r._avg.rating ?? 0])
+    )
+
+    // Рассчитываем уровни в памяти (без дополнительных запросов)
+    const scored = users.map((u) => {
       const passed = passedByUser[u.id] || 0
       const xpComputed = (u.xp ?? 0) + passed * 10
       
-      // Используем правильную функцию расчета уровня из БД (та же, что и в профиле)
-      const currentLevel = await getLevelFromXP(xpComputed)
-      const nextLevel = await getNextLevel(xpComputed)
-      
-      const lvl = currentLevel.level
-      const progress = nextLevel 
-        ? Math.max(0, Math.min(100, Math.floor(((xpComputed - currentLevel.minScore) / (nextLevel.minScore - currentLevel.minScore)) * 100)))
+      const levelInfo = calculateLevel(xpComputed)
+      const lvl = levelInfo.level
+      const progress = levelInfo.nextLevel 
+        ? Math.max(0, Math.min(100, Math.floor(((xpComputed - levelInfo.minScore) / (levelInfo.nextLevel.minScore - levelInfo.minScore)) * 100)))
         : 100
-      const toNext = nextLevel ? Math.max(0, nextLevel.minScore - xpComputed) : 0
+      const toNext = levelInfo.nextLevel ? Math.max(0, levelInfo.nextLevel.minScore - xpComputed) : 0
       
       const avgRating = ratingByUser[u.id] ?? 0
       const reviews = u._count?.reviewsReceived ?? 0
@@ -120,7 +187,10 @@ export async function GET(req: Request) {
       // 💎 три режима сортировки
       let score = 0
       if (sort === 'rating') {
-        score = (avgRating || 0) * 1000 + (reviews || 0) * 10 + lvl * 10
+        // Приоритет рейтингу: если отзывов нет, рейтинг = 0
+        // Если отзывов мало, рейтинг имеет меньший вес
+        const ratingWeight = reviews > 0 ? 10000 : 0
+        score = (avgRating || 0) * ratingWeight + (reviews || 0) * 10 + lvl * 1
       } else if (sort === 'reviews') {
         score = (reviews || 0) * 1000 + (avgRating || 0) * 50 + lvl * 5
       } else {
@@ -139,19 +209,17 @@ export async function GET(req: Request) {
         reviewsCount: reviews,
         score,
       }
-    }))
+    })
 
-    // ── сортировка
+    // Сортировка по вычисленному score (всегда)
     scored.sort((a, b) => b.score - a.score)
 
-    const total = scored.length
     const pages = Math.max(1, Math.ceil(total / take))
-    const items = scored.slice(skip, skip + take)
 
-    if (format === 'array') return NextResponse.json(items)
-    return NextResponse.json({ items, total, page, pages, take })
+    if (format === 'array') return NextResponse.json(scored)
+    return NextResponse.json({ items: scored, total, page, pages, take })
   } catch (error) {
-    console.error('Ошибка API /api/specialists:', error)
+    logger.error('Ошибка API /api/specialists', error)
     return NextResponse.json({ error: 'Ошибка загрузки исполнителей' }, { status: 500 })
   }
 }

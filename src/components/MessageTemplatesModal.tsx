@@ -1,6 +1,7 @@
 'use client'
 
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
 import { Edit, FileText, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -26,6 +27,7 @@ export default function MessageTemplatesModal({
 	onSelectTemplate,
 }: MessageTemplatesModalProps) {
 	const { token } = useUser()
+	const { confirm, Dialog } = useConfirm()
 	const [templates, setTemplates] = useState<Template[]>([])
 	const [loading, setLoading] = useState(false)
 	const [editingId, setEditingId] = useState<string | null>(null)
@@ -98,27 +100,36 @@ export default function MessageTemplatesModal({
 	}
 
 	const handleDelete = async (id: string) => {
-		if (!token || !confirm('Удалить этот шаблон?')) return
+		if (!token) return
 
-		try {
-			const res = await fetch(`/api/message-templates/${id}`, {
-				method: 'DELETE',
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			})
+		await confirm({
+			title: 'Удаление шаблона',
+			message: 'Вы уверены, что хотите удалить этот шаблон? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				try {
+					const res = await fetch(`/api/message-templates/${id}`, {
+						method: 'DELETE',
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					})
 
-			if (res.ok) {
-				toast.success('Шаблон удален')
-				fetchTemplates()
-			} else {
-				const error = await res.json().catch(() => ({}))
-				toast.error(error.error || 'Ошибка при удалении')
-			}
-		} catch (error) {
-			console.error('Ошибка при удалении шаблона:', error)
-			toast.error('Ошибка соединения с сервером')
-		}
+					if (res.ok) {
+						toast.success('Шаблон удален')
+						fetchTemplates()
+					} else {
+						const error = await res.json().catch(() => ({}))
+						toast.error(error.error || 'Ошибка при удалении')
+					}
+				} catch (error) {
+					console.error('Ошибка при удалении шаблона:', error)
+					toast.error('Ошибка соединения с сервером')
+				}
+			},
+		})
 	}
 
 	const handleEdit = (template: Template) => {
@@ -274,6 +285,7 @@ export default function MessageTemplatesModal({
 					)}
 				</div>
 			</div>
+			{Dialog}
 		</div>
 	)
 

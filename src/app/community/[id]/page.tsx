@@ -5,6 +5,8 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import ReportModal from '@/components/ReportModal'
 import VideoPlayer from '@/components/VideoPlayer'
 import { useUser } from '@/context/UserContext'
+import { useConfirm } from '@/lib/confirm'
+import { toast } from 'sonner'
 import {
 	Check,
 	Copy,
@@ -126,6 +128,7 @@ export default function CommunityPostPage() {
 	const { user, token } = useUser()
 	const { id } = useParams()
 	const router = useRouter()
+	const { confirm, Dialog } = useConfirm()
 
 	const [post, setPost] = useState<Post | null>(null)
 	const [loading, setLoading] = useState(true)
@@ -505,15 +508,25 @@ export default function CommunityPostPage() {
 	}
 
 	const deleteItem = async (endpoint: string) => {
-		if (!confirm('Удалить пост?')) return
-		const res = await fetch(endpoint, {
-			method: 'DELETE',
-			headers: { Authorization: `Bearer ${token}` },
+		await confirm({
+			title: 'Удаление поста',
+			message: 'Вы уверены, что хотите удалить этот пост? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				const res = await fetch(endpoint, {
+					method: 'DELETE',
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				if (res.ok) {
+					toast.success('Пост удалён')
+					router.push('/community')
+				} else {
+					toast.error('Ошибка при удалении поста')
+				}
+			},
 		})
-		if (res.ok) {
-			alert('✅ Пост удалён')
-			router.push('/community')
-		} else alert('Ошибка при удалении поста')
 	}
 
 	const startEditingPost = () => {
@@ -666,10 +679,16 @@ export default function CommunityPostPage() {
 									<MoreHorizontal className='w-5 h-5' />
 								</button>
 								{openMenu === post.id && (
-									<div
-										className='absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20'
-										onClick={e => e.stopPropagation()}
-									>
+									<>
+										{/* Overlay для закрытия меню */}
+										<div 
+											className='fixed inset-0 z-[9997]'
+											onClick={() => setOpenMenu(null)}
+										/>
+										<div
+											className='absolute right-0 top-full mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-[9998]'
+											onClick={e => e.stopPropagation()}
+										>
 										<button
 											onClick={() => {
 												copyLink(window.location.href)
@@ -710,7 +729,8 @@ export default function CommunityPostPage() {
 												</button>
 											</>
 										)}
-									</div>
+										</div>
+									</>
 								)}
 							</div>
 						</header>
@@ -1000,6 +1020,7 @@ export default function CommunityPostPage() {
 					</section>
 				</main>
 			</div>
+			{Dialog}
 		</div>
 	)
 }
@@ -1063,17 +1084,29 @@ function CommentNode({
 	}
 
 	const deleteComment = async () => {
-		if (!confirm('Удалить комментарий?')) return
-		try {
-			const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
-				method: 'DELETE',
-				headers: { Authorization: `Bearer ${token}` },
-			})
-			if (res.ok) fetchPost()
-			else alert('Ошибка удаления комментария')
-		} catch {
-			alert('Ошибка сети при удалении комментария')
-		}
+		await confirm({
+			title: 'Удаление комментария',
+			message: 'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: async () => {
+				try {
+					const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
+						method: 'DELETE',
+						headers: { Authorization: `Bearer ${token}` },
+					})
+					if (res.ok) {
+						toast.success('Комментарий удалён')
+						fetchPost()
+					} else {
+						toast.error('Ошибка удаления комментария')
+					}
+				} catch {
+					toast.error('Ошибка сети при удалении комментария')
+				}
+			},
+		})
 	}
 
 	return (
@@ -1125,54 +1158,61 @@ function CommentNode({
 								</button>
 
 								{openMenu && (
-									<div
-										className='absolute right-0 mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20'
-										onClick={e => e.stopPropagation()}
-									>
-										<button
-											onClick={() => {
-												navigator.clipboard.writeText(
-													window.location.href + '#' + node.id
-												)
-												setOpenMenu(false)
-											}}
-											className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full'
+									<>
+										{/* Overlay для закрытия меню */}
+										<div 
+											className='fixed inset-0 z-[9997]'
+											onClick={() => setOpenMenu(false)}
+										/>
+										<div
+											className='absolute right-0 top-full mt-6 w-44 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-[9998]'
+											onClick={e => e.stopPropagation()}
 										>
-											<Copy className='w-4 h-4' /> Копировать ссылку
-										</button>
-										{userId === node.author.id ? (
-											<>
-												<button
-													onClick={() => {
-														setEditing(true)
-														setOpenMenu(false)
-													}}
-													className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-emerald-400 transition w-full'
-												>
-													<Edit3 className='w-4 h-4' /> Редактировать
-												</button>
-												<button
-													onClick={() => {
-														deleteComment()
-														setOpenMenu(false)
-													}}
-													className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full'
-												>
-													<Trash2 className='w-4 h-4' /> Удалить
-												</button>
-											</>
-										) : (
 											<button
 												onClick={() => {
-													onReport({ type: 'comment', id: node.id })
+													navigator.clipboard.writeText(
+														window.location.href + '#' + node.id
+													)
 													setOpenMenu(false)
 												}}
-												className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full'
+												className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 w-full'
 											>
-												<Flag className='w-4 h-4' /> Пожаловаться
+												<Copy className='w-4 h-4' /> Копировать ссылку
 											</button>
-										)}
-									</div>
+											{userId === node.author.id ? (
+												<>
+													<button
+														onClick={() => {
+															setEditing(true)
+															setOpenMenu(false)
+														}}
+														className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-emerald-400 transition w-full'
+													>
+														<Edit3 className='w-4 h-4' /> Редактировать
+													</button>
+													<button
+														onClick={() => {
+															deleteComment()
+															setOpenMenu(false)
+														}}
+														className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-pink-400 w-full'
+													>
+														<Trash2 className='w-4 h-4' /> Удалить
+													</button>
+												</>
+											) : (
+												<button
+													onClick={() => {
+														onReport({ type: 'comment', id: node.id })
+														setOpenMenu(false)
+													}}
+													className='flex items-center gap-2 px-4 py-2 hover:bg-gray-800 text-red-400 w-full'
+												>
+													<Flag className='w-4 h-4' /> Пожаловаться
+												</button>
+											)}
+										</div>
+									</>
 								)}
 							</div>
 						</div>

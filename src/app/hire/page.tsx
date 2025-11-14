@@ -52,6 +52,17 @@ function getAuthHeaders(): HeadersInit {
   return h
 }
 
+// Функция для преобразования avatarUrl (может быть ID файла или полным URL)
+function resolveAvatarUrl(avatarUrl?: string | null): string | null {
+  if (!avatarUrl) return null
+  // Если это уже полный URL (начинается с http или /), возвращаем как есть
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://') || avatarUrl.startsWith('/')) {
+    return avatarUrl
+  }
+  // Иначе это ID файла, преобразуем в URL
+  return `/api/files/${avatarUrl}`
+}
+
 export default function HirePage() {
   const { user } = useUser()
   const [tab, setTab] = useState<'incoming' | 'sent'>('incoming')
@@ -234,10 +245,10 @@ export default function HirePage() {
                 >
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {i.customer.avatarUrl ? (
+                      {resolveAvatarUrl(i.customer.avatarUrl) ? (
                         <div className="w-10 h-10 rounded-full border border-emerald-500/30 overflow-hidden flex-shrink-0">
                           <Image
-                            src={i.customer.avatarUrl}
+                            src={resolveAvatarUrl(i.customer.avatarUrl)!}
                             alt={i.customer.fullName || i.customer.email}
                             width={40}
                             height={40}
@@ -357,10 +368,10 @@ export default function HirePage() {
                 >
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {s.executor.avatarUrl ? (
+                      {resolveAvatarUrl(s.executor.avatarUrl) ? (
                         <div className="w-10 h-10 rounded-full border border-cyan-500/30 overflow-hidden flex-shrink-0">
                           <Image
-                            src={s.executor.avatarUrl}
+                            src={resolveAvatarUrl(s.executor.avatarUrl)!}
                             alt={s.executor.fullName || s.executor.email}
                             width={40}
                             height={40}

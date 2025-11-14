@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     return NextResponse.json({ has: Boolean(existing) })
   } catch (err) {
-    console.error('my-response GET error:', err)
+    logger.error('my-response GET error', err, {
+      taskId: params?.id,
+      userId: user?.id,
+    })
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

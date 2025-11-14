@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma'
 import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
 import { setSecureCookie } from '@/lib/security'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
 	try {
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
 
 		// 📢 Broadcast обновление онлайн счетчика всем подключенным клиентам
 		broadcastOnlineCountUpdate().catch(err => {
-			console.error('Ошибка broadcast при входе:', err)
+			logger.error('Ошибка broadcast при входе', err, { userId: user.id })
 		})
 
 		// 📨 Уведомление о входе убрано по запросу
@@ -103,7 +104,7 @@ export async function POST(req: Request) {
 
 		return response
 	} catch (error) {
-		console.error('Login error:', error)
+		logger.error('Login error', error)
 		return NextResponse.json(
 			{ error: 'Ошибка сервера: ' + (error as Error).message },
 			{ status: 500 }

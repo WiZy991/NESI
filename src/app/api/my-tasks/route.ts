@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: Request) {
   try {
@@ -10,54 +11,80 @@ export async function GET(req: Request) {
 
     // --- Проверка авторизации ---
     if (!user) {
-      console.error('❌ Пользователь не найден в токене')
+      logger.warn('Пользователь не найден в токене при запросе /api/my-tasks')
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    console.log('👤 Пользователь:', {
-      id: user.id,
+    logger.debug('Запрос задач исполнителя', {
+      userId: user.id,
       role: user.role,
-      email: user.email,
     })
 
     // --- Проверяем роль ---
     if (user.role !== 'executor') {
-      console.warn(`⚠️ Доступ запрещён. Роль: ${user.role}`)
+      logger.warn('Доступ запрещён для роли', { role: user.role, userId: user.id })
       return NextResponse.json({ error: 'Доступ только для исполнителей' }, { status: 403 })
     }
 
-    // --- Получаем задачи ---
-    const tasks = await prisma.task.findMany({
-      where: {
-        executorId: user.id,
-      },
-      include: {
-        customer: {
-          select: { id: true, fullName: true, email: true },
+    // --- Пагинация ---
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get('page') || '1', 10)
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100) // Максимум 100 задач
+    const skip = (page - 1) * limit
+
+    // --- Получаем задачи с пагинацией ---
+    const [tasks, total] = await Promise.all([
+      prisma.task.findMany({
+        where: {
+          executorId: user.id,
         },
-      },
-      orderBy: [
-        { executorKanbanColumn: 'asc' },
-        { executorKanbanOrder: 'asc' },
-        { createdAt: 'desc' },
-      ],
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          price: true,
+          status: true,
+          deadline: true,
+          createdAt: true,
+          executorKanbanColumn: true,
+          executorKanbanOrder: true,
+          customer: {
+            select: { id: true, fullName: true, email: true },
+          },
+        },
+        orderBy: [
+          { executorKanbanColumn: 'asc' },
+          { executorKanbanOrder: 'asc' },
+          { createdAt: 'desc' },
+        ],
+        skip,
+        take: limit,
+      }),
+      prisma.task.count({
+        where: {
+          executorId: user.id,
+        },
+      }),
+    ])
+
+    logger.debug('Найдено задач для исполнителя', {
+      userId: user.id,
+      tasksCount: tasks.length,
+      total,
+      page,
     })
 
-    console.log(`📦 Найдено задач: ${tasks.length}`)
-    if (tasks.length === 0) {
-      console.log('ℹ️ Задач не найдено. Возможно, executorId отсутствует в БД.')
-    } else {
-      console.log('✅ Примеры задач:', tasks.slice(0, 2).map(t => ({
-        id: t.id,
-        title: t.title,
-        status: t.status,
-        executorId: t.executorId,
-      })))
-    }
-
-    return NextResponse.json({ tasks })
+    return NextResponse.json({
+      tasks,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
   } catch (err: unknown) {
-    console.error('💥 Ошибка при получении задач исполнителя:', err)
+    logger.error('Ошибка при получении задач исполнителя', err)
     return NextResponse.json(
       {
         error: 'Ошибка при загрузке задач',

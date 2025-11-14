@@ -1,39 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
+import { z } from 'zod'
+import { validateWithZod, imageUrlSchema } from '@/lib/validations'
+import { validateStringLength } from '@/lib/security'
 
-// 📌 Рекурсивная функция для получения всех уровней replies
-async function getReplies(commentId: string) {
-  const replies = await prisma.communityComment.findMany({
-    where: { parentId: commentId },
-    orderBy: { createdAt: 'asc' },
-    include: {
+// Схема валидации для создания комментария
+const createCommentSchema = z.object({
+	content: z
+		.string()
+		.max(2000, 'Комментарий слишком длинный (максимум 2000 символов)')
+		.trim()
+		.optional(),
+	imageUrl: imageUrlSchema,
+	parentId: z.string().uuid('Некорректный ID родительского комментария').optional(),
+	mediaType: z.enum(['image', 'video']).optional(),
+})
+
+// 📌 Оптимизированная функция для построения дерева комментариев
+// Загружает все комментарии одним запросом вместо рекурсивных N+1 запросов
+function buildCommentTree(comments: any[], parentId: string | null = null): any[] {
+  return comments
+    .filter(c => c.parentId === parentId)
+    .map(comment => ({
+      ...comment,
+      mediaType: comment.mediaType || 'image',
       author: {
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          avatarFileId: true,
-        },
+        ...comment.author,
+        avatarUrl: comment.author.avatarFileId
+          ? `/api/files/${comment.author.avatarFileId}`
+          : null,
       },
-    },
-  })
-
-  for (const reply of replies) {
-    ;(reply as any).replies = await getReplies(reply.id)
-  }
-
-  // добавляем avatarUrl и mediaType для каждого ответа
-  return replies.map((r) => ({
-    ...r,
-    mediaType: r.mediaType || 'image',
-    author: {
-      ...r.author,
-      avatarUrl: r.author.avatarFileId
-        ? `/api/files/${r.author.avatarFileId}`
-        : null,
-    },
-  }))
+      replies: buildCommentTree(comments, comment.id),
+    }))
 }
 
 // 📌 Получить комментарии к посту
@@ -43,38 +43,37 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const comments = await prisma.communityComment.findMany({
-      where: { postId: id, parentId: null },
+    
+    // Оптимизация: загружаем ВСЕ комментарии к посту одним запросом
+    // вместо рекурсивных запросов для каждого уровня вложенности
+    const allComments = await prisma.communityComment.findMany({
+      where: { postId: id },
       orderBy: { createdAt: 'asc' },
-      include: {
+      select: {
+        id: true,
+        content: true,
+        imageUrl: true,
+        createdAt: true,
+        authorId: true,
+        parentId: true,
         author: {
           select: {
             id: true,
             fullName: true,
             email: true,
             avatarFileId: true,
+            xp: true,
           },
         },
       },
     })
 
-    const commentsWithReplies = await Promise.all(
-      comments.map(async (comment) => ({
-        ...comment,
-        mediaType: comment.mediaType || 'image',
-        author: {
-          ...comment.author,
-          avatarUrl: comment.author.avatarFileId
-            ? `/api/files/${comment.author.avatarFileId}`
-            : null,
-        },
-        replies: await getReplies(comment.id),
-      }))
-    )
+    // Строим дерево комментариев на стороне сервера (без дополнительных запросов)
+    const commentsTree = buildCommentTree(allComments, null)
 
-    return NextResponse.json({ comments: commentsWithReplies })
+    return NextResponse.json({ comments: commentsTree })
   } catch (err) {
-    console.error('🔥 Ошибка загрузки комментариев:', err)
+    logger.error('Ошибка загрузки комментариев', err, { postId: id })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
@@ -101,7 +100,16 @@ export async function POST(
       )
     }
 
-    const { content, parentId, imageUrl, mediaType } = body || {}
+    // Валидация данных
+    const validation = validateWithZod(createCommentSchema, body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.errors.join(', ') },
+        { status: 400 }
+      )
+    }
+
+    const { content, parentId, imageUrl, mediaType } = validation.data
 
     // Разрешаем пустой контент если есть файл
     if ((!content || !content.trim()) && !imageUrl) {
@@ -109,6 +117,17 @@ export async function POST(
         { error: 'Комментарий или файл обязателен' },
         { status: 400 }
       )
+    }
+
+    // Дополнительная валидация длины содержимого
+    if (content) {
+      const contentValidation = validateStringLength(content, 2000, 'Комментарий')
+      if (!contentValidation.valid) {
+        return NextResponse.json(
+          { error: contentValidation.error },
+          { status: 400 }
+        )
+      }
     }
 
     // Определяем тип медиа - используем переданный mediaType или определяем по расширению URL
@@ -185,7 +204,7 @@ export async function POST(
                            createError?.message?.includes('does not exist')
       
       if (isSchemaError) {
-        console.log('⚠️ Поле mediaType отсутствует в БД. Создаем через raw SQL.')
+        logger.warn('Поле mediaType отсутствует в БД. Создаем через raw SQL')
         // Используем raw SQL без mediaType
         const { randomUUID } = await import('crypto')
         const commentId = randomUUID()
@@ -251,11 +270,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true, comment: formattedComment }, { status: 201 })
   } catch (err: any) {
-    console.error('🔥 Ошибка создания комментария:', {
+    logger.error('Ошибка создания комментария', err, {
       message: err?.message,
       code: err?.code,
       meta: err?.meta,
-      stack: err?.stack,
     })
     return NextResponse.json({ 
       error: err?.message || 'Ошибка сервера',
@@ -296,7 +314,7 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('Ошибка PATCH комментария:', err)
+    logger.error('Ошибка PATCH комментария', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
@@ -327,7 +345,7 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('Ошибка DELETE комментария:', err)
+    logger.error('Ошибка DELETE комментария', err)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

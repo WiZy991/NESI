@@ -91,13 +91,26 @@ export default function ResponseForm({
 
 		setLoading(true)
 		try {
-			const res = await fetch(`/api/tasks/${taskId}/responses`, {
+			const { fetchWithRetry } = await import('@/lib/retry')
+			const res = await fetchWithRetry(`/api/tasks/${taskId}/responses`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({ message, price: parsedPrice }),
+			}, {
+				maxRetries: 2,
+				retryDelay: 1000,
+				shouldRetry: (error, attempt) => {
+					// Повторяем только при сетевых ошибках или 5xx ошибках
+					if (error instanceof Error) {
+						return error.message.includes('fetch') || 
+						       error.message.includes('network') ||
+						       error.message.includes('Server error')
+					}
+					return false
+				},
 			})
 
 			const data = await res.json().catch(() => null)
@@ -109,7 +122,7 @@ export default function ResponseForm({
 			setHasResponded(true)
 		} catch (err) {
 			console.error('Ошибка сети:', err)
-			toast.error('Ошибка сети')
+			toast.error('Ошибка сети. Попробуйте еще раз.')
 		} finally {
 			setLoading(false)
 		}
