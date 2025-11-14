@@ -5,8 +5,8 @@ import ChatMessage from '@/components/ChatMessage'
 import MessageInput from '@/components/ChatMessageInput'
 import ChatMessageSearch from '@/components/ChatMessageSearch'
 import ChatSkeleton from '@/components/ChatSkeleton'
-import { MessageSkeleton } from '@/components/SkeletonLoader'
 import EmptyState from '@/components/EmptyState'
+import { MessageSkeleton } from '@/components/SkeletonLoader'
 import { useUser } from '@/context/UserContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { clientLogger } from '@/lib/clientLogger'
@@ -367,7 +367,9 @@ function ChatsPageContent() {
 				highlightTimeoutRef.current = null
 			}, 2000)
 		} else {
-			clientLogger.warn('Не удалось найти сообщение для вложения', { messageId })
+			clientLogger.warn('Не удалось найти сообщение для вложения', {
+				messageId,
+			})
 		}
 	}, [])
 
@@ -455,17 +457,21 @@ function ChatsPageContent() {
 			try {
 				clientLogger.debug('Загружаем чаты')
 				const { fetchWithRetry } = await import('@/lib/retry')
-				const res = await fetchWithRetry('/api/chats', {
-					headers: { Authorization: `Bearer ${token}` },
-				}, {
-					maxRetries: 2,
-					retryDelay: 1000,
-				})
+				const res = await fetchWithRetry(
+					'/api/chats',
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					},
+					{
+						maxRetries: 2,
+						retryDelay: 1000,
+					}
+				)
 
 				// Проверяем, есть ли содержимое в ответе
 				const text = await res.text()
 				if (!text || text.trim() === '') {
-				clientLogger.warn('Пустой ответ от API чатов')
+					clientLogger.warn('Пустой ответ от API чатов')
 					setChats([])
 					setLoading(false)
 					return
@@ -475,17 +481,17 @@ function ChatsPageContent() {
 				try {
 					data = JSON.parse(text)
 				} catch (parseError) {
-					clientLogger.error(
-						'Ошибка парсинга JSON',
-						parseError,
-						{ textResponse: text?.substring(0, 200) }
-					)
+					clientLogger.error('Ошибка парсинга JSON', parseError, {
+						textResponse: text?.substring(0, 200),
+					})
 					setChats([])
 					setLoading(false)
 					return
 				}
 
-				clientLogger.debug('Ответ API чатов', { chatsCount: data.chats?.length || 0 })
+				clientLogger.debug('Ответ API чатов', {
+					chatsCount: data.chats?.length || 0,
+				})
 				if (res.ok) {
 					const loadedChats = data.chats || []
 
@@ -521,11 +527,11 @@ function ChatsPageContent() {
 						// Объединяем: сначала временные чаты, потом реальные
 						return [...validTempChats, ...loadedChats]
 					})
-				clientLogger.debug('Чаты загружены', { count: loadedChats.length })
+					clientLogger.debug('Чаты загружены', { count: loadedChats.length })
 
 					// Устанавливаем флаг для автооткрытия чата
 					if (openUserId || openTaskId) {
-					clientLogger.debug('Обнаружен параметр для автооткрытия', {
+						clientLogger.debug('Обнаружен параметр для автооткрытия', {
 							openUserId,
 							openTaskId,
 						})
@@ -533,16 +539,16 @@ function ChatsPageContent() {
 					}
 
 					// Отладочная информация для аватарок
-				clientLogger.debug('Аватарки в загруженных чатах')
+					clientLogger.debug('Аватарки в загруженных чатах')
 					data.chats?.forEach((chat: any) => {
 						if (chat.type === 'private') {
-						clientLogger.debug(`Приватный чат с ${chat.otherUser?.id}`, {
+							clientLogger.debug(`Приватный чат с ${chat.otherUser?.id}`, {
 								fullName: chat.otherUser?.fullName,
 								email: chat.otherUser?.email,
 								avatarUrl: chat.otherUser?.avatarUrl,
 							})
 						} else if (chat.type === 'task') {
-						clientLogger.debug(`Чат задачи ${chat.task?.id}`, {
+							clientLogger.debug(`Чат задачи ${chat.task?.id}`, {
 								customer: {
 									fullName: chat.task?.customer?.fullName,
 									email: chat.task?.customer?.email,
@@ -586,14 +592,16 @@ function ChatsPageContent() {
 			)
 
 			eventSource.onopen = () => {
-			clientLogger.info('SSE подключение установлено для чатов')
+				clientLogger.info('SSE подключение установлено для чатов')
 			}
 
 			eventSource.onmessage = event => {
 				if (!isMounted) return
 				try {
 					const data = JSON.parse(event.data)
-				clientLogger.debug('Получено событие SSE для чатов', { type: data.type })
+					clientLogger.debug('Получено событие SSE для чатов', {
+						type: data.type,
+					})
 
 					const currentSelectedChat = selectedChatRef.current
 
@@ -770,7 +778,7 @@ function ChatsPageContent() {
 						// Это позволяет синхронизировать сообщения между устройствами
 						if (data.messageData && currentSelectedChat) {
 							const messageData = data.messageData
-							
+
 							// Проверяем, относится ли сообщение к текущему открытому чату
 							const isCurrentChat =
 								(data.chatType === 'private' &&
@@ -788,7 +796,7 @@ function ChatsPageContent() {
 									if (exists) {
 										return prev
 									}
-									
+
 									// Добавляем новое сообщение
 									const newMessage: Message = {
 										id: messageData.id,
@@ -807,7 +815,7 @@ function ChatsPageContent() {
 											avatarUrl: messageData.sender.avatarUrl,
 										},
 									}
-									
+
 									return [...prev, newMessage]
 								})
 
@@ -832,7 +840,7 @@ function ChatsPageContent() {
 													avatarUrl: messageData.sender.avatarUrl,
 												},
 											}
-											
+
 											return {
 												...chat,
 												lastMessage: newMessage,
@@ -901,7 +909,7 @@ function ChatsPageContent() {
 													avatarUrl: messageData.sender.avatarUrl,
 												},
 											}
-											
+
 											return {
 												...chat,
 												lastMessage: newMessage,
@@ -985,7 +993,9 @@ function ChatsPageContent() {
 			try {
 				// Если это временный чат (только что созданный), просто показываем пустой список
 				if (chatId.startsWith('temp_')) {
-				clientLogger.debug('Временный чат, показываем пустой список сообщений')
+					clientLogger.debug(
+						'Временный чат, показываем пустой список сообщений'
+					)
 					setMessages([])
 					setMessagesLoading(false)
 					return
@@ -998,17 +1008,20 @@ function ChatsPageContent() {
 					url = `/api/tasks/${taskId}/messages`
 				}
 
-			clientLogger.debug('Загружаем сообщения для чата', { chatType, url })
+				clientLogger.debug('Загружаем сообщения для чата', { chatType, url })
 				const res = await fetch(url, {
 					headers: { Authorization: `Bearer ${token}` },
 				})
 
-			clientLogger.debug('Статус ответа', { status: res.status, statusText: res.statusText })
+				clientLogger.debug('Статус ответа', {
+					status: res.status,
+					statusText: res.statusText,
+				})
 
 				// Проверяем, есть ли содержимое в ответе
 				const text = await res.text()
 				if (!text || text.trim() === '') {
-				clientLogger.warn('Пустой ответ от API', { status: res.status })
+					clientLogger.warn('Пустой ответ от API', { status: res.status })
 					setMessages([])
 					setMessagesLoading(false)
 					return
@@ -1018,17 +1031,15 @@ function ChatsPageContent() {
 				try {
 					data = JSON.parse(text)
 				} catch (parseError) {
-					clientLogger.error(
-						'Ошибка парсинга JSON',
-						parseError,
-						{ textResponse: text?.substring(0, 200) }
-					)
+					clientLogger.error('Ошибка парсинга JSON', parseError, {
+						textResponse: text?.substring(0, 200),
+					})
 					setMessages([])
 					setMessagesLoading(false)
 					return
 				}
 
-			clientLogger.debug('Ответ API сообщений', {
+				clientLogger.debug('Ответ API сообщений', {
 					status: res.status,
 					ok: res.ok,
 					dataType: Array.isArray(data) ? 'array' : typeof data,
@@ -1038,22 +1049,24 @@ function ChatsPageContent() {
 
 				if (res.ok) {
 					const messagesData = data.messages || data || []
-				clientLogger.debug('Сообщения загружены', { count: messagesData.length })
+					clientLogger.debug('Сообщения загружены', {
+						count: messagesData.length,
+					})
 					if (messagesData.length > 0) {
-					clientLogger.debug('Первое сообщение', { message: messagesData[0] })
+						clientLogger.debug('Первое сообщение', { message: messagesData[0] })
 						// Проверяем сообщения с ответами
 						const messagesWithReplies = messagesData.filter(
 							(m: Message) => m.replyTo !== null && m.replyTo !== undefined
 						)
 						if (messagesWithReplies.length > 0) {
-						clientLogger.debug('Найдено сообщений с ответами', {
-							count: messagesWithReplies.length,
-						})
-						clientLogger.debug('Пример ответа', {
-							replyTo: messagesWithReplies[0].replyTo,
-						})
+							clientLogger.debug('Найдено сообщений с ответами', {
+								count: messagesWithReplies.length,
+							})
+							clientLogger.debug('Пример ответа', {
+								replyTo: messagesWithReplies[0].replyTo,
+							})
 						} else {
-						clientLogger.debug('Нет сообщений с ответами')
+							clientLogger.debug('Нет сообщений с ответами')
 						}
 					}
 					setMessages(messagesData)
@@ -1099,22 +1112,28 @@ function ChatsPageContent() {
 						(data.messages || Array.isArray(data))
 					) {
 						const messagesData = data.messages || data || []
-					clientLogger.warn('API вернул ошибку, но есть данные', {
-						count: messagesData.length,
-					})
+						clientLogger.warn('API вернул ошибку, но есть данные', {
+							count: messagesData.length,
+						})
 						setMessages(messagesData)
 					} else {
-					const errorMessage = data?.error || 'Неизвестная ошибка'
-					clientLogger.error('Ошибка API сообщений', new Error(errorMessage), {
-						status: res.status,
-						statusText: res.statusText,
-						errorMessage: errorMessage,
-						url: url,
-						responseText: text.substring(0, 500),
-					})
+						const errorMessage = data?.error || 'Неизвестная ошибка'
+						clientLogger.error(
+							'Ошибка API сообщений',
+							new Error(errorMessage),
+							{
+								status: res.status,
+								statusText: res.statusText,
+								errorMessage: errorMessage,
+								url: url,
+								responseText: text.substring(0, 500),
+							}
+						)
 						// Если это ошибка сервера, но не критичная, просто показываем пустой список
 						if (res.status >= 500) {
-						clientLogger.error('Серверная ошибка, устанавливаем пустой список сообщений')
+							clientLogger.error(
+								'Серверная ошибка, устанавливаем пустой список сообщений'
+							)
 						}
 						setMessages([])
 					}
@@ -1265,7 +1284,9 @@ function ChatsPageContent() {
 			)
 
 			if (existingTaskChat) {
-				clientLogger.debug('Чат задачи найден, открываем', { chat: existingTaskChat })
+				clientLogger.debug('Чат задачи найден, открываем', {
+					chat: existingTaskChat,
+				})
 				handleSelectChat(existingTaskChat)
 				setShouldAutoOpen(false)
 				window.history.replaceState({}, '', '/chats')
@@ -1280,7 +1301,9 @@ function ChatsPageContent() {
 						})
 
 						if (!taskRes.ok) {
-							clientLogger.error('Задача не найдена', undefined, { taskId: openTaskId })
+							clientLogger.error('Задача не найдена', undefined, {
+								taskId: openTaskId,
+							})
 							setShouldAutoOpen(false)
 							return
 						}
@@ -1293,7 +1316,11 @@ function ChatsPageContent() {
 						const otherUser = isCustomer ? task.executor : task.customer
 
 						if (!otherUser) {
-						clientLogger.error('Второй участник чата не найден (задача без исполнителя)', undefined, { taskId: openTaskId })
+							clientLogger.error(
+								'Второй участник чата не найден (задача без исполнителя)',
+								undefined,
+								{ taskId: openTaskId }
+							)
 							setShouldAutoOpen(false)
 							return
 						}
@@ -1323,14 +1350,18 @@ function ChatsPageContent() {
 							unreadCount: 0,
 						}
 
-					clientLogger.debug('Создан временный чат задачи', { chat: tempTaskChat })
+						clientLogger.debug('Создан временный чат задачи', {
+							chat: tempTaskChat,
+						})
 						setChats(prev => [tempTaskChat, ...prev])
 						setSelectedChat(tempTaskChat)
 						setMessages([])
 						setShouldAutoOpen(false)
 						window.history.replaceState({}, '', '/chats')
 					} catch (error) {
-						clientLogger.error('Ошибка создания чата задачи', error, { taskId: openTaskId })
+						clientLogger.error('Ошибка создания чата задачи', error, {
+							taskId: openTaskId,
+						})
 						setShouldAutoOpen(false)
 					}
 				}
@@ -1341,7 +1372,9 @@ function ChatsPageContent() {
 		}
 
 		// Если открываем приватный чат
-		clientLogger.debug('Пытаемся открыть чат с пользователем', { userId: openUserId })
+		clientLogger.debug('Пытаемся открыть чат с пользователем', {
+			userId: openUserId,
+		})
 
 		// Ищем существующий чат
 		const existingChat = chats.find(
@@ -1369,7 +1402,9 @@ function ChatsPageContent() {
 					})
 
 					if (!userRes.ok) {
-						clientLogger.error('Пользователь не найден', undefined, { userId: openUserId })
+						clientLogger.error('Пользователь не найден', undefined, {
+							userId: openUserId,
+						})
 						setShouldAutoOpen(false)
 						return
 					}
@@ -1406,7 +1441,9 @@ function ChatsPageContent() {
 					setShouldAutoOpen(false)
 					window.history.replaceState({}, '', '/chats')
 				} catch (error) {
-					clientLogger.error('Ошибка создания чата', error, { userId: openUserId })
+					clientLogger.error('Ошибка создания чата', error, {
+						userId: openUserId,
+					})
 					setShouldAutoOpen(false)
 				}
 			}
@@ -1421,7 +1458,7 @@ function ChatsPageContent() {
 		if (selectedChat?.id === chat.id) {
 			return
 		}
-		
+
 		setSelectedChat(chat)
 		setMessages([])
 		setMessagesLoading(true)
@@ -1491,7 +1528,10 @@ function ChatsPageContent() {
 					}
 				}
 			} catch (error) {
-				clientLogger.error('Ошибка при пометке сообщений как прочитанных', error)
+				clientLogger.error(
+					'Ошибка при пометке сообщений как прочитанных',
+					error
+				)
 			}
 
 			// Уведомляем родительский компонент об изменении счетчика
@@ -1505,7 +1545,9 @@ function ChatsPageContent() {
 
 	// Обработка нового сообщения
 	const handleNewMessage = async (newMessage: any) => {
-		clientLogger.debug('handleNewMessage вызван с данными', { message: newMessage })
+		clientLogger.debug('handleNewMessage вызван с данными', {
+			message: newMessage,
+		})
 		clientLogger.debug('Файл в сообщении', {
 			fileId: newMessage.fileId,
 			fileName: newMessage.fileName,
@@ -1714,7 +1756,9 @@ function ChatsPageContent() {
 					})
 
 					if (!res.ok) {
-						clientLogger.error('Ошибка проверки онлайн статуса', undefined, { status: res.status })
+						clientLogger.error('Ошибка проверки онлайн статуса', undefined, {
+							status: res.status,
+						})
 						return
 					}
 
@@ -1774,13 +1818,22 @@ function ChatsPageContent() {
 		}
 
 		return (
-			<div className='relative flex-shrink-0'>
+			<div
+				className='relative flex-shrink-0'
+				style={{ width: size, height: size }}
+			>
 				<img
 					src={apiAvatarUrl}
 					alt='avatar'
 					width={size}
 					height={size}
-					className='rounded-full object-cover'
+					className='rounded-full object-cover w-full h-full'
+					style={{
+						width: size,
+						height: size,
+						objectFit: 'cover',
+						objectPosition: 'center',
+					}}
 					onError={() => {
 						// Отсутствие аватарки - нормальная ситуация, не логируем как ошибку
 						setImageError(true)
@@ -1854,7 +1907,7 @@ function ChatsPageContent() {
 	// Функция для декодирования HTML entities
 	const decodeHtmlEntities = (text: string | null | undefined): string => {
 		if (!text) return text || ''
-		
+
 		// Сначала декодируем через DOM API (если доступен)
 		let decoded = text
 		if (typeof document !== 'undefined') {
@@ -1866,26 +1919,28 @@ function ChatsPageContent() {
 				// Если не получилось, используем замену
 			}
 		}
-		
+
 		// Дополнительно декодируем часто используемые entities
-		return decoded
-			.replace(/&quot;/g, '"')
-			.replace(/&#x2F;/gi, '/') // case-insensitive для x2F и x2f
-			.replace(/&#x2f;/g, '/')
-			.replace(/&amp;/g, '&')
-			.replace(/&lt;/g, '<')
-			.replace(/&gt;/g, '>')
-			.replace(/&#39;/g, "'")
-			.replace(/&apos;/g, "'")
-			.replace(/&#x27;/g, "'")
-			// Декодируем числовые entities для слэшей
-			.replace(/&#47;/g, '/')
-			.replace(/&#92;/g, '\\')
+		return (
+			decoded
+				.replace(/&quot;/g, '"')
+				.replace(/&#x2F;/gi, '/') // case-insensitive для x2F и x2f
+				.replace(/&#x2f;/g, '/')
+				.replace(/&amp;/g, '&')
+				.replace(/&lt;/g, '<')
+				.replace(/&gt;/g, '>')
+				.replace(/&#39;/g, "'")
+				.replace(/&apos;/g, "'")
+				.replace(/&#x27;/g, "'")
+				// Декодируем числовые entities для слэшей
+				.replace(/&#47;/g, '/')
+				.replace(/&#92;/g, '\\')
+		)
 	}
 
 	const getChatSubtitle = (chat: Chat) => {
 		const lastMessageContent = chat.lastMessage.content
-		
+
 		// Проверяем, является ли последнее сообщение голосовым
 		if (isVoiceMessage(lastMessageContent)) {
 			if (chat.type === 'private') {
@@ -2094,25 +2149,23 @@ function ChatsPageContent() {
 	}
 
 	return (
-			<div
-				className='fixed inset-x-0 px-2 sm:px-3 md:px-6'
-				style={{
-					top: isMobile
-						? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
-						: 'calc(0.5rem - 1px)',
-					height: isMobile 
-						? 'calc(100dvh - 80px)' 
-						: 'calc(100vh - 2rem + 1px)',
-					maxHeight: isMobile 
-						? 'calc(100dvh - 80px)' 
-						: 'calc(100vh - 6rem + 1px)',
-					minHeight: isMobile 
-						? 'calc(100dvh - 80px)' 
-						: 'calc(100vh - 6rem + 1px)',
-					paddingTop: 0,
-					paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 0px)' : '0',
-				}}
-			>
+		<div
+			className='fixed inset-x-0 px-2 sm:px-3 md:px-6'
+			style={{
+				top: isMobile
+					? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
+					: 'calc(0.5rem - 1px)',
+				height: isMobile ? 'calc(100dvh - 80px)' : 'calc(100vh - 2rem + 1px)',
+				maxHeight: isMobile
+					? 'calc(100dvh - 80px)'
+					: 'calc(100vh - 6rem + 1px)',
+				minHeight: isMobile
+					? 'calc(100dvh - 80px)'
+					: 'calc(100vh - 6rem + 1px)',
+				paddingTop: 0,
+				paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 0px)' : '0',
+			}}
+		>
 			<div className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden'>
 				<div
 					className='flex flex-1 overflow-hidden min-h-0'
@@ -2260,7 +2313,9 @@ function ChatsPageContent() {
 														WebkitTapHighlightColor: 'transparent',
 													}}
 												>
-													<span className='text-sm sm:text-base md:text-lg'>🔍</span>
+													<span className='text-sm sm:text-base md:text-lg'>
+														🔍
+													</span>
 												</button>
 											)}
 											<button
@@ -2271,7 +2326,9 @@ function ChatsPageContent() {
 													WebkitTapHighlightColor: 'transparent',
 												}}
 											>
-												<span className='text-sm sm:text-base md:text-lg'>📎</span>
+												<span className='text-sm sm:text-base md:text-lg'>
+													📎
+												</span>
 											</button>
 											<button
 												onClick={() => {
@@ -2287,7 +2344,9 @@ function ChatsPageContent() {
 													WebkitTapHighlightColor: 'transparent',
 												}}
 											>
-												<span className='text-sm sm:text-base md:text-lg'>📄</span>
+												<span className='text-sm sm:text-base md:text-lg'>
+													📄
+												</span>
 											</button>
 										</div>
 									)}
@@ -2330,13 +2389,17 @@ function ChatsPageContent() {
 														selectedChat.otherUser?.email ||
 														'?'
 													}
-													size={isMobile ? 36 : window.innerWidth < 640 ? 40 : 48}
+													size={
+														isMobile ? 36 : window.innerWidth < 640 ? 40 : 48
+													}
 													userId={selectedChat.otherUser?.id}
 												/>
 											</div>
 										) : (
 											<div className='w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
-												<span className='text-lg sm:text-xl md:text-2xl'>📋</span>
+												<span className='text-lg sm:text-xl md:text-2xl'>
+													📋
+												</span>
 											</div>
 										)}
 										<div className='flex-1 min-w-0'>
@@ -2378,7 +2441,9 @@ function ChatsPageContent() {
 														<span
 															className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${presenceDisplay.indicatorClass}`}
 														/>
-														<span className='truncate'>{presenceDisplay.text}</span>
+														<span className='truncate'>
+															{presenceDisplay.text}
+														</span>
 													</span>
 												</div>
 											)}
@@ -2394,8 +2459,8 @@ function ChatsPageContent() {
 									style={{
 										touchAction: 'pan-y',
 										WebkitOverflowScrolling: 'touch',
-										paddingBottom: isMobile 
-											? 'calc(1rem + env(safe-area-inset-bottom, 0px))' 
+										paddingBottom: isMobile
+											? 'calc(1rem + env(safe-area-inset-bottom, 0px))'
 											: '2.5rem',
 									}}
 								>
@@ -2438,7 +2503,9 @@ function ChatsPageContent() {
 												.map((msg, index) => {
 													// Проверяем, что sender существует
 													if (!msg.sender) {
-													clientLogger.warn('Сообщение без отправителя', { message: msg })
+														clientLogger.warn('Сообщение без отправителя', {
+															message: msg,
+														})
 														return null
 													}
 
@@ -2579,8 +2646,8 @@ function ChatsPageContent() {
 										onClick={() => scrollToBottom()}
 										className='fixed right-4 sm:right-6 md:right-8 z-40 w-10 h-10 sm:w-9 sm:h-9 bg-slate-700/90 hover:bg-slate-600/90 active:bg-slate-600/95 text-gray-300 hover:text-white rounded-full shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-200 animate-scaleFadeIn border border-slate-600/50 hover:border-slate-500/70 hover:scale-105 active:scale-95 touch-manipulation'
 										style={{
-											bottom: isMobile 
-												? 'calc(120px + env(safe-area-inset-bottom, 0px))' 
+											bottom: isMobile
+												? 'calc(120px + env(safe-area-inset-bottom, 0px))'
 												: '6rem',
 										}}
 										aria-label='Прокрутить вниз'
@@ -2610,8 +2677,8 @@ function ChatsPageContent() {
 										zIndex: 100,
 										touchAction: 'manipulation',
 										pointerEvents: 'auto',
-										paddingBottom: isMobile 
-											? `calc(0.5rem + env(safe-area-inset-bottom, 0px))` 
+										paddingBottom: isMobile
+											? `calc(0.5rem + env(safe-area-inset-bottom, 0px))`
 											: '0',
 									}}
 								>
@@ -2638,8 +2705,9 @@ function ChatsPageContent() {
 									{isMobile && (
 										<div
 											className='h-4 md:hidden'
-											style={{ 
-												minHeight: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+											style={{
+												minHeight:
+													'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
 											}}
 										/>
 									)}

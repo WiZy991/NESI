@@ -500,7 +500,7 @@ export default function UserPublicProfilePage() {
 											⏳ Запрос отправлен
 										</button>
 									) : (
-										<div className='relative z-50'>
+										<div className='relative group z-50'>
 											<button
 												onClick={() => setShowHireModal(true)}
 												disabled={sendingHire}
@@ -508,10 +508,10 @@ export default function UserPublicProfilePage() {
 											>
 												💼 Нанять за 1990₽
 											</button>
-											{/* Подсказка под кнопкой - всегда видима */}
-											<div className='absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 p-4 bg-gray-900 border-2 border-emerald-500/50 rounded-lg shadow-2xl z-[9999] pointer-events-auto' style={{ position: 'absolute', zIndex: 9999 }}>
+											{/* Подсказка под кнопкой - появляется при наведении */}
+											<div className='absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 p-4 bg-gray-900/95 backdrop-blur-sm border-2 border-emerald-500/50 rounded-lg shadow-2xl z-[9999] pointer-events-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200'>
 												<div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-0.5'>
-													<div className='w-3 h-3 bg-gray-900 border-l-2 border-t-2 border-emerald-500/50 rotate-45'></div>
+													<div className='w-3 h-3 bg-gray-900/95 border-l-2 border-t-2 border-emerald-500/50 rotate-45'></div>
 												</div>
 												<p className='text-sm text-white leading-relaxed mb-2'>
 													<span className='text-emerald-400 font-semibold'>1990₽</span> — это плата за{' '}
