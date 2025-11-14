@@ -1,12 +1,14 @@
 // src/app/api/hire/route.ts
-import { getUserFromRequest, hashPassword } from '@/lib/auth'
-import prisma from '@/lib/prisma'
-import { NextRequest, NextResponse } from 'next/server'
-import { Decimal } from '@prisma/client/runtime/library'
+import { getUserFromRequest } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import prisma from '@/lib/prisma'
+import { Decimal } from '@prisma/client/runtime/library'
+import { NextRequest, NextResponse } from 'next/server'
 
 // Динамический импорт для избежания проблем при импорте модуля
-let sendNotificationToUser: ((userId: string, notification: any) => boolean) | null = null
+let sendNotificationToUser:
+	| ((userId: string, notification: any) => boolean)
+	| null = null
 
 // Функция для безопасной отправки уведомлений
 async function safeSendNotification(userId: string, notification: any) {
@@ -17,7 +19,9 @@ async function safeSendNotification(userId: string, notification: any) {
 		}
 		return sendNotificationToUser(userId, notification)
 	} catch (error) {
-		logger.warn('Не удалось импортировать или вызвать sendNotificationToUser', { error })
+		logger.warn('Не удалось импортировать или вызвать sendNotificationToUser', {
+			error,
+		})
 		return false
 	}
 }
@@ -44,7 +48,13 @@ export async function GET(req: NextRequest) {
 						message: true,
 						amount: true,
 						customer: {
-							select: { id: true, fullName: true, email: true, avatarUrl: true, location: true },
+							select: {
+								id: true,
+								fullName: true,
+								email: true,
+								avatarUrl: true,
+								location: true,
+							},
 						},
 					},
 					orderBy: { createdAt: 'desc' },
@@ -62,7 +72,13 @@ export async function GET(req: NextRequest) {
 						message: true,
 						amount: true,
 						executor: {
-							select: { id: true, fullName: true, email: true, avatarUrl: true, location: true },
+							select: {
+								id: true,
+								fullName: true,
+								email: true,
+								avatarUrl: true,
+								location: true,
+							},
 						},
 					},
 					orderBy: { createdAt: 'desc' },
@@ -73,46 +89,46 @@ export async function GET(req: NextRequest) {
 			}
 		} catch (e: any) {
 			logger.error('Ошибка /api/hire GET (inner)', e)
-			
-			const isSchemaError = 
+
+			const isSchemaError =
 				e?.name === 'DatabaseSchemaError' ||
 				e?.code === 'P2021' ||
 				e?.message?.includes('does not exist')
-			
-			const isConnectionError = 
+
+			const isConnectionError =
 				e?.name === 'DatabaseConnectionError' ||
 				e?.code === 'P1017' ||
 				e?.code === 'P1001'
-			
+
 			if (isSchemaError || isConnectionError) {
 				return NextResponse.json(
 					{ error: 'Ошибка базы данных. Пожалуйста, попробуйте позже.' },
 					{ status: 503 }
 				)
 			}
-			
+
 			return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 		}
 	} catch (err: any) {
 		logger.error('Ошибка /api/hire GET (outer)', err)
-		
-		const isSchemaError = 
+
+		const isSchemaError =
 			err?.name === 'DatabaseSchemaError' ||
 			err?.code === 'P2021' ||
 			err?.message?.includes('does not exist')
-		
-		const isConnectionError = 
+
+		const isConnectionError =
 			err?.name === 'DatabaseConnectionError' ||
 			err?.code === 'P1017' ||
 			err?.code === 'P1001'
-		
+
 		if (isSchemaError || isConnectionError) {
 			return NextResponse.json(
 				{ error: 'Ошибка базы данных. Пожалуйста, попробуйте позже.' },
 				{ status: 503 }
 			)
 		}
-		
+
 		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
 	}
 }
@@ -128,17 +144,26 @@ export async function POST(req: NextRequest) {
 		logger.debug('Пользователь авторизован', { userId: me.id, role: me.role })
 
 		if (me.role !== 'customer') {
-			logger.warn('Роль не customer в /api/hire', { role: me.role, userId: me.id })
+			logger.warn('Роль не customer в /api/hire', {
+				role: me.role,
+				userId: me.id,
+			})
 			return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
 		}
 
 		let body
 		try {
 			body = await req.json()
-			logger.debug('Тело запроса получено', { executorId: body?.executorId, messageLength: body?.message?.length })
+			logger.debug('Тело запроса получено', {
+				executorId: body?.executorId,
+				messageLength: body?.message?.length,
+			})
 		} catch (e) {
 			logger.error('Ошибка парсинга JSON в /api/hire', e)
-			return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
+			return NextResponse.json(
+				{ error: 'Неверный формат данных' },
+				{ status: 400 }
+			)
 		}
 
 		// Валидация с использованием Zod
@@ -151,7 +176,10 @@ export async function POST(req: NextRequest) {
 			message: z
 				.string()
 				.min(1, 'Сопроводительное письмо обязательно')
-				.max(2000, 'Сопроводительное письмо слишком длинное (максимум 2000 символов)')
+				.max(
+					2000,
+					'Сопроводительное письмо слишком длинное (максимум 2000 символов)'
+				)
 				.trim(),
 		})
 
@@ -166,7 +194,11 @@ export async function POST(req: NextRequest) {
 		const { executorId, message } = validation.data
 
 		// Дополнительная валидация длины сообщения
-		const messageValidation = validateStringLength(message, 2000, 'Сопроводительное письмо')
+		const messageValidation = validateStringLength(
+			message,
+			2000,
+			'Сопроводительное письмо'
+		)
 		if (!messageValidation.valid) {
 			return NextResponse.json(
 				{ error: messageValidation.error },
@@ -189,14 +221,22 @@ export async function POST(req: NextRequest) {
 				where: { id: me.id },
 				select: { balance: true, fullName: true, email: true },
 			})
-			logger.debug('Баланс заказчика получен', { userId: me.id, balance: customer?.balance })
+			logger.debug('Баланс заказчика получен', {
+				userId: me.id,
+				balance: customer?.balance,
+			})
 		} catch (dbError: any) {
-			logger.error('Ошибка при получении данных заказчика', dbError, { userId: me.id })
+			logger.error('Ошибка при получении данных заказчика', dbError, {
+				userId: me.id,
+			})
 			throw dbError
 		}
 
 		if (!customer) {
-			return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
+			return NextResponse.json(
+				{ error: 'Пользователь не найден' },
+				{ status: 404 }
+			)
 		}
 
 		const customerBalance = new Decimal(customer.balance)
@@ -204,7 +244,7 @@ export async function POST(req: NextRequest) {
 
 		if (customerBalance.lessThan(hireCost)) {
 			return NextResponse.json(
-				{ 
+				{
 					error: 'Недостаточно средств на балансе',
 					required: HIRE_COST,
 					balance: customerBalance.toNumber(),
@@ -222,7 +262,9 @@ export async function POST(req: NextRequest) {
 				select: { id: true, role: true, fullName: true, email: true },
 			})
 		} catch (dbError: any) {
-			logger.error('Ошибка при получении данных исполнителя', dbError, { executorId })
+			logger.error('Ошибка при получении данных исполнителя', dbError, {
+				executorId,
+			})
 			throw dbError
 		}
 
@@ -234,7 +276,10 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Проверяем существующий запрос
-		logger.debug('Проверка существующего запроса найма', { customerId: me.id, executorId })
+		logger.debug('Проверка существующего запроса найма', {
+			customerId: me.id,
+			executorId,
+		})
 		let existing
 		try {
 			existing = await prisma.hireRequest.findFirst({
@@ -246,7 +291,10 @@ export async function POST(req: NextRequest) {
 				select: { id: true, status: true, createdAt: true },
 			})
 		} catch (dbError: any) {
-			logger.error('Ошибка при проверке существующего запроса', dbError, { customerId: me.id, executorId })
+			logger.error('Ошибка при проверке существующего запроса', dbError, {
+				customerId: me.id,
+				executorId,
+			})
 			// Если таблица не существует, это будет обработано в общем catch
 			throw dbError
 		}
@@ -267,36 +315,48 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
-		// Находим владельца платформы (админ) или создаём его
-		logger.debug('Поиск владельца платформы (admin)')
+		// Находим владельца платформы через PLATFORM_OWNER_ID из переменных окружения
+		logger.debug('Поиск владельца платформы')
 		let platformOwner
 		try {
-			platformOwner = await prisma.user.findFirst({
-				where: { role: 'admin' },
-				select: { id: true },
-				orderBy: { createdAt: 'asc' },
-			})
-			
-			// Если админа нет, создаём его автоматически
-			if (!platformOwner) {
-				logger.warn('Админ не найден, создаём системного администратора')
-				// Создаём хеш пароля для системного аккаунта (пароль не будет использоваться)
-				const systemPassword = await hashPassword(`system_admin_${Date.now()}_${Math.random()}`)
-				platformOwner = await prisma.user.create({
-					data: {
-						email: 'admin@nesi.platform',
-						fullName: 'Системный администратор',
-						role: 'admin',
-						verified: true,
-						balance: 0,
-						password: systemPassword,
-					},
+			const platformOwnerId = process.env.PLATFORM_OWNER_ID
+
+			if (platformOwnerId) {
+				// Используем ID из переменных окружения
+				platformOwner = await prisma.user.findUnique({
+					where: { id: platformOwnerId },
 					select: { id: true },
 				})
-				logger.info('Системный администратор создан', { adminId: platformOwner.id })
+
+				if (!platformOwner) {
+					logger.error(
+						'Пользователь с PLATFORM_OWNER_ID не найден в базе данных',
+						{ platformOwnerId }
+					)
+					return NextResponse.json(
+						{ error: 'Ошибка конфигурации платформы' },
+						{ status: 500 }
+					)
+				}
+			} else {
+				// Fallback: ищем первого админа, если PLATFORM_OWNER_ID не настроен
+				logger.warn('PLATFORM_OWNER_ID не настроен, используем первого админа')
+				platformOwner = await prisma.user.findFirst({
+					where: { role: 'admin' },
+					select: { id: true },
+					orderBy: { createdAt: 'asc' },
+				})
+
+				if (!platformOwner) {
+					logger.error('Админ не найден в базе данных')
+					return NextResponse.json(
+						{ error: 'Ошибка конфигурации платформы' },
+						{ status: 500 }
+					)
+				}
 			}
 		} catch (dbError: any) {
-			logger.error('Ошибка при поиске/создании владельца платформы', dbError)
+			logger.error('Ошибка при поиске владельца платформы', dbError)
 			throw dbError
 		}
 
@@ -304,7 +364,7 @@ export async function POST(req: NextRequest) {
 		logger.debug('Начало транзакции найма', { customerId: me.id, executorId })
 		let hire
 		try {
-			hire = await prisma.$transaction(async (tx) => {
+			hire = await prisma.$transaction(async tx => {
 				// 1. Создаём запрос на найм
 				const hireRequest = await tx.hireRequest.create({
 					data: {
@@ -348,20 +408,24 @@ export async function POST(req: NextRequest) {
 					},
 				})
 
-				// 5. Создаём транзакцию для владельца
+				// 5. Создаём транзакцию для владельца платформы (тип commission для отображения в админ панели)
 				await tx.transaction.create({
 					data: {
 						userId: platformOwner.id,
 						amount: hireCost,
-						type: 'income',
-						reason: `Оплата найма исполнителя`,
+						type: 'commission',
+						reason: `Оплата найма исполнителя (1990₽)`,
 						status: 'completed',
 					},
 				})
 
 				return hireRequest
 			})
-			logger.info('Транзакция найма завершена', { hireId: hire.id, customerId: me.id, executorId })
+			logger.info('Транзакция найма завершена', {
+				hireId: hire.id,
+				customerId: me.id,
+				executorId,
+			})
 		} catch (txError: any) {
 			logger.error('Ошибка в транзакции найма', txError, {
 				name: txError?.name,
@@ -373,7 +437,10 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Создаём приватное сообщение исполнителю
-		logger.debug('Создание приватного сообщения для найма', { customerId: me.id, executorId })
+		logger.debug('Создание приватного сообщения для найма', {
+			customerId: me.id,
+			executorId,
+		})
 		try {
 			await prisma.privateMessage.create({
 				data: {
@@ -384,7 +451,10 @@ export async function POST(req: NextRequest) {
 			})
 			logger.debug('Приватное сообщение создано')
 		} catch (msgError: any) {
-			logger.warn('Ошибка при создании приватного сообщения (не критично)', msgError)
+			logger.warn(
+				'Ошибка при создании приватного сообщения (не критично)',
+				msgError
+			)
 			// Это не критично, продолжаем
 		}
 
@@ -395,7 +465,9 @@ export async function POST(req: NextRequest) {
 				data: {
 					userId: executorId,
 					type: 'hire_request',
-					message: `Заказчик ${customer.fullName || customer.email} хочет нанять вас. Проверьте чат!`,
+					message: `Заказчик ${
+						customer.fullName || customer.email
+					} хочет нанять вас. Проверьте чат!`,
 					link: `/chats?open=${me.id}`,
 				},
 			})
@@ -410,14 +482,20 @@ export async function POST(req: NextRequest) {
 		await safeSendNotification(executorId, {
 			type: 'hire',
 			title: 'Запрос найма',
-			message: `Заказчик ${customer.fullName || customer.email} хочет нанять вас`,
+			message: `Заказчик ${
+				customer.fullName || customer.email
+			} хочет нанять вас`,
 			link: `/chats?open=${me.id}`,
 			senderId: me.id,
 			sender: customer.fullName || customer.email,
 			playSound: true,
 		})
 
-		logger.info('Запрос найма успешно создан', { hireId: hire.id, customerId: me.id, executorId })
+		logger.info('Запрос найма успешно создан', {
+			hireId: hire.id,
+			customerId: me.id,
+			executorId,
+		})
 		return NextResponse.json(
 			{ ok: true, already: false, hireId: hire.id, status: hire.status },
 			{ status: 201 }
@@ -429,37 +507,44 @@ export async function POST(req: NextRequest) {
 			code: err?.code,
 			meta: err?.meta,
 		})
-		
+
 		// Проверяем, является ли это ошибкой схемы БД
-		const isSchemaError = 
+		const isSchemaError =
 			err?.name === 'DatabaseSchemaError' ||
 			err?.code === 'P2021' ||
 			err?.message?.includes('does not exist')
-		
-		const isConnectionError = 
+
+		const isConnectionError =
 			err?.name === 'DatabaseConnectionError' ||
 			err?.code === 'P1017' ||
 			err?.code === 'P1001'
-		
+
 		if (isSchemaError) {
 			return NextResponse.json(
-				{ error: 'Ошибка схемы базы данных. Пожалуйста, обратитесь к администратору.' },
+				{
+					error:
+						'Ошибка схемы базы данных. Пожалуйста, обратитесь к администратору.',
+				},
 				{ status: 503 }
 			)
 		}
-		
+
 		if (isConnectionError) {
 			return NextResponse.json(
-				{ error: 'Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.' },
+				{
+					error:
+						'Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.',
+				},
 				{ status: 503 }
 			)
 		}
-		
+
 		// Для других ошибок возвращаем общее сообщение
 		return NextResponse.json(
-			{ 
-				error: 'Ошибка сервера', 
-				details: process.env.NODE_ENV === 'development' ? err?.message : undefined,
+			{
+				error: 'Ошибка сервера',
+				details:
+					process.env.NODE_ENV === 'development' ? err?.message : undefined,
 				stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined,
 			},
 			{ status: 500 }
