@@ -13,6 +13,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
 	FaAward,
 	FaBriefcase,
@@ -737,36 +738,43 @@ export default function UserPublicProfilePage() {
 				</div>
 			</div>
 
-			{/* Подсказка для кнопки найма - рендерится вне блока профиля */}
-			{showHireTooltip && canHire && hireState === 'none' && (
-				<div
-					className='fixed w-80 p-4 bg-gray-900/95 backdrop-blur-sm border-2 border-emerald-500/50 rounded-lg shadow-2xl z-[9999] pointer-events-auto transition-opacity duration-200'
-					style={{
-						top: `${tooltipPosition.top}px`,
-						left: `${tooltipPosition.left}px`,
-						transform: 'translateX(-50%)',
-					}}
-					onMouseEnter={() => setShowHireTooltip(true)}
-					onMouseLeave={() => setShowHireTooltip(false)}
-				>
-					<div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-0.5'>
-						<div className='w-3 h-3 bg-gray-900/95 border-l-2 border-t-2 border-emerald-500/50 rotate-45'></div>
-					</div>
-					<p className='text-sm text-white leading-relaxed mb-2'>
-						<span className='text-emerald-400 font-semibold'>1990₽</span> — это
-						плата за{' '}
-						<span className='text-emerald-300 font-medium'>доступ к чату</span>{' '}
-						с исполнителем.
-					</p>
-					<p className='text-sm text-white leading-relaxed'>
-						После оплаты вы сможете предложить ему{' '}
-						<span className='text-emerald-300 font-medium'>
-							офер на постоянную работу
-						</span>{' '}
-						(например, 5/2 с 9 до 18, удалёнка, частичная занятость и т.д.).
-					</p>
-				</div>
-			)}
+			{/* Подсказка для кнопки найма - рендерится через Portal в body */}
+			{typeof window !== 'undefined' &&
+				showHireTooltip &&
+				canHire &&
+				hireState === 'none' &&
+				createPortal(
+					<div
+						className='fixed w-80 p-4 bg-gray-900/95 backdrop-blur-sm border-2 border-emerald-500/50 rounded-lg shadow-2xl z-[99999] pointer-events-auto transition-opacity duration-200'
+						style={{
+							top: `${tooltipPosition.top}px`,
+							left: `${tooltipPosition.left}px`,
+							transform: 'translateX(-50%)',
+						}}
+						onMouseEnter={() => setShowHireTooltip(true)}
+						onMouseLeave={() => setShowHireTooltip(false)}
+					>
+						<div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-0.5'>
+							<div className='w-3 h-3 bg-gray-900/95 border-l-2 border-t-2 border-emerald-500/50 rotate-45'></div>
+						</div>
+						<p className='text-sm text-white leading-relaxed mb-2'>
+							<span className='text-emerald-400 font-semibold'>1990₽</span> —
+							это плата за{' '}
+							<span className='text-emerald-300 font-medium'>
+								доступ к чату
+							</span>{' '}
+							с исполнителем.
+						</p>
+						<p className='text-sm text-white leading-relaxed'>
+							После оплаты вы сможете предложить ему{' '}
+							<span className='text-emerald-300 font-medium'>
+								офер на постоянную работу
+							</span>{' '}
+							(например, 5/2 с 9 до 18, удалёнка, частичная занятость и т.д.).
+						</p>
+					</div>,
+					document.body
+				)}
 
 			{/* Табы */}
 			<div className='flex gap-2 mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
