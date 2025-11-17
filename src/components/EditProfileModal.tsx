@@ -208,7 +208,7 @@ const cityOptions = [
 ]
 
 // Расширенный список навыков на основе категорий
-const skillCategories: Record<string, string[]> = {
+export const skillCategories: Record<string, string[]> = {
 	'IT и программирование': [
 		'JavaScript',
 		'TypeScript',

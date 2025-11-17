@@ -13,6 +13,7 @@ import { useEscapeKey } from '@/hooks/useEscapeKey'
 import TaskTemplates, { SaveTemplateButton } from '@/components/TaskTemplates'
 import type { TaskTemplate } from '@/hooks/useTaskTemplates'
 import { BadgeUnlockedModal, BadgeData } from '@/components/BadgeUnlockedModal'
+import { skillCategories } from '@/components/EditProfileModal'
 
 type Category = {
   id: string
@@ -29,6 +30,8 @@ export default function CreateTaskPage() {
   const [description, setDescription] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [subcategoryId, setSubcategoryId] = useState('')
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([])
+  const [showSkillsSelector, setShowSkillsSelector] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
@@ -55,6 +58,7 @@ export default function CreateTaskPage() {
     description,
     categoryId,
     subcategoryId,
+    selectedSkills,
   }
   const { loadDraft, clearDraft } = useAutoSave(formData, 'new_task', 30000)
 
@@ -88,6 +92,7 @@ export default function CreateTaskPage() {
             setDescription(draft.description || '')
             setCategoryId(draft.categoryId || '')
             setSubcategoryId(draft.subcategoryId || '')
+            setSelectedSkills(draft.selectedSkills || [])
           },
         })
       }
@@ -149,6 +154,9 @@ export default function CreateTaskPage() {
       formData.append('title', title)
       formData.append('description', description)
       formData.append('subcategoryId', subcategoryId)
+      if (selectedSkills.length > 0) {
+        formData.append('skillsRequired', JSON.stringify(selectedSkills))
+      }
       files.forEach((file) => {
         formData.append('files', file)
       })
@@ -164,7 +172,10 @@ export default function CreateTaskPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        toast.error(data.error || 'Ошибка при создании задачи')
+        const errorMessage = data.error || 'Ошибка при создании задачи'
+        const details = data.details ? `: ${data.details}` : ''
+        console.error('Ошибка создания задачи:', errorMessage, details, data)
+        toast.error(`${errorMessage}${details}`)
         return
       }
 
@@ -214,6 +225,22 @@ export default function CreateTaskPage() {
 
   // Проверка, можно ли показать предпросмотр
   const canPreview = title.trim() && description.trim() && subcategoryId
+
+  // Закрытие селектора навыков при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (showSkillsSelector && !target.closest('.skills-selector-container')) {
+        setShowSkillsSelector(false)
+      }
+    }
+    if (showSkillsSelector) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showSkillsSelector])
 
   return (
     <ProtectedPage>
@@ -326,6 +353,80 @@ export default function CreateTaskPage() {
     </div>
   </div>
 )}
+
+          {/* Выбор навыков */}
+          <div className="space-y-2 relative skills-selector-container">
+            <label className="text-sm text-emerald-400 font-medium">Навыки (необязательно)</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowSkillsSelector(!showSkillsSelector)}
+                className="w-full text-left px-4 py-3 rounded-xl bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none flex justify-between items-center shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+              >
+                {selectedSkills.length > 0 
+                  ? `Выбрано навыков: ${selectedSkills.length}` 
+                  : 'Выберите требуемые навыки'}
+                <span className="text-emerald-400">▼</span>
+              </button>
+
+              {showSkillsSelector && (
+                <div className="absolute z-50 mt-2 w-full bg-[#001a12]/95 border border-emerald-700 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] backdrop-blur-md animate-fade-in max-h-96 overflow-y-auto custom-scrollbar">
+                  <div className="p-4 space-y-4">
+                    {/* Выбранные навыки */}
+                    {selectedSkills.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pb-3 border-b border-emerald-500/20">
+                        {selectedSkills.map(skill => (
+                          <span
+                            key={skill}
+                            className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-sm rounded-full border border-emerald-500/40 flex items-center gap-2"
+                          >
+                            {skill}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSkills(prev => prev.filter(s => s !== skill))}
+                              className="text-red-400 hover:text-red-300 transition text-xs"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Список категорий навыков */}
+                    <div className="space-y-3">
+                      {Object.entries(skillCategories).map(([category, skills]) => (
+                        <div key={category} className="space-y-2">
+                          <h4 className="text-emerald-300 font-medium text-sm">{category}</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {skills.map(skill => (
+                              <button
+                                key={skill}
+                                type="button"
+                                onClick={() => {
+                                  if (!selectedSkills.includes(skill)) {
+                                    setSelectedSkills(prev => [...prev, skill])
+                                  }
+                                }}
+                                disabled={selectedSkills.includes(skill)}
+                                className={`px-3 py-1.5 text-xs rounded-lg border transition ${
+                                  selectedSkills.includes(skill)
+                                    ? 'bg-emerald-500/30 text-emerald-200 border-emerald-500/50 cursor-not-allowed'
+                                    : 'bg-black/40 text-gray-300 border-emerald-700/50 hover:bg-emerald-700/30 hover:text-emerald-300 hover:border-emerald-500/50'
+                                }`}
+                              >
+                                {skill}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Drop-зона */}
           <div

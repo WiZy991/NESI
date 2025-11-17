@@ -308,6 +308,22 @@ export async function POST(req: Request) {
 			? new Date(formData.get('deadline')!.toString())
 			: null
 		const subcategoryId = formData.get('subcategoryId')?.toString() || null
+		const skillsRequiredJson = formData.get('skillsRequired')?.toString()
+		let skillsRequired: string[] = []
+		if (skillsRequiredJson) {
+			try {
+				skillsRequired = JSON.parse(skillsRequiredJson) as string[]
+				// Валидация: убеждаемся, что это массив строк
+				if (!Array.isArray(skillsRequired)) {
+					skillsRequired = []
+				} else {
+					skillsRequired = skillsRequired.filter(skill => typeof skill === 'string' && skill.trim().length > 0)
+				}
+			} catch (parseError) {
+				logger.warn('Ошибка парсинга skillsRequired', { error: parseError, json: skillsRequiredJson })
+				skillsRequired = []
+			}
+		}
 
 		// Валидация заголовка
 		const titleValidation = validateStringLength(title.trim(), 200, 'Заголовок')
@@ -386,6 +402,7 @@ export async function POST(req: Request) {
 				deadline,
 				customerId: user.id,
 				subcategoryId,
+				skillsRequired,
 				kanbanColumn: 'TODO',
 				kanbanOrder: todoCount,
 				files: {
@@ -394,6 +411,85 @@ export async function POST(req: Request) {
 			},
 			include: { files: true },
 		})
+
+		// Отправляем уведомления исполнителям с нужными навыками (асинхронно, не блокируем ответ)
+		if (skillsRequired.length > 0) {
+			// Запускаем отправку уведомлений асинхронно, не ждем завершения
+			Promise.resolve().then(async () => {
+				try {
+					// Находим всех исполнителей с хотя бы одним из требуемых навыков
+					const executors = await prisma.user.findMany({
+						where: {
+							role: 'executor',
+							skills: {
+								hasSome: skillsRequired,
+							},
+						},
+						select: {
+							id: true,
+							fullName: true,
+							email: true,
+						},
+					})
+
+					if (executors.length === 0) {
+						logger.debug('Нет исполнителей с требуемыми навыками', {
+							taskId: task.id,
+							skillsRequired,
+						})
+						return
+					}
+
+					// Отправляем уведомления через SSE и создаем записи в БД
+					const { sendNotificationToUser } = await import('@/app/api/notifications/stream/route')
+					const { createNotification } = await import('@/lib/createNotification')
+
+					for (const executor of executors) {
+						try {
+							// Создаем уведомление в БД
+							await createNotification(
+								executor.id,
+								`Новая задача "${sanitizedTitle}" требует навыки, которые у вас есть!`,
+								`/tasks/${task.id}`,
+								'newTaskWithSkills'
+							)
+
+							// Отправляем через SSE
+							sendNotificationToUser(executor.id, {
+								type: 'newTaskWithSkills',
+								title: 'Новая задача по вашим навыкам',
+								message: `Задача "${sanitizedTitle}" требует навыки, которые у вас есть!`,
+								link: `/tasks/${task.id}`,
+								taskId: task.id,
+								taskTitle: sanitizedTitle,
+								requiredSkills: skillsRequired,
+							})
+						} catch (executorError) {
+							logger.warn('Ошибка отправки уведомления конкретному исполнителю', {
+								executorId: executor.id,
+								taskId: task.id,
+								error: executorError,
+							})
+							// Продолжаем отправку другим исполнителям
+						}
+					}
+
+					logger.info('Уведомления отправлены исполнителям с нужными навыками', {
+						taskId: task.id,
+						skillsRequired,
+						executorsCount: executors.length,
+					})
+				} catch (notifyError) {
+					logger.error('Ошибка отправки уведомлений исполнителям', notifyError, {
+						taskId: task.id,
+						skillsRequired,
+					})
+					// Не прерываем создание задачи из-за ошибки уведомлений
+				}
+			}).catch(err => {
+				logger.error('Критическая ошибка в асинхронной отправке уведомлений', err)
+			})
+		}
 
 		// ✅ Проверяем достижения для заказчика при создании задачи
 		// Важно: проверяем после сохранения задачи в БД
@@ -432,8 +528,21 @@ export async function POST(req: Request) {
 		}
 
 		return NextResponse.json({ task, awardedBadges })
-	} catch (err) {
-		logger.error('Ошибка при создании задачи', err, { userId: user?.id })
-		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+	} catch (err: any) {
+		logger.error('Ошибка при создании задачи', err, { 
+			userId: user?.id,
+			errorMessage: err?.message,
+			errorStack: err?.stack,
+		})
+		
+		// Более детальное сообщение об ошибке для отладки
+		const errorMessage = err?.message || 'Ошибка сервера'
+		return NextResponse.json(
+			{ 
+				error: 'Ошибка сервера',
+				details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+			}, 
+			{ status: 500 }
+		)
 	}
 }

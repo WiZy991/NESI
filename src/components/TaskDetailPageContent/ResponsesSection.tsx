@@ -7,6 +7,7 @@ import type { Task } from './types'
 import { LevelBadge } from '../LevelBadge'
 import { getLevelVisuals } from '@/lib/level/rewards'
 import '@/styles/level-animations.css'
+import PriceComparisonWidget from '../PriceComparisonWidget'
 
 type ResponsesSectionProps = {
 	task: Task
@@ -94,8 +95,14 @@ export function ResponsesSection({
 										</div>
 									</div>
 									{response.price && (
-										<div className='bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-sm font-semibold'>
-											💰 {response.price} ₽
+										<div className='text-right'>
+											<div className='bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-sm font-semibold inline-block mb-2'>
+												💰 {typeof response.price === 'number' ? response.price.toLocaleString('ru-RU') : response.price} ₽
+											</div>
+											<PriceComparisonWidget
+												subcategoryId={task.subcategoryId || task.subcategory?.id || null}
+												responsePrice={typeof response.price === 'number' ? response.price : parseFloat(String(response.price).replace(/\s/g, '')) || null}
+											/>
 										</div>
 									)}
 								</div>

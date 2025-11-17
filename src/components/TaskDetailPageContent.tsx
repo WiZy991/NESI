@@ -15,6 +15,7 @@ import { ResponseFormSection } from './TaskDetailPageContent/ResponseFormSection
 import { ChatLinkButton } from './TaskDetailPageContent/ChatLinkButton'
 import type { Task, DisputeInfo } from './TaskDetailPageContent/types'
 import { TaskCardSkeleton, InfoPanelSkeleton } from './SkeletonLoader'
+import ExecutorActivityWidget from './ExecutorActivityWidget'
 
 export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	const { token, user } = useUser()
@@ -180,6 +181,15 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 
 			{/* Действия - только для создателя задачи */}
 			<TaskActionsSection task={taskData} isCustomer={isCustomer} />
+
+			{/* Активность исполнителя - только для заказчика */}
+			{isCustomer && task.executorId && (
+				<ExecutorActivityWidget
+					taskId={task.id}
+					executorId={task.executorId}
+					isCustomer={isCustomer}
+				/>
+			)}
 
 			{/* 🟢 Блок отзывов */}
 			<ReviewSection
