@@ -24,6 +24,11 @@ export function ResponsesSection({
 		return null
 	}
 
+	// Если задача уже назначена исполнителю, не показываем отклики
+	if (task.executorId) {
+		return null
+	}
+
 	return (
 		<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
 			<div className='flex items-center gap-3 mb-6'>
@@ -71,7 +76,7 @@ export function ResponsesSection({
 						return (
 							<div
 								key={response.id}
-								className={`bg-black/30 rounded-xl p-4 md:p-6 border-2 ${borderClass} transition-all duration-300 hover:scale-[1.02]`}
+								className={`bg-gradient-to-br from-gray-900/50 to-black/50 rounded-xl p-4 md:p-6 border-2 ${borderClass} transition-all duration-300 hover:scale-[1.02] backdrop-blur-sm`}
 							>
 								<div className='flex items-start justify-between mb-4'>
 									<div className='flex items-center gap-3'>
@@ -102,13 +107,15 @@ export function ResponsesSection({
 											<PriceComparisonWidget
 												subcategoryId={task.subcategoryId || task.subcategory?.id || null}
 												responsePrice={typeof response.price === 'number' ? response.price : parseFloat(String(response.price).replace(/\s/g, '')) || null}
+												taskTitle={task.title || null}
+												taskDescription={task.description || null}
 											/>
 										</div>
 									)}
 								</div>
 
 							{response.message && (
-								<div className='bg-black/20 rounded-lg p-3 md:p-4 mb-4'>
+								<div className='bg-gray-900/30 rounded-lg p-3 md:p-4 mb-4 border border-gray-800/50'>
 									<p className='text-gray-200 leading-relaxed'>
 										{response.message}
 									</p>
