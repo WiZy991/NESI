@@ -299,7 +299,19 @@ export async function POST(req: Request) {
 		} = await import('@/lib/security')
 		const { validateFile } = await import('@/lib/fileValidation')
 
-		const formData = await req.formData()
+		let formData: FormData
+		try {
+			formData = await req.formData()
+		} catch (formDataError: any) {
+			logger.error('Ошибка парсинга formData', formDataError, {
+				userId: user.id,
+				errorMessage: formDataError?.message,
+			})
+			return NextResponse.json(
+				{ error: 'Ошибка обработки данных формы' },
+				{ status: 400 }
+			)
+		}
 
 		const title = formData.get('title')?.toString() || ''
 		const description = formData.get('description')?.toString() || ''
@@ -356,61 +368,91 @@ export async function POST(req: Request) {
 		const validatedFiles = []
 
 		for (const file of files) {
-			if (!(file instanceof File) || file.size === 0) continue
+			try {
+				if (!(file instanceof File) || file.size === 0) continue
 
-			// Проверка имени файла
-			if (!isValidFileName(file.name)) {
+				// Проверка имени файла
+				if (!isValidFileName(file.name)) {
+					return NextResponse.json(
+						{ error: `Недопустимое имя файла: ${file.name}` },
+						{ status: 400 }
+					)
+				}
+
+				// Валидация файла
+				const fileValidation = await validateFile(file, true)
+				if (!fileValidation.valid) {
+					return NextResponse.json(
+						{ error: fileValidation.error || 'Ошибка валидации файла' },
+						{ status: 400 }
+					)
+				}
+
+				const buffer = Buffer.from(await file.arrayBuffer())
+				const safeFileName = normalizeFileName(file.name)
+				const mimeType = fileValidation.detectedMimeType || file.type
+
+				validatedFiles.push({
+					filename: safeFileName,
+					mimetype: mimeType,
+					size: file.size,
+					data: buffer,
+				})
+			} catch (fileError: any) {
+				logger.error('Ошибка обработки файла', fileError, {
+					fileName: file?.name,
+					fileSize: file?.size,
+				})
 				return NextResponse.json(
-					{ error: `Недопустимое имя файла: ${file.name}` },
+					{ error: `Ошибка обработки файла: ${file.name}` },
 					{ status: 400 }
 				)
 			}
-
-			// Валидация файла
-			const fileValidation = await validateFile(file, true)
-			if (!fileValidation.valid) {
-				return NextResponse.json(
-					{ error: fileValidation.error || 'Ошибка валидации файла' },
-					{ status: 400 }
-				)
-			}
-
-			const buffer = Buffer.from(await file.arrayBuffer())
-			const safeFileName = normalizeFileName(file.name)
-			const mimeType = fileValidation.detectedMimeType || file.type
-
-			validatedFiles.push({
-				filename: safeFileName,
-				mimetype: mimeType,
-				size: file.size,
-				data: buffer,
-			})
 		}
 
-		const todoCount = await prisma.task.count({
-			where: {
-				customerId: user.id,
-				kanbanColumn: 'TODO',
-			},
-		})
+		let todoCount = 0
+		try {
+			todoCount = await prisma.task.count({
+				where: {
+					customerId: user.id,
+					kanbanColumn: 'TODO',
+				},
+			})
+		} catch (countError: any) {
+			logger.warn('Ошибка подсчета задач в TODO', countError)
+			// Продолжаем с todoCount = 0
+		}
 
-		const task = await prisma.task.create({
-			data: {
+		let task
+		try {
+			task = await prisma.task.create({
+				data: {
+					title: sanitizedTitle,
+					description: sanitizedDescription,
+					price,
+					deadline,
+					customerId: user.id,
+					subcategoryId,
+					skillsRequired,
+					kanbanColumn: 'TODO',
+					kanbanOrder: todoCount,
+					files: {
+						create: validatedFiles,
+					},
+				},
+				include: { files: true },
+			})
+		} catch (createError: any) {
+			logger.error('Ошибка создания задачи в БД', createError, {
+				userId: user.id,
 				title: sanitizedTitle,
-				description: sanitizedDescription,
-				price,
-				deadline,
-				customerId: user.id,
 				subcategoryId,
 				skillsRequired,
-				kanbanColumn: 'TODO',
-				kanbanOrder: todoCount,
-				files: {
-					create: validatedFiles,
-				},
-			},
-			include: { files: true },
-		})
+				errorMessage: createError?.message,
+				errorCode: createError?.code,
+			})
+			throw createError
+		}
 
 		// Отправляем уведомления исполнителям с нужными навыками (асинхронно, не блокируем ответ)
 		if (skillsRequired.length > 0) {

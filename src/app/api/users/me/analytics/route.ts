@@ -320,18 +320,19 @@ export async function GET(req: NextRequest) {
 
     // Аналитика для исполнителей
     if (user.role === 'executor') {
-      const [
-        tasksExecuted,
-        tasksInProgress,
-        tasksCompleted,
-        totalEarned,
-        avgTaskPrice,
-        responseRate,
-        topCustomers,
-        earningsRaw,
-        avgCompletionTime,
-        ratingAggregate,
-      ] = await Promise.all([
+      let tasksExecuted = 0
+      let tasksInProgress = 0
+      let tasksCompleted = 0
+      let totalEarned = { _sum: { amount: null } }
+      let avgTaskPrice = { _avg: { price: null } }
+      let responseRate = 0
+      let topCustomers: any[] = []
+      let earningsRaw: Array<RawChartPoint> = []
+      let avgCompletionTime: Array<{ avg_hours: number }> = [{ avg_hours: 0 }]
+      let ratingAggregate = { _avg: { rating: null } }
+
+      try {
+        const results = await Promise.all([
         // Всего задач взято в работу (за период)
         prisma.task.count({
           where: { 
@@ -465,27 +466,59 @@ export async function GET(req: NextRequest) {
           },
           _avg: { rating: true },
         }),
-      ])
+        ])
+        
+        // Распаковываем результаты
+        tasksExecuted = results[0] as number
+        tasksInProgress = results[1] as number
+        tasksCompleted = results[2] as number
+        totalEarned = results[3] as { _sum: { amount: null | number } }
+        avgTaskPrice = results[4] as { _avg: { price: null | number } }
+        responseRate = results[5] as number
+        topCustomers = results[6] as any[]
+        earningsRaw = (results[7] || []) as Array<RawChartPoint>
+        avgCompletionTime = (results[8] || [{ avg_hours: 0 }]) as Array<{ avg_hours: number }>
+        ratingAggregate = results[9] as { _avg: { rating: null | number } }
+      } catch (promiseError: any) {
+        logger.error('Ошибка в Promise.all для аналитики исполнителя', promiseError, {
+          userId: user.id,
+          errorMessage: promiseError?.message,
+          errorStack: promiseError?.stack?.substring(0, 500),
+        })
+        // Продолжаем с дефолтными значениями
+      }
 
       // Получаем информацию о топ заказчиках
-      const customerIds = topCustomers.map((t: any) => t.customerId)
+      let topCustomersWithInfo: Array<{
+        customer: { id: string; fullName: string | null; avgRating: number | null } | null
+        tasksCount: number
+      }> = []
       
-      const customers = await prisma.user.findMany({
-        where: { id: { in: customerIds } },
-        select: {
-          id: true,
-          fullName: true,
-          avgRating: true,
-        },
-      })
+      try {
+        const customerIds = topCustomers.map((t: any) => t.customerId).filter(Boolean)
+        
+        if (customerIds.length > 0) {
+          const customers = await prisma.user.findMany({
+            where: { id: { in: customerIds } },
+            select: {
+              id: true,
+              fullName: true,
+              avgRating: true,
+            },
+          })
 
-      const topCustomersWithInfo = topCustomers.map((t: any) => {
-        const customer = customers.find((c) => c.id === t.customerId)
-        return {
-          customer,
-          tasksCount: t._count.id,
+          topCustomersWithInfo = topCustomers.map((t: any) => {
+            const customer = customers.find((c) => c.id === t.customerId)
+            return {
+              customer: customer || null,
+              tasksCount: t._count.id,
+            }
+          })
         }
-      })
+      } catch (err) {
+        logger.warn('Ошибка получения информации о топ заказчиках', { error: err })
+        // Продолжаем с пустым массивом
+      }
 
       // Обрабатываем earningsRaw - результат Promise.all уже разрешен
       // earningsRaw - это результат асинхронной функции, который уже разрешен в Promise.all
