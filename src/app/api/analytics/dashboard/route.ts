@@ -91,13 +91,25 @@ export async function GET(req: Request) {
 				totalResponsesResult,
 				hiredExecutorsResult,
 			] = await Promise.all([
-			// Всего задач
-			prisma.task.count({
-				where: {
-					customerId: currentUser.id,
-					...(useDateFilter ? { createdAt: { gte: startDate } } : {}),
-				},
-			}),
+			// Всего задач - задачи, созданные в период ИЛИ завершенные в период
+			useDateFilter
+				? prisma.task.count({
+						where: {
+							customerId: currentUser.id,
+							OR: [
+								{ createdAt: { gte: startDate } },
+								{
+									status: 'completed',
+									completedAt: { not: null, gte: startDate },
+								},
+							],
+						},
+					})
+				: prisma.task.count({
+						where: {
+							customerId: currentUser.id,
+						},
+					}),
 			// Завершенных задач - учитываем задачи, завершенные в период (независимо от даты создания)
 			prisma.task.count({
 				where: {
@@ -148,14 +160,27 @@ export async function GET(req: Request) {
 					},
 				},
 			}),
-			// Нанято исполнителей
-			prisma.task.count({
-				where: {
-					customerId: currentUser.id,
-					executorId: { not: null },
-					...(useDateFilter ? { createdAt: { gte: startDate } } : {}),
-				},
-			}),
+			// Нанято исполнителей - задачи с исполнителем, созданные в период ИЛИ завершенные в период
+			useDateFilter
+				? prisma.task.count({
+						where: {
+							customerId: currentUser.id,
+							executorId: { not: null },
+							OR: [
+								{ createdAt: { gte: startDate } },
+								{
+									status: 'completed',
+									completedAt: { not: null, gte: startDate },
+								},
+							],
+						},
+					})
+				: prisma.task.count({
+						where: {
+							customerId: currentUser.id,
+							executorId: { not: null },
+						},
+					}),
 			])
 
 			totalTasks = totalTasksResult
@@ -707,7 +732,17 @@ export async function GET(req: Request) {
 				where: {
 					customerId: currentUser.id,
 					executorId: { not: null },
-					createdAt: { gte: startDate },
+					...(useDateFilter
+						? {
+								OR: [
+									{ createdAt: { gte: startDate } },
+									{
+										status: 'completed',
+										completedAt: { not: null, gte: startDate },
+									},
+								],
+							}
+						: {}),
 				},
 				_count: { id: true },
 				_avg: { price: true },
@@ -752,7 +787,17 @@ export async function GET(req: Request) {
 						where: {
 							customerId: currentUser.id,
 							executorId: stat.executorId,
-							...(useDateFilter ? { createdAt: { gte: startDate } } : {}),
+							...(useDateFilter
+								? {
+										OR: [
+											{ createdAt: { gte: startDate } },
+											{
+												status: 'completed',
+												completedAt: { not: null, gte: startDate },
+											},
+										],
+									}
+								: {}),
 						},
 						select: {
 							createdAt: true,
@@ -840,11 +885,35 @@ export async function GET(req: Request) {
 						: 0
 					const realTotalSpent = executorPrices.reduce((sum, p) => sum + p, 0)
 					
+					// Получаем рейтинг исполнителя - если avgRating null или 0, вычисляем из отзывов
+					let executorRating = Number(executor.avgRating || 0)
+					if (executorRating === 0) {
+						try {
+							const executorReviews = await prisma.review.findMany({
+								where: {
+									toUserId: executor.id,
+								},
+								select: {
+									rating: true,
+								},
+							})
+							
+							if (executorReviews.length > 0) {
+								executorRating = executorReviews.reduce((sum, r) => sum + r.rating, 0) / executorReviews.length
+							}
+						} catch (err) {
+							logger.warn('Ошибка получения рейтинга исполнителя из отзывов', {
+								executorId: executor.id,
+								error: err,
+							})
+						}
+					}
+					
 					return {
 						executorId: stat.executorId,
 						executorName: executor.fullName || executor.email || 'Неизвестно',
 						executorEmail: executor.email,
-						executorRating: executor.avgRating || 0,
+						executorRating: Math.round(executorRating * 10) / 10, // Округляем до 1 знака после запятой
 						taskCount: stat._count.id,
 						avgPrice: realAvgPrice,
 						totalSpent: realTotalSpent,

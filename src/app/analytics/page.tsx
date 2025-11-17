@@ -22,6 +22,8 @@ import {
 	Cell,
 } from 'recharts'
 import Link from 'next/link'
+import jsPDF from 'jspdf'
+import * as XLSX from 'xlsx'
 
 interface DashboardData {
 	period: number
@@ -156,11 +158,262 @@ export default function AnalyticsPage() {
 	}
 
 	const handleExportPDF = () => {
-		toast.info('Экспорт в PDF будет реализован в следующей версии')
+		if (!dashboardData) {
+			toast.error('Нет данных для экспорта')
+			return
+		}
+
+		try {
+			const metrics = dashboardData.metrics
+			const doc = new jsPDF()
+			const pageWidth = doc.internal.pageSize.getWidth()
+			const pageHeight = doc.internal.pageSize.getHeight()
+			let yPos = 20
+			const margin = 20
+			const lineHeight = 7
+
+			// Заголовок
+			doc.setFontSize(18)
+			doc.setTextColor(16, 185, 129) // emerald-500
+			doc.text('Аналитика заказчика', margin, yPos)
+			yPos += 10
+
+			// Период
+			doc.setFontSize(12)
+			doc.setTextColor(0, 0, 0)
+			const periodText = selectedPeriod === '7' ? 'Неделя' : selectedPeriod === '30' ? 'Месяц' : selectedPeriod === '90' ? 'Квартал' : 'Год'
+			doc.text(`Период: ${periodText}`, margin, yPos)
+			yPos += 10
+
+			// Дата генерации
+			doc.setFontSize(10)
+			doc.setTextColor(100, 100, 100)
+			doc.text(`Сгенерировано: ${new Date().toLocaleString('ru-RU')}`, margin, yPos)
+			yPos += 15
+
+			// Ключевые метрики
+			doc.setFontSize(14)
+			doc.setTextColor(0, 0, 0)
+			doc.text('Ключевые метрики', margin, yPos)
+			yPos += 8
+
+			doc.setFontSize(10)
+			const metricsList = [
+				`Опубликовано задач: ${metrics.totalTasks}`,
+				`Завершено задач: ${metrics.completedTasks}`,
+				`В работе: ${metrics.inProgressTasks}`,
+				`Открытых: ${metrics.openTasks}`,
+				`Откликов: ${metrics.totalResponses}`,
+				`Нанято исполнителей: ${metrics.hiredExecutors}`,
+				`Конверсия: ${metrics.conversionRate.toFixed(2)}%`,
+				`Средняя стоимость: ${metrics.avgPrice > 0 ? Math.round(metrics.avgPrice).toLocaleString('ru-RU') : 0} ₽`,
+				`Среднее время: ${metrics.avgCompletionTime > 0 ? Math.round(metrics.avgCompletionTime) : 0} дн.`,
+				`Общие траты: ${metrics.totalSpent > 0 ? Math.round(metrics.totalSpent).toLocaleString('ru-RU') : 0} ₽`,
+				`Средний рейтинг: ${metrics.avgExecutorRating > 0 ? metrics.avgExecutorRating.toFixed(1) : 0} ⭐`,
+			]
+
+			metricsList.forEach(metric => {
+				if (yPos > pageHeight - 20) {
+					doc.addPage()
+					yPos = 20
+				}
+				doc.text(metric, margin + 5, yPos)
+				yPos += lineHeight
+			})
+
+			yPos += 5
+
+			// Аналитика по категориям
+			if (dashboardData.categoryStats && dashboardData.categoryStats.length > 0) {
+				if (yPos > pageHeight - 40) {
+					doc.addPage()
+					yPos = 20
+				}
+
+				doc.setFontSize(14)
+				doc.text('Аналитика по категориям', margin, yPos)
+				yPos += 8
+
+				doc.setFontSize(9)
+				// Заголовки таблицы
+				doc.text('Категория', margin, yPos)
+				doc.text('Задач', margin + 50, yPos)
+				doc.text('Средняя цена', margin + 70, yPos)
+				doc.text('Средний срок', margin + 100, yPos)
+				doc.text('Откликов', margin + 125, yPos)
+				doc.text('Успешность', margin + 145, yPos)
+				yPos += 5
+
+				dashboardData.categoryStats.slice(0, 10).forEach(stat => {
+					if (yPos > pageHeight - 20) {
+						doc.addPage()
+						yPos = 20
+					}
+					doc.text(stat.subcategoryName || stat.categoryName || 'Неизвестно', margin, yPos)
+					doc.text(stat.taskCount.toString(), margin + 50, yPos)
+					doc.text(`${Math.round(stat.avgPrice).toLocaleString('ru-RU')} ₽`, margin + 70, yPos)
+					doc.text(`${Math.round(stat.avgCompletionTime)} дн.`, margin + 100, yPos)
+					doc.text(stat.responsesCount.toString(), margin + 125, yPos)
+					doc.text(`${stat.successRate.toFixed(1)}%`, margin + 145, yPos)
+					yPos += lineHeight
+				})
+			}
+
+			// Топ исполнителей
+			if (dashboardData.topExecutors && dashboardData.topExecutors.length > 0) {
+				if (yPos > pageHeight - 40) {
+					doc.addPage()
+					yPos = 20
+				}
+
+				yPos += 5
+				doc.setFontSize(14)
+				doc.text('Топ-5 исполнителей', margin, yPos)
+				yPos += 8
+
+				doc.setFontSize(9)
+				// Заголовки таблицы
+				doc.text('Исполнитель', margin, yPos)
+				doc.text('Задач', margin + 60, yPos)
+				doc.text('Средняя цена', margin + 75, yPos)
+				doc.text('Всего потрачено', margin + 100, yPos)
+				doc.text('Скорость', margin + 135, yPos)
+				doc.text('Рейтинг', margin + 150, yPos)
+				yPos += 5
+
+				dashboardData.topExecutors.forEach(executor => {
+					if (yPos > pageHeight - 20) {
+						doc.addPage()
+						yPos = 20
+					}
+					doc.text(executor.executorName, margin, yPos)
+					doc.text(executor.taskCount.toString(), margin + 60, yPos)
+					doc.text(`${Math.round(executor.avgPrice).toLocaleString('ru-RU')} ₽`, margin + 75, yPos)
+					doc.text(`${Math.round(executor.totalSpent).toLocaleString('ru-RU')} ₽`, margin + 100, yPos)
+					doc.text(`${executor.avgSpeed} дн.`, margin + 135, yPos)
+					doc.text(executor.executorRating.toFixed(1), margin + 150, yPos)
+					yPos += lineHeight
+				})
+			}
+
+			// Сохраняем PDF
+			const fileName = `analytics_${periodText.toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`
+			doc.save(fileName)
+			toast.success('PDF успешно экспортирован')
+		} catch (error: any) {
+			console.error('Ошибка экспорта в PDF:', error)
+			toast.error(`Ошибка экспорта в PDF: ${error?.message || 'Неизвестная ошибка'}`)
+		}
 	}
 
 	const handleExportExcel = () => {
-		toast.info('Экспорт в Excel будет реализован в следующей версии')
+		if (!dashboardData) {
+			toast.error('Нет данных для экспорта')
+			return
+		}
+
+		try {
+			const metrics = dashboardData.metrics
+			const workbook = XLSX.utils.book_new()
+
+			// Лист 1: Ключевые метрики
+			const metricsData = [
+				['Метрика', 'Значение'],
+				['Опубликовано задач', metrics.totalTasks],
+				['Завершено задач', metrics.completedTasks],
+				['В работе', metrics.inProgressTasks],
+				['Открытых', metrics.openTasks],
+				['Откликов', metrics.totalResponses],
+				['Нанято исполнителей', metrics.hiredExecutors],
+				['Конверсия (%)', metrics.conversionRate.toFixed(2)],
+				['Средняя стоимость (₽)', metrics.avgPrice > 0 ? Math.round(metrics.avgPrice) : 0],
+				['Среднее время (дн.)', metrics.avgCompletionTime > 0 ? Math.round(metrics.avgCompletionTime) : 0],
+				['Общие траты (₽)', metrics.totalSpent > 0 ? Math.round(metrics.totalSpent) : 0],
+				['Средний рейтинг', metrics.avgExecutorRating > 0 ? metrics.avgExecutorRating.toFixed(1) : 0],
+			]
+			const metricsSheet = XLSX.utils.aoa_to_sheet(metricsData)
+			XLSX.utils.book_append_sheet(workbook, metricsSheet, 'Ключевые метрики')
+
+			// Лист 2: Аналитика по категориям
+			if (dashboardData.categoryStats && dashboardData.categoryStats.length > 0) {
+				const categoryHeaders = ['Категория', 'Подкатегория', 'Кол-во задач', 'Средняя цена (₽)', 'Средний срок (дн.)', 'Откликов', 'Успешность (%)']
+				const categoryData = [
+					categoryHeaders,
+					...dashboardData.categoryStats.map(stat => [
+						stat.categoryName || '',
+						stat.subcategoryName || '',
+						stat.taskCount,
+						Math.round(stat.avgPrice),
+						Math.round(stat.avgCompletionTime),
+						stat.responsesCount,
+						stat.successRate.toFixed(2),
+					]),
+				]
+				const categorySheet = XLSX.utils.aoa_to_sheet(categoryData)
+				XLSX.utils.book_append_sheet(workbook, categorySheet, 'По категориям')
+			}
+
+			// Лист 3: Топ исполнителей
+			if (dashboardData.topExecutors && dashboardData.topExecutors.length > 0) {
+				const executorHeaders = ['Исполнитель', 'Email', 'Задач', 'Средняя цена (₽)', 'Всего потрачено (₽)', 'Скорость (дн.)', 'Рейтинг']
+				const executorData = [
+					executorHeaders,
+					...dashboardData.topExecutors.map(executor => [
+						executor.executorName,
+						executor.executorEmail,
+						executor.taskCount,
+						Math.round(executor.avgPrice),
+						Math.round(executor.totalSpent),
+						executor.avgSpeed,
+						executor.executorRating.toFixed(1),
+					]),
+				]
+				const executorSheet = XLSX.utils.aoa_to_sheet(executorData)
+				XLSX.utils.book_append_sheet(workbook, executorSheet, 'Топ исполнителей')
+			}
+
+			// Лист 4: Динамика по дням
+			if (dashboardData.dailyStats && dashboardData.dailyStats.length > 0) {
+				const dailyHeaders = ['Дата', 'Задач', 'Потрачено (₽)', 'Откликов']
+				const dailyData = [
+					dailyHeaders,
+					...dashboardData.dailyStats.map(stat => [
+						stat.date,
+						stat.tasks,
+						Math.round(stat.spent),
+						stat.responses,
+					]),
+				]
+				const dailySheet = XLSX.utils.aoa_to_sheet(dailyData)
+				XLSX.utils.book_append_sheet(workbook, dailySheet, 'Динамика')
+			}
+
+			// Лист 5: KPI по месяцам
+			if (dashboardData.monthlyKPIs && dashboardData.monthlyKPIs.length > 0) {
+				const kpiHeaders = ['Месяц', 'Задач', 'Потрачено (₽)', 'Рост задач (%)', 'Рост трат (%)']
+				const kpiData = [
+					kpiHeaders,
+					...dashboardData.monthlyKPIs.map(kpi => [
+						kpi.month,
+						kpi.tasks,
+						Math.round(kpi.spent),
+						kpi.tasksGrowth.toFixed(2),
+						kpi.spentGrowth.toFixed(2),
+					]),
+				]
+				const kpiSheet = XLSX.utils.aoa_to_sheet(kpiData)
+				XLSX.utils.book_append_sheet(workbook, kpiSheet, 'KPI по месяцам')
+			}
+
+			// Сохраняем Excel
+			const periodText = selectedPeriod === '7' ? 'неделя' : selectedPeriod === '30' ? 'месяц' : selectedPeriod === '90' ? 'квартал' : 'год'
+			const fileName = `analytics_${periodText}_${new Date().toISOString().split('T')[0]}.xlsx`
+			XLSX.writeFile(workbook, fileName)
+			toast.success('Excel успешно экспортирован')
+		} catch (error: any) {
+			console.error('Ошибка экспорта в Excel:', error)
+			toast.error(`Ошибка экспорта в Excel: ${error?.message || 'Неизвестная ошибка'}`)
+		}
 	}
 
 	if (loading) {
@@ -242,7 +495,7 @@ export default function AnalyticsPage() {
 					<div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
 						<div>
 							<h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-300 mb-2">
-								📊 Аналитика заказчика
+								Аналитика заказчика
 							</h1>
 							<p className="text-gray-400">Полная картина вашего бизнеса на платформе</p>
 						</div>
