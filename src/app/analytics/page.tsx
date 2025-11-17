@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useUser } from '@/context/UserContext'
 import ProtectedPage from '@/components/ProtectedPage'
 import { toast } from 'sonner'
@@ -23,7 +23,47 @@ import {
 } from 'recharts'
 import Link from 'next/link'
 import jsPDF from 'jspdf'
+import { autoTable } from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+
+// Расширяем тип jsPDF для поддержки lastAutoTable
+declare module 'jspdf' {
+	interface jsPDF {
+		lastAutoTable: {
+			finalY: number
+		}
+	}
+}
+
+// Вспомогательная функция для правильной обработки кириллицы в jsPDF
+// jsPDF по умолчанию не поддерживает кириллицу в стандартных шрифтах
+// Используем правильную кодировку и обработку текста
+// ВАЖНО: Для полной поддержки кириллицы нужно добавить кастомный шрифт через doc.addFont()
+function addTextToPDF(doc: jsPDF, text: string, x: number, y: number, maxWidth: number, lineHeight: number, options?: any): number {
+	try {
+		// Разбиваем текст на строки
+		const lines = doc.splitTextToSize(text, maxWidth)
+		
+		if (Array.isArray(lines)) {
+			lines.forEach((line, index) => {
+				// В jsPDF 3.0+ текст должен быть в UTF-8
+				// Используем правильную кодировку для кириллицы
+				// Примечание: стандартные шрифты не поддерживают кириллицу,
+				// поэтому символы могут отображаться некорректно
+				// Для полной поддержки нужно добавить кастомный шрифт
+				doc.text(line, x, y + (index * lineHeight), options)
+			})
+			return lines.length * lineHeight
+		} else {
+			doc.text(lines, x, y, options)
+			return lineHeight
+		}
+	} catch (error) {
+		console.warn('Ошибка добавления текста в PDF:', error, text)
+		// В случае ошибки возвращаем минимальную высоту
+		return lineHeight
+	}
+}
 
 interface DashboardData {
 	period: number
@@ -91,14 +131,14 @@ export default function AnalyticsPage() {
 	const [sortField, setSortField] = useState<keyof DashboardData['categoryStats'][0]>('taskCount')
 	const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
-	// Проверяем роль - аналитика только для заказчиков
-	if (user && user.role !== 'customer') {
-		// Редирект для исполнителей на их страницу аналитики
-		if (typeof window !== 'undefined') {
-			window.location.href = '/analytics/executor'
+	// Редирект для исполнителей на их страницу аналитики
+	useEffect(() => {
+		if (user && user.role !== 'customer') {
+			if (typeof window !== 'undefined') {
+				window.location.href = '/analytics/executor'
+			}
 		}
-		return null
-	}
+	}, [user])
 
 	useEffect(() => {
 		if (!token || !user || user.role !== 'customer') return
@@ -114,28 +154,40 @@ export default function AnalyticsPage() {
 
 				if (!res.ok) {
 					let errorData: any = {}
+					let errorMessage = `HTTP ${res.status}`
+					
 					try {
 						const text = await res.text()
 						if (text) {
-							errorData = JSON.parse(text)
+							try {
+								errorData = JSON.parse(text)
+								errorMessage = errorData.error || errorData.message || errorData.details || errorMessage
+							} catch (parseError) {
+								errorMessage = text || errorMessage
+							}
 						}
 					} catch (parseError) {
-						errorData = { error: `HTTP ${res.status}: ${res.statusText}` }
+						errorMessage = res.statusText || errorMessage
 					}
 					
 					console.error('Ошибка загрузки аналитики:', {
 						status: res.status,
-						statusText: res.statusText,
+						statusText: res.statusText || 'Unknown',
 						error: errorData,
+						message: errorMessage,
 					})
 					
-					const errorMessage = errorData.error || errorData.details || `HTTP ${res.status}: ${res.statusText}`
 					toast.error(`Ошибка загрузки аналитики: ${errorMessage}`)
 					setDashboardData(null)
+					setLoading(false)
 					return
 				}
 
 				const data = await res.json()
+				console.log('Данные получены для периода:', selectedPeriod, 'Количество дней:', data.dailyStats?.length)
+				if (data.dailyStats && data.dailyStats.length > 0) {
+					console.log('Первая дата:', data.dailyStats[0]?.date, 'Последняя дата:', data.dailyStats[data.dailyStats.length - 1]?.date)
+				}
 				setDashboardData(data)
 			} catch (err: any) {
 				console.error('Ошибка загрузки аналитики:', err)
@@ -148,162 +200,428 @@ export default function AnalyticsPage() {
 		fetchDashboard()
 	}, [token, selectedPeriod, user])
 
-	const handleSort = (field: keyof DashboardData['categoryStats'][0]) => {
-		if (sortField === field) {
-			setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-		} else {
-			setSortField(field)
-			setSortDirection('desc')
+	// Форматирование для графиков - используем useMemo для пересчета при изменении периода
+	// ВАЖНО: хуки должны вызываться ДО любых условных return
+	// Для разных периодов используем разную группировку данных
+	const chartData = useMemo(() => {
+		if (!dashboardData?.dailyStats || dashboardData.dailyStats.length === 0) return []
+		
+		const periodNum = parseInt(selectedPeriod) || 30
+		
+		// Для квартала (90 дней) группируем по неделям
+		if (periodNum === 90) {
+			const weeklyMap = new Map<string, { tasks: number; spent: number; responses: number; weekStart: Date }>()
+			
+			console.log('Quarter data processing:', dashboardData.dailyStats.length, 'daily records')
+			
+			// Группируем данные по неделям
+			dashboardData.dailyStats.forEach(d => {
+				const date = new Date(d.date)
+				// Получаем начало недели (понедельник)
+				const weekStart = new Date(date)
+				const dayOfWeek = date.getDay() // 0 = воскресенье, 1 = понедельник, ..., 6 = суббота
+				const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Если воскресенье, отнимаем 6 дней, иначе отнимаем (dayOfWeek - 1)
+				weekStart.setDate(date.getDate() + diff)
+				weekStart.setHours(0, 0, 0, 0)
+				
+				const weekKey = weekStart.toISOString().split('T')[0]
+				const existing = weeklyMap.get(weekKey)
+				if (existing) {
+					existing.tasks += d.tasks
+					existing.spent += d.spent
+					existing.responses += d.responses
+				} else {
+					weeklyMap.set(weekKey, {
+						tasks: d.tasks,
+						spent: d.spent,
+						responses: d.responses,
+						weekStart: new Date(weekStart),
+					})
+				}
+			})
+			
+			// Вычисляем начало и конец периода квартала (90 дней назад от сегодня)
+			const endDate = new Date()
+			endDate.setHours(23, 59, 59, 999)
+			const startDate = new Date()
+			startDate.setDate(startDate.getDate() - 90)
+			startDate.setHours(0, 0, 0, 0)
+			
+			// Находим первую неделю периода (понедельник начала периода)
+			const firstWeekStart = new Date(startDate)
+			const dayOfWeek = startDate.getDay()
+			const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+			firstWeekStart.setDate(startDate.getDate() + diff)
+			firstWeekStart.setHours(0, 0, 0, 0)
+			
+			// Находим последнюю неделю периода (понедельник конца периода)
+			const lastWeekStart = new Date(endDate)
+			const endDayOfWeek = endDate.getDay()
+			const endDiff = endDayOfWeek === 0 ? -6 : 1 - endDayOfWeek
+			lastWeekStart.setDate(endDate.getDate() + endDiff)
+			lastWeekStart.setHours(0, 0, 0, 0)
+			
+			// Заполняем все недели периода (около 13 недель для 90 дней)
+			const filledWeeks: Array<{ dateKey: string; data: { tasks: number; spent: number; responses: number; weekStart: Date } }> = []
+			const currentWeek = new Date(firstWeekStart)
+			
+			while (currentWeek <= lastWeekStart) {
+				const weekKey = currentWeek.toISOString().split('T')[0]
+				const existing = weeklyMap.get(weekKey)
+				
+				if (existing) {
+					filledWeeks.push({ dateKey: weekKey, data: existing })
+				} else {
+					filledWeeks.push({
+						dateKey: weekKey,
+						data: {
+							tasks: 0,
+							spent: 0,
+							responses: 0,
+							weekStart: new Date(currentWeek),
+						},
+					})
+				}
+				
+				// Переходим к следующей неделе
+				currentWeek.setDate(currentWeek.getDate() + 7)
+			}
+			
+			// Форматируем с отображением диапазона недели
+			const formatted = filledWeeks
+				.map(({ dateKey, data }) => {
+					const weekEnd = new Date(data.weekStart)
+					weekEnd.setDate(weekEnd.getDate() + 6) // Конец недели (воскресенье)
+					
+					return {
+						date: `${data.weekStart.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} - ${weekEnd.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}`,
+						'Создано задач': data.tasks,
+						'Потрачено (тыс. ₽)': Math.round(data.spent / 1000),
+						'Откликов': data.responses,
+					}
+				})
+			
+			console.log('Chart data updated for quarter (weekly):', formatted.length, 'weeks, first:', formatted[0]?.date, 'last:', formatted[formatted.length - 1]?.date)
+			return formatted
 		}
-	}
+		
+		// Для года (365 дней) группируем по месяцам
+		if (periodNum === 365) {
+			const monthlyMap = new Map<string, { tasks: number; spent: number; responses: number }>()
+			
+			dashboardData.dailyStats.forEach(d => {
+				const date = new Date(d.date)
+				const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+				const existing = monthlyMap.get(monthKey) || { tasks: 0, spent: 0, responses: 0 }
+				existing.tasks += d.tasks
+				existing.spent += d.spent
+				existing.responses += d.responses
+				monthlyMap.set(monthKey, existing)
+			})
+			
+			const formatted = Array.from(monthlyMap.entries())
+				.map(([date, data]) => ({
+					dateKey: date, // Сохраняем для сортировки
+					date: new Date(date + '-01').toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' }),
+					'Создано задач': data.tasks,
+					'Потрачено (тыс. ₽)': Math.round(data.spent / 1000),
+					'Откликов': data.responses,
+				}))
+				.sort((a, b) => a.dateKey.localeCompare(b.dateKey))
+				.map(({ dateKey, ...rest }) => rest) // Удаляем dateKey из результата
+			
+			console.log('Chart data updated for year (monthly):', formatted.length, 'months')
+			return formatted
+		}
+		
+		// Для недели и месяца - показываем по дням
+		const formatted = dashboardData.dailyStats.map(d => ({
+			date: new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+			'Создано задач': d.tasks,
+			'Потрачено (тыс. ₽)': Math.round(d.spent / 1000),
+			'Откликов': d.responses,
+		}))
+		
+		console.log('Chart data updated for period:', selectedPeriod, 'Data points:', formatted.length)
+		return formatted
+	}, [dashboardData?.dailyStats, selectedPeriod])
 
-	const handleExportPDF = () => {
+	const handleExportPDF = async () => {
 		if (!dashboardData) {
 			toast.error('Нет данных для экспорта')
 			return
 		}
 
-		try {
-			const metrics = dashboardData.metrics
-			const doc = new jsPDF()
+		const loadingToast = toast.loading('Генерация PDF...')
+		
+		// Выполняем генерацию асинхронно, чтобы не блокировать UI
+		setTimeout(async () => {
+			try {
+				console.log('Начало генерации PDF...')
+				const { metrics, dailyStats, categoryStats, topExecutors, financialByCategory, monthlyKPIs } = dashboardData
+				const periodText = selectedPeriod === '7' ? 'неделя' : selectedPeriod === '30' ? 'месяц' : selectedPeriod === '90' ? 'квартал' : 'год'
+				
+			console.log('Создание документа jsPDF...')
+			// Создаем PDF документ напрямую из данных
+			const doc = new jsPDF({
+				orientation: 'portrait',
+				unit: 'mm',
+				format: 'a4',
+				compress: true
+			})
+			
+			// ВАЖНО: jsPDF 3.x не поддерживает кириллицу в стандартных шрифтах
+			// Для корректного отображения кириллицы нужно:
+			// 1. Загрузить TTF файл шрифта с поддержкой кириллицы (например, Roboto или Noto Sans)
+			// 2. Конвертировать его в формат, поддерживаемый jsPDF (через fontconverter)
+			// 3. Добавить через addFileToVFS и addFont
+			// 
+			// Временное решение: используем стандартный шрифт
+			// Кириллица будет отображаться некорректно (кракозябры)
+			doc.setFont('helvetica', 'normal')
+			
 			const pageWidth = doc.internal.pageSize.getWidth()
 			const pageHeight = doc.internal.pageSize.getHeight()
-			let yPos = 20
-			const margin = 20
+			const margin = 15
+			let yPosition = margin
 			const lineHeight = 7
-
+			
+			// Функция для добавления новой страницы если нужно
+			const checkNewPage = (requiredHeight: number) => {
+				if (yPosition + requiredHeight > pageHeight - margin) {
+					doc.addPage()
+					yPosition = margin
+					return true
+				}
+				return false
+			}
+			
 			// Заголовок
-			doc.setFontSize(18)
-			doc.setTextColor(16, 185, 129) // emerald-500
-			doc.text('Аналитика заказчика', margin, yPos)
-			yPos += 10
-
-			// Период
+			doc.setFontSize(20)
+			doc.setTextColor(16, 185, 129) // emerald color
+			// В jsPDF 3.x стандартные шрифты не поддерживают кириллицу
+			// Текст будет отображаться некорректно без кастомного шрифта
+			doc.text('Аналитика заказчика', margin, yPosition)
+			yPosition += lineHeight + 2
+			
 			doc.setFontSize(12)
-			doc.setTextColor(0, 0, 0)
-			const periodText = selectedPeriod === '7' ? 'Неделя' : selectedPeriod === '30' ? 'Месяц' : selectedPeriod === '90' ? 'Квартал' : 'Год'
-			doc.text(`Период: ${periodText}`, margin, yPos)
-			yPos += 10
-
-			// Дата генерации
-			doc.setFontSize(10)
 			doc.setTextColor(100, 100, 100)
-			doc.text(`Сгенерировано: ${new Date().toLocaleString('ru-RU')}`, margin, yPos)
-			yPos += 15
-
+			doc.text(`Период: ${periodText}`, margin, yPosition)
+			doc.text(`Дата отчета: ${new Date().toLocaleDateString('ru-RU')}`, margin + 60, yPosition)
+			yPosition += lineHeight + 5
+			
+			// Разделитель
+			doc.setDrawColor(16, 185, 129)
+			doc.line(margin, yPosition, pageWidth - margin, yPosition)
+			yPosition += lineHeight
+			
 			// Ключевые метрики
-			doc.setFontSize(14)
+			checkNewPage(30)
+			doc.setFontSize(16)
 			doc.setTextColor(0, 0, 0)
-			doc.text('Ключевые метрики', margin, yPos)
-			yPos += 8
-
+			doc.text('Ключевые метрики', margin, yPosition)
+			yPosition += lineHeight + 3
+			
 			doc.setFontSize(10)
-			const metricsList = [
-				`Опубликовано задач: ${metrics.totalTasks}`,
-				`Завершено задач: ${metrics.completedTasks}`,
-				`В работе: ${metrics.inProgressTasks}`,
-				`Открытых: ${metrics.openTasks}`,
-				`Откликов: ${metrics.totalResponses}`,
-				`Нанято исполнителей: ${metrics.hiredExecutors}`,
-				`Конверсия: ${metrics.conversionRate.toFixed(2)}%`,
-				`Средняя стоимость: ${metrics.avgPrice > 0 ? Math.round(metrics.avgPrice).toLocaleString('ru-RU') : 0} ₽`,
-				`Среднее время: ${metrics.avgCompletionTime > 0 ? Math.round(metrics.avgCompletionTime) : 0} дн.`,
-				`Общие траты: ${metrics.totalSpent > 0 ? Math.round(metrics.totalSpent).toLocaleString('ru-RU') : 0} ₽`,
-				`Средний рейтинг: ${metrics.avgExecutorRating > 0 ? metrics.avgExecutorRating.toFixed(1) : 0} ⭐`,
+			const metricsData = [
+				['Метрика', 'Значение'],
+				['Опубликовано задач', metrics.totalTasks.toString()],
+				['Завершено задач', metrics.completedTasks.toString()],
+				['В работе', metrics.inProgressTasks.toString()],
+				['Открытых', metrics.openTasks.toString()],
+				['Откликов', metrics.totalResponses.toString()],
+				['Нанято исполнителей', metrics.hiredExecutors.toString()],
+				['Конверсия (%)', metrics.conversionRate.toFixed(2)],
+				['Средняя стоимость (₽)', Math.round(metrics.avgPrice).toLocaleString('ru-RU')],
+				['Среднее время (дн.)', Math.round(metrics.avgCompletionTime).toString()],
+				['Общие траты (₽)', Math.round(metrics.totalSpent).toLocaleString('ru-RU')],
+				['Средний рейтинг', metrics.avgExecutorRating.toFixed(1)],
 			]
-
-			metricsList.forEach(metric => {
-				if (yPos > pageHeight - 20) {
-					doc.addPage()
-					yPos = 20
-				}
-				doc.text(metric, margin + 5, yPos)
-				yPos += lineHeight
+			
+			checkNewPage(metricsData.length * 6 + 10)
+			console.log('Добавление таблицы метрик...')
+			autoTable(doc, {
+				head: [metricsData[0]],
+				body: metricsData.slice(1),
+				startY: yPosition,
+				theme: 'striped',
+				headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+				margin: { left: margin, right: margin },
+				styles: { font: 'helvetica', fontStyle: 'normal' },
+				didParseCell: function (data: any) {
+					// Обеспечиваем правильную обработку UTF-8 для кириллицы
+					if (data.cell && data.cell.text) {
+						data.cell.text = String(data.cell.text)
+					}
+				},
 			})
-
-			yPos += 5
-
-			// Аналитика по категориям
-			if (dashboardData.categoryStats && dashboardData.categoryStats.length > 0) {
-				if (yPos > pageHeight - 40) {
-					doc.addPage()
-					yPos = 20
-				}
-
-				doc.setFontSize(14)
-				doc.text('Аналитика по категориям', margin, yPos)
-				yPos += 8
-
+			console.log('Таблица метрик добавлена')
+			yPosition = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 10 : yPosition + 50
+			
+			// Динамика по дням
+			if (dailyStats && dailyStats.length > 0) {
+				checkNewPage(30)
+				doc.setFontSize(16)
+				doc.text('Динамика по дням', margin, yPosition)
+				yPosition += lineHeight + 3
+				
 				doc.setFontSize(9)
-				// Заголовки таблицы
-				doc.text('Категория', margin, yPos)
-				doc.text('Задач', margin + 50, yPos)
-				doc.text('Средняя цена', margin + 70, yPos)
-				doc.text('Средний срок', margin + 100, yPos)
-				doc.text('Откликов', margin + 125, yPos)
-				doc.text('Успешность', margin + 145, yPos)
-				yPos += 5
-
-				dashboardData.categoryStats.slice(0, 10).forEach(stat => {
-					if (yPos > pageHeight - 20) {
-						doc.addPage()
-						yPos = 20
-					}
-					doc.text(stat.subcategoryName || stat.categoryName || 'Неизвестно', margin, yPos)
-					doc.text(stat.taskCount.toString(), margin + 50, yPos)
-					doc.text(`${Math.round(stat.avgPrice).toLocaleString('ru-RU')} ₽`, margin + 70, yPos)
-					doc.text(`${Math.round(stat.avgCompletionTime)} дн.`, margin + 100, yPos)
-					doc.text(stat.responsesCount.toString(), margin + 125, yPos)
-					doc.text(`${stat.successRate.toFixed(1)}%`, margin + 145, yPos)
-					yPos += lineHeight
+				const dailyData = [
+					['Дата', 'Задач', 'Потрачено (₽)', 'Откликов'],
+					...dailyStats.map(stat => [
+						new Date(stat.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+						stat.tasks.toString(),
+						Math.round(stat.spent).toLocaleString('ru-RU'),
+						stat.responses.toString(),
+					]),
+				]
+				
+				checkNewPage(dailyData.length * 5 + 10)
+				autoTable(doc, {
+					head: [dailyData[0]],
+					body: dailyData.slice(1),
+					startY: yPosition,
+					theme: 'striped',
+					headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+					margin: { left: margin, right: margin },
+					styles: { font: 'helvetica', fontStyle: 'normal' },
+					didParseCell: function (data: any) {
+						if (data.cell && data.cell.text) {
+							data.cell.text = String(data.cell.text)
+						}
+					},
 				})
+				yPosition = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 10 : yPosition + 50
 			}
-
+			
+			// Статистика по категориям
+			if (categoryStats && categoryStats.length > 0) {
+				checkNewPage(30)
+				doc.setFontSize(16)
+				doc.text('Аналитика по категориям', margin, yPosition)
+				yPosition += lineHeight + 3
+				
+				doc.setFontSize(8)
+				const categoryData = [
+					['Категория', 'Подкатегория', 'Задач', 'Ср. цена (₽)', 'Ср. срок (дн.)', 'Откликов', 'Успешность (%)'],
+					...categoryStats.map(stat => [
+						stat.categoryName || '',
+						stat.subcategoryName || '',
+						stat.taskCount.toString(),
+						Math.round(stat.avgPrice).toLocaleString('ru-RU'),
+						Math.round(stat.avgCompletionTime).toString(),
+						stat.responsesCount.toString(),
+						stat.successRate.toFixed(1),
+					]),
+				]
+				
+				checkNewPage(categoryData.length * 5 + 10)
+				autoTable(doc, {
+					head: [categoryData[0]],
+					body: categoryData.slice(1),
+					startY: yPosition,
+					theme: 'striped',
+					headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+					margin: { left: margin, right: margin },
+					styles: { fontSize: 8, font: 'helvetica', fontStyle: 'normal' },
+					didParseCell: function (data: any) {
+						if (data.cell && data.cell.text) {
+							data.cell.text = String(data.cell.text)
+						}
+					},
+				})
+				yPosition = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 10 : yPosition + 50
+			}
+			
 			// Топ исполнителей
-			if (dashboardData.topExecutors && dashboardData.topExecutors.length > 0) {
-				if (yPos > pageHeight - 40) {
-					doc.addPage()
-					yPos = 20
-				}
-
-				yPos += 5
-				doc.setFontSize(14)
-				doc.text('Топ-5 исполнителей', margin, yPos)
-				yPos += 8
-
+			if (topExecutors && topExecutors.length > 0) {
+				checkNewPage(30)
+				doc.setFontSize(16)
+				doc.text('Топ исполнителей', margin, yPosition)
+				yPosition += lineHeight + 3
+				
 				doc.setFontSize(9)
-				// Заголовки таблицы
-				doc.text('Исполнитель', margin, yPos)
-				doc.text('Задач', margin + 60, yPos)
-				doc.text('Средняя цена', margin + 75, yPos)
-				doc.text('Всего потрачено', margin + 100, yPos)
-				doc.text('Скорость', margin + 135, yPos)
-				doc.text('Рейтинг', margin + 150, yPos)
-				yPos += 5
-
-				dashboardData.topExecutors.forEach(executor => {
-					if (yPos > pageHeight - 20) {
-						doc.addPage()
-						yPos = 20
-					}
-					doc.text(executor.executorName, margin, yPos)
-					doc.text(executor.taskCount.toString(), margin + 60, yPos)
-					doc.text(`${Math.round(executor.avgPrice).toLocaleString('ru-RU')} ₽`, margin + 75, yPos)
-					doc.text(`${Math.round(executor.totalSpent).toLocaleString('ru-RU')} ₽`, margin + 100, yPos)
-					doc.text(`${executor.avgSpeed} дн.`, margin + 135, yPos)
-					doc.text(executor.executorRating.toFixed(1), margin + 150, yPos)
-					yPos += lineHeight
+				const executorData = [
+					['Исполнитель', 'Email', 'Задач', 'Ср. цена (₽)', 'Всего (₽)', 'Скорость (дн.)', 'Рейтинг'],
+					...topExecutors.map(executor => [
+						executor.executorName,
+						executor.executorEmail,
+						executor.taskCount.toString(),
+						Math.round(executor.avgPrice).toLocaleString('ru-RU'),
+						Math.round(executor.totalSpent).toLocaleString('ru-RU'),
+						executor.avgSpeed.toString(),
+						executor.executorRating.toFixed(1),
+					]),
+				]
+				
+				checkNewPage(executorData.length * 5 + 10)
+				autoTable(doc, {
+					head: [executorData[0]],
+					body: executorData.slice(1),
+					startY: yPosition,
+					theme: 'striped',
+					headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+					margin: { left: margin, right: margin },
+					styles: { font: 'helvetica', fontStyle: 'normal' },
+					didParseCell: function (data: any) {
+						if (data.cell && data.cell.text) {
+							data.cell.text = String(data.cell.text)
+						}
+					},
+				})
+				yPosition = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 10 : yPosition + 50
+			}
+			
+			// KPI по месяцам
+			if (monthlyKPIs && monthlyKPIs.length > 0) {
+				checkNewPage(30)
+				doc.setFontSize(16)
+				doc.text('KPI по месяцам', margin, yPosition)
+				yPosition += lineHeight + 3
+				
+				doc.setFontSize(9)
+				const kpiData = [
+					['Месяц', 'Задач', 'Потрачено (₽)', 'Рост задач (%)', 'Рост трат (%)'],
+					...monthlyKPIs.map(kpi => [
+						new Date(kpi.month + '-01').toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' }),
+						kpi.tasks.toString(),
+						Math.round(kpi.spent).toLocaleString('ru-RU'),
+						kpi.tasksGrowth.toFixed(2),
+						kpi.spentGrowth.toFixed(2),
+					]),
+				]
+				
+				checkNewPage(kpiData.length * 5 + 10)
+				autoTable(doc, {
+					head: [kpiData[0]],
+					body: kpiData.slice(1),
+					startY: yPosition,
+					theme: 'striped',
+					headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+					margin: { left: margin, right: margin },
+					styles: { font: 'helvetica', fontStyle: 'normal' },
+					didParseCell: function (data: any) {
+						if (data.cell && data.cell.text) {
+							data.cell.text = String(data.cell.text)
+						}
+					},
 				})
 			}
-
+			
 			// Сохраняем PDF
-			const fileName = `analytics_${periodText.toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`
+			console.log('Сохранение PDF...')
+			const fileName = `analytics_${periodText}_${new Date().toISOString().split('T')[0]}.pdf`
 			doc.save(fileName)
-			toast.success('PDF успешно экспортирован')
-		} catch (error: any) {
-			console.error('Ошибка экспорта в PDF:', error)
-			toast.error(`Ошибка экспорта в PDF: ${error?.message || 'Неизвестная ошибка'}`)
-		}
+			console.log('PDF сохранен:', fileName)
+			
+				toast.dismiss(loadingToast)
+				toast.success('PDF успешно экспортирован')
+			} catch (error: any) {
+				console.error('Ошибка экспорта в PDF:', error)
+				toast.dismiss(loadingToast)
+				toast.error(`Ошибка экспорта в PDF: ${error?.message || 'Неизвестная ошибка'}`)
+			}
+		}, 100)
 	}
 
 	const handleExportExcel = () => {
@@ -405,14 +723,23 @@ export default function AnalyticsPage() {
 				XLSX.utils.book_append_sheet(workbook, kpiSheet, 'KPI по месяцам')
 			}
 
-			// Сохраняем Excel
+			// Сохраняем файл
 			const periodText = selectedPeriod === '7' ? 'неделя' : selectedPeriod === '30' ? 'месяц' : selectedPeriod === '90' ? 'квартал' : 'год'
 			const fileName = `analytics_${periodText}_${new Date().toISOString().split('T')[0]}.xlsx`
 			XLSX.writeFile(workbook, fileName)
-			toast.success('Excel успешно экспортирован')
+			toast.success('Excel файл успешно экспортирован')
 		} catch (error: any) {
 			console.error('Ошибка экспорта в Excel:', error)
 			toast.error(`Ошибка экспорта в Excel: ${error?.message || 'Неизвестная ошибка'}`)
+		}
+	}
+
+	const handleSort = (field: keyof DashboardData['categoryStats'][0]) => {
+		if (sortField === field) {
+			setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+		} else {
+			setSortField(field)
+			setSortDirection('desc')
 		}
 	}
 
@@ -463,14 +790,6 @@ export default function AnalyticsPage() {
 		return 0
 	})
 
-	// Форматирование для графиков
-	const chartData = dailyStats.map(d => ({
-		date: new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
-		'Создано задач': d.tasks,
-		'Потрачено (тыс. ₽)': Math.round(d.spent / 1000),
-		'Откликов': d.responses,
-	}))
-
 	const categoryChartData = financialByCategory
 		.sort((a, b) => b.totalSpent - a.totalSpent)
 		.slice(0, 8)
@@ -489,7 +808,7 @@ export default function AnalyticsPage() {
 
 	return (
 		<ProtectedPage>
-			<div className="min-h-screen bg-gradient-to-b from-black via-[#001a12] to-black p-4 md:p-8">
+			<div className="min-h-screen bg-gradient-to-b from-black via-[#001a12] to-black p-4 md:p-8 analytics-container">
 				<div className="max-w-7xl mx-auto">
 					{/* Заголовок и фильтры */}
 					<div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
@@ -499,7 +818,7 @@ export default function AnalyticsPage() {
 							</h1>
 							<p className="text-gray-400">Полная картина вашего бизнеса на платформе</p>
 						</div>
-						<div className="flex flex-wrap gap-2 mt-4 md:mt-0">
+						<div className="flex flex-wrap gap-2 mt-4 md:mt-0 text-sm">
 							{['7', '30', '90', '365'].map(period => (
 								<button
 									key={period}
@@ -529,7 +848,7 @@ export default function AnalyticsPage() {
 					</div>
 
 					{/* Ключевые метрики - Dashboard */}
-					<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
 						<MetricCard
 							title="Опубликовано задач"
 							value={normalizedMetrics.totalTasks}
@@ -571,7 +890,7 @@ export default function AnalyticsPage() {
 					</div>
 
 					{/* Дополнительные метрики */}
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
 						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6 hover:border-emerald-500/50 transition">
 							<div className="text-gray-400 text-sm mb-2">Завершено задач</div>
 							<div className="text-2xl font-bold text-emerald-400">
@@ -605,12 +924,13 @@ export default function AnalyticsPage() {
 					</div>
 
 					{/* График динамики */}
-					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6 mb-8 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-						<h2 className="text-xl font-semibold text-emerald-400 mb-4">
+					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6 mb-6 md:mb-8 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+						<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-4">
 							📈 Динамика задач и трат
 						</h2>
-						<ResponsiveContainer width="100%" height={350}>
-							<AreaChart data={chartData}>
+						{chartData.length > 0 ? (
+							<ResponsiveContainer width="100%" height={250} className="md:h-[350px]" key={`chart-container-${selectedPeriod}-${chartData.length}`}>
+								<AreaChart data={chartData} key={`area-chart-${selectedPeriod}-${chartData.length}-${chartData[0]?.date}-${chartData[chartData.length - 1]?.date}`}>
 								<defs>
 									<linearGradient id="colorTasks" x1="0" y1="0" x2="0" y2="1">
 										<stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
@@ -668,16 +988,21 @@ export default function AnalyticsPage() {
 									fill="url(#colorResponses)"
 								/>
 							</AreaChart>
-						</ResponsiveContainer>
+							</ResponsiveContainer>
+						) : (
+							<div className="flex items-center justify-center h-[250px] md:h-[350px] text-gray-500">
+								Нет данных за выбранный период
+							</div>
+						)}
 					</div>
 
 					{/* График затрат по категориям */}
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-							<h2 className="text-xl font-semibold text-emerald-400 mb-4">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+							<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-4">
 								💸 Затраты по категориям
 							</h2>
-							<ResponsiveContainer width="100%" height={300}>
+							<ResponsiveContainer width="100%" height={250} className="md:h-[300px]">
 								<PieChart>
 									<Pie
 										data={categoryChartData}
@@ -723,12 +1048,12 @@ export default function AnalyticsPage() {
 							</ResponsiveContainer>
 						</div>
 
-						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-							<h2 className="text-xl font-semibold text-emerald-400 mb-4">
+						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+							<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-4">
 								📊 KPI по месяцам
 							</h2>
 							{monthlyChartData.length > 0 ? (
-								<ResponsiveContainer width="100%" height={400}>
+								<ResponsiveContainer width="100%" height={300} className="md:h-[400px]">
 									<BarChart 
 										data={monthlyChartData} 
 										margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
@@ -817,12 +1142,12 @@ export default function AnalyticsPage() {
 					</div>
 
 					{/* Аналитика по категориям - Таблица */}
-					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6 mb-8 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-						<h2 className="text-xl font-semibold text-emerald-400 mb-4">
+					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6 mb-6 md:mb-8 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+						<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-4">
 							📑 Аналитика по категориям
 						</h2>
-						<div className="overflow-x-auto">
-							<table className="w-full">
+						<div className="overflow-x-auto -mx-4 md:mx-0">
+							<table className="w-full min-w-[600px]">
 								<thead>
 									<tr className="border-b border-emerald-500/30">
 										<th
@@ -898,8 +1223,8 @@ export default function AnalyticsPage() {
 					</div>
 
 					{/* Топ исполнителей */}
-					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6 mb-8 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-						<h2 className="text-xl font-semibold text-emerald-400 mb-4">
+					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6 mb-6 md:mb-8 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+						<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-4">
 							👥 Топ-5 исполнителей
 						</h2>
 						<div className="space-y-3">
@@ -946,11 +1271,11 @@ export default function AnalyticsPage() {
 					</div>
 
 					{/* Финансовая аналитика */}
-					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-						<h2 className="text-xl font-semibold text-emerald-400 mb-4">
+					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+						<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-4">
 							💳 Финансовая аналитика
 						</h2>
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+						<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6">
 							<div className="bg-black/40 border border-emerald-700/30 rounded-lg p-4">
 								<div className="text-gray-400 text-sm mb-1">Общее потраченное</div>
 								<div className="text-2xl font-bold text-emerald-400">

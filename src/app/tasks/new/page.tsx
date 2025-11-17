@@ -356,7 +356,7 @@ export default function CreateTaskPage() {
 
           {/* Выбор навыков */}
           <div className="space-y-2 relative skills-selector-container">
-            <label className="text-sm text-emerald-400 font-medium">Навыки (необязательно)</label>
+            <label className="text-sm text-emerald-400 font-medium">Навыки (поможет вам быстрее находить отклики)</label>
             <div className="relative">
               <button
                 type="button"

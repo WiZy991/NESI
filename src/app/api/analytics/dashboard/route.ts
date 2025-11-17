@@ -26,15 +26,20 @@ export async function GET(req: Request) {
 		const startDate = new Date()
 		startDate.setDate(startDate.getDate() - periodNum)
 		startDate.setHours(0, 0, 0, 0) // Начало дня для корректной фильтрации
+		
+		// Всегда используем фильтрацию по датам
+		const useDateFilter = true
 
+		const endDate = new Date()
+		endDate.setHours(23, 59, 59, 999)
+		
 		logger.debug('Начало получения аналитики дашборда', {
 			userId: currentUser.id,
 			period: periodNum,
 			startDate: startDate.toISOString(),
+			endDate: endDate.toISOString(),
+			useDateFilter: true,
 		})
-
-		// Используем фильтр по дате для получения данных за выбранный период
-		const useDateFilter = true
 
 		// Для отладки: получаем все задачи пользователя
 		try {
@@ -442,16 +447,24 @@ export async function GET(req: Request) {
 		}> = []
 
 		try {
+			// Получаем задачи, созданные ИЛИ завершенные в период
 			const allTasks = await prisma.task.findMany({
 				where: {
 					customerId: currentUser.id,
-					...(useDateFilter ? { createdAt: { gte: startDate } } : {}),
+					...(useDateFilter ? {
+						OR: [
+							{ createdAt: { gte: startDate } },
+							{ completedAt: { not: null, gte: startDate } }
+						]
+					} : {}),
 				},
 				select: {
 					id: true,
 					createdAt: true,
+					completedAt: true,
 					status: true,
 					price: true,
+					escrowAmount: true,
 				},
 			})
 
@@ -463,8 +476,14 @@ export async function GET(req: Request) {
 				where: {
 					task: {
 						customerId: currentUser.id,
-						...(useDateFilter ? { createdAt: { gte: startDate } } : {}),
+						...(useDateFilter ? {
+							OR: [
+								{ createdAt: { gte: startDate } },
+								{ completedAt: { not: null, gte: startDate } }
+							]
+						} : {}),
 					},
+					...(useDateFilter ? { createdAt: { gte: startDate } } : {}),
 				},
 				select: {
 					createdAt: true,
@@ -503,34 +522,57 @@ export async function GET(req: Request) {
 				}
 			}
 			
+			// Фильтруем задачи по дате ПЕРЕД добавлением в dailyMap
 			allTasks.forEach(task => {
-				const dateKey = task.createdAt.toISOString().split('T')[0]
-				const existing = dailyMap.get(dateKey) || { tasks: 0, spent: 0, responses: 0 }
-				existing.tasks += 1
+				// Учитываем дату создания задачи только если она в периоде
+				const createdDate = new Date(task.createdAt)
+				if (createdDate >= startDate && createdDate <= endDate) {
+					const createdDateKey = task.createdAt.toISOString().split('T')[0]
+					const createdExisting = dailyMap.get(createdDateKey) || { tasks: 0, spent: 0, responses: 0 }
+					createdExisting.tasks += 1
+					dailyMap.set(createdDateKey, createdExisting)
+				}
 				
-				if (task.status === 'completed') {
-					let taskPrice = Number(task.price || 0)
-					
-					// Если price = 0, используем транзакции
-					if (taskPrice === 0 && task.id) {
-						taskPrice = paymentTransactionsMap.get(task.id) || 0
-					}
-					
-					if (taskPrice > 0) {
-						existing.spent += taskPrice
+				// Если задача завершена, учитываем траты по дате завершения только если она в периоде
+				if (task.status === 'completed' && task.completedAt) {
+					const completedDate = new Date(task.completedAt)
+					if (completedDate >= startDate && completedDate <= endDate) {
+						const completedDateKey = task.completedAt.toISOString().split('T')[0]
+						const completedExisting = dailyMap.get(completedDateKey) || { tasks: 0, spent: 0, responses: 0 }
+						
+						let taskPrice = Number(task.price || 0)
+						
+						// Если price = 0, используем escrowAmount
+						if (taskPrice === 0) {
+							taskPrice = Number(task.escrowAmount || 0)
+						}
+						
+						// Если все еще 0, используем транзакции
+						if (taskPrice === 0 && task.id) {
+							taskPrice = paymentTransactionsMap.get(task.id) || 0
+						}
+						
+						if (taskPrice > 0) {
+							completedExisting.spent += taskPrice
+						}
+						dailyMap.set(completedDateKey, completedExisting)
 					}
 				}
-				dailyMap.set(dateKey, existing)
 			})
 
+			// Фильтруем отклики по дате ПЕРЕД добавлением в dailyMap
 			allResponses.forEach(response => {
-				const dateKey = response.createdAt.toISOString().split('T')[0]
-				const existing = dailyMap.get(dateKey) || { tasks: 0, spent: 0, responses: 0 }
-				existing.responses += 1
-				dailyMap.set(dateKey, existing)
+				const responseDate = new Date(response.createdAt)
+				if (responseDate >= startDate && responseDate <= endDate) {
+					const dateKey = response.createdAt.toISOString().split('T')[0]
+					const existing = dailyMap.get(dateKey) || { tasks: 0, spent: 0, responses: 0 }
+					existing.responses += 1
+					dailyMap.set(dateKey, existing)
+				}
 			})
 
-			dailyStats = Array.from(dailyMap.entries())
+			// Данные уже отфильтрованы при добавлении в dailyMap, просто преобразуем в массив
+			const rawDailyStats = Array.from(dailyMap.entries())
 				.map(([date, data]) => ({
 					date: new Date(date),
 					tasks: data.tasks,
@@ -538,6 +580,45 @@ export async function GET(req: Request) {
 					responses: data.responses,
 				}))
 				.sort((a, b) => a.date.getTime() - b.date.getTime())
+			
+			// Заполняем пропущенные дни нулями для коротких периодов (неделя, месяц)
+			// Для квартала и года оставляем только дни с данными (группировка будет на клиенте)
+			if (periodNum <= 30 && rawDailyStats.length > 0) {
+				const filledStats: typeof rawDailyStats = []
+				const currentDate = new Date(startDate)
+				const lastDate = new Date(endDate)
+				
+				while (currentDate <= lastDate) {
+					const dateKey = currentDate.toISOString().split('T')[0]
+					const existing = rawDailyStats.find(s => s.date.toISOString().split('T')[0] === dateKey)
+					
+					if (existing) {
+						filledStats.push(existing)
+					} else {
+						filledStats.push({
+							date: new Date(currentDate),
+							tasks: 0,
+							spent: 0,
+							responses: 0,
+						})
+					}
+					
+					currentDate.setDate(currentDate.getDate() + 1)
+				}
+				
+				dailyStats = filledStats
+			} else {
+				// Для квартала и года возвращаем только дни с данными
+				// Группировка по неделям/месяцам будет на клиенте
+				dailyStats = rawDailyStats
+			}
+			
+			logger.debug('Динамика по дням', {
+				period: periodNum,
+				totalDays: dailyStats.length,
+				firstDate: dailyStats[0]?.date.toISOString(),
+				lastDate: dailyStats[dailyStats.length - 1]?.date.toISOString(),
+			})
 		} catch (err) {
 			logger.warn('Ошибка получения динамики по дням', { error: err })
 		}

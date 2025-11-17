@@ -165,8 +165,8 @@ export default function PriceComparisonWidget({
 				</div>
 			)}
 
-			{/* Индикатор источника статистики */}
-			{priceData.isAdaptive && (
+			{/* Индикатор источника статистики - показываем только если адаптивная статистика используется */}
+			{priceData.isAdaptive && priceData.source !== 'category_average' && (
 				<div className="mt-2 pt-1.5 border-t border-emerald-700/20">
 					<div className="text-[10px] text-emerald-400/80 flex items-center gap-1">
 						<span>✨</span>

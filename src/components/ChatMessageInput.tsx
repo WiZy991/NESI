@@ -2179,7 +2179,7 @@ export default function MessageInput({
 											removeAttachment(previewModalAttachment.id)
 											setPreviewModalAttachment(null)
 											setPreviewModalCaption('')
-											setPreviewModalCompress(true)
+											// Сжатие отключено
 										}}
 										className={`${isMobileView ? 'w-9 h-9' : 'w-8 h-8'} flex items-center justify-center rounded-lg bg-emerald-900/40 hover:bg-red-500/20 border border-emerald-700/40 hover:border-red-500/50 text-emerald-300 hover:text-red-400 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation`}
 										title='Удалить'
@@ -2213,18 +2213,7 @@ export default function MessageInput({
 								) : null}
 							</div>
 
-							{/* Опция сжатия (только для изображений) */}
-							{previewModalAttachment.kind === 'image' && (
-								<label className={`flex items-center gap-3 ${isMobileView ? 'px-4 py-3' : 'px-6 py-4'} border-b border-emerald-500/20 cursor-pointer hover:bg-emerald-950/20 transition-all duration-200 group touch-manipulation`}>
-									<input
-										type='checkbox'
-										checked={previewModalCompress}
-										onChange={e => setPreviewModalCompress(e.target.checked)}
-										className={`${isMobileView ? 'w-6 h-6' : 'w-5 h-5'} rounded-md border-2 border-emerald-700/50 bg-emerald-950/30 text-emerald-500 focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-[#0a140f] transition-all group-hover:border-emerald-500/70`}
-									/>
-									<span className={`${isMobileView ? 'text-base' : 'text-sm'} font-medium text-emerald-200 group-hover:text-emerald-300 transition-colors`}>Сжать изображение</span>
-								</label>
-							)}
+							{/* Опция сжатия убрана - файлы не сжимаются */}
 
 							{/* Поле подписи */}
 							<div className={`${isMobileView ? 'px-4 py-4' : 'px-6 py-5'} border-b border-emerald-500/20`}>
@@ -2279,14 +2268,14 @@ export default function MessageInput({
 														? {
 																...att,
 																caption: previewModalCaption,
-																compress: previewModalCompress,
+																compress: false, // Сжатие отключено
 															}
 														: att
 												)
 											)
 											setPreviewModalAttachment(null)
 											setPreviewModalCaption('')
-											setPreviewModalCompress(true)
+											// Сжатие отключено
 											// Открываем выбор файла для добавления еще одного
 											setTimeout(() => {
 												if (fileInputRef.current) {
@@ -2322,17 +2311,17 @@ export default function MessageInput({
 													? {
 															...att,
 															caption: previewModalCaption,
-															compress: previewModalCompress,
+															compress: false, // Сжатие отключено
 														}
 													: att
 											)
 										)
+										const captionToAdd = previewModalCaption.trim()
 										setPreviewModalAttachment(null)
 										setPreviewModalCaption('')
-										setPreviewModalCompress(true)
 										// Если есть подпись, добавляем её в сообщение
-										if (previewModalCaption.trim()) {
-											setMessage(prev => (prev ? prev + '\n' + previewModalCaption.trim() : previewModalCaption.trim()))
+										if (captionToAdd) {
+											setMessage(prev => (prev ? prev + '\n' + captionToAdd : captionToAdd))
 										}
 										// Отправляем сообщение
 										setTimeout(() => {

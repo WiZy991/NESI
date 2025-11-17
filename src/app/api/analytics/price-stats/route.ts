@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import { analyzeTaskText, calculateSimilarity, type TaskAnalysis } from '@/lib/taskTextAnalysis'
 import { findTaskType, getTypicalPrice, getPriceRange, isPriceReasonable, TASK_PRICE_KNOWLEDGE } from '@/lib/taskPriceKnowledge'
+import { canUseAdaptiveStats } from '@/lib/textQualityCheck'
 
 // Интерфейс для данных о ценах из внешних источников
 interface ExternalPriceData {
@@ -86,7 +87,12 @@ export async function GET(req: Request) {
 		let taskAnalysis: TaskAnalysis | null = null
 		let similarTasks: Array<{ id: string; price: number; similarity: number }> = []
 		
-		if (taskTitle && taskDescription) {
+		// Проверяем, можно ли использовать адаптивную статистику
+		const canUseAdaptive = taskTitle && taskDescription 
+			? canUseAdaptiveStats(taskTitle, taskDescription)
+			: false
+		
+		if (taskTitle && taskDescription && canUseAdaptive) {
 			taskAnalysis = analyzeTaskText(taskTitle, taskDescription)
 			
 			// Проверяем, есть ли тип задачи в базе знаний
@@ -158,8 +164,9 @@ export async function GET(req: Request) {
 		// используем обычную статистику, но с понижающим коэффициентом
 		// Если задача очень сложная и большая, но похожих задач мало,
 		// используем повышающий коэффициент (т.к. сложные проекты стоят дороже)
+		// НО: применяем коэффициенты только если текст осмысленный
 		let priceMultiplier = 1
-		if (taskAnalysis && similarTasks.length < 3 && !useKnowledgeBase) {
+		if (taskAnalysis && similarTasks.length < 3 && !useKnowledgeBase && canUseAdaptive) {
 			// Для очень сложных и больших задач - повышаем цену
 			if (taskAnalysis.complexity === 'very_complex' && taskAnalysis.volume === 'very_large') {
 				// Для очень сложных масштабных проектов используем коэффициент 2.0-3.0
@@ -281,8 +288,8 @@ export async function GET(req: Request) {
 				: 0
 		
 		// Применяем коэффициент к внешней средней цене, если он есть
-		// Если используем базу знаний, не применяем коэффициент к внешним данным
-		const externalAverage = useKnowledgeBase
+		// Если используем базу знаний или текст не осмысленный, не применяем коэффициент к внешним данным
+		const externalAverage = (useKnowledgeBase || !canUseAdaptive)
 			? Math.round(baseExternalAverage)
 			: Math.round(baseExternalAverage * priceMultiplier)
 
@@ -318,7 +325,7 @@ export async function GET(req: Request) {
 				priceRange: knowledgeBaseRange,
 			} : null,
 			similarTasksCount: similarTasks.length,
-			isAdaptive: useSimilarTasks || useKnowledgeBase || (taskAnalysis && priceMultiplier !== 1),
+			isAdaptive: canUseAdaptive && (useSimilarTasks || useKnowledgeBase || (taskAnalysis && priceMultiplier !== 1)),
 			priceMultiplier: priceMultiplier !== 1 ? priceMultiplier : undefined,
 			source: useSimilarTasks ? 'similar_tasks' : useKnowledgeBase ? 'knowledge_base' : 'category_average',
 		})
