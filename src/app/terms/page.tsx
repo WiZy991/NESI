@@ -346,10 +346,6 @@ export default function TermsPage() {
 					</p>
 					<p>ИНН: 2205021414</p>
 					<p>
-						<strong className='text-emerald-400'>Юридический адрес:</strong>{' '}
-						Алтайский край, г. Заринск, ул. Центральная 22, кв 1
-					</p>
-					<p>
 						<strong className='text-emerald-400'>Email:</strong>{' '}
 						<EmailLink
 							email='info.nesi@bk.ru'
