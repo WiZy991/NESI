@@ -12,6 +12,22 @@ export interface TaskAnalysis {
 	keywords: string[]
 	estimatedHours: number
 	taskTypeId?: string // ID типа задачи из базы знаний
+	quantitativeData?: QuantitativeData // Извлеченные количественные данные
+}
+
+/**
+ * Количественные данные, извлеченные из текста задачи
+ */
+export interface QuantitativeData {
+	pages?: number // Количество страниц
+	modules?: number // Количество модулей
+	functions?: number // Количество функций
+	components?: number // Количество компонентов
+	items?: number // Количество элементов/товаров
+	hours?: number // Упомянутые часы
+	days?: number // Упомянутые дни
+	weeks?: number // Упомянутые недели
+	months?: number // Упомянутые месяцы
 }
 
 /**
@@ -156,6 +172,7 @@ const TECHNOLOGY_KEYWORDS = [
  */
 export function analyzeTaskText(title: string, description: string): TaskAnalysis {
 	const fullText = `${title} ${description}`.toLowerCase()
+	const originalText = `${title} ${description}`
 	
 	// Импортируем базу знаний
 	let taskType: TaskType | null = null
@@ -166,13 +183,16 @@ export function analyzeTaskText(title: string, description: string): TaskAnalysi
 		// Если база знаний недоступна, продолжаем без неё
 	}
 	
+	// Извлекаем количественные данные ПЕРВЫМ ДЕЛОМ
+	const quantitativeData = extractQuantitativeData(originalText)
+	
 	// Определяем сложность (используем из базы знаний если найдена)
 	const complexity = taskType 
 		? taskType.complexity 
 		: determineComplexity(fullText)
 	
-	// Определяем объем
-	const volume = determineVolume(fullText, description.length)
+	// Определяем объем (теперь с учетом количественных данных и базы знаний)
+	const volume = determineVolume(fullText, description.length, quantitativeData, taskType)
 	
 	// Определяем срочность
 	const urgency = determineUrgency(fullText)
@@ -183,10 +203,14 @@ export function analyzeTaskText(title: string, description: string): TaskAnalysi
 	// Извлекаем ключевые слова
 	const keywords = extractKeywords(fullText)
 	
-	// Оцениваем количество часов (используем из базы знаний если найдена)
-	const estimatedHours = taskType
-		? taskType.typicalHours
-		: estimateHours(complexity, volume, description.length)
+	// Оцениваем количество часов (с учетом количественных данных и базы знаний)
+	const estimatedHours = estimateHours(
+		complexity, 
+		volume, 
+		description.length, 
+		quantitativeData, 
+		taskType
+	)
 	
 	return {
 		complexity,
@@ -195,7 +219,8 @@ export function analyzeTaskText(title: string, description: string): TaskAnalysi
 		technologies,
 		keywords,
 		estimatedHours,
-		taskTypeId: taskType?.id
+		taskTypeId: taskType?.id,
+		quantitativeData
 	}
 }
 
@@ -238,14 +263,274 @@ function determineComplexity(text: string): TaskAnalysis['complexity'] {
 }
 
 /**
- * Определяет объем работы
+ * Извлекает количественные данные из текста
  */
-function determineVolume(text: string, descriptionLength: number): TaskAnalysis['volume'] {
-	// Если описание очень короткое (меньше 50 символов), считаем маленьким объемом
-	if (descriptionLength < 50) {
-		return 'small'
+function extractQuantitativeData(text: string): QuantitativeData {
+	const data: QuantitativeData = {}
+	const lowerText = text.toLowerCase()
+	
+	// Паттерны для извлечения чисел с единицами измерения
+	const patterns = {
+		// Страницы: "3 страницы", "три страницы", "5 страниц"
+		pages: [
+			/(\d+)\s*(?:страниц|страницы|страница|page|pages)/i,
+			/(?:один|одна|одну|одной|одним)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:две|двух|двумя)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:три|трех|тремя)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:четыре|четырех|четырьмя)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:пять|пяти|пятью)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:шесть|шести|шестью)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:семь|семи|семью)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:восемь|восьми|восемью)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:девять|девяти|девятью)\s*(?:страниц|страницы|страница|page)/i,
+			/(?:десять|десяти|десятью)\s*(?:страниц|страницы|страница|page)/i,
+		],
+		// Модули: "5 модулей", "три модуля"
+		modules: [
+			/(\d+)\s*(?:модул|модуля|модулей|module|modules)/i,
+			/(?:один|одна|одну|одной|одним)\s*(?:модул|модуля|модулей|module)/i,
+			/(?:два|две|двух|двумя)\s*(?:модул|модуля|модулей|module)/i,
+			/(?:три|трех|тремя)\s*(?:модул|модуля|модулей|module)/i,
+		],
+		// Функции: "10 функций", "пять функций"
+		functions: [
+			/(\d+)\s*(?:функц|функции|функций|function|functions)/i,
+			/(?:один|одна|одну|одной|одним)\s*(?:функц|функции|функций|function)/i,
+			/(?:две|двух|двумя)\s*(?:функц|функции|функций|function)/i,
+			/(?:три|трех|тремя)\s*(?:функц|функции|функций|function)/i,
+		],
+		// Компоненты: "3 компонента", "два компонента"
+		components: [
+			/(\d+)\s*(?:компонент|компонента|компонентов|component|components)/i,
+			/(?:один|одна|одну|одной|одним)\s*(?:компонент|компонента|компонентов|component)/i,
+			/(?:два|две|двух|двумя)\s*(?:компонент|компонента|компонентов|component)/i,
+		],
+		// Элементы/товары: "100 товаров", "50 элементов"
+		items: [
+			/(\d+)\s*(?:товар|товара|товаров|элемент|элемента|элементов|item|items)/i,
+		],
+		// Время: "5 часов", "3 дня", "2 недели", "1 месяц"
+		hours: [
+			/(\d+)\s*(?:час|часа|часов|hour|hours|ч\.|ч)/i,
+			/(?:один|одна|одну|одной|одним)\s*(?:час|часа|часов|hour)/i,
+			/(?:два|две|двух|двумя)\s*(?:час|часа|часов|hour)/i,
+		],
+		days: [
+			/(\d+)\s*(?:день|дня|дней|day|days|дн\.|дн)/i,
+			/(?:один|одна|одну|одной|одним)\s*(?:день|дня|дней|day)/i,
+			/(?:два|две|двух|двумя)\s*(?:день|дня|дней|day)/i,
+		],
+		weeks: [
+			/(\d+)\s*(?:недел|недели|недель|week|weeks|нед\.|нед)/i,
+			/(?:одна|одну|одной|одним)\s*(?:недел|недели|недель|week)/i,
+			/(?:две|двух|двумя)\s*(?:недел|недели|недель|week)/i,
+		],
+		months: [
+			/(\d+)\s*(?:месяц|месяца|месяцев|month|months|мес\.|мес)/i,
+			/(?:один|одна|одну|одной|одним)\s*(?:месяц|месяца|месяцев|month)/i,
+		],
 	}
 	
+	// Числа словами
+	const numberWords: Record<string, number> = {
+		'один': 1, 'одна': 1, 'одну': 1, 'одной': 1, 'одним': 1,
+		'два': 2, 'две': 2, 'двух': 2, 'двумя': 2,
+		'три': 3, 'трех': 3, 'тремя': 3,
+		'четыре': 4, 'четырех': 4, 'четырьмя': 4,
+		'пять': 5, 'пяти': 5, 'пятью': 5,
+		'шесть': 6, 'шести': 6, 'шестью': 6,
+		'семь': 7, 'семи': 7, 'семью': 7,
+		'восемь': 8, 'восьми': 8, 'восемью': 8,
+		'девять': 9, 'девяти': 9, 'девятью': 9,
+		'десять': 10, 'десяти': 10, 'десятью': 10,
+	}
+	
+	// Извлекаем страницы
+	for (const pattern of patterns.pages) {
+		const match = text.match(pattern)
+		if (match) {
+			if (match[1]) {
+				data.pages = parseInt(match[1], 10)
+			} else {
+				// Ищем число словами в совпадении
+				const matchText = match[0].toLowerCase()
+				for (const [word, num] of Object.entries(numberWords)) {
+					if (matchText.includes(word)) {
+						data.pages = num
+						break
+					}
+				}
+			}
+			if (data.pages) break
+		}
+	}
+	
+	// Дополнительная проверка для чисел словами (если не нашли через паттерны)
+	if (!data.pages) {
+		for (const [word, num] of Object.entries(numberWords)) {
+			if (lowerText.includes(word + ' страниц') || 
+			    lowerText.includes(word + ' страницы') || 
+			    lowerText.includes(word + ' страница')) {
+				data.pages = num
+				break
+			}
+		}
+	}
+	
+	// Извлекаем модули
+	for (const pattern of patterns.modules) {
+		const match = text.match(pattern)
+		if (match) {
+			if (match[1]) {
+				data.modules = parseInt(match[1], 10)
+			} else {
+				const matchText = match[0].toLowerCase()
+				for (const [word, num] of Object.entries(numberWords)) {
+					if (matchText.includes(word)) {
+						data.modules = num
+						break
+					}
+				}
+			}
+			if (data.modules) break
+		}
+	}
+	
+	// Дополнительная проверка для чисел словами
+	if (!data.modules) {
+		for (const [word, num] of Object.entries(numberWords)) {
+			if (lowerText.includes(word + ' модул') || lowerText.includes(word + ' module')) {
+				data.modules = num
+				break
+			}
+		}
+	}
+	
+	// Извлекаем функции
+	for (const pattern of patterns.functions) {
+		const match = text.match(pattern)
+		if (match && match[1]) {
+			data.functions = parseInt(match[1], 10)
+			break
+		}
+	}
+	
+	// Извлекаем компоненты
+	for (const pattern of patterns.components) {
+		const match = text.match(pattern)
+		if (match && match[1]) {
+			data.components = parseInt(match[1], 10)
+			break
+		}
+	}
+	
+	// Извлекаем элементы/товары
+	for (const pattern of patterns.items) {
+		const match = text.match(pattern)
+		if (match && match[1]) {
+			data.items = parseInt(match[1], 10)
+			break
+		}
+	}
+	
+	// Извлекаем время
+	for (const pattern of patterns.hours) {
+		const match = text.match(pattern)
+		if (match && match[1]) {
+			data.hours = parseInt(match[1], 10)
+			break
+		}
+	}
+	
+	for (const pattern of patterns.days) {
+		const match = text.match(pattern)
+		if (match && match[1]) {
+			data.days = parseInt(match[1], 10)
+			break
+		}
+	}
+	
+	for (const pattern of patterns.weeks) {
+		const match = text.match(pattern)
+		if (match && match[1]) {
+			data.weeks = parseInt(match[1], 10)
+			break
+		}
+	}
+	
+	for (const pattern of patterns.months) {
+		const match = text.match(pattern)
+		if (match && match[1]) {
+			data.months = parseInt(match[1], 10)
+			break
+		}
+	}
+	
+	return data
+}
+
+/**
+ * Определяет объем работы с учетом количественных данных и базы знаний
+ */
+function determineVolume(
+	text: string, 
+	descriptionLength: number,
+	quantitativeData?: QuantitativeData,
+	taskType?: TaskType | null
+): TaskAnalysis['volume'] {
+	// ПРИОРИТЕТ 1: Используем количественные данные
+	if (quantitativeData) {
+		// Страницы
+		if (quantitativeData.pages !== undefined) {
+			if (quantitativeData.pages >= 20) return 'very_large'
+			if (quantitativeData.pages >= 10) return 'large'
+			if (quantitativeData.pages >= 3) return 'medium'
+			if (quantitativeData.pages >= 1) return 'small'
+		}
+		
+		// Модули
+		if (quantitativeData.modules !== undefined) {
+			if (quantitativeData.modules >= 10) return 'very_large'
+			if (quantitativeData.modules >= 5) return 'large'
+			if (quantitativeData.modules >= 2) return 'medium'
+			if (quantitativeData.modules >= 1) return 'small'
+		}
+		
+		// Функции
+		if (quantitativeData.functions !== undefined) {
+			if (quantitativeData.functions >= 20) return 'very_large'
+			if (quantitativeData.functions >= 10) return 'large'
+			if (quantitativeData.functions >= 3) return 'medium'
+			if (quantitativeData.functions >= 1) return 'small'
+		}
+		
+		// Компоненты
+		if (quantitativeData.components !== undefined) {
+			if (quantitativeData.components >= 15) return 'very_large'
+			if (quantitativeData.components >= 7) return 'large'
+			if (quantitativeData.components >= 3) return 'medium'
+			if (quantitativeData.components >= 1) return 'small'
+		}
+		
+		// Время (если указано явно)
+		if (quantitativeData.months && quantitativeData.months >= 1) return 'very_large'
+		if (quantitativeData.weeks && quantitativeData.weeks >= 4) return 'very_large'
+		if (quantitativeData.weeks && quantitativeData.weeks >= 2) return 'large'
+		if (quantitativeData.days && quantitativeData.days >= 14) return 'large'
+		if (quantitativeData.days && quantitativeData.days >= 7) return 'medium'
+	}
+	
+	// ПРИОРИТЕТ 2: Используем базу знаний
+	if (taskType) {
+		// Используем типичный объем из базы знаний как подсказку
+		const typicalHours = taskType.typicalHours
+		if (typicalHours >= 500) return 'very_large'
+		if (typicalHours >= 100) return 'large'
+		if (typicalHours >= 20) return 'medium'
+		if (typicalHours >= 1) return 'small'
+	}
+	
+	// ПРИОРИТЕТ 3: Анализ ключевых слов
 	let veryLargeCount = 0
 	let largeCount = 0
 	let mediumCount = 0
@@ -267,11 +552,20 @@ function determineVolume(text: string, descriptionLength: number): TaskAnalysis[
 		if (text.includes(keyword)) smallCount++
 	})
 	
-	// Учитываем длину описания
-	if (descriptionLength > 2000 || veryLargeCount > 0) return 'very_large'
-	if (descriptionLength > 1000 || largeCount > 0) return 'large'
-	if (descriptionLength > 300 || mediumCount > 0) return 'medium'
-	return 'small'
+	// Учитываем ключевые слова с приоритетом
+	if (veryLargeCount > 0) return 'very_large'
+	if (largeCount > 0) return 'large'
+	if (mediumCount > 0) return 'medium'
+	if (smallCount > 0) return 'small'
+	
+	// ПРИОРИТЕТ 4: Длина описания (только как последний резерв)
+	// Убрали жесткий порог 50 символов - теперь это только подсказка
+	if (descriptionLength > 2000) return 'very_large'
+	if (descriptionLength > 1000) return 'large'
+	if (descriptionLength > 300) return 'medium'
+	
+	// По умолчанию - средний объем (не маленький!)
+	return 'medium'
 }
 
 /**
@@ -333,13 +627,62 @@ function extractKeywords(text: string): string[] {
 }
 
 /**
- * Оценивает количество часов на выполнение
+ * Оценивает количество часов на выполнение с учетом количественных данных
  */
 function estimateHours(
 	complexity: TaskAnalysis['complexity'],
 	volume: TaskAnalysis['volume'],
-	descriptionLength: number
+	descriptionLength: number,
+	quantitativeData?: QuantitativeData,
+	taskType?: TaskType | null
 ): number {
+	// ПРИОРИТЕТ 1: Если есть явно указанное время - используем его
+	if (quantitativeData) {
+		if (quantitativeData.hours) {
+			return quantitativeData.hours
+		}
+		if (quantitativeData.days) {
+			return quantitativeData.days * 8 // 8 часов в день
+		}
+		if (quantitativeData.weeks) {
+			return quantitativeData.weeks * 40 // 40 часов в неделю
+		}
+		if (quantitativeData.months) {
+			return quantitativeData.months * 160 // 160 часов в месяц
+		}
+		
+		// ПРИОРИТЕТ 2: Используем количественные данные для расчета
+		if (quantitativeData.pages !== undefined) {
+			// Для верстки: примерно 2-4 часа на страницу в зависимости от сложности
+			const hoursPerPage = complexity === 'simple' ? 2 : complexity === 'medium' ? 3 : 4
+			return Math.max(1, quantitativeData.pages * hoursPerPage)
+		}
+		
+		if (quantitativeData.modules !== undefined) {
+			// Для модулей: примерно 8-16 часов на модуль
+			const hoursPerModule = complexity === 'simple' ? 8 : complexity === 'medium' ? 12 : 16
+			return Math.max(1, quantitativeData.modules * hoursPerModule)
+		}
+		
+		if (quantitativeData.functions !== undefined) {
+			// Для функций: примерно 2-6 часов на функцию
+			const hoursPerFunction = complexity === 'simple' ? 2 : complexity === 'medium' ? 4 : 6
+			return Math.max(1, quantitativeData.functions * hoursPerFunction)
+		}
+		
+		if (quantitativeData.components !== undefined) {
+			// Для компонентов: примерно 1-3 часа на компонент
+			const hoursPerComponent = complexity === 'simple' ? 1 : complexity === 'medium' ? 2 : 3
+			return Math.max(1, quantitativeData.components * hoursPerComponent)
+		}
+	}
+	
+	// ПРИОРИТЕТ 3: Используем базу знаний
+	if (taskType && taskType.typicalHours) {
+		return taskType.typicalHours
+	}
+	
+	// ПРИОРИТЕТ 4: Расчет на основе сложности и объема
 	const complexityMultiplier = {
 		simple: 1,
 		medium: 2,
@@ -349,15 +692,13 @@ function estimateHours(
 	
 	const volumeMultiplier = {
 		small: 1,
-		medium: 2,
-		large: 4,
-		very_large: 8
+		medium: 2.5,
+		large: 5,
+		very_large: 10
 	}
 	
-	// Для очень коротких задач используем минимальную базу
-	const baseHours = descriptionLength < 50 
-		? 1 
-		: Math.max(2, Math.floor(descriptionLength / 100))
+	// Базовая оценка (убрали жесткий порог 50 символов)
+	const baseHours = Math.max(1, Math.floor(descriptionLength / 80))
 	
 	return Math.round(
 		baseHours * complexityMultiplier[complexity] * volumeMultiplier[volume]

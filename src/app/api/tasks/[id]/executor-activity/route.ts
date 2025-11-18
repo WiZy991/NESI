@@ -62,6 +62,63 @@ export async function GET(
 			})
 		}
 
+		// Функция для проверки, является ли сообщение голосовым
+		function isVoiceMessage(content: string | null | undefined): boolean {
+			if (!content || typeof content !== 'string') return false
+			try {
+				// Пытаемся распарсить JSON
+				let parsed
+				try {
+					parsed = JSON.parse(content)
+				} catch {
+					// Если не получилось, пробуем заменить экранированные кавычки
+					const unescaped = content.replace(/&quot;/g, '"')
+					parsed = JSON.parse(unescaped)
+				}
+				return parsed && parsed.type === 'voice' && typeof parsed.duration === 'number'
+			} catch {
+				// Если не JSON, проверяем строку
+				return content.includes('"type":"voice"') || 
+				       content.includes('"type": "voice"') ||
+				       content.includes('&quot;type&quot;:&quot;voice&quot;')
+			}
+		}
+
+		// Функция для форматирования preview сообщения
+		function formatMessagePreview(content: string | null | undefined): string {
+			if (!content) return ''
+			
+			// Проверяем, является ли это голосовым сообщением
+			if (isVoiceMessage(content)) {
+				try {
+					let parsed
+					try {
+						parsed = JSON.parse(content)
+					} catch {
+						// Если не получилось, пробуем заменить экранированные кавычки
+						const unescaped = content.replace(/&quot;/g, '"')
+						parsed = JSON.parse(unescaped)
+					}
+					const duration = parsed?.duration || 0
+					const seconds = Math.round(duration)
+					return `🎙️ Голосовое сообщение (${seconds} сек)`
+				} catch {
+					return '🎙️ Голосовое сообщение'
+				}
+			}
+			
+			// Если это обычный текст - возвращаем его (с ограничением длины)
+			// Убираем лишние пробелы и переносы строк
+			const cleaned = content.trim().replace(/\s+/g, ' ')
+			
+			// Если текст слишком длинный - обрезаем
+			if (cleaned.length > 100) {
+				return cleaned.substring(0, 100) + '...'
+			}
+			
+			return cleaned
+		}
+
 		// Получаем последние сообщения от исполнителя в этой задаче
 		const lastMessages = await prisma.message.findMany({
 			where: {
@@ -141,7 +198,7 @@ export async function GET(
 				hasRecentUpdates,
 				recentMessages: lastMessages.map(msg => ({
 					id: msg.id,
-					preview: msg.content?.substring(0, 100) || '',
+					preview: formatMessagePreview(msg.content),
 					createdAt: msg.createdAt.toISOString(),
 				})),
 				executorNote: recentUpdates?.executorNote || null,

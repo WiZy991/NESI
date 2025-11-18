@@ -145,10 +145,8 @@ export default function ExecutorActivityWidget({
 								key={msg.id}
 								className="bg-black/40 border border-emerald-700/30 rounded-lg p-3 text-sm"
 							>
-								<div className="text-gray-300 mb-1">
-									{msg.preview.length > 100
-										? msg.preview.substring(0, 100) + '...'
-										: msg.preview}
+								<div className="text-gray-300 mb-1 break-words whitespace-pre-wrap">
+									{msg.preview}
 								</div>
 								<div className="text-xs text-gray-500">
 									{new Date(msg.createdAt).toLocaleString('ru-RU')}

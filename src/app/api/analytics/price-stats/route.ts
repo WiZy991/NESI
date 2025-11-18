@@ -146,24 +146,119 @@ export async function GET(req: Request) {
 		// Проверяем, есть ли тип задачи в базе знаний
 		const taskType = taskTitle && taskDescription ? findTaskType(taskTitle, taskDescription) : null
 		
-		// Получаем статистику цен из нашей базы данных
-		// Приоритет: 1) Похожие задачи, 2) База знаний, 3) Коэффициенты
-		let useSimilarTasks = similarTasks.length >= 3
-		let useKnowledgeBase = false
-		let knowledgeBasePrice = 0
-		let knowledgeBaseRange = { min: 0, max: 0 }
+		// Получаем базовую статистику по категории (всегда нужна как fallback)
+		const categoryStats = await prisma.task.aggregate({
+			where: {
+				status: { in: ['open', 'in_progress', 'completed'] },
+				price: { not: null },
+				...(subcategoryId && { subcategoryId }),
+				...(categoryId && !subcategoryId && {
+					subcategory: { categoryId },
+				}),
+			},
+			_avg: { price: true },
+			_min: { price: true },
+			_max: { price: true },
+			_count: { price: true },
+		})
 		
-		// Если найден тип задачи в базе знаний, используем его цену
-		if (taskType && similarTasks.length < 3) {
-			useKnowledgeBase = true
-			knowledgeBasePrice = getTypicalPrice(taskType)
-			knowledgeBaseRange = getPriceRange(taskType)
+		const baseCategoryPrice = Number(categoryStats._avg.price || 0)
+		const baseCategoryMin = Number(categoryStats._min.price || 0)
+		const baseCategoryMax = Number(categoryStats._max.price || 0)
+		
+		// Улучшенная логика формирования статистики с комбинированием источников
+		let finalPrice = baseCategoryPrice
+		let finalMin = baseCategoryMin
+		let finalMax = baseCategoryMax
+		let source = 'category_average'
+		let confidence = 0.5 // Уверенность в результате (0-1)
+		
+		// ПРИОРИТЕТ 1: Похожие задачи (если их достаточно)
+		if (similarTasks.length >= 3) {
+			const totalWeight = similarTasks.reduce((sum, t) => sum + t.similarity, 0)
+			const weightedSum = similarTasks.reduce((sum, t) => sum + (t.price * t.similarity), 0)
+			const weightedAvg = totalWeight > 0 ? weightedSum / totalWeight : 0
+			
+			const topSimilar = similarTasks
+				.sort((a, b) => b.similarity - a.similarity)
+				.slice(0, Math.max(1, Math.floor(similarTasks.length * 0.3)))
+			
+			finalPrice = weightedAvg
+			finalMin = Math.min(...topSimilar.map(t => t.price))
+			finalMax = Math.max(...topSimilar.map(t => t.price))
+			source = 'similar_tasks'
+			// Уверенность зависит от количества и схожести
+			const avgSimilarity = similarTasks.reduce((sum, t) => sum + t.similarity, 0) / similarTasks.length
+			confidence = Math.min(0.95, 0.6 + (similarTasks.length / 50) * 0.2 + (avgSimilarity / 100) * 0.15)
+		}
+		// ПРИОРИТЕТ 2: База знаний с коррекцией на количественные данные
+		else if (taskType) {
+			let knowledgePrice = getTypicalPrice(taskType)
+			let knowledgeMin = getPriceRange(taskType).min
+			let knowledgeMax = getPriceRange(taskType).max
+			
+			// Корректируем цену из базы знаний на основе количественных данных
+			if (taskAnalysis?.quantitativeData) {
+				const qData = taskAnalysis.quantitativeData
+				
+				// Если есть количество страниц - корректируем цену пропорционально
+				// Предполагаем, что для верстки: 2-4 часа на страницу (в зависимости от сложности)
+				if (qData.pages !== undefined && taskType.typicalHours > 0) {
+					const complexity = taskType.complexity
+					const hoursPerPage = complexity === 'simple' ? 2 : complexity === 'medium' ? 3 : 4
+					const estimatedHours = qData.pages * hoursPerPage
+					
+					// Корректируем цену пропорционально времени
+					const priceMultiplier = estimatedHours / taskType.typicalHours
+					
+					knowledgePrice = knowledgePrice * priceMultiplier
+					knowledgeMin = knowledgeMin * priceMultiplier
+					knowledgeMax = knowledgeMax * priceMultiplier
+				}
+				
+				// Аналогично для модулей: 8-16 часов на модуль
+				if (qData.modules !== undefined && taskType.typicalHours > 0) {
+					const complexity = taskType.complexity
+					const hoursPerModule = complexity === 'simple' ? 8 : complexity === 'medium' ? 12 : 16
+					const estimatedHours = qData.modules * hoursPerModule
+					const priceMultiplier = estimatedHours / taskType.typicalHours
+					
+					knowledgePrice = knowledgePrice * priceMultiplier
+					knowledgeMin = knowledgeMin * priceMultiplier
+					knowledgeMax = knowledgeMax * priceMultiplier
+				}
+				
+				// Если есть явно указанное время - используем его
+				if (qData.hours) {
+					const priceMultiplier = qData.hours / taskType.typicalHours
+					knowledgePrice = knowledgePrice * priceMultiplier
+					knowledgeMin = knowledgeMin * priceMultiplier
+					knowledgeMax = knowledgeMax * priceMultiplier
+				}
+			}
+			
+			// Комбинируем с категорийной статистикой (взвешенное среднее)
+			// Если база знаний более специфична - даем ей больший вес
+			const knowledgeWeight = 0.7
+			const categoryWeight = 0.3
+			
+			finalPrice = knowledgePrice * knowledgeWeight + baseCategoryPrice * categoryWeight
+			finalMin = Math.min(knowledgeMin, baseCategoryMin)
+			finalMax = Math.max(knowledgeMax, baseCategoryMax)
+			source = 'knowledge_base'
+			confidence = 0.75
+		}
+		// ПРИОРИТЕТ 3: Анализ текста с коэффициентами (если есть анализ)
+		else if (taskAnalysis && canUseAdaptive) {
+			// Используем категорийную статистику как базу и применяем коэффициенты
+			source = 'category_average_adjusted'
+			confidence = 0.6
 		}
 		
 		// Улучшенный расчет коэффициента цены с учетом множества факторов
-		// Применяем коэффициенты только если текст осмысленный и нет достаточного количества похожих задач
+		// Применяем коэффициенты для корректировки категорийной статистики
 		let priceMultiplier = 1
-		if (taskAnalysis && similarTasks.length < 3 && !useKnowledgeBase && canUseAdaptive) {
+		if (taskAnalysis && canUseAdaptive && source === 'category_average_adjusted') {
 			// Базовые коэффициенты по сложности
 			const complexityMultipliers = {
 				simple: 0.6,
@@ -228,48 +323,20 @@ export async function GET(req: Request) {
 			priceMultiplier = Math.max(0.3, Math.min(3.0, multiplier))
 		}
 		
-		// Определяем источник цены
-		// Для похожих задач используем взвешенное среднее по схожести
-		const priceStats = useSimilarTasks
-			? (() => {
-					// Вычисляем взвешенное среднее, где вес = схожесть
-					const totalWeight = similarTasks.reduce((sum, t) => sum + t.similarity, 0)
-					const weightedSum = similarTasks.reduce((sum, t) => sum + (t.price * t.similarity), 0)
-					const weightedAvg = totalWeight > 0 ? weightedSum / totalWeight : 0
-					
-					// Для min/max берем значения из самых похожих задач (топ 30% по схожести)
-					const topSimilar = similarTasks
-						.sort((a, b) => b.similarity - a.similarity)
-						.slice(0, Math.max(1, Math.floor(similarTasks.length * 0.3)))
-					
-					return {
-						_avg: { price: weightedAvg },
-						_min: { price: Math.min(...topSimilar.map(t => t.price)) },
-						_max: { price: Math.max(...topSimilar.map(t => t.price)) },
-						_count: { price: similarTasks.length },
-					}
-				})()
-			: useKnowledgeBase
-			? {
-					_avg: { price: knowledgeBasePrice },
-					_min: { price: knowledgeBaseRange.min },
-					_max: { price: knowledgeBaseRange.max },
-					_count: { price: 0 }, // База знаний не имеет количества
-				}
-			: await prisma.task.aggregate({
-					where: {
-						status: { in: ['open', 'in_progress', 'completed'] },
-						price: { not: null },
-						...(subcategoryId && { subcategoryId }),
-						...(categoryId && !subcategoryId && {
-							subcategory: { categoryId },
-						}),
-					},
-					_avg: { price: true },
-					_min: { price: true },
-					_max: { price: true },
-					_count: { price: true },
-				})
+		// Применяем коэффициент к финальной цене (если используется категорийная статистика с корректировкой)
+		if (source === 'category_average_adjusted' && priceMultiplier !== 1) {
+			finalPrice = finalPrice * priceMultiplier
+			finalMin = finalMin * priceMultiplier
+			finalMax = finalMax * priceMultiplier
+		}
+		
+		// Формируем финальную статистику
+		const priceStats = {
+			_avg: { price: finalPrice },
+			_min: { price: finalMin },
+			_max: { price: finalMax },
+			_count: { price: source === 'similar_tasks' ? similarTasks.length : categoryStats._count.price },
+		}
 
 		// Получаем статистику по подкатегориям
 		const subcategoryStats = await prisma.task.groupBy({
@@ -315,22 +382,11 @@ export async function GET(req: Request) {
 		// Получаем данные из внешних источников
 		const externalData = await getExternalPriceData(categoryId, subcategoryId)
 
-		// Вычисляем общую статистику
-		// Если используем базу знаний, не применяем коэффициент
-		const baseAveragePrice = Number(priceStats._avg.price || 0)
-		const baseMinPrice = Number(priceStats._min.price || 0)
-		const baseMaxPrice = Number(priceStats._max.price || 0)
-		
+		// Вычисляем общую статистику (уже с примененными корректировками)
 		const overallStats = {
-			averagePrice: useKnowledgeBase 
-				? Math.round(baseAveragePrice)
-				: Math.round(baseAveragePrice * priceMultiplier),
-			minPrice: useKnowledgeBase
-				? Math.round(baseMinPrice)
-				: Math.round(baseMinPrice * priceMultiplier),
-			maxPrice: useKnowledgeBase
-				? Math.round(baseMaxPrice)
-				: Math.round(baseMaxPrice * priceMultiplier),
+			averagePrice: Math.round(Number(priceStats._avg.price || 0)),
+			minPrice: Math.round(Number(priceStats._min.price || 0)),
+			maxPrice: Math.round(Number(priceStats._max.price || 0)),
 			taskCount: priceStats._count.price,
 		}
 
@@ -340,11 +396,10 @@ export async function GET(req: Request) {
 				? externalData.reduce((sum, d) => sum + d.averagePrice, 0) / externalData.length
 				: 0
 		
-		// Применяем коэффициент к внешней средней цене, если он есть
-		// Если используем базу знаний или текст не осмысленный, не применяем коэффициент к внешним данным
-		const externalAverage = (useKnowledgeBase || !canUseAdaptive)
-			? Math.round(baseExternalAverage)
-			: Math.round(baseExternalAverage * priceMultiplier)
+		// Применяем коэффициент к внешней средней цене, если используется корректировка
+		const externalAverage = (source === 'category_average_adjusted' && priceMultiplier !== 1)
+			? Math.round(baseExternalAverage * priceMultiplier)
+			: Math.round(baseExternalAverage)
 
 		return NextResponse.json({
 			internal: {
@@ -374,13 +429,14 @@ export async function GET(req: Request) {
 				id: taskType.id,
 				name: taskType.name,
 				description: taskType.description,
-				typicalPrice: knowledgeBasePrice,
-				priceRange: knowledgeBaseRange,
+				typicalPrice: getTypicalPrice(taskType),
+				priceRange: getPriceRange(taskType),
 			} : null,
 			similarTasksCount: similarTasks.length,
-			isAdaptive: canUseAdaptive && (useSimilarTasks || useKnowledgeBase || (taskAnalysis && priceMultiplier !== 1)),
+			isAdaptive: canUseAdaptive && (similarTasks.length >= 3 || taskType || (taskAnalysis && priceMultiplier !== 1)),
 			priceMultiplier: priceMultiplier !== 1 ? priceMultiplier : undefined,
-			source: useSimilarTasks ? 'similar_tasks' : useKnowledgeBase ? 'knowledge_base' : 'category_average',
+			source: source,
+			confidence: confidence, // Уверенность в результате (0-1)
 		})
 	} catch (error) {
 		logger.error('Ошибка получения статистики цен', error)

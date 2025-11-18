@@ -2733,6 +2733,18 @@ function ChatsPageContent() {
 											? 'calc(1rem + env(safe-area-inset-bottom, 0px))'
 											: '2.5rem',
 									}}
+									onKeyDown={(e) => {
+										// Предотвращаем скролл страницы при нажатии пробела
+										// Разрешаем только если фокус на поле ввода (textarea или input)
+										if (e.key === ' ' || e.key === 'Spacebar') {
+											const target = e.target as HTMLElement
+											const isInput = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT'
+											if (!isInput) {
+												e.preventDefault()
+											}
+										}
+									}}
+									tabIndex={0} // Делаем элемент фокусируемым для обработки событий клавиатуры
 								>
 									{/* Поиск по сообщениям */}
 									{selectedChat && (
