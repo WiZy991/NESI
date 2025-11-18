@@ -299,7 +299,6 @@ export default function PrivacyPage() {
 					<EmailLink
 						email='info.nesi@bk.ru'
 						className='text-emerald-400 hover:underline'
-					/>
 				</p>
 					</div>
 				</div>
