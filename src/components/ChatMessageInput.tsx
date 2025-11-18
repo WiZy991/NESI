@@ -871,6 +871,9 @@ export default function MessageInput({
 
 				xhr.open('POST', '/api/upload/chat-file')
 				xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+				
+				// Увеличиваем таймаут для больших файлов и множественных загрузок
+				xhr.timeout = 300000 // 5 минут вместо стандартных 0 (без таймаута)
 
 				xhr.upload.onprogress = event => {
 					if (!event.lengthComputable) return
@@ -972,7 +975,16 @@ export default function MessageInput({
 				}
 
 				xhr.onerror = () => {
-					handleError('Ошибка сети при загрузке файла')
+					// Проверяем, не была ли это ошибка rate limit (429)
+					if (xhr.status === 429) {
+						handleError('Слишком много загрузок. Подождите немного.')
+					} else {
+						handleError('Ошибка сети при загрузке файла')
+					}
+				}
+				
+				xhr.ontimeout = () => {
+					handleError('Превышено время ожидания загрузки файла')
 				}
 
 				xhr.onabort = () => {
