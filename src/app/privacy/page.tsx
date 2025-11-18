@@ -294,6 +294,7 @@ export default function PrivacyPage() {
 						<strong className='text-emerald-400'>ООО «НЭСИ»</strong>
 					</p>
 				<p>ИНН: 2205021414</p>
+						<p>
 					<strong className='text-emerald-400'>Email:</strong>{' '}
 					<EmailLink
 						email='info.nesi@bk.ru'
