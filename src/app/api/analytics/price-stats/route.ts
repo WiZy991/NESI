@@ -160,42 +160,95 @@ export async function GET(req: Request) {
 			knowledgeBaseRange = getPriceRange(taskType)
 		}
 		
-		// Если задача очень простая и маленькая, но похожих задач мало,
-		// используем обычную статистику, но с понижающим коэффициентом
-		// Если задача очень сложная и большая, но похожих задач мало,
-		// используем повышающий коэффициент (т.к. сложные проекты стоят дороже)
-		// НО: применяем коэффициенты только если текст осмысленный
+		// Улучшенный расчет коэффициента цены с учетом множества факторов
+		// Применяем коэффициенты только если текст осмысленный и нет достаточного количества похожих задач
 		let priceMultiplier = 1
 		if (taskAnalysis && similarTasks.length < 3 && !useKnowledgeBase && canUseAdaptive) {
-			// Для очень сложных и больших задач - повышаем цену
+			// Базовые коэффициенты по сложности
+			const complexityMultipliers = {
+				simple: 0.6,
+				medium: 1.0,
+				complex: 1.4,
+				very_complex: 2.2
+			}
+			
+			// Базовые коэффициенты по объему
+			const volumeMultipliers = {
+				small: 0.7,
+				medium: 1.0,
+				large: 1.3,
+				very_large: 1.8
+			}
+			
+			// Коэффициенты по срочности (срочные задачи стоят дороже)
+			const urgencyMultipliers = {
+				normal: 1.0,
+				urgent: 1.15,
+				very_urgent: 1.3
+			}
+			
+			// Начинаем с базового коэффициента по сложности
+			let multiplier = complexityMultipliers[taskAnalysis.complexity] || 1.0
+			
+			// Умножаем на коэффициент объема
+			multiplier *= volumeMultipliers[taskAnalysis.volume] || 1.0
+			
+			// Учитываем срочность
+			multiplier *= urgencyMultipliers[taskAnalysis.urgency] || 1.0
+			
+			// Учитываем количество технологий (больше технологий = сложнее = дороже)
+			if (taskAnalysis.technologies.length > 0) {
+				const techMultiplier = 1 + (taskAnalysis.technologies.length * 0.05)
+				multiplier *= Math.min(techMultiplier, 1.3) // Максимум +30% за технологии
+			}
+			
+			// Учитываем оценку времени (больше часов = больше работа = дороже)
+			if (taskAnalysis.estimatedHours > 0) {
+				if (taskAnalysis.estimatedHours > 200) {
+					multiplier *= 1.2 // Для очень долгих проектов
+				} else if (taskAnalysis.estimatedHours > 100) {
+					multiplier *= 1.1 // Для долгих проектов
+				} else if (taskAnalysis.estimatedHours < 5) {
+					multiplier *= 0.9 // Для быстрых задач немного дешевле
+				}
+			}
+			
+			// Специальные случаи для комбинаций
+			// Очень сложная + очень большой объем = максимальный коэффициент
 			if (taskAnalysis.complexity === 'very_complex' && taskAnalysis.volume === 'very_large') {
-				// Для очень сложных масштабных проектов используем коэффициент 2.0-3.0
-				priceMultiplier = 2.5
-			} else if (taskAnalysis.complexity === 'very_complex' || taskAnalysis.volume === 'very_large') {
-				// Для очень сложных или очень больших задач используем коэффициент 1.5-2.0
-				priceMultiplier = 1.8
-			} else if (taskAnalysis.complexity === 'complex' && taskAnalysis.volume === 'large') {
-				// Для сложных больших задач используем коэффициент 1.2-1.5
-				priceMultiplier = 1.3
+				multiplier = Math.max(multiplier, 2.5)
 			}
-			// Для простых задач - понижаем цену
-			else if (taskAnalysis.complexity === 'simple' && taskAnalysis.volume === 'small') {
-				// Для очень простых задач используем коэффициент 0.3-0.5
-				priceMultiplier = 0.4
-			} else if (taskAnalysis.complexity === 'simple' || taskAnalysis.volume === 'small') {
-				// Для простых или маленьких задач используем коэффициент 0.6-0.8
-				priceMultiplier = 0.7
+			
+			// Простая + маленький объем = минимальный коэффициент
+			if (taskAnalysis.complexity === 'simple' && taskAnalysis.volume === 'small') {
+				multiplier = Math.min(multiplier, 0.4)
 			}
+			
+			// Ограничиваем диапазон коэффициента (от 0.3 до 3.0)
+			priceMultiplier = Math.max(0.3, Math.min(3.0, multiplier))
 		}
 		
 		// Определяем источник цены
+		// Для похожих задач используем взвешенное среднее по схожести
 		const priceStats = useSimilarTasks
-			? {
-					_avg: { price: similarTasks.reduce((sum, t) => sum + t.price, 0) / similarTasks.length },
-					_min: { price: Math.min(...similarTasks.map(t => t.price)) },
-					_max: { price: Math.max(...similarTasks.map(t => t.price)) },
-					_count: { price: similarTasks.length },
-				}
+			? (() => {
+					// Вычисляем взвешенное среднее, где вес = схожесть
+					const totalWeight = similarTasks.reduce((sum, t) => sum + t.similarity, 0)
+					const weightedSum = similarTasks.reduce((sum, t) => sum + (t.price * t.similarity), 0)
+					const weightedAvg = totalWeight > 0 ? weightedSum / totalWeight : 0
+					
+					// Для min/max берем значения из самых похожих задач (топ 30% по схожести)
+					const topSimilar = similarTasks
+						.sort((a, b) => b.similarity - a.similarity)
+						.slice(0, Math.max(1, Math.floor(similarTasks.length * 0.3)))
+					
+					return {
+						_avg: { price: weightedAvg },
+						_min: { price: Math.min(...topSimilar.map(t => t.price)) },
+						_max: { price: Math.max(...topSimilar.map(t => t.price)) },
+						_count: { price: similarTasks.length },
+					}
+				})()
 			: useKnowledgeBase
 			? {
 					_avg: { price: knowledgeBasePrice },
