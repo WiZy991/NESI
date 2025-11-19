@@ -90,14 +90,36 @@ export async function POST(req: NextRequest) {
 
 		if (operationType === 'deposit') {
 			// Пополнение баланса
-			const finalDealId = DealId || SpAccumulationId
+			let finalDealId = DealId || SpAccumulationId
 
 			console.log('💰 [WEBHOOK] Начинаем начисление:', {
 				userId,
 				amount,
 				paymentId: PaymentId,
 				dealId: finalDealId,
+				receivedDealId: DealId,
+				receivedSpAccumulationId: SpAccumulationId,
 			})
+
+			// Если DealId не пришел в вебхуке, пытаемся получить его через API
+			if (!finalDealId && PaymentId) {
+				try {
+					const { checkPaymentStatus } = await import('@/lib/tbank')
+					console.log(
+						'🔍 [WEBHOOK] DealId не получен, запрашиваем через API...'
+					)
+					const paymentStatus = await checkPaymentStatus(PaymentId)
+
+					if (paymentStatus.Success) {
+						finalDealId =
+							paymentStatus.SpAccumulationId || paymentStatus.DealId || null
+						console.log('✅ [WEBHOOK] DealId получен из API:', finalDealId)
+					}
+				} catch (error) {
+					console.error('❌ [WEBHOOK] Ошибка получения DealId из API:', error)
+					logger.error('Ошибка получения DealId из API в вебхуке', error)
+				}
+			}
 
 			// Проверяем, существует ли пользователь
 			const user = await prisma.user.findUnique({
