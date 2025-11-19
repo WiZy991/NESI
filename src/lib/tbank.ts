@@ -29,7 +29,10 @@ export function generateToken(params: Record<string, any>): string {
 	}
 
 	// Добавляем пароль к параметрам
-	const paramsWithPassword = { ...params, Password: password }
+	const paramsWithPassword: Record<string, any> = {
+		...params,
+		Password: password,
+	}
 
 	// Сортируем ключи и фильтруем пустые значения
 	const sortedKeys = Object.keys(paramsWithPassword)
@@ -81,6 +84,7 @@ export interface PaymentResponse {
 	Success: boolean
 	ErrorCode?: string
 	Message?: string
+	Details?: string
 	TerminalKey?: string
 	Amount?: number
 	OrderId?: string
@@ -231,7 +235,7 @@ export async function createSpDeal(): Promise<{
 		throw new Error('TBANK_TERMINAL_KEY не настроен в переменных окружения')
 	}
 
-	const requestBody = {
+	const requestBody: Record<string, any> = {
 		TerminalKey: terminalKey,
 		SpDealType: 'NN',
 	}
@@ -443,7 +447,7 @@ export async function confirmWithdrawal(
 		throw new Error('TBANK_E2C_TERMINAL_KEY не настроен в переменных окружения')
 	}
 
-	const requestBody = {
+	const requestBody: Record<string, any> = {
 		TerminalKey: terminalKey,
 		PaymentId: paymentId,
 	}
@@ -510,7 +514,7 @@ export async function checkPaymentStatus(
 		throw new Error('TBANK_TERMINAL_KEY не настроен в переменных окружения')
 	}
 
-	const requestBody = {
+	const requestBody: Record<string, any> = {
 		TerminalKey: terminalKey,
 		PaymentId: paymentId,
 	}

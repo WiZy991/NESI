@@ -13,12 +13,15 @@ import { NextRequest, NextResponse } from 'next/server'
  * Т-Банк может проверять доступность вебхука через GET
  */
 export async function GET(req: NextRequest) {
-	return NextResponse.json({
-		status: 'ok',
-		message: 'Webhook is available. Use POST method to send notifications.',
-		endpoint: '/api/wallet/tbank/webhook',
-		method: 'POST',
-	}, { status: 200 })
+	return NextResponse.json(
+		{
+			status: 'ok',
+			message: 'Webhook is available. Use POST method to send notifications.',
+			endpoint: '/api/wallet/tbank/webhook',
+			method: 'POST',
+		},
+		{ status: 200 }
+	)
 }
 
 /**
@@ -60,8 +63,10 @@ export async function POST(req: NextRequest) {
 		const { Status, PaymentId, OrderId, Amount, SpAccumulationId, DealId } =
 			body
 
-		// SpAccumulationId может быть числом, конвертируем в строку
-		const dealIdFromWebhook = DealId || (SpAccumulationId ? String(SpAccumulationId) : null)
+		// PaymentId и SpAccumulationId могут быть числами, конвертируем в строку
+		const paymentIdString = PaymentId ? String(PaymentId) : null
+		const dealIdFromWebhook =
+			DealId || (SpAccumulationId ? String(SpAccumulationId) : null)
 
 		console.log('📊 [WEBHOOK] Параметры платежа:', {
 			Status,
@@ -87,15 +92,25 @@ export async function POST(req: NextRequest) {
 
 		// КРИТИЧЕСКИ ВАЖНО: Проверяем, что вебхук содержит необходимые поля
 		if (!PaymentId) {
-			console.error('❌ [WEBHOOK] КРИТИЧЕСКАЯ ОШИБКА: PaymentId отсутствует в вебхуке!')
+			console.error(
+				'❌ [WEBHOOK] КРИТИЧЕСКАЯ ОШИБКА: PaymentId отсутствует в вебхуке!'
+			)
 			logger.error('PaymentId отсутствует в вебхуке', { body })
-			return NextResponse.json({ error: 'PaymentId is required' }, { status: 400 })
+			return NextResponse.json(
+				{ error: 'PaymentId is required' },
+				{ status: 400 }
+			)
 		}
 
 		if (!OrderId) {
-			console.error('❌ [WEBHOOK] КРИТИЧЕСКАЯ ОШИБКА: OrderId отсутствует в вебхуке!')
+			console.error(
+				'❌ [WEBHOOK] КРИТИЧЕСКАЯ ОШИБКА: OrderId отсутствует в вебхуке!'
+			)
 			logger.error('OrderId отсутствует в вебхуке', { body })
-			return NextResponse.json({ error: 'OrderId is required' }, { status: 400 })
+			return NextResponse.json(
+				{ error: 'OrderId is required' },
+				{ status: 400 }
+			)
 		}
 
 		// Обрабатываем только успешные платежи (CONFIRMED)
@@ -126,7 +141,10 @@ export async function POST(req: NextRequest) {
 		// Проверяем, не обработан ли уже этот платеж
 		const existingTx = await prisma.transaction.findFirst({
 			where: {
-				OR: [{ paymentId: PaymentId }, { reason: { contains: PaymentId } }],
+				OR: [
+					{ paymentId: paymentIdString },
+					{ reason: { contains: paymentIdString || '' } },
+				],
 			},
 		})
 
@@ -137,7 +155,10 @@ export async function POST(req: NextRequest) {
 					where: { id: existingTx.id },
 					data: { dealId: dealIdFromWebhook },
 				})
-				console.log('✅ [WEBHOOK] Обновлен DealId в существующей транзакции:', dealIdFromWebhook)
+				console.log(
+					'✅ [WEBHOOK] Обновлен DealId в существующей транзакции:',
+					dealIdFromWebhook
+				)
 				logger.info('Обновлен DealId в существующей транзакции', {
 					transactionId: existingTx.id,
 					paymentId: PaymentId,
@@ -176,7 +197,8 @@ export async function POST(req: NextRequest) {
 					const paymentStatus = await checkPaymentStatus(PaymentId)
 
 					if (paymentStatus.Success) {
-						const apiDealId = paymentStatus.SpAccumulationId || paymentStatus.DealId
+						const apiDealId =
+							paymentStatus.SpAccumulationId || paymentStatus.DealId
 						finalDealId = apiDealId ? String(apiDealId) : null
 						console.log('✅ [WEBHOOK] DealId получен из API:', finalDealId)
 					}
@@ -215,7 +237,7 @@ export async function POST(req: NextRequest) {
 								finalDealId || 'N/A'
 							})`,
 							dealId: finalDealId || null,
-							paymentId: PaymentId || null,
+							paymentId: paymentIdString,
 							status: 'completed',
 						},
 					},
@@ -236,14 +258,17 @@ export async function POST(req: NextRequest) {
 
 			// КРИТИЧЕСКИ ВАЖНО: Если DealId все еще NULL, это проблема!
 			if (!finalDealId) {
-				console.error('⚠️⚠️⚠️ [WEBHOOK] КРИТИЧЕСКАЯ ПРОБЛЕМА: DealId не был сохранен!', {
-					userId,
-					paymentId: PaymentId,
-					receivedDealId: DealId,
-					receivedSpAccumulationId: SpAccumulationId,
-					bodyKeys: Object.keys(body),
-					fullBody: JSON.stringify(body, null, 2),
-				})
+				console.error(
+					'⚠️⚠️⚠️ [WEBHOOK] КРИТИЧЕСКАЯ ПРОБЛЕМА: DealId не был сохранен!',
+					{
+						userId,
+						paymentId: PaymentId,
+						receivedDealId: DealId,
+						receivedSpAccumulationId: SpAccumulationId,
+						bodyKeys: Object.keys(body),
+						fullBody: JSON.stringify(body, null, 2),
+					}
+				)
 				logger.error('КРИТИЧЕСКАЯ ПРОБЛЕМА: DealId не был сохранен в вебхуке', {
 					userId,
 					paymentId: PaymentId,
@@ -269,7 +294,7 @@ export async function POST(req: NextRequest) {
 							// Обновляем транзакцию с DealId
 							await prisma.transaction.updateMany({
 								where: {
-									paymentId: PaymentId,
+									paymentId: paymentIdString,
 									userId: userId,
 								},
 								data: {
@@ -311,7 +336,7 @@ export async function POST(req: NextRequest) {
 			const withdrawalTx = await prisma.transaction.findFirst({
 				where: {
 					userId: userId,
-					paymentId: PaymentId,
+					paymentId: paymentIdString,
 					type: 'withdraw',
 				},
 				orderBy: { createdAt: 'desc' },
