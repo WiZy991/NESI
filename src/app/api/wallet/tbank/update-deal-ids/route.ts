@@ -90,9 +90,23 @@ export async function POST(req: NextRequest) {
 			}
 		}
 
+		// Если обновлено хотя бы одна транзакция, возвращаем успех
+		if (updated > 0) {
+			return NextResponse.json({
+				success: true,
+				message: `✅ Обновлено ${updated} транзакций. Теперь можно попробовать вывести средства.`,
+				updated,
+				failed,
+				total: transactionsWithoutDealId.length,
+			})
+		}
+
+		// Если ничего не обновлено, возвращаем предупреждение
 		return NextResponse.json({
-			success: true,
-			message: `Обновлено ${updated} транзакций, не удалось обновить ${failed}`,
+			success: false,
+			message: failed > 0 
+				? `❌ Не удалось обновить DealId для ${failed} транзакций. Возможно, вебхук еще не обработан или DealId недоступен через API.`
+				: 'Нет транзакций для обновления',
 			updated,
 			failed,
 			total: transactionsWithoutDealId.length,

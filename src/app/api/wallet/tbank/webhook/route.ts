@@ -201,7 +201,26 @@ export async function POST(req: NextRequest) {
 				paymentId: PaymentId,
 				dealId: finalDealId,
 				savedDealId: finalDealId || 'NULL',
+				transactionCreated: true,
 			})
+
+			// КРИТИЧЕСКИ ВАЖНО: Если DealId все еще NULL, это проблема!
+			if (!finalDealId) {
+				console.error('⚠️⚠️⚠️ [WEBHOOK] КРИТИЧЕСКАЯ ПРОБЛЕМА: DealId не был сохранен!', {
+					userId,
+					paymentId: PaymentId,
+					receivedDealId: DealId,
+					receivedSpAccumulationId: SpAccumulationId,
+					bodyKeys: Object.keys(body),
+					fullBody: JSON.stringify(body, null, 2),
+				})
+				logger.error('КРИТИЧЕСКАЯ ПРОБЛЕМА: DealId не был сохранен в вебхуке', {
+					userId,
+					paymentId: PaymentId,
+					receivedDealId: DealId,
+					receivedSpAccumulationId: SpAccumulationId,
+				})
+			}
 
 			// Дополнительная проверка: если DealId все еще NULL, пытаемся получить его еще раз
 			if (!finalDealId && PaymentId) {
