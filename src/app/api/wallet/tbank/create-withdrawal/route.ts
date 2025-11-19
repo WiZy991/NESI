@@ -358,13 +358,18 @@ export async function POST(req: NextRequest) {
 		// Создаем выплату в Т-Банке
 		let withdrawal
 		try {
+			// Для СБП Phone должен быть 10 цифр БЕЗ кода страны (+7)
+			const phoneForSbp = phone
+				? phone.replace(/\D/g, '').replace(/^7/, '').slice(-10)
+				: undefined
+
 			withdrawal = await createWithdrawal({
 				amount: amountNumber,
 				orderId,
 				dealId: finalDealId,
 				paymentRecipientId: formattedPhone,
 				cardId,
-				phone: phone || undefined,
+				phone: phoneForSbp,
 				sbpMemberId,
 				// FinalPayout только если есть DealId
 				finalPayout: finalDealId ? true : false,
