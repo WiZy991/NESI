@@ -143,3 +143,4 @@ const redis = new Redis(process.env.REDIS_URL)
 - Информацию о rate limiting
 - Подтверждение, что внешние запросы не делаются
 
+
