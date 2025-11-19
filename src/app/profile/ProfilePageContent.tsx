@@ -230,6 +230,12 @@ export default function ProfilePageContent() {
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
+
+	// Состояния для пополнения баланса
+	const [isDepositModalOpen, setIsDepositModalOpen] = useState(false)
+	const [depositAmount, setDepositAmount] = useState(1000)
+	const [depositLoading, setDepositLoading] = useState(false)
+	const [depositError, setDepositError] = useState<string | null>(null)
 	const [checkingBadges, setCheckingBadges] = useState(false)
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
@@ -401,9 +407,58 @@ export default function ProfilePageContent() {
 		}
 	}, [activeTab, token])
 
+	const handleDeposit = async () => {
+		if (!depositAmount || depositAmount < 1) {
+			setDepositError('Минимальная сумма пополнения: 1 ₽')
+			return
+		}
+
+		if (depositAmount > 300000) {
+			setDepositError('Максимальная сумма пополнения: 300,000 ₽')
+			return
+		}
+
+		setDepositError(null)
+		setDepositLoading(true)
+
+		try {
+			const res = await fetch('/api/wallet/tbank/create-payment', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ amount: depositAmount }),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				setDepositError(data.error || 'Не удалось создать платеж')
+				return
+			}
+
+			// Перенаправляем на страницу оплаты Т-Банка
+			if (data.paymentUrl) {
+				window.location.href = data.paymentUrl
+			} else {
+				setDepositError('Не получена ссылка на оплату')
+			}
+		} catch (err: any) {
+			setDepositError(err.message || 'Ошибка при создании платежа')
+		} finally {
+			setDepositLoading(false)
+		}
+	}
+
 	const handleWithdraw = async () => {
 		if (!amount || amount <= 0) {
 			setWithdrawError('Укажите сумму для вывода')
+			return
+		}
+
+		if (amount < 100) {
+			setWithdrawError('Минимальная сумма вывода: 100 ₽')
 			return
 		}
 
@@ -411,25 +466,39 @@ export default function ProfilePageContent() {
 		setWithdrawLoading(true)
 
 		try {
-			const res = await fetch('/api/wallet/withdraw', {
+			// Используем новый API для вывода через Т-Банк
+			// Примечание: для вывода нужен DealId от предыдущего пополнения
+			// В реальной системе нужно сохранять DealId при пополнении
+			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({ amount }),
+				body: JSON.stringify({
+					amount,
+					// TODO: добавить выбор способа выплаты (карта, СБП)
+					// cardId, phone, sbpMemberId
+				}),
 			})
 
 			const data = await res.json()
 
 			if (!res.ok) {
-				setWithdrawError(data.error || 'Не удалось вывести средства')
+				setWithdrawError(
+					data.error || data.details || 'Не удалось вывести средства'
+				)
 				return
 			}
 
 			await fetchProfile()
 			setAmount(100)
 			setWithdrawError(null)
+
+			// Показываем успешное сообщение
+			alert(
+				'Заявка на вывод средств создана. Средства поступят в течение нескольких минут.'
+			)
 		} catch (err: any) {
 			setWithdrawError(err.message || 'Ошибка при выводе средств')
 		} finally {
@@ -1246,6 +1315,17 @@ export default function ProfilePageContent() {
 											</div>
 										)}
 								</div>
+
+								{/* Кнопка пополнения */}
+								<div className='mb-4'>
+									<button
+										onClick={() => setIsDepositModalOpen(true)}
+										className='w-full px-4 py-2 rounded border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition text-sm font-medium'
+									>
+										💳 Пополнить баланс через Т-Банк
+									</button>
+								</div>
+
 								<div className='flex gap-2'>
 									<input
 										type='number'
@@ -1366,10 +1446,75 @@ export default function ProfilePageContent() {
 							name: ub.badge.name,
 							description: ub.badge.description,
 							icon: ub.badge.icon,
-							earnedAt: ub.earnedAt,
+							earned: true,
 						})) || []
 					}
 				/>
+			)}
+
+			{/* Модальное окно пополнения баланса */}
+			{isDepositModalOpen && (
+				<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4'>
+					<div className='bg-[#001410] border border-emerald-500/40 rounded-2xl p-6 max-w-md w-full'>
+						<h3 className='text-xl font-bold text-emerald-400 mb-4'>
+							Пополнение баланса
+						</h3>
+						<div className='space-y-4'>
+							<div>
+								<label className='block text-sm text-gray-300 mb-2'>
+									Сумма пополнения (₽)
+								</label>
+								<input
+									type='number'
+									value={depositAmount}
+									onChange={e => {
+										const value = parseInt(e.target.value) || 0
+										setDepositAmount(value)
+										if (depositError) setDepositError(null)
+									}}
+									className='w-full bg-black/60 border border-emerald-500/30 text-white p-3 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400'
+									placeholder='1000'
+									min={1}
+									max={300000}
+								/>
+								<p className='text-xs text-gray-400 mt-1'>
+									Минимум: 1 ₽, Максимум: 300,000 ₽
+								</p>
+							</div>
+							{depositError && (
+								<div className='bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
+									<span className='font-semibold'>⚠️ Ошибка:</span>{' '}
+									{depositError}
+								</div>
+							)}
+							<div className='flex gap-3'>
+								<button
+									onClick={handleDeposit}
+									disabled={depositLoading}
+									className='flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded transition disabled:opacity-50 disabled:cursor-not-allowed'
+								>
+									{depositLoading ? (
+										<span className='flex items-center justify-center gap-2'>
+											<span className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin' />
+											Обработка...
+										</span>
+									) : (
+										'Продолжить'
+									)}
+								</button>
+								<button
+									onClick={() => {
+										setIsDepositModalOpen(false)
+										setDepositError(null)
+									}}
+									className='px-4 py-2 border border-gray-600 text-gray-400 rounded hover:bg-gray-800 transition'
+								>
+									Отмена
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	)

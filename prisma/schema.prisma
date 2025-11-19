@@ -476,12 +476,16 @@ model Transaction {
   reviewedBy String?
   status     String   @default("pending")
   taskId     String?
+  dealId     String?  // ID сделки Т-Банк для Мультирасчетов
+  paymentId  String?  // ID платежа Т-Банк
   Task       Task?    @relation(fields: [taskId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
   @@index([status])
+  @@index([dealId])
+  @@index([paymentId])
 }
 
 model File {
