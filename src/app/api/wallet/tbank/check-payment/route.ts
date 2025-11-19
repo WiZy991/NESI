@@ -82,6 +82,15 @@ export async function POST(req: NextRequest) {
 			const apiDealId = paymentStatus.SpAccumulationId || paymentStatus.DealId
 			let finalDealId = apiDealId ? String(apiDealId) : null
 
+			console.log('🔍 [CHECK-PAYMENT] Получен ответ от GetState:', {
+				hasSpAccumulationId: !!paymentStatus.SpAccumulationId,
+				hasDealId: !!paymentStatus.DealId,
+				spAccumulationId: paymentStatus.SpAccumulationId,
+				dealId: paymentStatus.DealId,
+				allFields: Object.keys(paymentStatus),
+				note: 'GetState может не возвращать DealId - он приходит только в вебхуке',
+			})
+
 			// Если DealId не получен из GetState, пытаемся найти его в существующих транзакциях
 			if (!finalDealId) {
 				const existingTx = await prisma.transaction.findFirst({
@@ -95,6 +104,12 @@ export async function POST(req: NextRequest) {
 					finalDealId = existingTx.dealId
 					console.log('📋 [CHECK-PAYMENT] Найден DealId из существующей транзакции:', finalDealId)
 				}
+			}
+
+			// ВАЖНО: GetState может не вернуть DealId, он приходит только в вебхуке
+			// Если DealId не получен, предупреждаем пользователя
+			if (!finalDealId) {
+				console.warn('⚠️ [CHECK-PAYMENT] DealId не получен из GetState. Это нормально - DealId приходит только в вебхуке после успешного холдирования средств.')
 			}
 
 			console.log('💰 [CHECK-PAYMENT] Начисляем средства:', {
@@ -157,11 +172,18 @@ export async function POST(req: NextRequest) {
 				}
 			)
 
+			// Если DealId не был получен, предупреждаем пользователя
+			const responseMessage = finalDealId 
+				? 'Средства успешно начислены'
+				: 'Средства успешно начислены. Внимание: DealId не был получен. Он придет в вебхуке после обработки платежа Т-Банком. Для вывода средств может потребоваться подождать 1-2 минуты или использовать кнопку "Обновить DealId".'
+
 			return NextResponse.json({
 				success: true,
-				message: 'Средства успешно начислены',
+				message: responseMessage,
 				amount,
 				newBalance: updated.balance.toString(),
+				dealId: finalDealId,
+				warning: !finalDealId ? 'DealId не получен. Он придет в вебхуке после обработки платежа Т-Банком.' : undefined,
 			})
 		} else {
 			return NextResponse.json({
