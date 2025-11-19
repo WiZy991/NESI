@@ -230,6 +230,8 @@ export default function ProfilePageContent() {
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
+	const [withdrawPhone, setWithdrawPhone] = useState('')
+	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'card'>('sbp')
 
 	// Состояния для пополнения баланса
 	const [isDepositModalOpen, setIsDepositModalOpen] = useState(false)
@@ -319,6 +321,8 @@ export default function ProfilePageContent() {
 			setLastPaymentId(savedPaymentId)
 		}
 	}, [token])
+
+	// Телефон будет вводиться пользователем вручную
 
 	// Функция для ручной проверки платежа
 	const handleCheckPayment = async (paymentIdToCheck?: string) => {
@@ -529,24 +533,55 @@ export default function ProfilePageContent() {
 			return
 		}
 
+		// Проверяем способ выплаты
+		if (withdrawMethod === 'sbp') {
+			if (!withdrawPhone.trim()) {
+				setWithdrawError('Укажите номер телефона для выплаты через СБП')
+				return
+			}
+
+			// Проверяем формат телефона
+			const phoneDigits = withdrawPhone.trim().replace(/\D/g, '')
+			if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
+				setWithdrawError(
+					'Номер телефона должен быть в формате +7XXXXXXXXXX (11 цифр)'
+				)
+				return
+			}
+		}
+
 		setWithdrawError(null)
 		setWithdrawLoading(true)
 
 		try {
-			// Используем новый API для вывода через Т-Банк
-			// Примечание: для вывода нужен DealId от предыдущего пополнения
-			// В реальной системе нужно сохранять DealId при пополнении
+			// Формируем данные для выплаты
+			const withdrawalData: any = {
+				amount,
+			}
+
+			if (withdrawMethod === 'sbp') {
+				const phoneDigits = withdrawPhone.trim().replace(/\D/g, '')
+				const formattedPhone = phoneDigits.startsWith('7')
+					? phoneDigits
+					: `7${phoneDigits.slice(-10)}`
+
+				withdrawalData.phone = formattedPhone
+				withdrawalData.sbpMemberId = '100000000004' // Т-Банк SBP Member ID
+			} else if (withdrawMethod === 'card') {
+				// Для карты нужен cardId, который получается после привязки карты
+				// Пока оставляем как есть, можно добавить позже
+				setWithdrawError('Вывод на карту временно недоступен. Используйте СБП.')
+				setWithdrawLoading(false)
+				return
+			}
+
 			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({
-					amount,
-					// TODO: добавить выбор способа выплаты (карта, СБП)
-					// cardId, phone, sbpMemberId
-				}),
+				body: JSON.stringify(withdrawalData),
 			})
 
 			const data = await res.json()
@@ -1444,32 +1479,97 @@ export default function ProfilePageContent() {
 									</div>
 								</div>
 
-								<div className='flex gap-2'>
-									<input
-										type='number'
-										value={amount}
-										onChange={e => {
-											setAmount(parseInt(e.target.value))
-											if (withdrawError) setWithdrawError(null)
-										}}
-										className='flex-1 bg-black/60 border border-emerald-500/30 text-white p-2 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm'
-										placeholder='Сумма'
-										disabled={withdrawLoading}
-									/>
-									<button
-										onClick={handleWithdraw}
-										disabled={withdrawLoading}
-										className='px-4 py-2 rounded border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap'
-									>
-										{withdrawLoading ? (
-											<span className='flex items-center gap-2'>
-												<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
-												Обработка...
-											</span>
-										) : (
-											'Вывести'
-										)}
-									</button>
+								<div className='space-y-3'>
+									{/* Выбор способа выплаты */}
+									<div>
+										<label className='block text-sm text-gray-300 mb-2'>
+											Способ выплаты
+										</label>
+										<div className='flex gap-2'>
+											<button
+												type='button'
+												onClick={() => {
+													setWithdrawMethod('sbp')
+													setWithdrawError(null)
+												}}
+												className={`flex-1 px-4 py-2 rounded border transition text-sm ${
+													withdrawMethod === 'sbp'
+														? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
+														: 'border-gray-600 text-gray-400 hover:border-gray-500'
+												}`}
+											>
+												💳 СБП (на телефон)
+											</button>
+											<button
+												type='button'
+												onClick={() => {
+													setWithdrawMethod('card')
+													setWithdrawError(null)
+												}}
+												disabled
+												className={`flex-1 px-4 py-2 rounded border transition text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+													withdrawMethod === 'card'
+														? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
+														: 'border-gray-600 text-gray-400'
+												}`}
+												title='Вывод на карту временно недоступен'
+											>
+												💳 На карту (скоро)
+											</button>
+										</div>
+									</div>
+
+									{/* Поле для телефона (если выбран СБП) */}
+									{withdrawMethod === 'sbp' && (
+										<div>
+											<label className='block text-sm text-gray-300 mb-2'>
+												Номер телефона для выплаты
+											</label>
+											<input
+												type='tel'
+												value={withdrawPhone}
+												onChange={e => {
+													setWithdrawPhone(e.target.value)
+													if (withdrawError) setWithdrawError(null)
+												}}
+												placeholder='+7XXXXXXXXXX'
+												className='w-full bg-black/60 border border-emerald-500/30 text-white p-3 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400'
+											/>
+											<p className='text-xs text-gray-400 mt-1'>
+												Введите номер телефона в формате +7XXXXXXXXXX (11 цифр)
+											</p>
+										</div>
+									)}
+
+									{/* Сумма и кнопка вывода */}
+									<div className='flex gap-2'>
+										<input
+											type='number'
+											value={amount}
+											onChange={e => {
+												const value = parseInt(e.target.value) || 0
+												setAmount(value)
+												if (withdrawError) setWithdrawError(null)
+											}}
+											className='flex-1 bg-black/60 border border-emerald-500/30 text-white p-3 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400'
+											placeholder='100'
+											min={100}
+										/>
+										<button
+											onClick={handleWithdraw}
+											disabled={withdrawLoading}
+											className='px-4 py-2 rounded border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap'
+										>
+											{withdrawLoading ? (
+												<span className='flex items-center gap-2'>
+													<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
+													Обработка...
+												</span>
+											) : (
+												'Вывести'
+											)}
+										</button>
+									</div>
 								</div>
 								{withdrawError && (
 									<div className='mt-3 bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
