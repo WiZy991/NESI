@@ -3,9 +3,9 @@
 import { useUser } from '@/context/UserContext'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
 	const { token } = useUser()
@@ -157,5 +157,22 @@ export default function PaymentSuccessPage() {
 				</div>
 			</div>
 		</div>
+	)
+}
+
+export default function PaymentSuccessPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className='min-h-screen flex items-center justify-center px-4 bg-[#0a0f0e]'>
+					<div className='max-w-md w-full bg-black/40 border border-emerald-500/30 rounded-2xl p-8 text-center'>
+						<div className='w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4' />
+						<p className='text-gray-400'>Загрузка...</p>
+					</div>
+				</div>
+			}
+		>
+			<PaymentSuccessContent />
+		</Suspense>
 	)
 }
