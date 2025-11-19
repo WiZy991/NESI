@@ -39,7 +39,6 @@ export default function PrivacyPage() {
 						</p>
 					<ul className='list-disc pl-6 space-y-2'>
 						<li>ООО «НЭСИ» (ИНН: 2205021414)</li>
-						<li>Адрес: Алтайский край, г. Заринск, ул. Центральная 22, кв 1</li>
 						<li>
 							Электронная почта:{' '}
 							<EmailLink
@@ -294,16 +293,11 @@ export default function PrivacyPage() {
 						<strong className='text-emerald-400'>ООО «НЭСИ»</strong>
 					</p>
 				<p>ИНН: 2205021414</p>
-				<p>
-					<strong className='text-emerald-400'>Юридический адрес:</strong>{' '}
-					Алтайский край, г. Заринск, ул. Центральная 22, кв 1
-				</p>
-				<p>
+						<p>
 					<strong className='text-emerald-400'>Email:</strong>{' '}
 					<EmailLink
 						email='info.nesi@bk.ru'
-						className='text-emerald-400 hover:underline'
-					/>
+						className='text-emerald-400 hover:underline'/>
 				</p>
 					</div>
 				</div>

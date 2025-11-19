@@ -5,7 +5,7 @@ import { logger } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getUserFromRequest(req)
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Доступ только для исполнителей' }, { status: 403 })
     }
 
-    const taskId = params.id
+    const { id: taskId } = await params
     if (!taskId) {
       return NextResponse.json({ error: 'taskId is required' }, { status: 400 })
     }
@@ -28,8 +28,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     return NextResponse.json({ has: Boolean(existing) })
   } catch (err) {
+    const resolvedParams = await params.catch(() => ({ id: undefined }))
     logger.error('my-response GET error', err, {
-      taskId: params?.id,
+      taskId: resolvedParams?.id,
       userId: user?.id,
     })
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

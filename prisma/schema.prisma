@@ -153,6 +153,7 @@ model Task {
   updatedAt               DateTime           @updatedAt
   completedAt             DateTime?
   subcategoryId           String?
+  skillsRequired          String[]            @default([])
   escrowAmount            Decimal            @default(0.00) @db.Decimal(15, 2)
   customerLastReadAt      DateTime?
   executorLastReadAt      DateTime?

@@ -130,13 +130,6 @@ export default function AboutPage() {
 					</div>
 					<div>
 						<p className='font-semibold text-emerald-400 mb-1'>
-							Юридический адрес
-						</p>
-						<p>Алтайский край, г. Заринск,</p>
-						<p>ул. Центральная 22, кв 1</p>
-					</div>
-					<div>
-						<p className='font-semibold text-emerald-400 mb-1'>
 							Электронная почта
 						</p>
 						<p>

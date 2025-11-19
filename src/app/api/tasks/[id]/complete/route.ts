@@ -96,11 +96,13 @@ export async function PATCH(req: NextRequest, { params }: any) {
 
 		await prisma.$transaction([
 			// Завершаем задачу
+			// Сохраняем цену в поле price для аналитики
 			prisma.task.update({
 				where: { id: task.id },
 				data: {
 					status: 'completed',
 					completedAt: new Date(),
+					price: task.escrowAmount, // Сохраняем цену из escrowAmount
 					escrowAmount: new Prisma.Decimal(0),
 				},
 			}),

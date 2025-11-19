@@ -305,18 +305,18 @@ export default function MyResponsesPage() {
       confirmText: 'Отозвать',
       cancelText: 'Отмена',
       onConfirm: async () => {
-        try {
-          const res = await fetch(`/api/responses/${responseId}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          if (!res.ok) throw new Error('Не удалось удалить')
-          setResponses(prev => prev.filter(r => r.id !== responseId))
+    try {
+      const res = await fetch(`/api/responses/${responseId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Не удалось удалить')
+      setResponses(prev => prev.filter(r => r.id !== responseId))
           toast.success('Отклик отозван')
-        } catch (err) {
-          console.error(err)
+    } catch (err) {
+      console.error(err)
           toast.error('Ошибка при отзыве отклика')
-        }
+    }
       },
     })
   }

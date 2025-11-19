@@ -74,9 +74,12 @@ export function TaskInfoPanel({ task }: TaskInfoPanelProps) {
 							Исполнитель
 						</h3>
 					</div>
-					<div className='text-emerald-400 font-medium'>
+					<Link
+						href={`/users/${task.executor.id}`}
+						className='text-emerald-400 font-medium hover:text-emerald-300 hover:underline transition-colors'
+					>
 						{task.executor.fullName || task.executor.email}
-					</div>
+					</Link>
 				</div>
 			) : (
 				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] group'>

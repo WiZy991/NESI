@@ -58,7 +58,21 @@ export default function ChatBox({ taskId }: { taskId: string }) {
 			</h2>
 
 			{/* Сообщения */}
-			<div className='max-h-96 overflow-y-auto space-y-3 mb-4 p-4 bg-black/40 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)]'>
+			<div 
+				className='max-h-96 overflow-y-auto space-y-3 mb-4 p-4 bg-black/40 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+				onKeyDown={(e) => {
+					// Предотвращаем скролл страницы при нажатии пробела
+					// Разрешаем только если фокус на поле ввода (textarea или input)
+					if (e.key === ' ' || e.key === 'Spacebar') {
+						const target = e.target as HTMLElement
+						const isInput = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT'
+						if (!isInput) {
+							e.preventDefault()
+						}
+					}
+				}}
+				tabIndex={0}
+			>
 				{messages.length === 0 && (
 					<p className='text-gray-500 italic text-sm'>Сообщений пока нет</p>
 				)}

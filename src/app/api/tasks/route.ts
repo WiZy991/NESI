@@ -299,7 +299,19 @@ export async function POST(req: Request) {
 		} = await import('@/lib/security')
 		const { validateFile } = await import('@/lib/fileValidation')
 
-		const formData = await req.formData()
+		let formData: FormData
+		try {
+			formData = await req.formData()
+		} catch (formDataError: any) {
+			logger.error('Ошибка парсинга formData', formDataError, {
+				userId: user.id,
+				errorMessage: formDataError?.message,
+			})
+			return NextResponse.json(
+				{ error: 'Ошибка обработки данных формы' },
+				{ status: 400 }
+			)
+		}
 
 		const title = formData.get('title')?.toString() || ''
 		const description = formData.get('description')?.toString() || ''
@@ -308,6 +320,22 @@ export async function POST(req: Request) {
 			? new Date(formData.get('deadline')!.toString())
 			: null
 		const subcategoryId = formData.get('subcategoryId')?.toString() || null
+		const skillsRequiredJson = formData.get('skillsRequired')?.toString()
+		let skillsRequired: string[] = []
+		if (skillsRequiredJson) {
+			try {
+				skillsRequired = JSON.parse(skillsRequiredJson) as string[]
+				// Валидация: убеждаемся, что это массив строк
+				if (!Array.isArray(skillsRequired)) {
+					skillsRequired = []
+				} else {
+					skillsRequired = skillsRequired.filter(skill => typeof skill === 'string' && skill.trim().length > 0)
+				}
+			} catch (parseError) {
+				logger.warn('Ошибка парсинга skillsRequired', { error: parseError, json: skillsRequiredJson })
+				skillsRequired = []
+			}
+		}
 
 		// Валидация заголовка
 		const titleValidation = validateStringLength(title.trim(), 200, 'Заголовок')
@@ -340,60 +368,170 @@ export async function POST(req: Request) {
 		const validatedFiles = []
 
 		for (const file of files) {
-			if (!(file instanceof File) || file.size === 0) continue
+			try {
+				if (!(file instanceof File) || file.size === 0) continue
 
-			// Проверка имени файла
-			if (!isValidFileName(file.name)) {
+				// Проверка имени файла
+				if (!isValidFileName(file.name)) {
+					return NextResponse.json(
+						{ error: `Недопустимое имя файла: ${file.name}` },
+						{ status: 400 }
+					)
+				}
+
+				// Валидация файла
+				const fileValidation = await validateFile(file, true)
+				if (!fileValidation.valid) {
+					return NextResponse.json(
+						{ error: fileValidation.error || 'Ошибка валидации файла' },
+						{ status: 400 }
+					)
+				}
+
+				const buffer = Buffer.from(await file.arrayBuffer())
+				const safeFileName = normalizeFileName(file.name)
+				const mimeType = fileValidation.detectedMimeType || file.type
+
+				validatedFiles.push({
+					filename: safeFileName,
+					mimetype: mimeType,
+					size: file.size,
+					data: buffer,
+				})
+			} catch (fileError: any) {
+				logger.error('Ошибка обработки файла', fileError, {
+					fileName: file?.name,
+					fileSize: file?.size,
+				})
 				return NextResponse.json(
-					{ error: `Недопустимое имя файла: ${file.name}` },
+					{ error: `Ошибка обработки файла: ${file.name}` },
 					{ status: 400 }
 				)
 			}
-
-			// Валидация файла
-			const fileValidation = await validateFile(file, true)
-			if (!fileValidation.valid) {
-				return NextResponse.json(
-					{ error: fileValidation.error || 'Ошибка валидации файла' },
-					{ status: 400 }
-				)
-			}
-
-			const buffer = Buffer.from(await file.arrayBuffer())
-			const safeFileName = normalizeFileName(file.name)
-			const mimeType = fileValidation.detectedMimeType || file.type
-
-			validatedFiles.push({
-				filename: safeFileName,
-				mimetype: mimeType,
-				size: file.size,
-				data: buffer,
-			})
 		}
 
-		const todoCount = await prisma.task.count({
-			where: {
-				customerId: user.id,
-				kanbanColumn: 'TODO',
-			},
-		})
-
-		const task = await prisma.task.create({
-			data: {
-				title: sanitizedTitle,
-				description: sanitizedDescription,
-				price,
-				deadline,
-				customerId: user.id,
-				subcategoryId,
-				kanbanColumn: 'TODO',
-				kanbanOrder: todoCount,
-				files: {
-					create: validatedFiles,
+		let todoCount = 0
+		try {
+			todoCount = await prisma.task.count({
+				where: {
+					customerId: user.id,
+					kanbanColumn: 'TODO',
 				},
-			},
-			include: { files: true },
-		})
+			})
+		} catch (countError: any) {
+			logger.warn('Ошибка подсчета задач в TODO', countError)
+			// Продолжаем с todoCount = 0
+		}
+
+		let task
+		try {
+			task = await prisma.task.create({
+				data: {
+					title: sanitizedTitle,
+					description: sanitizedDescription,
+					price,
+					deadline,
+					customerId: user.id,
+					subcategoryId,
+					skillsRequired,
+					kanbanColumn: 'TODO',
+					kanbanOrder: todoCount,
+					files: {
+						create: validatedFiles,
+					},
+				},
+				include: { files: true },
+			})
+		} catch (createError: any) {
+			logger.error('Ошибка создания задачи в БД', createError, {
+				userId: user.id,
+				title: sanitizedTitle,
+				subcategoryId,
+				skillsRequired,
+				errorMessage: createError?.message,
+				errorCode: createError?.code,
+			})
+			throw createError
+		}
+
+		// Отправляем уведомления исполнителям с нужными навыками (асинхронно, не блокируем ответ)
+		if (skillsRequired.length > 0) {
+			// Запускаем отправку уведомлений асинхронно, не ждем завершения
+			Promise.resolve().then(async () => {
+				try {
+					// Находим всех исполнителей с хотя бы одним из требуемых навыков
+					const executors = await prisma.user.findMany({
+						where: {
+							role: 'executor',
+							skills: {
+								hasSome: skillsRequired,
+							},
+						},
+						select: {
+							id: true,
+							fullName: true,
+							email: true,
+						},
+					})
+
+					if (executors.length === 0) {
+						logger.debug('Нет исполнителей с требуемыми навыками', {
+							taskId: task.id,
+							skillsRequired,
+						})
+						return
+					}
+
+					// Отправляем уведомления через SSE и создаем записи в БД
+					const { sendNotificationToUser } = await import('@/app/api/notifications/stream/route')
+					const { createNotification } = await import('@/lib/createNotification')
+
+					for (const executor of executors) {
+						try {
+							// Создаем уведомление в БД
+							await createNotification(
+								executor.id,
+								`Новая задача "${sanitizedTitle}" требует навыки, которые у вас есть!`,
+								`/tasks/${task.id}`,
+								'newTaskWithSkills'
+							)
+
+							// Отправляем через SSE
+							sendNotificationToUser(executor.id, {
+								type: 'newTaskWithSkills',
+								title: 'Новая задача по вашим навыкам',
+								message: `Задача "${sanitizedTitle}" требует навыки, которые у вас есть!`,
+								link: `/tasks/${task.id}`,
+								taskId: task.id,
+								taskTitle: sanitizedTitle,
+								requiredSkills: skillsRequired,
+							})
+						} catch (executorError) {
+							logger.warn('Ошибка отправки уведомления конкретному исполнителю', {
+								executorId: executor.id,
+								taskId: task.id,
+								error: executorError,
+							})
+							// Продолжаем отправку другим исполнителям
+						}
+					}
+
+					logger.info('Уведомления отправлены исполнителям с нужными навыками', {
+						taskId: task.id,
+						skillsRequired,
+						executorsCount: executors.length,
+					})
+				} catch (notifyError) {
+					logger.error('Ошибка отправки уведомлений исполнителям', notifyError, {
+						taskId: task.id,
+						skillsRequired,
+					})
+					// Не прерываем создание задачи из-за ошибки уведомлений
+				}
+			}).catch(err => {
+				logger.error('Критическая ошибка в асинхронной отправке уведомлений', err)
+			})
+		}
 
 		// ✅ Проверяем достижения для заказчика при создании задачи
 		// Важно: проверяем после сохранения задачи в БД
@@ -432,8 +570,21 @@ export async function POST(req: Request) {
 		}
 
 		return NextResponse.json({ task, awardedBadges })
-	} catch (err) {
-		logger.error('Ошибка при создании задачи', err, { userId: user?.id })
-		return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+	} catch (err: any) {
+		logger.error('Ошибка при создании задачи', err, { 
+			userId: user?.id,
+			errorMessage: err?.message,
+			errorStack: err?.stack,
+		})
+		
+		// Более детальное сообщение об ошибке для отладки
+		const errorMessage = err?.message || 'Ошибка сервера'
+		return NextResponse.json(
+			{ 
+				error: 'Ошибка сервера',
+				details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+			}, 
+			{ status: 500 }
+		)
 	}
 }

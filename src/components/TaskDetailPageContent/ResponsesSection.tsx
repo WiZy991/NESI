@@ -7,6 +7,7 @@ import type { Task } from './types'
 import { LevelBadge } from '../LevelBadge'
 import { getLevelVisuals } from '@/lib/level/rewards'
 import '@/styles/level-animations.css'
+import PriceComparisonWidget from '../PriceComparisonWidget'
 
 type ResponsesSectionProps = {
 	task: Task
@@ -20,6 +21,11 @@ export function ResponsesSection({
 	isCustomer,
 }: ResponsesSectionProps) {
 	if (!isCustomer) {
+		return null
+	}
+
+	// Если задача уже назначена исполнителю, не показываем отклики
+	if (task.executorId) {
 		return null
 	}
 
@@ -70,7 +76,7 @@ export function ResponsesSection({
 						return (
 							<div
 								key={response.id}
-								className={`bg-black/30 rounded-xl p-4 md:p-6 border-2 ${borderClass} transition-all duration-300 hover:scale-[1.02]`}
+								className={`bg-gradient-to-br from-gray-900/50 to-black/50 rounded-xl p-4 md:p-6 border-2 ${borderClass} transition-all duration-300 hover:scale-[1.02] backdrop-blur-sm`}
 							>
 								<div className='flex items-start justify-between mb-4'>
 									<div className='flex items-center gap-3'>
@@ -94,14 +100,22 @@ export function ResponsesSection({
 										</div>
 									</div>
 									{response.price && (
-										<div className='bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-sm font-semibold'>
-											💰 {response.price} ₽
+										<div className='text-right'>
+											<div className='bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-sm font-semibold inline-block mb-2'>
+												💰 {typeof response.price === 'number' ? response.price.toLocaleString('ru-RU') : response.price} ₽
+											</div>
+											<PriceComparisonWidget
+												subcategoryId={task.subcategoryId || task.subcategory?.id || null}
+												responsePrice={typeof response.price === 'number' ? response.price : parseFloat(String(response.price).replace(/\s/g, '')) || null}
+												taskTitle={task.title || null}
+												taskDescription={task.description || null}
+											/>
 										</div>
 									)}
 								</div>
 
 							{response.message && (
-								<div className='bg-black/20 rounded-lg p-3 md:p-4 mb-4'>
+								<div className='bg-gray-900/30 rounded-lg p-3 md:p-4 mb-4 border border-gray-800/50'>
 									<p className='text-gray-200 leading-relaxed'>
 										{response.message}
 									</p>

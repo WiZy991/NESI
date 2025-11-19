@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    // Rate limiting для загрузки файлов
+    // Rate limiting для загрузки файлов - увеличен лимит для множественных загрузок
     const uploadRateLimit = createUserRateLimit(rateLimitConfigs.upload)
     const rateLimitResult = await uploadRateLimit(req)
 
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
             'Retry-After': Math.ceil(
               (rateLimitResult.resetTime - Date.now()) / 1000
             ).toString(),
-            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Limit': rateLimitConfigs.upload.maxRequests.toString(),
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
           },

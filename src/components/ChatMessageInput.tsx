@@ -187,9 +187,14 @@ export default function MessageInput({
 	const [showSendMenu, setShowSendMenu] = useState(false)
 	const [preferSendMode, setPreferSendMode] = useState(true)
 	const [previewModalAttachment, setPreviewModalAttachment] = useState<ComposerAttachment | null>(null)
+	const [previewModalAttachments, setPreviewModalAttachments] = useState<ComposerAttachment[]>([])
+	const [previewModalCurrentIndex, setPreviewModalCurrentIndex] = useState(0)
 	const [previewModalCaption, setPreviewModalCaption] = useState('')
 	const [previewModalCompress, setPreviewModalCompress] = useState(true)
 	const [previewModalShowEmojiPicker, setPreviewModalShowEmojiPicker] = useState(false)
+	const pasteDebounceRef = useRef<NodeJS.Timeout | null>(null)
+	const pastedFilesRef = useRef<Set<string>>(new Set())
+	const handleFileChangeRef = useRef<((input: React.ChangeEvent<HTMLInputElement> | File | null, options?: { voice?: VoiceMetadata | null; previewUrl?: string | null }) => Promise<void>) | null>(null)
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -502,9 +507,73 @@ export default function MessageInput({
 			}
 		}
 
+		const handleDocumentPaste = (e: ClipboardEvent) => {
+			// Обрабатываем paste даже когда модальное окно открыто
+			const items = e.clipboardData?.items
+			if (!items || !token) return
+			
+			// Проверяем, есть ли изображения
+			const hasImages = Array.from(items).some(item => 
+				item.kind === 'file' && item.type.startsWith('image/')
+			)
+			
+			if (hasImages) {
+				e.preventDefault()
+				e.stopPropagation()
+				
+				// Вызываем handlePaste напрямую с данными из события
+				const imageFiles: File[] = []
+				const baseTimestamp = Date.now()
+
+				// Собираем все изображения из буфера обмена
+				for (let i = 0; i < items.length; i++) {
+					const item = items[i]
+					if (item.kind === 'file' && item.type.startsWith('image/')) {
+						const originalFile = item.getAsFile()
+						if (!originalFile) continue
+
+						const uniqueTimestamp = baseTimestamp + i
+						const fileId = `${originalFile.size}-${originalFile.name || 'screenshot'}-${uniqueTimestamp}-${i}`
+						
+						if (pastedFilesRef.current.has(fileId)) {
+							continue
+						}
+						pastedFilesRef.current.add(fileId)
+
+						const fileName =
+							originalFile.name && originalFile.name.trim().length > 0
+								? originalFile.name
+								: `screenshot-${uniqueTimestamp}-${imageFiles.length + 1}.png`
+
+						const normalizedFile = new File([originalFile], fileName, {
+							type: originalFile.type,
+						})
+
+						imageFiles.push(normalizedFile)
+					}
+				}
+
+				if (imageFiles.length > 0) {
+					// Добавляем все файлы через ref
+					imageFiles.forEach((file, index) => {
+						setTimeout(() => {
+							if (handleFileChangeRef.current) {
+								handleFileChangeRef.current(file)
+							}
+						}, index * 50)
+					})
+				}
+			}
+		}
+
 		window.addEventListener('keydown', handleEscape)
-		return () => window.removeEventListener('keydown', handleEscape)
-	}, [previewModalAttachment])
+		document.addEventListener('paste', handleDocumentPaste, true)
+		
+		return () => {
+			window.removeEventListener('keydown', handleEscape)
+			document.removeEventListener('paste', handleDocumentPaste, true)
+		}
+	}, [previewModalAttachment, token])
 
 	// Закрытие меню выбора при клике вне его
 	useEffect(() => {
@@ -748,6 +817,14 @@ export default function MessageInput({
 			if (fileInputRef.current) {
 				fileInputRef.current.value = ''
 			}
+
+			if (textareaRef.current) {
+				if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+					window.requestAnimationFrame(() => textareaRef.current?.focus())
+				} else {
+					textareaRef.current.focus()
+				}
+			}
 		} catch (error: any) {
 			console.error('Ошибка отправки сообщения:', error)
 			alert(
@@ -794,6 +871,9 @@ export default function MessageInput({
 
 				xhr.open('POST', '/api/upload/chat-file')
 				xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+				
+				// Увеличиваем таймаут для больших файлов и множественных загрузок
+				xhr.timeout = 300000 // 5 минут вместо стандартных 0 (без таймаута)
 
 				xhr.upload.onprogress = event => {
 					if (!event.lengthComputable) return
@@ -811,17 +891,24 @@ export default function MessageInput({
 				}
 
 				const handleError = (errorMessage?: string, isAborted = false) => {
-					// Не логируем ошибку, если загрузка была отменена пользователем
-					if (!isAborted) {
-						const errorMsg =
-							errorMessage || xhr.statusText || 'Неизвестная ошибка'
-						console.error('Ошибка загрузки вложения:', errorMsg)
+					// Если загрузка была отменена пользователем, просто удаляем из ref и выходим
+					if (isAborted || xhr.readyState === XMLHttpRequest.UNSENT || xhr.status === 0) {
+						attachmentUploadsRef.current.delete(attachmentId)
+						return
 					}
 
 					// Проверяем, что вложение еще существует перед обновлением
 					setAttachments(prev => {
 						const exists = prev.some(att => att.id === attachmentId)
-						if (!exists) return prev // Вложение уже удалено
+						if (!exists) {
+							// Вложение уже удалено - просто очищаем ref
+							attachmentUploadsRef.current.delete(attachmentId)
+							return prev
+						}
+
+						// Логируем ошибку только если вложение еще существует и это не отмена
+						const errorMsg = errorMessage || xhr.statusText || 'Неизвестная ошибка'
+						console.error('Ошибка загрузки вложения:', errorMsg)
 
 						return prev.map(att =>
 							att.id === attachmentId
@@ -834,6 +921,12 @@ export default function MessageInput({
 
 				xhr.onreadystatechange = () => {
 					if (xhr.readyState !== XMLHttpRequest.DONE) return
+					
+					// Проверяем, не была ли загрузка отменена (status 0 обычно означает отмену)
+					if (xhr.status === 0) {
+						attachmentUploadsRef.current.delete(attachmentId)
+						return
+					}
 
 					if (xhr.status >= 200 && xhr.status < 300) {
 						try {
@@ -882,12 +975,22 @@ export default function MessageInput({
 				}
 
 				xhr.onerror = () => {
-					handleError('Ошибка сети при загрузке файла')
+					// Проверяем, не была ли это ошибка rate limit (429)
+					if (xhr.status === 429) {
+						handleError('Слишком много загрузок. Подождите немного.')
+					} else {
+						handleError('Ошибка сети при загрузке файла')
+					}
+				}
+				
+				xhr.ontimeout = () => {
+					handleError('Превышено время ожидания загрузки файла')
 				}
 
 				xhr.onabort = () => {
 					// Не показываем ошибку, если загрузка была отменена пользователем
-					handleError(undefined, true)
+					// Просто очищаем ref
+					attachmentUploadsRef.current.delete(attachmentId)
 				}
 
 				xhr.send(formData)
@@ -914,7 +1017,10 @@ export default function MessageInput({
 			input: React.ChangeEvent<HTMLInputElement> | File | null,
 			options: { voice?: VoiceMetadata | null; previewUrl?: string | null } = {}
 		) => {
-			if (!token) return
+			if (!token) {
+				console.warn('handleFileChange: нет токена')
+				return
+			}
 
 			const collectedFiles: File[] = []
 
@@ -932,7 +1038,12 @@ export default function MessageInput({
 				}
 			}
 
-			if (collectedFiles.length === 0) return
+			if (collectedFiles.length === 0) {
+				console.warn('handleFileChange: нет файлов для обработки')
+				return
+			}
+
+			console.log('handleFileChange: обрабатываем', collectedFiles.length, 'файлов')
 
 			collectedFiles.forEach(fileToAttach => {
 				const attachmentId = createAttachmentId()
@@ -972,9 +1083,52 @@ export default function MessageInput({
 								const updatedAttachment = updated.find(att => att.id === attachmentId)
 								if (updatedAttachment && (kind === 'image' || kind === 'video')) {
 									setTimeout(() => {
-										setPreviewModalAttachment(updatedAttachment)
-										setPreviewModalCaption(updatedAttachment.caption || '')
-										setPreviewModalCompress(updatedAttachment.compress !== false)
+										// Если это первое изображение, открываем модальное окно
+										// Если уже есть другие изображения, добавляем к списку
+										const currentImages = updated.filter(
+											att => att.kind === 'image' && att.previewUrl
+										)
+										
+										// Всегда обновляем список вложений в модальном окне
+										setPreviewModalAttachments(currentImages)
+										
+										// Если модальное окно уже открыто
+										if (previewModalAttachment) {
+											// Проверяем, является ли добавленное изображение новым (не текущим)
+											const isNewImage = updatedAttachment.id !== previewModalAttachment.id
+											
+											if (isNewImage) {
+												// Это новое изображение - переходим на него
+												const newIndex = currentImages.findIndex(att => att.id === updatedAttachment.id)
+												if (newIndex >= 0) {
+													setPreviewModalCurrentIndex(newIndex)
+													setPreviewModalAttachment(currentImages[newIndex])
+													setPreviewModalCaption(currentImages[newIndex].caption || '')
+												}
+											} else {
+												// Это обновление текущего изображения - остаемся на нем, но обновляем данные
+												const currentIndex = currentImages.findIndex(att => att.id === previewModalAttachment.id)
+												if (currentIndex >= 0) {
+													setPreviewModalCurrentIndex(currentIndex)
+													setPreviewModalAttachment(currentImages[currentIndex])
+												}
+											}
+										} else {
+											// Если модальное окно не открыто, открываем его
+											if (currentImages.length === 1) {
+												// Первое изображение
+												setPreviewModalCurrentIndex(0)
+												setPreviewModalAttachment(updatedAttachment)
+												setPreviewModalCaption(updatedAttachment.caption || '')
+												setPreviewModalCompress(updatedAttachment.compress !== false)
+											} else {
+												// Несколько изображений - открываем с последним добавленным
+												const lastIndex = currentImages.length - 1
+												setPreviewModalCurrentIndex(lastIndex)
+												setPreviewModalAttachment(currentImages[lastIndex])
+												setPreviewModalCaption(currentImages[lastIndex].caption || '')
+											}
+										}
 									}, 100)
 								}
 								return updated
@@ -989,37 +1143,176 @@ export default function MessageInput({
 		},
 		[token, uploadAttachment]
 	)
+	
+	// Обновляем ref при изменении handleFileChange
+	useEffect(() => {
+		handleFileChangeRef.current = handleFileChange
+	}, [handleFileChange])
 
 	const handlePaste = useCallback(
 		(event: React.ClipboardEvent<HTMLTextAreaElement>) => {
 			const items = event.clipboardData?.items
 			if (!items || !token) return
 
-			let handled = false
+			// Сначала проверяем, есть ли изображения в буфере обмена
+			const imageFiles: File[] = []
+			const baseTimestamp = Date.now()
 
-			for (const item of items) {
+			// Собираем все изображения из буфера обмена
+			for (let i = 0; i < items.length; i++) {
+				const item = items[i]
 				if (item.kind === 'file' && item.type.startsWith('image/')) {
 					const originalFile = item.getAsFile()
 					if (!originalFile) continue
 
+					// Создаем уникальный идентификатор для каждого файла
+					// Используем индекс в массиве items для уникальности
+					const uniqueTimestamp = baseTimestamp + i
+					
+					// Создаем более уникальный идентификатор, включая первые байты файла для проверки дубликатов
+					// Но не блокируем файлы из одного события paste - они все должны быть добавлены
+					const fileId = `${originalFile.size}-${originalFile.name || 'screenshot'}-${uniqueTimestamp}-${i}`
+					
+					// Проверяем на дубликаты только для файлов из предыдущих событий paste
+					// Файлы из текущего события paste всегда добавляем
+					if (pastedFilesRef.current.has(fileId)) {
+						console.log('Пропускаем дубликат:', fileId)
+						continue
+					}
+					
+					// Добавляем в список обработанных файлов
+					pastedFilesRef.current.add(fileId)
+
 					const fileName =
 						originalFile.name && originalFile.name.trim().length > 0
 							? originalFile.name
-							: `screenshot-${Date.now()}.png`
+							: `screenshot-${uniqueTimestamp}-${imageFiles.length + 1}.png`
 
 					const normalizedFile = new File([originalFile], fileName, {
 						type: originalFile.type,
 					})
 
-					handled = true
-					handleFileChange(normalizedFile)
+					imageFiles.push(normalizedFile)
 				}
 			}
 
-			if (handled) {
+			// Если есть изображения, предотвращаем стандартное поведение
+			if (imageFiles.length > 0) {
 				event.preventDefault()
 				event.stopPropagation()
+
+				console.log('Найдено изображений в буфере обмена:', imageFiles.length)
+
+				// Очищаем предыдущий debounce
+				if (pasteDebounceRef.current) {
+					clearTimeout(pasteDebounceRef.current)
+				}
+
+				// Debounce для защиты от быстрых вставок (но обрабатываем сразу)
+				pasteDebounceRef.current = setTimeout(() => {
+					// Добавляем все файлы последовательно с небольшой задержкой между ними
+					// чтобы каждое изображение успело обработаться
+					imageFiles.forEach((file, index) => {
+						console.log(`Добавляем файл ${index + 1}/${imageFiles.length}:`, file.name, file.size, file.type)
+						setTimeout(() => {
+							handleFileChange(file)
+						}, index * 50) // Небольшая задержка между файлами
+					})
+					
+					// Ждем, пока все файлы будут обработаны и добавлены в attachments
+					// Используем несколько попыток, так как attachmentsRef может обновляться асинхронно
+					let attempts = 0
+					const maxAttempts = 10
+					const checkAndUpdate = () => {
+						attempts++
+						// Получаем все изображения из текущих вложений через ref
+						const currentImages = attachmentsRef.current.filter(
+							att => att.kind === 'image' && att.previewUrl
+						)
+						
+						// Проверяем, что все файлы обработаны (по количеству)
+						const expectedCount = imageFiles.length
+						const hasAllImages = currentImages.length >= expectedCount || 
+							(previewModalAttachment && currentImages.length > (previewModalAttachments.length || 0))
+						
+						if (hasAllImages || attempts >= maxAttempts) {
+							// Всегда обновляем список вложений в модальном окне
+							if (currentImages.length > 0) {
+								setPreviewModalAttachments(currentImages)
+								
+								// Если модальное окно уже открыто, обновляем его
+								if (previewModalAttachment) {
+									// Находим последнее добавленное изображение (по timestamp в имени)
+									const newImage = currentImages.find(att => 
+										att.name.includes(`screenshot-${baseTimestamp}`) ||
+										imageFiles.some(f => f.size === att.size && (f.name === att.name || att.name.includes('screenshot-')))
+									)
+									
+									if (newImage) {
+										// Переключаемся на новое изображение
+										const newIndex = currentImages.findIndex(att => att.id === newImage.id)
+										if (newIndex >= 0) {
+											setPreviewModalCurrentIndex(newIndex)
+											setPreviewModalAttachment(newImage)
+											setPreviewModalCaption(newImage.caption || '')
+										}
+									} else {
+										// Если не нашли новое изображение по критериям, проверяем, увеличилось ли количество
+										if (currentImages.length > (previewModalAttachments.length || 0)) {
+											// Количество изображений увеличилось - берем последнее (новое)
+											const lastIndex = currentImages.length - 1
+											setPreviewModalCurrentIndex(lastIndex)
+											setPreviewModalAttachment(currentImages[lastIndex])
+											setPreviewModalCaption(currentImages[lastIndex].caption || '')
+										} else {
+											// Просто обновляем список и остаемся на текущем изображении
+											const currentIndex = currentImages.findIndex(att => att.id === previewModalAttachment.id)
+											if (currentIndex >= 0) {
+												setPreviewModalCurrentIndex(currentIndex)
+												setPreviewModalAttachment(currentImages[currentIndex])
+											} else if (currentImages.length > 0) {
+												// Текущее изображение удалено, переходим на последнее
+												const lastIndex = currentImages.length - 1
+												setPreviewModalCurrentIndex(lastIndex)
+												setPreviewModalAttachment(currentImages[lastIndex])
+												setPreviewModalCaption(currentImages[lastIndex].caption || '')
+											}
+										}
+									}
+								} else {
+									// Если модальное окно не открыто, открываем его
+									if (currentImages.length === 1) {
+										// Одно изображение
+										setPreviewModalAttachments([currentImages[0]])
+										setPreviewModalCurrentIndex(0)
+										setPreviewModalAttachment(currentImages[0])
+										setPreviewModalCaption(currentImages[0].caption || '')
+									} else {
+										// Несколько изображений - открываем с последним
+										const lastIndex = currentImages.length - 1
+										setPreviewModalAttachments(currentImages)
+										setPreviewModalCurrentIndex(lastIndex)
+										setPreviewModalAttachment(currentImages[lastIndex])
+										setPreviewModalCaption(currentImages[lastIndex].caption || '')
+									}
+								}
+							}
+						} else if (attempts < maxAttempts) {
+							// Еще не все файлы обработаны, пробуем еще раз
+							setTimeout(checkAndUpdate, 100)
+							return
+						}
+					}
+					
+					// Первая попытка через 200ms
+					setTimeout(checkAndUpdate, 200)
+				}, 50) // Уменьшил задержку для более быстрой обработки
 			}
+
+			// Очищаем старые идентификаторы через 5 секунд
+			setTimeout(() => {
+				pastedFilesRef.current.clear()
+			}, 5000)
 		},
 		[handleFileChange, token]
 	)
@@ -1319,20 +1612,33 @@ export default function MessageInput({
 				att => att.id === attachmentId
 			)
 
+			// Отменяем загрузку, если она идет
 			const xhr = attachmentUploadsRef.current.get(attachmentId)
 			if (xhr) {
-				xhr.abort()
+				try {
+					// Отменяем загрузку (это вызовет onabort, который обработается с isAborted=true)
+					xhr.abort()
+				} catch (error) {
+					// Игнорируем ошибки при отмене загрузки
+					console.warn('Ошибка при отмене загрузки:', error)
+				}
 				attachmentUploadsRef.current.delete(attachmentId)
 			}
 
+			// Освобождаем ресурсы
 			if (existing?.audioPreviewUrl) {
 				URL.revokeObjectURL(existing.audioPreviewUrl)
+			}
+			
+			if (existing?.previewUrl && existing.kind !== 'voice') {
+				URL.revokeObjectURL(existing.previewUrl)
 			}
 
 			if (existing?.kind === 'voice') {
 				clearVoiceState()
 			}
 
+			// Удаляем вложение из состояния
 			setAttachments(prev => prev.filter(att => att.id !== attachmentId))
 		},
 		[clearVoiceState]
@@ -2120,8 +2426,10 @@ export default function MessageInput({
 					<div
 						className={`fixed inset-0 flex ${isMobileView ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm z-[99999]`}
 						onClick={() => {
-							removeAttachment(previewModalAttachment.id)
+							// Закрываем модальное окно без удаления вложений
 							setPreviewModalAttachment(null)
+							setPreviewModalAttachments([])
+							setPreviewModalCurrentIndex(0)
 							setPreviewModalCaption('')
 							setPreviewModalCompress(true)
 						}}
@@ -2138,10 +2446,52 @@ export default function MessageInput({
 						>
 							{/* Заголовок */}
 							<div className={`flex items-center justify-between ${isMobileView ? 'px-4 py-3' : 'px-6 py-5'} border-b border-emerald-500/20 bg-gradient-to-r from-emerald-950/30 to-transparent`}>
-								<h2 className={`${isMobileView ? 'text-lg' : 'text-xl'} font-bold bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent`}>
-									{previewModalAttachment.kind === 'image' ? 'Отправить изображение' : 'Отправить видео'}
-								</h2>
+								<div className='flex items-center gap-3'>
+									<h2 className={`${isMobileView ? 'text-lg' : 'text-xl'} font-bold bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent`}>
+										{previewModalAttachment.kind === 'image' ? 'Отправить изображение' : 'Отправить видео'}
+									</h2>
+									{previewModalAttachments.length > 1 && (
+										<span className={`${isMobileView ? 'text-sm' : 'text-base'} text-emerald-300/70 font-medium whitespace-nowrap`}>
+											{previewModalCurrentIndex + 1} из {previewModalAttachments.length}
+										</span>
+									)}
+								</div>
 								<div className='flex items-center gap-2'>
+									{/* Навигация между изображениями (если их несколько) */}
+									{previewModalAttachments.length > 1 && (
+										<>
+											<button
+												onClick={(e) => {
+													e.stopPropagation()
+													const newIndex = previewModalCurrentIndex > 0 
+														? previewModalCurrentIndex - 1 
+														: previewModalAttachments.length - 1
+													setPreviewModalCurrentIndex(newIndex)
+													setPreviewModalAttachment(previewModalAttachments[newIndex])
+													setPreviewModalCaption(previewModalAttachments[newIndex].caption || '')
+												}}
+												className={`${isMobileView ? 'w-9 h-9' : 'w-8 h-8'} flex items-center justify-center rounded-lg bg-emerald-900/40 hover:bg-emerald-500/20 border border-emerald-700/40 hover:border-emerald-500/50 text-emerald-300 hover:text-emerald-200 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation`}
+												title='Предыдущее'
+											>
+												<ChevronDown className={`${isMobileView ? 'w-5 h-5' : 'w-4 h-4'} rotate-90`} />
+											</button>
+											<button
+												onClick={(e) => {
+													e.stopPropagation()
+													const newIndex = previewModalCurrentIndex < previewModalAttachments.length - 1
+														? previewModalCurrentIndex + 1
+														: 0
+													setPreviewModalCurrentIndex(newIndex)
+													setPreviewModalAttachment(previewModalAttachments[newIndex])
+													setPreviewModalCaption(previewModalAttachments[newIndex].caption || '')
+												}}
+												className={`${isMobileView ? 'w-9 h-9' : 'w-8 h-8'} flex items-center justify-center rounded-lg bg-emerald-900/40 hover:bg-emerald-500/20 border border-emerald-700/40 hover:border-emerald-500/50 text-emerald-300 hover:text-emerald-200 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation`}
+												title='Следующее'
+											>
+												<ChevronDown className={`${isMobileView ? 'w-5 h-5' : 'w-4 h-4'} -rotate-90`} />
+											</button>
+										</>
+									)}
 									{previewModalAttachment.kind === 'image' && (
 										<button
 											onClick={(e) => {
@@ -2168,10 +2518,25 @@ export default function MessageInput({
 									<button
 										onClick={(e) => {
 											e.stopPropagation()
-											removeAttachment(previewModalAttachment.id)
-											setPreviewModalAttachment(null)
-											setPreviewModalCaption('')
-											setPreviewModalCompress(true)
+											const currentId = previewModalAttachment.id
+											removeAttachment(currentId)
+											
+											// Обновляем список вложений
+											const updated = previewModalAttachments.filter(att => att.id !== currentId)
+											setPreviewModalAttachments(updated)
+											
+											if (updated.length === 0) {
+												// Если больше нет изображений, закрываем модальное окно
+												setPreviewModalAttachment(null)
+												setPreviewModalCurrentIndex(0)
+												setPreviewModalCaption('')
+											} else {
+												// Переходим к следующему или предыдущему изображению
+												const newIndex = Math.min(previewModalCurrentIndex, updated.length - 1)
+												setPreviewModalCurrentIndex(newIndex)
+												setPreviewModalAttachment(updated[newIndex])
+												setPreviewModalCaption(updated[newIndex].caption || '')
+											}
 										}}
 										className={`${isMobileView ? 'w-9 h-9' : 'w-8 h-8'} flex items-center justify-center rounded-lg bg-emerald-900/40 hover:bg-red-500/20 border border-emerald-700/40 hover:border-red-500/50 text-emerald-300 hover:text-red-400 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation`}
 										title='Удалить'
@@ -2182,7 +2547,45 @@ export default function MessageInput({
 							</div>
 
 							{/* Область предпросмотра */}
-							<div className={`relative bg-gradient-to-b from-[#01150d]/60 to-[#000000]/80 flex-1 ${isMobileView ? 'min-h-[200px] max-h-[40vh]' : 'min-h-[320px] max-h-[55vh]'} flex items-center justify-center overflow-hidden`}>
+							<div 
+								className={`relative bg-gradient-to-b from-[#01150d]/60 to-[#000000]/80 flex-1 ${isMobileView ? 'min-h-[200px] max-h-[40vh]' : 'min-h-[320px] max-h-[55vh]'} flex items-center justify-center overflow-hidden`}
+								onTouchStart={(e) => {
+									if (previewModalAttachments.length > 1) {
+										const touch = e.touches[0]
+										if (touch) {
+											(e.currentTarget as any).touchStartX = touch.clientX
+										}
+									}
+								}}
+								onTouchEnd={(e) => {
+									if (previewModalAttachments.length > 1) {
+										const touch = e.changedTouches[0]
+										const startX = (e.currentTarget as any).touchStartX
+										if (touch && startX) {
+											const diff = touch.clientX - startX
+											if (Math.abs(diff) > 50) { // Минимальное расстояние для свайпа
+												if (diff > 0) {
+													// Свайп вправо - предыдущее изображение
+													const newIndex = previewModalCurrentIndex > 0 
+														? previewModalCurrentIndex - 1 
+														: previewModalAttachments.length - 1
+													setPreviewModalCurrentIndex(newIndex)
+													setPreviewModalAttachment(previewModalAttachments[newIndex])
+													setPreviewModalCaption(previewModalAttachments[newIndex].caption || '')
+												} else {
+													// Свайп влево - следующее изображение
+													const newIndex = previewModalCurrentIndex < previewModalAttachments.length - 1
+														? previewModalCurrentIndex + 1
+														: 0
+													setPreviewModalCurrentIndex(newIndex)
+													setPreviewModalAttachment(previewModalAttachments[newIndex])
+													setPreviewModalCaption(previewModalAttachments[newIndex].caption || '')
+												}
+											}
+										}
+									}
+								}}
+							>
 								{previewModalAttachment.kind === 'image' && previewModalAttachment.previewUrl ? (
 									<div className={`relative w-full h-full flex items-center justify-center ${isMobileView ? 'p-3' : 'p-6'}`}>
 										<img
@@ -2205,18 +2608,7 @@ export default function MessageInput({
 								) : null}
 							</div>
 
-							{/* Опция сжатия (только для изображений) */}
-							{previewModalAttachment.kind === 'image' && (
-								<label className={`flex items-center gap-3 ${isMobileView ? 'px-4 py-3' : 'px-6 py-4'} border-b border-emerald-500/20 cursor-pointer hover:bg-emerald-950/20 transition-all duration-200 group touch-manipulation`}>
-									<input
-										type='checkbox'
-										checked={previewModalCompress}
-										onChange={e => setPreviewModalCompress(e.target.checked)}
-										className={`${isMobileView ? 'w-6 h-6' : 'w-5 h-5'} rounded-md border-2 border-emerald-700/50 bg-emerald-950/30 text-emerald-500 focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-[#0a140f] transition-all group-hover:border-emerald-500/70`}
-									/>
-									<span className={`${isMobileView ? 'text-base' : 'text-sm'} font-medium text-emerald-200 group-hover:text-emerald-300 transition-colors`}>Сжать изображение</span>
-								</label>
-							)}
+							{/* Опция сжатия убрана - файлы не сжимаются */}
 
 							{/* Поле подписи */}
 							<div className={`${isMobileView ? 'px-4 py-4' : 'px-6 py-5'} border-b border-emerald-500/20`}>
@@ -2264,21 +2656,28 @@ export default function MessageInput({
 									<button
 										type='button'
 										onClick={() => {
-											// Обновляем подпись и сжатие в attachment
+											// Обновляем подпись текущего изображения
 											setAttachments(prev =>
 												prev.map(att =>
 													att.id === previewModalAttachment.id
 														? {
 																...att,
 																caption: previewModalCaption,
-																compress: previewModalCompress,
+																compress: false, // Сжатие отключено
 															}
 														: att
 												)
 											)
-											setPreviewModalAttachment(null)
-											setPreviewModalCaption('')
-											setPreviewModalCompress(true)
+											
+											// Обновляем подпись в списке модального окна
+											setPreviewModalAttachments(prev =>
+												prev.map(att =>
+													att.id === previewModalAttachment.id
+														? { ...att, caption: previewModalCaption }
+														: att
+												)
+											)
+											
 											// Открываем выбор файла для добавления еще одного
 											setTimeout(() => {
 												if (fileInputRef.current) {
@@ -2307,37 +2706,70 @@ export default function MessageInput({
 								<button
 									type='button'
 									onClick={async () => {
-										// Обновляем подпись и сжатие в attachment
+										// Обновляем подпись для текущего изображения
 										setAttachments(prev =>
 											prev.map(att =>
 												att.id === previewModalAttachment.id
 													? {
 															...att,
 															caption: previewModalCaption,
-															compress: previewModalCompress,
+															compress: false, // Сжатие отключено
 														}
 													: att
 											)
 										)
-										setPreviewModalAttachment(null)
-										setPreviewModalCaption('')
-										setPreviewModalCompress(true)
-										// Если есть подпись, добавляем её в сообщение
-										if (previewModalCaption.trim()) {
-											setMessage(prev => (prev ? prev + '\n' + previewModalCaption.trim() : previewModalCaption.trim()))
-										}
-										// Отправляем сообщение
-										setTimeout(() => {
-											const form = document.querySelector('form') as HTMLFormElement
-											if (form) {
-												const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
-												form.dispatchEvent(submitEvent)
+										
+										// Если есть другие изображения, переходим к следующему
+										if (previewModalAttachments.length > 1) {
+											const currentIndex = previewModalAttachments.findIndex(att => att.id === previewModalAttachment.id)
+											if (currentIndex < previewModalAttachments.length - 1) {
+												// Переходим к следующему изображению
+												const nextIndex = currentIndex + 1
+												setPreviewModalCurrentIndex(nextIndex)
+												setPreviewModalAttachment(previewModalAttachments[nextIndex])
+												setPreviewModalCaption(previewModalAttachments[nextIndex].caption || '')
+											} else {
+												// Это последнее изображение - закрываем модальное окно и отправляем
+												setPreviewModalAttachment(null)
+												setPreviewModalAttachments([])
+												setPreviewModalCurrentIndex(0)
+												setPreviewModalCaption('')
+												
+												// Отправляем сообщение
+												setTimeout(() => {
+													const form = document.querySelector('form') as HTMLFormElement
+													if (form) {
+														const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
+														form.dispatchEvent(submitEvent)
+													}
+												}, 100)
 											}
-										}, 100)
+										} else {
+											// Одно изображение - закрываем и отправляем
+											const captionToAdd = previewModalCaption.trim()
+											setPreviewModalAttachment(null)
+											setPreviewModalAttachments([])
+											setPreviewModalCurrentIndex(0)
+											setPreviewModalCaption('')
+											
+											// Если есть подпись, добавляем её в сообщение
+											if (captionToAdd) {
+												setMessage(prev => (prev ? prev + '\n' + captionToAdd : captionToAdd))
+											}
+											
+											// Отправляем сообщение
+											setTimeout(() => {
+												const form = document.querySelector('form') as HTMLFormElement
+												if (form) {
+													const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
+													form.dispatchEvent(submitEvent)
+												}
+											}, 100)
+										}
 									}}
 									className={`${isMobileView ? 'w-full' : 'flex-1'} ${isMobileView ? 'px-4 py-4' : 'px-5 py-3'} rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white ${isMobileView ? 'text-lg' : ''} font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] border border-emerald-400/30 touch-manipulation`}
 								>
-									Отправить
+									{previewModalAttachments.length > 1 && previewModalCurrentIndex < previewModalAttachments.length - 1 ? 'Далее' : 'Отправить'}
 								</button>
 							</div>
 						</div>
