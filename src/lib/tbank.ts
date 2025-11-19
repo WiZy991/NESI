@@ -28,45 +28,30 @@ export function generateToken(params: Record<string, any>): string {
 		throw new Error('TBANK_PASSWORD не настроен в переменных окружения')
 	}
 
-	// Подготавливаем параметры для генерации токена
-	const paramsForToken: Record<string, any> = { ...params }
-	
-	// КРИТИЧЕСКИ ВАЖНО: DATA должен быть сериализован в JSON строку
-	// Согласно документации Т-Банка, при формировании токена DATA сериализуется в JSON
-	if (paramsForToken.DATA && typeof paramsForToken.DATA === 'object') {
-		paramsForToken.DATA = JSON.stringify(paramsForToken.DATA)
-	}
-
 	// Добавляем пароль к параметрам
-	paramsForToken.Password = password
+	const paramsWithPassword = { ...params, Password: password }
 
 	// Сортируем ключи и фильтруем пустые значения
-	const sortedKeys = Object.keys(paramsForToken)
+	const sortedKeys = Object.keys(paramsWithPassword)
 		.sort()
 		.filter(
-			key =>
-				paramsForToken[key] !== undefined &&
-				paramsForToken[key] !== null &&
-				paramsForToken[key] !== ''
+			key => {
+				const value = paramsWithPassword[key]
+				// Игнорируем пустые значения, но обрабатываем объекты (включая DATA)
+				return value !== undefined && value !== null && value !== ''
+			}
 		)
 
 	// Конкатенируем значения
+	// ВАЖНО: Для объектов (включая DATA) нужно сериализовать в JSON БЕЗ пробелов
 	const concatenated = sortedKeys.map(key => {
-		const value = paramsForToken[key]
-		// Если значение - объект (не DATA, так как DATA уже сериализован), сериализуем его
-		if (typeof value === 'object' && value !== null && key !== 'DATA') {
+		const value = paramsWithPassword[key]
+		if (typeof value === 'object' && value !== null) {
+			// Сериализуем объекты (включая DATA) в JSON без пробелов
 			return JSON.stringify(value)
 		}
 		return String(value)
 	}).join('')
-
-	console.log('🔐 [TBANK] Генерация токена:', {
-		sortedKeys,
-		hasDATA: !!params.DATA,
-		dataSerialized: paramsForToken.DATA,
-		concatenatedLength: concatenated.length,
-		note: 'DATA сериализован в JSON строку',
-	})
 
 	// Вычисляем SHA-256
 	return crypto.createHash('sha256').update(concatenated).digest('hex')
@@ -172,11 +157,12 @@ export async function createPayment(
 	// Генерируем Token
 	requestBody.Token = generateToken(requestBody)
 
+	// Логируем только структуру, без полного тела запроса
 	console.log('📤 [TBANK] Отправляем запрос Init:', {
 		url: `${getApiUrl()}/v2/Init`,
-		requestBody: JSON.stringify(requestBody, null, 2),
 		hasCreateDealWithType: !!requestBody.CreateDealWithType,
 		hasStartSpAccumulation: !!requestBody.DATA?.StartSpAccumulation,
+		hasDATA: !!requestBody.DATA,
 	})
 
 	const response = await fetch(`${getApiUrl()}/v2/Init`, {
@@ -206,15 +192,14 @@ export async function createPayment(
 		throw new Error(`Ошибка парсинга ответа от Т-Банка: ${text}`)
 	}
 
-	console.log('📥 [TBANK] Полный ответ от Init:', {
+	console.log('📥 [TBANK] Ответ от Init:', {
 		success: data.Success,
 		errorCode: data.ErrorCode,
 		message: data.Message,
 		paymentId: data.PaymentId,
+		paymentURL: data.PaymentURL ? 'есть' : 'отсутствует',
 		dealId: data.DealId,
 		spAccumulationId: data.SpAccumulationId,
-		allFields: Object.keys(data),
-		fullResponse: JSON.stringify(data, null, 2),
 	})
 
 	if (!data.Success && data.ErrorCode !== '0') {
