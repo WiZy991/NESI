@@ -127,7 +127,29 @@ export async function POST(req: NextRequest) {
 					dealId: { not: null },
 				},
 				orderBy: { createdAt: 'desc' },
-				select: { dealId: true, paymentId: true },
+				select: { dealId: true, paymentId: true, createdAt: true },
+			})
+
+			// Диагностика: проверяем все транзакции пополнения
+			const allDepositTxs = await prisma.transaction.findMany({
+				where: {
+					userId: user.id,
+					type: 'deposit',
+				},
+				orderBy: { createdAt: 'desc' },
+				select: { id: true, dealId: true, paymentId: true, createdAt: true, reason: true },
+				take: 5,
+			})
+
+			console.log('🔍 [CREATE-WITHDRAWAL] Диагностика транзакций пополнения:', {
+				totalDeposits: allDepositTxs.length,
+				transactions: allDepositTxs.map(tx => ({
+					id: tx.id,
+					dealId: tx.dealId,
+					paymentId: tx.paymentId,
+					createdAt: tx.createdAt,
+					hasDealId: !!tx.dealId,
+				})),
 			})
 
 			if (lastDepositTx?.dealId) {
@@ -212,9 +234,44 @@ export async function POST(req: NextRequest) {
 					}
 
 					if (!finalDealId) {
+						// Детальная диагностика для пользователя
+						const diagnosticInfo = {
+							hasDeposits: allDepositTxs.length > 0,
+							depositsWithDealId: allDepositTxs.filter(tx => tx.dealId).length,
+							depositsWithPaymentId: allDepositTxs.filter(tx => tx.paymentId).length,
+							lastDeposit: allDepositTxs[0] ? {
+								hasDealId: !!allDepositTxs[0].dealId,
+								hasPaymentId: !!allDepositTxs[0].paymentId,
+								createdAt: allDepositTxs[0].createdAt,
+							} : null,
+						}
+
+						console.error('❌ [CREATE-WITHDRAWAL] DealId не найден. Диагностика:', diagnosticInfo)
+
+						let errorMessage = 'Не найден DealId для выплаты.\n\n'
+						
+						if (!diagnosticInfo.hasDeposits) {
+							errorMessage += '❌ У вас нет транзакций пополнения.\n'
+							errorMessage += '→ Сначала пополните баланс через Т-Банк.\n\n'
+						} else if (diagnosticInfo.depositsWithDealId === 0) {
+							errorMessage += '❌ В ваших транзакциях пополнения нет DealId.\n'
+							errorMessage += '→ Возможные причины:\n'
+							errorMessage += '  1. Вебхук от Т-Банка еще не обработан (подождите 1-2 минуты)\n'
+							errorMessage += '  2. Вебхук не настроен в личном кабинете Т-Банка\n'
+							errorMessage += '  3. Сделка не была создана при пополнении\n\n'
+							errorMessage += '→ Решения:\n'
+							errorMessage += '  • Подождите несколько минут и попробуйте снова\n'
+							errorMessage += '  • Используйте кнопку "Обновить DealId" (если есть)\n'
+							errorMessage += '  • Пополните баланс заново через Т-Банк\n'
+						} else {
+							errorMessage += '❌ Не удалось найти DealId в последней транзакции.\n'
+							errorMessage += '→ Попробуйте обновить DealId или пополните баланс заново.\n'
+						}
+
 						return NextResponse.json(
 							{
-								error: 'Не найден DealId для выплаты. Возможные причины:\n1. Вебхук от Т-Банка еще не обработан\n2. Сделка не была создана при пополнении\n\nПопробуйте:\n- Подождать несколько минут и попробовать снова\n- Использовать кнопку "Обновить DealId"\n- Пополнить баланс заново через Т-Банк',
+								error: errorMessage,
+								diagnostic: diagnosticInfo,
 							},
 							{ status: 400 }
 						)
