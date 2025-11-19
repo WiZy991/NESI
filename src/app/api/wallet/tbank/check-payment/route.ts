@@ -78,34 +78,76 @@ export async function POST(req: NextRequest) {
 				)
 			}
 
-			const finalDealId =
-				paymentStatus.SpAccumulationId || paymentStatus.DealId || null
+			// SpAccumulationId может быть числом, конвертируем в строку
+			const apiDealId = paymentStatus.SpAccumulationId || paymentStatus.DealId
+			let finalDealId = apiDealId ? String(apiDealId) : null
+
+			// Если DealId не получен из GetState, пытаемся найти его в существующих транзакциях
+			if (!finalDealId) {
+				const existingTx = await prisma.transaction.findFirst({
+					where: {
+						userId: userId,
+						paymentId: paymentId,
+					},
+					select: { dealId: true },
+				})
+				if (existingTx?.dealId) {
+					finalDealId = existingTx.dealId
+					console.log('📋 [CHECK-PAYMENT] Найден DealId из существующей транзакции:', finalDealId)
+				}
+			}
 
 			console.log('💰 [CHECK-PAYMENT] Начисляем средства:', {
 				userId,
 				amount,
 				dealId: finalDealId,
+				paymentId,
 			})
 
-			const updated = await prisma.user.update({
-				where: { id: userId },
-				data: {
-					balance: { increment: amountDecimal },
-					transactions: {
-						create: {
-							amount: amountDecimal,
-							type: 'deposit',
-							reason: `Пополнение через Т-Банк (ручная проверка, PaymentId: ${paymentId}, DealId: ${
-								finalDealId || 'N/A'
-							})`,
-							dealId: finalDealId,
-							paymentId: paymentId,
-							status: 'completed',
+			// Проверяем, не создана ли уже транзакция
+			const existingTransaction = await prisma.transaction.findFirst({
+				where: {
+					userId: userId,
+					paymentId: paymentId,
+				},
+			})
+
+			let updated
+			if (existingTransaction) {
+				// Обновляем существующую транзакцию с DealId, если его не было
+				if (!existingTransaction.dealId && finalDealId) {
+					await prisma.transaction.update({
+						where: { id: existingTransaction.id },
+						data: { dealId: finalDealId },
+					})
+					console.log('✅ [CHECK-PAYMENT] Обновлен DealId в существующей транзакции')
+				}
+				updated = await prisma.user.findUnique({
+					where: { id: userId },
+					select: { balance: true },
+				})
+			} else {
+				// Создаем новую транзакцию
+				updated = await prisma.user.update({
+					where: { id: userId },
+					data: {
+						balance: { increment: amountDecimal },
+						transactions: {
+							create: {
+								amount: amountDecimal,
+								type: 'deposit',
+								reason: `Пополнение через Т-Банк (ручная проверка, PaymentId: ${paymentId}, DealId: ${
+									finalDealId || 'N/A'
+								})`,
+								dealId: finalDealId,
+								paymentId: paymentId,
+								status: 'completed',
+							},
 						},
 					},
-				},
-				select: { balance: true },
-			})
+					select: { balance: true },
+				})
+			}
 
 			logger.info(
 				`✅ Начислено ${amount} ₽ пользователю ${userId} (ручная проверка)`,

@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
 		const { Status, PaymentId, OrderId, Amount, SpAccumulationId, DealId } =
 			body
 
+		// SpAccumulationId может быть числом, конвертируем в строку
+		const dealIdFromWebhook = DealId || (SpAccumulationId ? String(SpAccumulationId) : null)
+
 		console.log('📊 [WEBHOOK] Параметры платежа:', {
 			Status,
 			PaymentId,
@@ -50,16 +53,19 @@ export async function POST(req: NextRequest) {
 			Amount,
 			SpAccumulationId,
 			DealId,
+			dealIdFromWebhook,
 		})
 
 		// Проверяем все возможные поля, где может быть DealId
 		console.log('🔍 [WEBHOOK] Поиск DealId во всех полях:', {
 			DealId: body.DealId,
 			SpAccumulationId: body.SpAccumulationId,
+			SpAccumulationIdType: typeof body.SpAccumulationId,
 			DATA: body.DATA,
 			hasDATA: !!body.DATA,
 			DATA_SpAccumulationId: body.DATA?.SpAccumulationId,
 			allKeys: Object.keys(body),
+			allValues: JSON.stringify(body, null, 2),
 		})
 
 		// Обрабатываем только успешные платежи (CONFIRMED)
@@ -95,6 +101,19 @@ export async function POST(req: NextRequest) {
 		})
 
 		if (existingTx) {
+			// Если транзакция существует, но DealId не был сохранен, обновляем его
+			if (!existingTx.dealId && dealIdFromWebhook) {
+				await prisma.transaction.update({
+					where: { id: existingTx.id },
+					data: { dealId: dealIdFromWebhook },
+				})
+				console.log('✅ [WEBHOOK] Обновлен DealId в существующей транзакции:', dealIdFromWebhook)
+				logger.info('Обновлен DealId в существующей транзакции', {
+					transactionId: existingTx.id,
+					paymentId: PaymentId,
+					dealId: dealIdFromWebhook,
+				})
+			}
 			logger.info('✅ Платеж уже обработан:', PaymentId)
 			return NextResponse.json({ ok: true, alreadyProcessed: true })
 		}
@@ -104,7 +123,8 @@ export async function POST(req: NextRequest) {
 
 		if (operationType === 'deposit') {
 			// Пополнение баланса
-			let finalDealId = DealId || SpAccumulationId
+			// SpAccumulationId может быть числом, конвертируем в строку
+			let finalDealId = dealIdFromWebhook
 
 			console.log('💰 [WEBHOOK] Начинаем начисление:', {
 				userId,
@@ -113,6 +133,7 @@ export async function POST(req: NextRequest) {
 				dealId: finalDealId,
 				receivedDealId: DealId,
 				receivedSpAccumulationId: SpAccumulationId,
+				dealIdFromWebhook,
 			})
 
 			// Если DealId не пришел в вебхуке, пытаемся получить его через API
@@ -125,8 +146,8 @@ export async function POST(req: NextRequest) {
 					const paymentStatus = await checkPaymentStatus(PaymentId)
 
 					if (paymentStatus.Success) {
-						finalDealId =
-							paymentStatus.SpAccumulationId || paymentStatus.DealId || null
+						const apiDealId = paymentStatus.SpAccumulationId || paymentStatus.DealId
+						finalDealId = apiDealId ? String(apiDealId) : null
 						console.log('✅ [WEBHOOK] DealId получен из API:', finalDealId)
 					}
 				} catch (error) {

@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
 				const paymentStatus = await checkPaymentStatus(tx.paymentId)
 
 				if (paymentStatus.Success) {
-					const dealId =
-						paymentStatus.SpAccumulationId || paymentStatus.DealId || null
+					const apiDealId = paymentStatus.SpAccumulationId || paymentStatus.DealId
+					const dealId = apiDealId ? String(apiDealId) : null
 
 					if (dealId) {
 						await prisma.transaction.update({
