@@ -35,7 +35,8 @@ grep -i "PaymentId" logs/app.log | tail -20
 ### Шаг 3: Или через API напрямую
 
 ```bash
-curl -X POST http://localhost:3000/api/wallet/tbank/check-payment \
+# Замените YOUR_DOMAIN на ваш реальный домен (например, nesi.ru)
+curl -X POST https://YOUR_DOMAIN/api/wallet/tbank/check-payment \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"paymentId": "YOUR_PAYMENT_ID"}'

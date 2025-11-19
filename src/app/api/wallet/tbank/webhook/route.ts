@@ -18,7 +18,11 @@ export async function POST(req: NextRequest) {
 		})
 
 		const body = await req.json()
-		console.log('📥 [WEBHOOK] Тело запроса:', JSON.stringify(body, null, 2))
+		console.log(
+			'📥 [WEBHOOK] Тело запроса (полное):',
+			JSON.stringify(body, null, 2)
+		)
+		console.log('📥 [WEBHOOK] Все поля в вебхуке:', Object.keys(body))
 		logger.info('📥 Вебхук от T-Bank', { body })
 
 		// Проверяем подпись
@@ -46,6 +50,16 @@ export async function POST(req: NextRequest) {
 			Amount,
 			SpAccumulationId,
 			DealId,
+		})
+
+		// Проверяем все возможные поля, где может быть DealId
+		console.log('🔍 [WEBHOOK] Поиск DealId во всех полях:', {
+			DealId: body.DealId,
+			SpAccumulationId: body.SpAccumulationId,
+			DATA: body.DATA,
+			hasDATA: !!body.DATA,
+			DATA_SpAccumulationId: body.DATA?.SpAccumulationId,
+			allKeys: Object.keys(body),
 		})
 
 		// Обрабатываем только успешные платежи (CONFIRMED)
@@ -164,11 +178,53 @@ export async function POST(req: NextRequest) {
 				oldBalance: user.balance.toString(),
 				newBalance: updated.balance.toString(),
 				paymentId: PaymentId,
+				dealId: finalDealId,
+				savedDealId: finalDealId || 'NULL',
 			})
+
+			// Дополнительная проверка: если DealId все еще NULL, пытаемся получить его еще раз
+			if (!finalDealId && PaymentId) {
+				console.warn(
+					'⚠️ [WEBHOOK] DealId остался NULL после всех попыток, пытаемся еще раз...'
+				)
+				try {
+					const { checkPaymentStatus } = await import('@/lib/tbank')
+					const retryStatus = await checkPaymentStatus(PaymentId)
+
+					if (retryStatus.Success) {
+						const retryDealId =
+							retryStatus.SpAccumulationId || retryStatus.DealId || null
+
+						if (retryDealId) {
+							// Обновляем транзакцию с DealId
+							await prisma.transaction.updateMany({
+								where: {
+									paymentId: PaymentId,
+									userId: userId,
+								},
+								data: {
+									dealId: retryDealId,
+								},
+							})
+
+							console.log(
+								'✅ [WEBHOOK] DealId обновлен в транзакции:',
+								retryDealId
+							)
+							finalDealId = retryDealId
+						}
+					}
+				} catch (error) {
+					console.error(
+						'❌ [WEBHOOK] Ошибка повторного получения DealId:',
+						error
+					)
+				}
+			}
 
 			logger.info(`✅ Начислено ${amount} ₽ пользователю ${userId}`, {
 				paymentId: PaymentId,
-				dealId: finalDealId,
+				dealId: finalDealId || 'NULL',
 				oldBalance: user.balance.toString(),
 				newBalance: updated.balance.toString(),
 			})

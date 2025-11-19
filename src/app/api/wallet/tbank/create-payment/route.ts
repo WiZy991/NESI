@@ -62,15 +62,26 @@ export async function POST(req: NextRequest) {
 				: `+7${paymentRecipientId.replace(/\D/g, '').slice(-10)}`,
 		})
 
+		// DealId может быть в поле DealId или SpAccumulationId
+		const dealId = payment.DealId || payment.SpAccumulationId
+
+		console.log('💳 [CREATE-PAYMENT] Ответ от Т-Банка:', {
+			paymentId: payment.PaymentId,
+			dealId: dealId,
+			receivedDealId: payment.DealId,
+			receivedSpAccumulationId: payment.SpAccumulationId,
+			allFields: JSON.stringify(payment, null, 2),
+		})
+
 		logger.info('Создан платеж Т-Банк', {
 			userId: user.id,
 			paymentId: payment.PaymentId,
 			amount: amountNumber,
 			orderId,
+			dealId: dealId || 'NULL',
+			receivedDealId: payment.DealId,
+			receivedSpAccumulationId: payment.SpAccumulationId,
 		})
-
-		// DealId может быть в поле DealId или SpAccumulationId
-		const dealId = payment.DealId || payment.SpAccumulationId
 
 		return NextResponse.json({
 			success: true,

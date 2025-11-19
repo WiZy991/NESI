@@ -103,6 +103,11 @@ export async function createPayment(
 	// Если нужно создать сделку
 	if (params.createDeal && !params.dealId) {
 		requestBody.CreateDealWithType = 'NN'
+		// Также можно использовать StartSpAccumulation для создания сделки
+		requestBody.StartSpAccumulation = 'NN'
+		console.log(
+			'🔧 [TBANK] Создаем сделку с CreateDealWithType=NN и StartSpAccumulation=NN'
+		)
 	}
 
 	// Если указан DealId, используем его

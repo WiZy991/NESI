@@ -14,10 +14,30 @@ import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
+ * Обработка OPTIONS запроса для CORS
+ */
+export async function OPTIONS(req: NextRequest) {
+	return new NextResponse(null, {
+		status: 200,
+		headers: {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'POST, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+		},
+	})
+}
+
+/**
  * API для создания выплаты (вывода средств) через Т-Банк
  */
 export async function POST(req: NextRequest) {
 	try {
+		// Логируем метод запроса для отладки
+		console.log('📥 [CREATE-WITHDRAWAL] Запрос:', {
+			method: req.method,
+			url: req.url,
+		})
+
 		const user = await getUserFromRequest(req)
 		if (!user) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
