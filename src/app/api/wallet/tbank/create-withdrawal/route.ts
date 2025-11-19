@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
 		// Для выплат в рамках мультирасчетов DealId ОБЯЗАТЕЛЕН
 		// Ищем последний DealId из транзакций пополнения пользователя
 		let finalDealId = dealId
-		
+
 		if (!finalDealId) {
 			// Ищем последнюю транзакцию пополнения с DealId
 			const lastDepositTx = await prisma.transaction.findFirst({
@@ -137,7 +137,13 @@ export async function POST(req: NextRequest) {
 					type: 'deposit',
 				},
 				orderBy: { createdAt: 'desc' },
-				select: { id: true, dealId: true, paymentId: true, createdAt: true, reason: true },
+				select: {
+					id: true,
+					dealId: true,
+					paymentId: true,
+					createdAt: true,
+					reason: true,
+				},
 				take: 5,
 			})
 
@@ -154,7 +160,10 @@ export async function POST(req: NextRequest) {
 
 			if (lastDepositTx?.dealId) {
 				finalDealId = lastDepositTx.dealId
-				console.log('📋 [CREATE-WITHDRAWAL] Найден DealId из транзакций:', finalDealId)
+				console.log(
+					'📋 [CREATE-WITHDRAWAL] Найден DealId из транзакций:',
+					finalDealId
+				)
 			} else {
 				// Если DealId не найден, пытаемся получить его из последнего платежа через API
 				const lastDepositTxWithoutDealId = await prisma.transaction.findFirst({
@@ -170,13 +179,19 @@ export async function POST(req: NextRequest) {
 				if (lastDepositTxWithoutDealId?.paymentId) {
 					try {
 						const { checkPaymentStatus } = await import('@/lib/tbank')
-						console.log('🔍 [CREATE-WITHDRAWAL] Пытаемся получить DealId из API для PaymentId:', lastDepositTxWithoutDealId.paymentId)
-						const paymentStatus = await checkPaymentStatus(lastDepositTxWithoutDealId.paymentId)
-						
+						console.log(
+							'🔍 [CREATE-WITHDRAWAL] Пытаемся получить DealId из API для PaymentId:',
+							lastDepositTxWithoutDealId.paymentId
+						)
+						const paymentStatus = await checkPaymentStatus(
+							lastDepositTxWithoutDealId.paymentId
+						)
+
 						if (paymentStatus.Success) {
-							const apiDealId = paymentStatus.SpAccumulationId || paymentStatus.DealId
+							const apiDealId =
+								paymentStatus.SpAccumulationId || paymentStatus.DealId
 							finalDealId = apiDealId ? String(apiDealId) : null
-							
+
 							if (finalDealId) {
 								// Обновляем транзакцию с DealId
 								await prisma.transaction.updateMany({
@@ -186,20 +201,30 @@ export async function POST(req: NextRequest) {
 									},
 									data: { dealId: finalDealId },
 								})
-								console.log('✅ [CREATE-WITHDRAWAL] DealId получен из API и сохранен:', finalDealId)
+								console.log(
+									'✅ [CREATE-WITHDRAWAL] DealId получен из API и сохранен:',
+									finalDealId
+								)
 							}
 						}
 					} catch (error) {
-						console.error('❌ [CREATE-WITHDRAWAL] Ошибка получения DealId из API:', error)
+						console.error(
+							'❌ [CREATE-WITHDRAWAL] Ошибка получения DealId из API:',
+							error
+						)
 					}
 				}
 
 				if (!finalDealId) {
 					// Последняя попытка - вызываем API для обновления всех DealId
 					try {
-						console.log('🔄 [CREATE-WITHDRAWAL] Пытаемся обновить все DealId через API...')
+						console.log(
+							'🔄 [CREATE-WITHDRAWAL] Пытаемся обновить все DealId через API...'
+						)
 						const updateResponse = await fetch(
-							`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/wallet/tbank/update-deal-ids`,
+							`${
+								process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+							}/api/wallet/tbank/update-deal-ids`,
 							{
 								method: 'POST',
 								headers: {
@@ -211,7 +236,10 @@ export async function POST(req: NextRequest) {
 
 						if (updateResponse.ok) {
 							const updateData = await updateResponse.json()
-							console.log('📊 [CREATE-WITHDRAWAL] Результат обновления DealId:', updateData)
+							console.log(
+								'📊 [CREATE-WITHDRAWAL] Результат обновления DealId:',
+								updateData
+							)
 
 							// Пытаемся найти DealId снова
 							const retryDepositTx = await prisma.transaction.findFirst({
@@ -226,11 +254,17 @@ export async function POST(req: NextRequest) {
 
 							if (retryDepositTx?.dealId) {
 								finalDealId = retryDepositTx.dealId
-								console.log('✅ [CREATE-WITHDRAWAL] DealId найден после обновления:', finalDealId)
+								console.log(
+									'✅ [CREATE-WITHDRAWAL] DealId найден после обновления:',
+									finalDealId
+								)
 							}
 						}
 					} catch (updateError) {
-						console.error('❌ [CREATE-WITHDRAWAL] Ошибка при обновлении DealId:', updateError)
+						console.error(
+							'❌ [CREATE-WITHDRAWAL] Ошибка при обновлении DealId:',
+							updateError
+						)
 					}
 
 					if (!finalDealId) {
@@ -238,34 +272,46 @@ export async function POST(req: NextRequest) {
 						const diagnosticInfo = {
 							hasDeposits: allDepositTxs.length > 0,
 							depositsWithDealId: allDepositTxs.filter(tx => tx.dealId).length,
-							depositsWithPaymentId: allDepositTxs.filter(tx => tx.paymentId).length,
-							lastDeposit: allDepositTxs[0] ? {
-								hasDealId: !!allDepositTxs[0].dealId,
-								hasPaymentId: !!allDepositTxs[0].paymentId,
-								createdAt: allDepositTxs[0].createdAt,
-							} : null,
+							depositsWithPaymentId: allDepositTxs.filter(tx => tx.paymentId)
+								.length,
+							lastDeposit: allDepositTxs[0]
+								? {
+										hasDealId: !!allDepositTxs[0].dealId,
+										hasPaymentId: !!allDepositTxs[0].paymentId,
+										createdAt: allDepositTxs[0].createdAt,
+								  }
+								: null,
 						}
 
-						console.error('❌ [CREATE-WITHDRAWAL] DealId не найден. Диагностика:', diagnosticInfo)
+						console.error(
+							'❌ [CREATE-WITHDRAWAL] DealId не найден. Диагностика:',
+							diagnosticInfo
+						)
 
 						let errorMessage = 'Не найден DealId для выплаты.\n\n'
-						
+
 						if (!diagnosticInfo.hasDeposits) {
 							errorMessage += '❌ У вас нет транзакций пополнения.\n'
 							errorMessage += '→ Сначала пополните баланс через Т-Банк.\n\n'
 						} else if (diagnosticInfo.depositsWithDealId === 0) {
 							errorMessage += '❌ В ваших транзакциях пополнения нет DealId.\n'
 							errorMessage += '→ Возможные причины:\n'
-							errorMessage += '  1. Вебхук от Т-Банка еще не обработан (подождите 1-2 минуты)\n'
-							errorMessage += '  2. Вебхук не настроен в личном кабинете Т-Банка\n'
+							errorMessage +=
+								'  1. Вебхук от Т-Банка еще не обработан (подождите 1-2 минуты)\n'
+							errorMessage +=
+								'  2. Вебхук не настроен в личном кабинете Т-Банка\n'
 							errorMessage += '  3. Сделка не была создана при пополнении\n\n'
 							errorMessage += '→ Решения:\n'
-							errorMessage += '  • Подождите несколько минут и попробуйте снова\n'
-							errorMessage += '  • Используйте кнопку "Обновить DealId" (если есть)\n'
+							errorMessage +=
+								'  • Подождите несколько минут и попробуйте снова\n'
+							errorMessage +=
+								'  • Используйте кнопку "Обновить DealId" (если есть)\n'
 							errorMessage += '  • Пополните баланс заново через Т-Банк\n'
 						} else {
-							errorMessage += '❌ Не удалось найти DealId в последней транзакции.\n'
-							errorMessage += '→ Попробуйте обновить DealId или пополните баланс заново.\n'
+							errorMessage +=
+								'❌ Не удалось найти DealId в последней транзакции.\n'
+							errorMessage +=
+								'→ Попробуйте обновить DealId или пополните баланс заново.\n'
 						}
 
 						return NextResponse.json(
@@ -281,10 +327,22 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Получаем телефон пользователя для PaymentRecipientId
-		const paymentRecipientId = user.email || `+7${user.id.slice(0, 10)}`
-		const formattedPhone = paymentRecipientId.startsWith('+')
-			? paymentRecipientId
-			: `+7${paymentRecipientId.replace(/\D/g, '').slice(-10)}`
+		// Используем телефон из запроса (для СБП) или телефон из профиля пользователя
+		const userPhone = phone || user.phone || ''
+		const cleanPhone = userPhone.replace(/\D/g, '')
+
+		// Формируем корректный PaymentRecipientId в формате +7XXXXXXXXXX
+		let formattedPhone = ''
+		if (cleanPhone.length >= 10) {
+			// Берем последние 10 цифр и добавляем +7
+			formattedPhone = `+7${cleanPhone.slice(-10)}`
+		} else {
+			// Если номер недостаточно длинный, используем user.id как fallback
+			formattedPhone = `+7${user.id
+				.replace(/\D/g, '')
+				.slice(0, 10)
+				.padEnd(10, '0')}`
+		}
 
 		console.log('💸 [CREATE-WITHDRAWAL] Параметры выплаты:', {
 			userId: user.id,
@@ -434,8 +492,9 @@ export async function POST(req: NextRequest) {
 		})
 
 		// Безопасное извлечение сообщения об ошибке
-		const errorMessage = error?.message || error?.toString() || 'Ошибка создания выплаты'
-		
+		const errorMessage =
+			error?.message || error?.toString() || 'Ошибка создания выплаты'
+
 		return NextResponse.json(
 			{
 				error: errorMessage,
