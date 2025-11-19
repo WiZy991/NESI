@@ -100,22 +100,7 @@ export async function createPayment(
 		PaymentRecipientId: params.paymentRecipientId,
 	}
 
-	// Если нужно создать сделку
-	if (params.createDeal && !params.dealId) {
-		requestBody.CreateDealWithType = 'NN'
-		// Также можно использовать StartSpAccumulation для создания сделки
-		requestBody.StartSpAccumulation = 'NN'
-		console.log(
-			'🔧 [TBANK] Создаем сделку с CreateDealWithType=NN и StartSpAccumulation=NN'
-		)
-	}
-
-	// Если указан DealId, используем его
-	if (params.dealId) {
-		requestBody.DealId = params.dealId
-	}
-
-	// Добавляем данные клиента в DATA
+	// Инициализируем DATA для клиентских данных
 	if (params.phone || params.customerEmail) {
 		requestBody.DATA = {}
 		if (params.phone) {
@@ -124,6 +109,34 @@ export async function createPayment(
 		if (params.customerEmail) {
 			requestBody.DATA.Email = params.customerEmail
 		}
+	}
+
+	// Если нужно создать сделку
+	if (params.createDeal && !params.dealId) {
+		// CreateDealWithType должен быть ВНЕ блока DATA (на верхнем уровне запроса)
+		// Согласно документации: "параметр CreateDealWithType со значением 'NN' (вне блока DATA)"
+		requestBody.CreateDealWithType = 'NN'
+		
+		// StartSpAccumulation должен быть ВНУТРИ блока DATA
+		// Согласно документации: "StartSpAccumulation String Нет Флаг о необходимости создания сделки при выполнении запроса. Вариант заполнения: NN"
+		if (!requestBody.DATA) {
+			requestBody.DATA = {}
+		}
+		requestBody.DATA.StartSpAccumulation = 'NN'
+		
+		console.log(
+			'🔧 [TBANK] Создаем сделку:',
+			JSON.stringify({
+				CreateDealWithType: requestBody.CreateDealWithType,
+				DATA_StartSpAccumulation: requestBody.DATA?.StartSpAccumulation,
+				structure: 'CreateDealWithType вне DATA, StartSpAccumulation в DATA',
+			}, null, 2)
+		)
+	}
+
+	// Если указан DealId, используем его (вне блока DATA)
+	if (params.dealId) {
+		requestBody.DealId = params.dealId
 	}
 
 	// URL для редиректа после оплаты
@@ -135,6 +148,13 @@ export async function createPayment(
 	// Генерируем Token
 	requestBody.Token = generateToken(requestBody)
 
+	console.log('📤 [TBANK] Отправляем запрос Init:', {
+		url: `${getApiUrl()}/v2/Init`,
+		requestBody: JSON.stringify(requestBody, null, 2),
+		hasCreateDealWithType: !!requestBody.CreateDealWithType,
+		hasStartSpAccumulation: !!requestBody.DATA?.StartSpAccumulation,
+	})
+
 	const response = await fetch(`${getApiUrl()}/v2/Init`, {
 		method: 'POST',
 		headers: {
@@ -143,12 +163,96 @@ export async function createPayment(
 		body: JSON.stringify(requestBody),
 	})
 
-	const data = await response.json()
+	if (!response.ok) {
+		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
+		console.error('❌ [TBANK] HTTP ошибка при создании платежа:', {
+			status: response.status,
+			statusText: response.statusText,
+			body: errorText,
+		})
+		throw new Error(`HTTP ошибка ${response.status}: ${errorText}`)
+	}
+
+	let data: PaymentResponse
+	try {
+		data = await response.json()
+	} catch (error: any) {
+		console.error('❌ [TBANK] Ошибка парсинга JSON ответа:', error)
+		const text = await response.text().catch(() => 'Не удалось прочитать ответ')
+		throw new Error(`Ошибка парсинга ответа от Т-Банка: ${text}`)
+	}
+
+	console.log('📥 [TBANK] Полный ответ от Init:', {
+		success: data.Success,
+		errorCode: data.ErrorCode,
+		message: data.Message,
+		paymentId: data.PaymentId,
+		dealId: data.DealId,
+		spAccumulationId: data.SpAccumulationId,
+		allFields: Object.keys(data),
+		fullResponse: JSON.stringify(data, null, 2),
+	})
 
 	if (!data.Success && data.ErrorCode !== '0') {
+		console.error('❌ [TBANK] Ошибка создания платежа:', {
+			errorCode: data.ErrorCode,
+			message: data.Message,
+			details: data.Details,
+		})
 		throw new Error(
 			data.Message || `Ошибка создания платежа: ${data.ErrorCode}`
 		)
+	}
+
+	return data
+}
+
+/**
+ * Создание сделки через createSpDeal
+ * Альтернативный способ создания сделки
+ */
+export async function createSpDeal(): Promise<{ SpAccumulationId: string; Success: boolean; ErrorCode: string }> {
+	const terminalKey = process.env.TBANK_TERMINAL_KEY
+	if (!terminalKey) {
+		throw new Error('TBANK_TERMINAL_KEY не настроен в переменных окружения')
+	}
+
+	const requestBody = {
+		TerminalKey: terminalKey,
+		SpDealType: 'NN',
+	}
+
+	requestBody.Token = generateToken(requestBody)
+
+	console.log('🔧 [TBANK] Создаем сделку через createSpDeal:', {
+		url: `${getApiUrl()}/v2/createSpDeal`,
+		requestBody: JSON.stringify(requestBody, null, 2),
+	})
+
+	const response = await fetch(`${getApiUrl()}/v2/createSpDeal`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify(requestBody),
+	})
+
+	if (!response.ok) {
+		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
+		throw new Error(`HTTP ошибка ${response.status} при создании сделки: ${errorText}`)
+	}
+
+	const data = await response.json()
+
+	console.log('📥 [TBANK] Ответ от createSpDeal:', {
+		success: data.Success,
+		spAccumulationId: data.SpAccumulationId,
+		errorCode: data.ErrorCode,
+		fullResponse: JSON.stringify(data, null, 2),
+	})
+
+	if (!data.Success) {
+		throw new Error(data.Message || `Ошибка создания сделки: ${data.ErrorCode}`)
 	}
 
 	return data
@@ -224,17 +328,26 @@ export async function createWithdrawal(
 		)
 	}
 
-	let response: Response
-	try {
-		const apiUrl = `${getApiUrl()}/e2c/v2/Init/`
-		console.log('📤 [TBANK] Создание выплаты:', {
-			url: apiUrl,
-			orderId: params.orderId,
-			amount: amountInKopecks,
-			hasCardId: !!params.cardId,
-			hasPhone: !!params.phone,
-			hasSbpMemberId: !!params.sbpMemberId,
+		console.log('📤 [TBANK] Подготовка запроса на выплату:', {
+			requestBody: JSON.stringify(requestBody, null, 2),
+			dealId: params.dealId,
+			finalPayout: params.finalPayout,
+			note: 'FinalPayout должен быть вне блока DATA (на верхнем уровне)',
 		})
+
+		let response: Response
+		try {
+			const apiUrl = `${getApiUrl()}/e2c/v2/Init/`
+			console.log('📤 [TBANK] Создание выплаты:', {
+				url: apiUrl,
+				orderId: params.orderId,
+				amount: amountInKopecks,
+				dealId: params.dealId,
+				hasCardId: !!params.cardId,
+				hasPhone: !!params.phone,
+				hasSbpMemberId: !!params.sbpMemberId,
+				finalPayout: params.finalPayout,
+			})
 		
 		response = await fetch(apiUrl, {
 			method: 'POST',

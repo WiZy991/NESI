@@ -85,6 +85,19 @@ export async function POST(req: NextRequest) {
 			allValues: JSON.stringify(body, null, 2),
 		})
 
+		// КРИТИЧЕСКИ ВАЖНО: Проверяем, что вебхук содержит необходимые поля
+		if (!PaymentId) {
+			console.error('❌ [WEBHOOK] КРИТИЧЕСКАЯ ОШИБКА: PaymentId отсутствует в вебхуке!')
+			logger.error('PaymentId отсутствует в вебхуке', { body })
+			return NextResponse.json({ error: 'PaymentId is required' }, { status: 400 })
+		}
+
+		if (!OrderId) {
+			console.error('❌ [WEBHOOK] КРИТИЧЕСКАЯ ОШИБКА: OrderId отсутствует в вебхуке!')
+			logger.error('OrderId отсутствует в вебхуке', { body })
+			return NextResponse.json({ error: 'OrderId is required' }, { status: 400 })
+		}
+
 		// Обрабатываем только успешные платежи (CONFIRMED)
 		if (Status !== 'CONFIRMED') {
 			console.log(
