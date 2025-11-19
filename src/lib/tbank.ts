@@ -160,7 +160,7 @@ export async function createPayment(
 export interface CreateWithdrawalParams {
 	amount: number // Сумма в рублях
 	orderId: string // Уникальный ID заказа
-	dealId: string // ID сделки (обязателен для выплат)
+	dealId?: string // ID сделки (опционально)
 	paymentRecipientId: string // Телефон получателя в формате "+79606747611"
 	cardId?: string // ID привязанной карты (если есть)
 	phone?: string // Телефон для выплаты по СБП
@@ -187,7 +187,11 @@ export async function createWithdrawal(
 		Amount: amountInKopecks,
 		OrderId: params.orderId,
 		PaymentRecipientId: params.paymentRecipientId,
-		DealId: params.dealId,
+	}
+
+	// Добавляем DealId только если он передан
+	if (params.dealId) {
+		requestBody.DealId = params.dealId
 	}
 
 	// Если указана привязанная карта
@@ -205,6 +209,10 @@ export async function createWithdrawal(
 	if (params.finalPayout) {
 		requestBody.FinalPayout = true
 	}
+
+	// URL для нотификаций о статусе выплаты
+	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+	requestBody.NotificationURL = `${baseUrl}/api/wallet/tbank/webhook`
 
 	// Генерируем Token
 	requestBody.Token = generateToken(requestBody)

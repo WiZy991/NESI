@@ -229,13 +229,86 @@ export async function POST(req: NextRequest) {
 				newBalance: updated.balance.toString(),
 			})
 		} else if (operationType === 'withdraw') {
-			// Вывод средств (обычно уже обработан в create-withdrawal, но на всякий случай)
-			logger.info(
-				`✅ Выплата ${amount} ₽ пользователю ${userId} подтверждена`,
-				{
+			// Вывод средств - обрабатываем изменения статуса
+			console.log('💸 [WEBHOOK] Обработка вывода средств:', {
+				userId,
+				paymentId: PaymentId,
+				status: Status,
+				amount,
+			})
+
+			// Ищем транзакцию вывода
+			const withdrawalTx = await prisma.transaction.findFirst({
+				where: {
+					userId: userId,
 					paymentId: PaymentId,
-				}
-			)
+					type: 'withdraw',
+				},
+				orderBy: { createdAt: 'desc' },
+			})
+
+			if (!withdrawalTx) {
+				logger.warn('⚠️ Транзакция вывода не найдена для вебхука', {
+					paymentId: PaymentId,
+					userId,
+				})
+				return NextResponse.json({ ok: true })
+			}
+
+			// Обрабатываем разные статусы
+			if (Status === 'COMPLETED' || Status === 'CONFIRMED') {
+				// Выплата успешна - обновляем статус транзакции
+				await prisma.transaction.update({
+					where: { id: withdrawalTx.id },
+					data: { status: 'completed' },
+				})
+
+				logger.info(
+					`✅ Выплата ${amount} ₽ пользователю ${userId} подтверждена`,
+					{
+						paymentId: PaymentId,
+						transactionId: withdrawalTx.id,
+					}
+				)
+			} else if (
+				Status === 'REJECTED' ||
+				Status === 'CANCELED' ||
+				Status === 'REFUNDED' ||
+				Status === 'FAILED'
+			) {
+				// Выплата отклонена - возвращаем средства на баланс
+				await prisma.user.update({
+					where: { id: userId },
+					data: {
+						balance: { increment: amountDecimal.abs() },
+						transactions: {
+							update: {
+								where: { id: withdrawalTx.id },
+								data: {
+									status: 'failed',
+									reason: `${withdrawalTx.reason} (Отклонено Т-Банком: ${Status})`,
+								},
+							},
+						},
+					},
+				})
+
+				logger.warn(
+					`❌ Выплата ${amount} ₽ пользователю ${userId} отклонена. Средства возвращены.`,
+					{
+						paymentId: PaymentId,
+						status: Status,
+						transactionId: withdrawalTx.id,
+					}
+				)
+			} else {
+				// Другие статусы (CHECKED, AUTHORIZED и т.д.) - просто логируем
+				logger.info(`⏳ Выплата ${PaymentId} в статусе ${Status}`, {
+					userId,
+					paymentId: PaymentId,
+					status: Status,
+				})
+			}
 		}
 
 		return NextResponse.json({ ok: true })
