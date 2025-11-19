@@ -99,12 +99,26 @@ export async function POST(req: NextRequest) {
 			note: dealId ? 'DealId получен из ответа Init' : 'DealId будет получен в вебхуке после оплаты',
 		})
 	} catch (error: any) {
-		logger.error('Ошибка создания платежа T-Bank', error, {
-			userId: (await getUserFromRequest(req))?.id,
+		console.error('❌ [CREATE-PAYMENT] Ошибка создания платежа:', {
+			error: error.message,
+			stack: error.stack,
+			name: error.name,
+			userId: (await getUserFromRequest(req).catch(() => null))?.id,
 		})
+		logger.error('Ошибка создания платежа T-Bank', error, {
+			userId: (await getUserFromRequest(req).catch(() => null))?.id,
+		})
+		
+		// Возвращаем более детальную информацию об ошибке
+		const errorMessage = error.message || 'Ошибка создания платежа'
+		const statusCode = error.message?.includes('HTTP ошибка') ? 502 : 500
+		
 		return NextResponse.json(
-			{ error: error.message || 'Ошибка создания платежа' },
-			{ status: 500 }
+			{ 
+				error: errorMessage,
+				details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+			},
+			{ status: statusCode }
 		)
 	}
 }

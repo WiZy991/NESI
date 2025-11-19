@@ -28,21 +28,45 @@ export function generateToken(params: Record<string, any>): string {
 		throw new Error('TBANK_PASSWORD не настроен в переменных окружения')
 	}
 
+	// Подготавливаем параметры для генерации токена
+	const paramsForToken: Record<string, any> = { ...params }
+	
+	// КРИТИЧЕСКИ ВАЖНО: DATA должен быть сериализован в JSON строку
+	// Согласно документации Т-Банка, при формировании токена DATA сериализуется в JSON
+	if (paramsForToken.DATA && typeof paramsForToken.DATA === 'object') {
+		paramsForToken.DATA = JSON.stringify(paramsForToken.DATA)
+	}
+
 	// Добавляем пароль к параметрам
-	const paramsWithPassword = { ...params, Password: password }
+	paramsForToken.Password = password
 
 	// Сортируем ключи и фильтруем пустые значения
-	const sortedKeys = Object.keys(paramsWithPassword)
+	const sortedKeys = Object.keys(paramsForToken)
 		.sort()
 		.filter(
 			key =>
-				paramsWithPassword[key] !== undefined &&
-				paramsWithPassword[key] !== null &&
-				paramsWithPassword[key] !== ''
+				paramsForToken[key] !== undefined &&
+				paramsForToken[key] !== null &&
+				paramsForToken[key] !== ''
 		)
 
 	// Конкатенируем значения
-	const concatenated = sortedKeys.map(key => paramsWithPassword[key]).join('')
+	const concatenated = sortedKeys.map(key => {
+		const value = paramsForToken[key]
+		// Если значение - объект (не DATA, так как DATA уже сериализован), сериализуем его
+		if (typeof value === 'object' && value !== null && key !== 'DATA') {
+			return JSON.stringify(value)
+		}
+		return String(value)
+	}).join('')
+
+	console.log('🔐 [TBANK] Генерация токена:', {
+		sortedKeys,
+		hasDATA: !!params.DATA,
+		dataSerialized: paramsForToken.DATA,
+		concatenatedLength: concatenated.length,
+		note: 'DATA сериализован в JSON строку',
+	})
 
 	// Вычисляем SHA-256
 	return crypto.createHash('sha256').update(concatenated).digest('hex')
