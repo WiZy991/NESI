@@ -9,22 +9,52 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function POST(req: NextRequest) {
 	try {
+		// Логируем входящий запрос (включая заголовки для отладки)
+		const headers = Object.fromEntries(req.headers.entries())
+		console.log('📥 [WEBHOOK] Входящий запрос от T-Bank', {
+			headers,
+			url: req.url,
+			method: req.method,
+		})
+
 		const body = await req.json()
+		console.log('📥 [WEBHOOK] Тело запроса:', JSON.stringify(body, null, 2))
 		logger.info('📥 Вебхук от T-Bank', { body })
 
 		// Проверяем подпись
-		if (!verifyWebhookSignature(body, body.Token)) {
-			logger.error('⚠️ Неверная подпись вебхука T-Bank')
+		const isValidSignature = verifyWebhookSignature(body, body.Token)
+		console.log('🔐 [WEBHOOK] Проверка подписи:', {
+			isValid: isValidSignature,
+			receivedToken: body.Token?.substring(0, 20) + '...',
+		})
+
+		if (!isValidSignature) {
+			console.error('⚠️ [WEBHOOK] Неверная подпись вебхука T-Bank')
+			logger.error('⚠️ Неверная подпись вебхука T-Bank', {
+				body: JSON.stringify(body),
+			})
 			return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
 		}
 
 		const { Status, PaymentId, OrderId, Amount, SpAccumulationId, DealId } =
 			body
 
+		console.log('📊 [WEBHOOK] Параметры платежа:', {
+			Status,
+			PaymentId,
+			OrderId,
+			Amount,
+			SpAccumulationId,
+			DealId,
+		})
+
 		// Обрабатываем только успешные платежи (CONFIRMED)
 		if (Status !== 'CONFIRMED') {
+			console.log(
+				`⏳ [WEBHOOK] Платеж ${PaymentId} в статусе ${Status}, пропускаем`
+			)
 			logger.info(`⏳ Платеж ${PaymentId} в статусе ${Status}, пропускаем`)
-			return NextResponse.json({ ok: true })
+			return NextResponse.json({ ok: true, status: Status })
 		}
 
 		// Определяем тип операции по OrderId
@@ -62,7 +92,31 @@ export async function POST(req: NextRequest) {
 			// Пополнение баланса
 			const finalDealId = DealId || SpAccumulationId
 
-			await prisma.user.update({
+			console.log('💰 [WEBHOOK] Начинаем начисление:', {
+				userId,
+				amount,
+				paymentId: PaymentId,
+				dealId: finalDealId,
+			})
+
+			// Проверяем, существует ли пользователь
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+				select: { id: true, email: true, balance: true },
+			})
+
+			if (!user) {
+				console.error(`❌ [WEBHOOK] Пользователь ${userId} не найден`)
+				logger.error(`❌ Пользователь ${userId} не найден`)
+				return NextResponse.json({ error: 'User not found' }, { status: 404 })
+			}
+
+			console.log('👤 [WEBHOOK] Пользователь найден:', {
+				email: user.email,
+				currentBalance: user.balance.toString(),
+			})
+
+			const updated = await prisma.user.update({
 				where: { id: userId },
 				data: {
 					balance: { increment: amountDecimal },
@@ -79,11 +133,22 @@ export async function POST(req: NextRequest) {
 						},
 					},
 				},
+				select: { balance: true },
+			})
+
+			console.log('✅ [WEBHOOK] Начисление успешно:', {
+				userId,
+				amount,
+				oldBalance: user.balance.toString(),
+				newBalance: updated.balance.toString(),
+				paymentId: PaymentId,
 			})
 
 			logger.info(`✅ Начислено ${amount} ₽ пользователю ${userId}`, {
 				paymentId: PaymentId,
 				dealId: finalDealId,
+				oldBalance: user.balance.toString(),
+				newBalance: updated.balance.toString(),
 			})
 		} else if (operationType === 'withdraw') {
 			// Вывод средств (обычно уже обработан в create-withdrawal, но на всякий случай)

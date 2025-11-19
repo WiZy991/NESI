@@ -236,6 +236,8 @@ export default function ProfilePageContent() {
 	const [depositAmount, setDepositAmount] = useState(1000)
 	const [depositLoading, setDepositLoading] = useState(false)
 	const [depositError, setDepositError] = useState<string | null>(null)
+	const [lastPaymentId, setLastPaymentId] = useState<string | null>(null)
+	const [checkingPayment, setCheckingPayment] = useState(false)
 	const [checkingBadges, setCheckingBadges] = useState(false)
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
@@ -309,7 +311,54 @@ export default function ProfilePageContent() {
 
 	useEffect(() => {
 		fetchProfile()
+		// Восстанавливаем последний PaymentId из localStorage
+		const savedPaymentId = localStorage.getItem('lastTBankPaymentId')
+		if (savedPaymentId) {
+			setLastPaymentId(savedPaymentId)
+		}
 	}, [token])
+
+	// Функция для ручной проверки платежа
+	const handleCheckPayment = async () => {
+		if (!lastPaymentId) {
+			alert('Нет сохраненного ID платежа')
+			return
+		}
+
+		setCheckingPayment(true)
+		try {
+			const res = await fetch('/api/wallet/tbank/check-payment', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ paymentId: lastPaymentId }),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				alert(data.error || 'Ошибка при проверке платежа')
+				return
+			}
+
+			if (data.alreadyProcessed) {
+				alert('Платеж уже обработан ранее')
+			} else if (data.success) {
+				alert(`✅ Средства начислены! Новый баланс: ${data.newBalance} ₽`)
+				await fetchProfile()
+				localStorage.removeItem('lastTBankPaymentId')
+				setLastPaymentId(null)
+			} else {
+				alert(`Платеж в статусе: ${data.status || 'неизвестно'}`)
+			}
+		} catch (err: any) {
+			alert('Ошибка при проверке платежа: ' + err.message)
+		} finally {
+			setCheckingPayment(false)
+		}
+	}
 
 	// Загружаем отзывы только когда открыта вкладка reviews (ленивая загрузка)
 	useEffect(() => {
@@ -436,6 +485,13 @@ export default function ProfilePageContent() {
 			if (!res.ok) {
 				setDepositError(data.error || 'Не удалось создать платеж')
 				return
+			}
+
+			// Сохраняем PaymentId для возможной ручной проверки
+			if (data.paymentId) {
+				setLastPaymentId(data.paymentId)
+				// Сохраняем в localStorage на случай перезагрузки страницы
+				localStorage.setItem('lastTBankPaymentId', data.paymentId)
 			}
 
 			// Перенаправляем на страницу оплаты Т-Банка
@@ -1317,13 +1373,31 @@ export default function ProfilePageContent() {
 								</div>
 
 								{/* Кнопка пополнения */}
-								<div className='mb-4'>
+								<div className='mb-4 space-y-2'>
 									<button
 										onClick={() => setIsDepositModalOpen(true)}
 										className='w-full px-4 py-2 rounded border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition text-sm font-medium'
 									>
 										💳 Пополнить баланс через Т-Банк
 									</button>
+
+									{/* Кнопка проверки платежа (если есть сохраненный PaymentId) */}
+									{lastPaymentId && (
+										<button
+											onClick={handleCheckPayment}
+											disabled={checkingPayment}
+											className='w-full px-4 py-2 rounded border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
+										>
+											{checkingPayment ? (
+												<span className='flex items-center justify-center gap-2'>
+													<span className='w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin' />
+													Проверка...
+												</span>
+											) : (
+												'🔍 Проверить платеж (если деньги не поступили)'
+											)}
+										</button>
+									)}
 								</div>
 
 								<div className='flex gap-2'>
