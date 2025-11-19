@@ -215,21 +215,75 @@ export async function createWithdrawal(
 	requestBody.NotificationURL = `${baseUrl}/api/wallet/tbank/webhook`
 
 	// Генерируем Token
-	requestBody.Token = generateToken(requestBody)
+	try {
+		requestBody.Token = generateToken(requestBody)
+	} catch (error: any) {
+		throw new Error(
+			`Ошибка генерации токена: ${error.message || 'Проверьте настройки TBANK_PASSWORD'}`
+		)
+	}
 
-	const response = await fetch(`${getApiUrl()}/e2c/v2/Init/`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(requestBody),
-	})
+	let response: Response
+	try {
+		const apiUrl = `${getApiUrl()}/e2c/v2/Init/`
+		console.log('📤 [TBANK] Создание выплаты:', {
+			url: apiUrl,
+			orderId: params.orderId,
+			amount: amountInKopecks,
+			hasCardId: !!params.cardId,
+			hasPhone: !!params.phone,
+			hasSbpMemberId: !!params.sbpMemberId,
+		})
+		
+		response = await fetch(apiUrl, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(requestBody),
+		})
+	} catch (error: any) {
+		console.error('❌ [TBANK] Ошибка сети:', error)
+		throw new Error(
+			`Ошибка сети при создании выплаты: ${error.message || 'Не удалось подключиться к API Т-Банка'}`
+		)
+	}
 
-	const data = await response.json()
+	if (!response.ok) {
+		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
+		console.error('❌ [TBANK] HTTP ошибка:', {
+			status: response.status,
+			statusText: response.statusText,
+			body: errorText,
+		})
+		throw new Error(
+			`Ошибка HTTP ${response.status} при создании выплаты: ${errorText}`
+		)
+	}
+
+	let data: PaymentResponse
+	try {
+		data = await response.json()
+		console.log('📥 [TBANK] Ответ от API:', {
+			success: data.Success,
+			errorCode: data.ErrorCode,
+			message: data.Message,
+			paymentId: data.PaymentId,
+		})
+	} catch (error: any) {
+		console.error('❌ [TBANK] Ошибка парсинга JSON:', error)
+		throw new Error(
+			`Ошибка парсинга ответа от Т-Банка: ${error.message || 'Некорректный формат ответа'}`
+		)
+	}
 
 	if (!data.Success && data.ErrorCode !== '0') {
+		console.error('❌ [TBANK] Ошибка от API:', {
+			errorCode: data.ErrorCode,
+			message: data.Message,
+		})
 		throw new Error(
-			data.Message || `Ошибка создания выплаты: ${data.ErrorCode}`
+			data.Message || `Ошибка создания выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
 		)
 	}
 
@@ -255,19 +309,40 @@ export async function confirmWithdrawal(
 
 	requestBody.Token = generateToken(requestBody)
 
-	const response = await fetch(`${getApiUrl()}/e2c/v2/Payment/`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(requestBody),
-	})
+	let response: Response
+	try {
+		response = await fetch(`${getApiUrl()}/e2c/v2/Payment/`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(requestBody),
+		})
+	} catch (error: any) {
+		throw new Error(
+			`Ошибка сети при подтверждении выплаты: ${error.message || 'Не удалось подключиться к API Т-Банка'}`
+		)
+	}
 
-	const data = await response.json()
+	if (!response.ok) {
+		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
+		throw new Error(
+			`Ошибка HTTP ${response.status} при подтверждении выплаты: ${errorText}`
+		)
+	}
+
+	let data: PaymentResponse
+	try {
+		data = await response.json()
+	} catch (error: any) {
+		throw new Error(
+			`Ошибка парсинга ответа от Т-Банка: ${error.message || 'Некорректный формат ответа'}`
+		)
+	}
 
 	if (!data.Success && data.ErrorCode !== '0') {
 		throw new Error(
-			data.Message || `Ошибка подтверждения выплаты: ${data.ErrorCode}`
+			data.Message || `Ошибка подтверждения выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
 		)
 	}
 

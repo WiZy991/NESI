@@ -245,21 +245,31 @@ export async function POST(req: NextRequest) {
 		})
 	} catch (error: any) {
 		console.error('❌ [CREATE-WITHDRAWAL] Критическая ошибка:', {
-			message: error.message,
-			stack: error.stack,
-			name: error.name,
+			message: error?.message,
+			stack: error?.stack,
+			name: error?.name,
+			error: String(error),
 		})
 
-		const userId = (await getUserFromRequest(req))?.id
+		let userId: string | undefined
+		try {
+			userId = (await getUserFromRequest(req))?.id
+		} catch (authError) {
+			// Игнорируем ошибки аутентификации при логировании
+		}
+
 		logger.error('Ошибка создания выплаты T-Bank', error, {
 			userId,
 		})
 
+		// Безопасное извлечение сообщения об ошибке
+		const errorMessage = error?.message || error?.toString() || 'Ошибка создания выплаты'
+		
 		return NextResponse.json(
 			{
-				error: error.message || 'Ошибка создания выплаты',
+				error: errorMessage,
 				details:
-					process.env.NODE_ENV === 'development' ? error.stack : undefined,
+					process.env.NODE_ENV === 'development' ? error?.stack : undefined,
 			},
 			{ status: 500 }
 		)
