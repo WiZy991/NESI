@@ -35,6 +35,9 @@ export function generateToken(params: Record<string, any>): string {
 	const sortedKeys = Object.keys(paramsWithPassword)
 		.sort()
 		.filter(key => {
+			// Исключаем Token из вычисления (он не должен участвовать в подписи)
+			if (key === 'Token') return false
+
 			const value = paramsWithPassword[key]
 			// Игнорируем пустые значения, но обрабатываем объекты (включая DATA)
 			return value !== undefined && value !== null && value !== ''
@@ -534,7 +537,9 @@ export function verifyWebhookSignature(
 	receivedToken: string
 ): boolean {
 	try {
-		const expectedToken = generateToken(body)
+		// Исключаем Token из параметров перед вычислением подписи
+		const { Token, ...paramsWithoutToken } = body
+		const expectedToken = generateToken(paramsWithoutToken)
 		return expectedToken === receivedToken
 	} catch {
 		return false
