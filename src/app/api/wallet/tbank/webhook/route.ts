@@ -7,6 +7,23 @@ import { NextRequest, NextResponse } from 'next/server'
 /**
  * Вебхук для обработки нотификаций от Т-Банка
  */
+
+/**
+ * GET запрос для проверки доступности вебхука
+ * Т-Банк может проверять доступность вебхука через GET
+ */
+export async function GET(req: NextRequest) {
+	return NextResponse.json({
+		status: 'ok',
+		message: 'Webhook is available. Use POST method to send notifications.',
+		endpoint: '/api/wallet/tbank/webhook',
+		method: 'POST',
+	}, { status: 200 })
+}
+
+/**
+ * POST запрос для обработки уведомлений от Т-Банка
+ */
 export async function POST(req: NextRequest) {
 	try {
 		// Логируем входящий запрос (включая заголовки для отладки)

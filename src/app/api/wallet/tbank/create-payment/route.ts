@@ -83,12 +83,20 @@ export async function POST(req: NextRequest) {
 			receivedSpAccumulationId: payment.SpAccumulationId,
 		})
 
+		console.log('✅ [CREATE-PAYMENT] Платеж успешно создан:', {
+			paymentId: payment.PaymentId,
+			paymentUrl: payment.PaymentURL,
+			dealId: dealId,
+			note: 'DealId может прийти только в вебхуке после оплаты',
+		})
+
 		return NextResponse.json({
 			success: true,
 			paymentId: payment.PaymentId,
 			paymentUrl: payment.PaymentURL,
 			amount: amountNumber,
 			dealId: dealId,
+			note: dealId ? 'DealId получен из ответа Init' : 'DealId будет получен в вебхуке после оплаты',
 		})
 	} catch (error: any) {
 		logger.error('Ошибка создания платежа T-Bank', error, {
