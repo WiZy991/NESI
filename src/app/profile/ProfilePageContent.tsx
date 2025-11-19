@@ -5,6 +5,7 @@ import BadgesModal from '@/components/BadgesModal'
 import EditProfileModal from '@/components/EditProfileModal'
 import { LevelBadge } from '@/components/LevelBadge'
 import { ProfileBackgroundSelector } from '@/components/ProfileBackgroundSelector'
+import WithdrawalForm from '@/components/WithdrawalForm'
 import { useUser } from '@/context/UserContext'
 import { getBackgroundById } from '@/lib/level/profileBackgrounds'
 import { getLevelVisuals } from '@/lib/level/rewards'
@@ -242,6 +243,9 @@ export default function ProfilePageContent() {
 	const [checkingPayment, setCheckingPayment] = useState(false)
 	const [manualPaymentId, setManualPaymentId] = useState('')
 	const [showManualCheck, setShowManualCheck] = useState(false)
+
+	// Состояние для модального окна вывода средств
+	const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
 	const [checkingBadges, setCheckingBadges] = useState(false)
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
@@ -1418,165 +1422,72 @@ export default function ProfilePageContent() {
 										)}
 								</div>
 
-								{/* Кнопка пополнения */}
-								<div className='mb-4 space-y-2'>
+								{/* Кнопки управления */}
+								<div className='mb-4 grid grid-cols-2 gap-2'>
 									<button
 										onClick={() => setIsDepositModalOpen(true)}
-										className='w-full px-4 py-2 rounded border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition text-sm font-medium'
+										className='px-4 py-3 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition text-sm font-medium'
 									>
-										💳 Пополнить баланс через Т-Банк
+										💳 Пополнить
 									</button>
-
-									{/* Кнопка проверки платежа */}
-									<div className='space-y-2'>
-										{lastPaymentId && (
-											<button
-												onClick={() => handleCheckPayment()}
-												disabled={checkingPayment}
-												className='w-full px-4 py-2 rounded border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
-											>
-												{checkingPayment ? (
-													<span className='flex items-center justify-center gap-2'>
-														<span className='w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin' />
-														Проверка...
-													</span>
-												) : (
-													'🔍 Проверить платеж (если деньги не поступили)'
-												)}
-											</button>
-										)}
-
-										{/* Кнопка для ручного ввода PaymentId */}
-										<button
-											onClick={() => setShowManualCheck(!showManualCheck)}
-											className='w-full px-4 py-2 rounded border border-gray-500 text-gray-400 hover:bg-gray-800 transition text-xs'
-										>
-											{showManualCheck
-												? '✕ Скрыть'
-												: '🔑 Ввести PaymentId вручную'}
-										</button>
-
-										{showManualCheck && (
-											<div className='space-y-2 p-3 bg-black/60 rounded border border-gray-600'>
-												<input
-													type='text'
-													value={manualPaymentId}
-													onChange={e => setManualPaymentId(e.target.value)}
-													placeholder='Введите PaymentId из Т-Банка'
-													className='w-full bg-black/60 border border-gray-500 text-white p-2 rounded text-sm'
-												/>
-												<button
-													onClick={() =>
-														handleCheckPayment(manualPaymentId.trim())
-													}
-													disabled={!manualPaymentId.trim() || checkingPayment}
-													className='w-full px-4 py-2 rounded bg-yellow-600 hover:bg-yellow-500 text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
-												>
-													Проверить
-												</button>
-											</div>
-										)}
-									</div>
+									<button
+										onClick={() => setIsWithdrawModalOpen(true)}
+										className='px-4 py-3 rounded-lg border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition text-sm font-medium'
+									>
+										💸 Вывести
+									</button>
 								</div>
 
-								<div className='space-y-3'>
-									{/* Выбор способа выплаты */}
-									<div>
-										<label className='block text-sm text-gray-300 mb-2'>
-											Способ выплаты
-										</label>
-										<div className='flex gap-2'>
-											<button
-												type='button'
-												onClick={() => {
-													setWithdrawMethod('sbp')
-													setWithdrawError(null)
-												}}
-												className={`flex-1 px-4 py-2 rounded border transition text-sm ${
-													withdrawMethod === 'sbp'
-														? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
-														: 'border-gray-600 text-gray-400 hover:border-gray-500'
-												}`}
-											>
-												💳 СБП (на телефон)
-											</button>
-											<button
-												type='button'
-												onClick={() => {
-													setWithdrawMethod('card')
-													setWithdrawError(null)
-												}}
-												disabled
-												className={`flex-1 px-4 py-2 rounded border transition text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
-													withdrawMethod === 'card'
-														? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
-														: 'border-gray-600 text-gray-400'
-												}`}
-												title='Вывод на карту временно недоступен'
-											>
-												💳 На карту (скоро)
-											</button>
-										</div>
-									</div>
-
-									{/* Поле для телефона (если выбран СБП) */}
-									{withdrawMethod === 'sbp' && (
-										<div>
-											<label className='block text-sm text-gray-300 mb-2'>
-												Номер телефона для выплаты
-											</label>
-											<input
-												type='tel'
-												value={withdrawPhone}
-												onChange={e => {
-													setWithdrawPhone(e.target.value)
-													if (withdrawError) setWithdrawError(null)
-												}}
-												placeholder='+7XXXXXXXXXX'
-												className='w-full bg-black/60 border border-emerald-500/30 text-white p-3 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400'
-											/>
-											<p className='text-xs text-gray-400 mt-1'>
-												Введите номер телефона в формате +7XXXXXXXXXX (11 цифр)
-											</p>
-										</div>
-									)}
-
-									{/* Сумма и кнопка вывода */}
-									<div className='flex gap-2'>
-										<input
-											type='number'
-											value={amount}
-											onChange={e => {
-												const value = parseInt(e.target.value) || 0
-												setAmount(value)
-												if (withdrawError) setWithdrawError(null)
-											}}
-											className='flex-1 bg-black/60 border border-emerald-500/30 text-white p-3 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400'
-											placeholder='100'
-											min={100}
-										/>
+								{/* Кнопка проверки платежа */}
+								<div className='space-y-2'>
+									{lastPaymentId && (
 										<button
-											onClick={handleWithdraw}
-											disabled={withdrawLoading}
-											className='px-4 py-2 rounded border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap'
+											onClick={() => handleCheckPayment()}
+											disabled={checkingPayment}
+											className='w-full px-4 py-2 rounded border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
 										>
-											{withdrawLoading ? (
-												<span className='flex items-center gap-2'>
-													<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
-													Обработка...
+											{checkingPayment ? (
+												<span className='flex items-center justify-center gap-2'>
+													<span className='w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin' />
+													Проверка...
 												</span>
 											) : (
-												'Вывести'
+												'🔍 Проверить платеж (если деньги не поступили)'
 											)}
 										</button>
-									</div>
+									)}
+
+									{/* Кнопка для ручного ввода PaymentId */}
+									<button
+										onClick={() => setShowManualCheck(!showManualCheck)}
+										className='w-full px-4 py-2 rounded border border-gray-500 text-gray-400 hover:bg-gray-800 transition text-xs'
+									>
+										{showManualCheck
+											? '✕ Скрыть'
+											: '🔑 Ввести PaymentId вручную'}
+									</button>
+
+									{showManualCheck && (
+										<div className='space-y-2 p-3 bg-black/60 rounded border border-gray-600'>
+											<input
+												type='text'
+												value={manualPaymentId}
+												onChange={e => setManualPaymentId(e.target.value)}
+												placeholder='Введите PaymentId из Т-Банка'
+												className='w-full bg-black/60 border border-gray-500 text-white p-2 rounded text-sm'
+											/>
+											<button
+												onClick={() =>
+													handleCheckPayment(manualPaymentId.trim())
+												}
+												disabled={!manualPaymentId.trim() || checkingPayment}
+												className='w-full px-4 py-2 rounded bg-yellow-600 hover:bg-yellow-500 text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
+											>
+												Проверить
+											</button>
+										</div>
+									)}
 								</div>
-								{withdrawError && (
-									<div className='mt-3 bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
-										<span className='font-semibold'>⚠️ Ошибка:</span>{' '}
-										{withdrawError}
-									</div>
-								)}
 							</div>
 
 							{/* История транзакций */}
@@ -1731,6 +1642,34 @@ export default function ProfilePageContent() {
 								</button>
 							</div>
 						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Модальное окно вывода средств */}
+			{isWithdrawModalOpen && (
+				<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4'>
+					<div className='bg-[#001410] border border-emerald-500/40 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto'>
+						<div className='flex justify-between items-center mb-4'>
+							<h3 className='text-xl font-bold text-emerald-400'>
+								Вывод средств
+							</h3>
+							<button
+								onClick={() => setIsWithdrawModalOpen(false)}
+								className='text-gray-400 hover:text-white transition text-2xl'
+							>
+								×
+							</button>
+						</div>
+						<WithdrawalForm
+							balance={Number(profile.balance ?? 0)}
+							frozenBalance={Number(profile.frozenBalance ?? 0)}
+							token={token || ''}
+							onSuccess={() => {
+								setIsWithdrawModalOpen(false)
+								fetchProfile()
+							}}
+						/>
 					</div>
 				</div>
 			)}
