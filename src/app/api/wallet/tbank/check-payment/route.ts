@@ -78,7 +78,8 @@ export async function POST(req: NextRequest) {
 				)
 			}
 
-			const finalDealId = paymentStatus.SpAccumulationId || null
+			const finalDealId =
+				paymentStatus.SpAccumulationId || paymentStatus.DealId || null
 
 			console.log('💰 [CHECK-PAYMENT] Начисляем средства:', {
 				userId,

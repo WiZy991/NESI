@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
 
 		// Если DealId не передан, ищем последний активный DealId из транзакций пополнения
 		if (!finalDealId) {
+			// Сначала ищем транзакцию с DealId
 			const lastDeposit = await prisma.transaction.findFirst({
 				where: {
 					userId: user.id,
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
 					status: 'completed',
 				},
 				orderBy: { createdAt: 'desc' },
-				select: { dealId: true },
+				select: { dealId: true, paymentId: true },
 			})
 
 			if (lastDeposit?.dealId) {
@@ -115,15 +116,92 @@ export async function POST(req: NextRequest) {
 				logger.info('Найден DealId из последнего пополнения', {
 					userId: user.id,
 					dealId: finalDealId,
+					paymentId: lastDeposit.paymentId,
 				})
 			} else {
-				return NextResponse.json(
-					{
-						error:
-							'Для вывода средств необходимо сначала пополнить баланс. Создайте сделку через пополнение.',
+				// Если DealId не найден, пытаемся получить его из последнего платежа через API
+				const lastDepositTx = await prisma.transaction.findFirst({
+					where: {
+						userId: user.id,
+						type: 'deposit',
+						status: 'completed',
+						paymentId: { not: null },
 					},
-					{ status: 400 }
-				)
+					orderBy: { createdAt: 'desc' },
+					select: { paymentId: true },
+				})
+
+				if (lastDepositTx?.paymentId) {
+					try {
+						const { checkPaymentStatus } = await import('@/lib/tbank')
+						const paymentStatus = await checkPaymentStatus(
+							lastDepositTx.paymentId
+						)
+
+						if (
+							paymentStatus.Success &&
+							(paymentStatus.SpAccumulationId || paymentStatus.DealId)
+						) {
+							finalDealId =
+								paymentStatus.SpAccumulationId || paymentStatus.DealId || null
+
+							// Обновляем транзакцию с DealId
+							if (finalDealId) {
+								await prisma.transaction.updateMany({
+									where: {
+										paymentId: lastDepositTx.paymentId,
+										userId: user.id,
+									},
+									data: {
+										dealId: finalDealId,
+									},
+								})
+
+								logger.info('DealId получен из API и сохранен', {
+									userId: user.id,
+									dealId: finalDealId,
+									paymentId: lastDepositTx.paymentId,
+								})
+							}
+						}
+					} catch (error) {
+						logger.error('Ошибка получения DealId из API', error)
+					}
+				}
+
+				if (!finalDealId) {
+					// Проверяем, есть ли вообще транзакции пополнения
+					const anyDeposit = await prisma.transaction.findFirst({
+						where: {
+							userId: user.id,
+							type: 'deposit',
+							status: 'completed',
+						},
+						select: { id: true, paymentId: true, dealId: true },
+					})
+
+					if (!anyDeposit) {
+						return NextResponse.json(
+							{
+								error:
+									'Для вывода средств необходимо сначала пополнить баланс. Создайте сделку через пополнение.',
+							},
+							{ status: 400 }
+						)
+					} else {
+						// Транзакция есть, но DealId отсутствует
+						return NextResponse.json(
+							{
+								error:
+									'DealId не найден в транзакции пополнения. Попробуйте использовать функцию "Проверить платеж" для обновления данных, или пополните баланс еще раз.',
+								details: `PaymentId последнего пополнения: ${
+									anyDeposit.paymentId || 'не указан'
+								}`,
+							},
+							{ status: 400 }
+						)
+					}
+				}
 			}
 		}
 
