@@ -160,7 +160,7 @@ export async function createPayment(
 export interface CreateWithdrawalParams {
 	amount: number // Сумма в рублях
 	orderId: string // Уникальный ID заказа
-	dealId?: string // ID сделки (опционально)
+	dealId: string // ID сделки (ОБЯЗАТЕЛЕН для мультирасчетов)
 	paymentRecipientId: string // Телефон получателя в формате "+79606747611"
 	cardId?: string // ID привязанной карты (если есть)
 	phone?: string // Телефон для выплаты по СБП
@@ -189,10 +189,11 @@ export async function createWithdrawal(
 		PaymentRecipientId: params.paymentRecipientId,
 	}
 
-	// Добавляем DealId только если он передан
-	if (params.dealId) {
-		requestBody.DealId = params.dealId
+	// DealId ОБЯЗАТЕЛЕН для выплат в рамках мультирасчетов
+	if (!params.dealId) {
+		throw new Error('DealId обязателен для выплат в рамках мультирасчетов')
 	}
+	requestBody.DealId = params.dealId
 
 	// Если указана привязанная карта
 	if (params.cardId) {

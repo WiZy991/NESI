@@ -114,8 +114,34 @@ export async function POST(req: NextRequest) {
 		// Создаем уникальный ID заказа
 		const orderId = `withdraw_${user.id}_${Date.now()}`
 
-		// Используем переданный DealId, если он есть (опционально)
-		const finalDealId = dealId || undefined
+		// Для выплат в рамках мультирасчетов DealId ОБЯЗАТЕЛЕН
+		// Ищем последний DealId из транзакций пополнения пользователя
+		let finalDealId = dealId
+		
+		if (!finalDealId) {
+			// Ищем последнюю транзакцию пополнения с DealId
+			const lastDepositTx = await prisma.transaction.findFirst({
+				where: {
+					userId: user.id,
+					type: 'deposit',
+					dealId: { not: null },
+				},
+				orderBy: { createdAt: 'desc' },
+				select: { dealId: true },
+			})
+
+			if (lastDepositTx?.dealId) {
+				finalDealId = lastDepositTx.dealId
+				console.log('📋 [CREATE-WITHDRAWAL] Найден DealId из транзакций:', finalDealId)
+			} else {
+				return NextResponse.json(
+					{
+						error: 'Не найден DealId для выплаты. Необходимо сначала пополнить баланс через Т-Банк.',
+					},
+					{ status: 400 }
+				)
+			}
+		}
 
 		// Получаем телефон пользователя для PaymentRecipientId
 		const paymentRecipientId = user.email || `+7${user.id.slice(0, 10)}`
@@ -182,25 +208,33 @@ export async function POST(req: NextRequest) {
 			throw error
 		}
 
-		// Подтверждаем выплату
-		if (withdrawal.PaymentId) {
+		// Подтверждаем выплату ТОЛЬКО для выплат на карту
+		// Для выплат по СБП метод Payment НЕ требуется (выплата происходит в рамках Init)
+		if (withdrawal.PaymentId && !phone && !sbpMemberId) {
+			// Выплата на карту - требуется подтверждение через Payment
 			try {
 				await confirmWithdrawal(withdrawal.PaymentId)
 				console.log(
-					'✅ [CREATE-WITHDRAWAL] Выплата подтверждена:',
+					'✅ [CREATE-WITHDRAWAL] Выплата на карту подтверждена:',
 					withdrawal.PaymentId
 				)
 			} catch (error: any) {
 				console.error(
-					'❌ [CREATE-WITHDRAWAL] Ошибка подтверждения выплаты:',
+					'❌ [CREATE-WITHDRAWAL] Ошибка подтверждения выплаты на карту:',
 					error
 				)
-				logger.error('Ошибка подтверждения выплаты', error, {
+				logger.error('Ошибка подтверждения выплаты на карту', error, {
 					userId: user.id,
 					paymentId: withdrawal.PaymentId,
 				})
 				// Не прерываем выполнение, так как выплата уже создана
 			}
+		} else if (phone && sbpMemberId) {
+			// Выплата по СБП - Payment не требуется
+			console.log(
+				'✅ [CREATE-WITHDRAWAL] Выплата по СБП создана, Payment не требуется:',
+				withdrawal.PaymentId
+			)
 		}
 
 		// Списываем средства с баланса пользователя
