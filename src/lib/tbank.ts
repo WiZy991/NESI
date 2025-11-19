@@ -34,24 +34,24 @@ export function generateToken(params: Record<string, any>): string {
 	// Сортируем ключи и фильтруем пустые значения
 	const sortedKeys = Object.keys(paramsWithPassword)
 		.sort()
-		.filter(
-			key => {
-				const value = paramsWithPassword[key]
-				// Игнорируем пустые значения, но обрабатываем объекты (включая DATA)
-				return value !== undefined && value !== null && value !== ''
-			}
-		)
+		.filter(key => {
+			const value = paramsWithPassword[key]
+			// Игнорируем пустые значения, но обрабатываем объекты (включая DATA)
+			return value !== undefined && value !== null && value !== ''
+		})
 
 	// Конкатенируем значения
 	// ВАЖНО: Для объектов (включая DATA) нужно сериализовать в JSON БЕЗ пробелов
-	const concatenated = sortedKeys.map(key => {
-		const value = paramsWithPassword[key]
-		if (typeof value === 'object' && value !== null) {
-			// Сериализуем объекты (включая DATA) в JSON без пробелов
-			return JSON.stringify(value)
-		}
-		return String(value)
-	}).join('')
+	const concatenated = sortedKeys
+		.map(key => {
+			const value = paramsWithPassword[key]
+			if (typeof value === 'object' && value !== null) {
+				// Сериализуем объекты (включая DATA) в JSON без пробелов
+				return JSON.stringify(value)
+			}
+			return String(value)
+		})
+		.join('')
 
 	// Вычисляем SHA-256
 	return crypto.createHash('sha256').update(concatenated).digest('hex')
@@ -125,21 +125,17 @@ export async function createPayment(
 		// CreateDealWithType должен быть ВНЕ блока DATA (на верхнем уровне запроса)
 		// Согласно документации: "параметр CreateDealWithType со значением 'NN' (вне блока DATA)"
 		requestBody.CreateDealWithType = 'NN'
-		
-		// StartSpAccumulation должен быть ВНУТРИ блока DATA
-		// Согласно документации: "StartSpAccumulation String Нет Флаг о необходимости создания сделки при выполнении запроса. Вариант заполнения: NN"
-		if (!requestBody.DATA) {
-			requestBody.DATA = {}
-		}
-		requestBody.DATA.StartSpAccumulation = 'NN'
-		
+
 		console.log(
 			'🔧 [TBANK] Создаем сделку:',
-			JSON.stringify({
-				CreateDealWithType: requestBody.CreateDealWithType,
-				DATA_StartSpAccumulation: requestBody.DATA?.StartSpAccumulation,
-				structure: 'CreateDealWithType вне DATA, StartSpAccumulation в DATA',
-			}, null, 2)
+			JSON.stringify(
+				{
+					CreateDealWithType: requestBody.CreateDealWithType,
+					structure: 'CreateDealWithType вне DATA (согласно документации)',
+				},
+				null,
+				2
+			)
 		)
 	}
 
@@ -174,7 +170,9 @@ export async function createPayment(
 	})
 
 	if (!response.ok) {
-		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
+		const errorText = await response
+			.text()
+			.catch(() => 'Не удалось прочитать ответ')
 		console.error('❌ [TBANK] HTTP ошибка при создании платежа:', {
 			status: response.status,
 			statusText: response.statusText,
@@ -220,7 +218,11 @@ export async function createPayment(
  * Создание сделки через createSpDeal
  * Альтернативный способ создания сделки
  */
-export async function createSpDeal(): Promise<{ SpAccumulationId: string; Success: boolean; ErrorCode: string }> {
+export async function createSpDeal(): Promise<{
+	SpAccumulationId: string
+	Success: boolean
+	ErrorCode: string
+}> {
 	const terminalKey = process.env.TBANK_TERMINAL_KEY
 	if (!terminalKey) {
 		throw new Error('TBANK_TERMINAL_KEY не настроен в переменных окружения')
@@ -247,8 +249,12 @@ export async function createSpDeal(): Promise<{ SpAccumulationId: string; Succes
 	})
 
 	if (!response.ok) {
-		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
-		throw new Error(`HTTP ошибка ${response.status} при создании сделки: ${errorText}`)
+		const errorText = await response
+			.text()
+			.catch(() => 'Не удалось прочитать ответ')
+		throw new Error(
+			`HTTP ошибка ${response.status} при создании сделки: ${errorText}`
+		)
 	}
 
 	const data = await response.json()
@@ -333,31 +339,33 @@ export async function createWithdrawal(
 		requestBody.Token = generateToken(requestBody)
 	} catch (error: any) {
 		throw new Error(
-			`Ошибка генерации токена: ${error.message || 'Проверьте настройки TBANK_PASSWORD'}`
+			`Ошибка генерации токена: ${
+				error.message || 'Проверьте настройки TBANK_PASSWORD'
+			}`
 		)
 	}
 
-		console.log('📤 [TBANK] Подготовка запроса на выплату:', {
-			requestBody: JSON.stringify(requestBody, null, 2),
+	console.log('📤 [TBANK] Подготовка запроса на выплату:', {
+		requestBody: JSON.stringify(requestBody, null, 2),
+		dealId: params.dealId,
+		finalPayout: params.finalPayout,
+		note: 'FinalPayout должен быть вне блока DATA (на верхнем уровне)',
+	})
+
+	let response: Response
+	try {
+		const apiUrl = `${getApiUrl()}/e2c/v2/Init/`
+		console.log('📤 [TBANK] Создание выплаты:', {
+			url: apiUrl,
+			orderId: params.orderId,
+			amount: amountInKopecks,
 			dealId: params.dealId,
+			hasCardId: !!params.cardId,
+			hasPhone: !!params.phone,
+			hasSbpMemberId: !!params.sbpMemberId,
 			finalPayout: params.finalPayout,
-			note: 'FinalPayout должен быть вне блока DATA (на верхнем уровне)',
 		})
 
-		let response: Response
-		try {
-			const apiUrl = `${getApiUrl()}/e2c/v2/Init/`
-			console.log('📤 [TBANK] Создание выплаты:', {
-				url: apiUrl,
-				orderId: params.orderId,
-				amount: amountInKopecks,
-				dealId: params.dealId,
-				hasCardId: !!params.cardId,
-				hasPhone: !!params.phone,
-				hasSbpMemberId: !!params.sbpMemberId,
-				finalPayout: params.finalPayout,
-			})
-		
 		response = await fetch(apiUrl, {
 			method: 'POST',
 			headers: {
@@ -368,12 +376,16 @@ export async function createWithdrawal(
 	} catch (error: any) {
 		console.error('❌ [TBANK] Ошибка сети:', error)
 		throw new Error(
-			`Ошибка сети при создании выплаты: ${error.message || 'Не удалось подключиться к API Т-Банка'}`
+			`Ошибка сети при создании выплаты: ${
+				error.message || 'Не удалось подключиться к API Т-Банка'
+			}`
 		)
 	}
 
 	if (!response.ok) {
-		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
+		const errorText = await response
+			.text()
+			.catch(() => 'Не удалось прочитать ответ')
 		console.error('❌ [TBANK] HTTP ошибка:', {
 			status: response.status,
 			statusText: response.statusText,
@@ -396,7 +408,9 @@ export async function createWithdrawal(
 	} catch (error: any) {
 		console.error('❌ [TBANK] Ошибка парсинга JSON:', error)
 		throw new Error(
-			`Ошибка парсинга ответа от Т-Банка: ${error.message || 'Некорректный формат ответа'}`
+			`Ошибка парсинга ответа от Т-Банка: ${
+				error.message || 'Некорректный формат ответа'
+			}`
 		)
 	}
 
@@ -406,7 +420,8 @@ export async function createWithdrawal(
 			message: data.Message,
 		})
 		throw new Error(
-			data.Message || `Ошибка создания выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
+			data.Message ||
+				`Ошибка создания выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
 		)
 	}
 
@@ -443,12 +458,16 @@ export async function confirmWithdrawal(
 		})
 	} catch (error: any) {
 		throw new Error(
-			`Ошибка сети при подтверждении выплаты: ${error.message || 'Не удалось подключиться к API Т-Банка'}`
+			`Ошибка сети при подтверждении выплаты: ${
+				error.message || 'Не удалось подключиться к API Т-Банка'
+			}`
 		)
 	}
 
 	if (!response.ok) {
-		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
+		const errorText = await response
+			.text()
+			.catch(() => 'Не удалось прочитать ответ')
 		throw new Error(
 			`Ошибка HTTP ${response.status} при подтверждении выплаты: ${errorText}`
 		)
@@ -459,13 +478,18 @@ export async function confirmWithdrawal(
 		data = await response.json()
 	} catch (error: any) {
 		throw new Error(
-			`Ошибка парсинга ответа от Т-Банка: ${error.message || 'Некорректный формат ответа'}`
+			`Ошибка парсинга ответа от Т-Банка: ${
+				error.message || 'Некорректный формат ответа'
+			}`
 		)
 	}
 
 	if (!data.Success && data.ErrorCode !== '0') {
 		throw new Error(
-			data.Message || `Ошибка подтверждения выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
+			data.Message ||
+				`Ошибка подтверждения выплаты: ${
+					data.ErrorCode || 'неизвестная ошибка'
+				}`
 		)
 	}
 
