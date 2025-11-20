@@ -328,8 +328,28 @@ export async function createWithdrawal(
 
 	// Если выплата по СБП
 	if (params.phone && params.sbpMemberId) {
+		// ВАЛИДАЦИЯ: Phone должен быть 11 цифр, начинаться с 7
+		// Согласно документации: "Формат: 11 цифр. Пример: 70123456789"
+		const phoneRegex = /^7\d{10}$/
+		if (!phoneRegex.test(params.phone)) {
+			console.error('❌ [TBANK] Некорректный формат телефона:', {
+				phone: params.phone,
+				length: params.phone.length,
+				note: 'Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789',
+			})
+			throw new Error(
+				`Некорректный формат телефона. Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789. Получено: ${params.phone}`
+			)
+		}
+		
 		requestBody.Phone = params.phone
 		requestBody.SbpMemberId = params.sbpMemberId
+		
+		console.log('✅ [TBANK] Телефон для СБП валидирован:', {
+			phone: params.phone,
+			length: params.phone.length,
+			format: '11 цифр, начинается с 7',
+		})
 	}
 
 	// Финальная выплата

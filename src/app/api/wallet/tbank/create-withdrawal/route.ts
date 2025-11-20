@@ -358,10 +358,45 @@ export async function POST(req: NextRequest) {
 		// Создаем выплату в Т-Банке
 		let withdrawal
 		try {
-			// Для СБП Phone должен быть 10 цифр БЕЗ кода страны (+7)
-			const phoneForSbp = phone
-				? phone.replace(/\D/g, '').replace(/^7/, '').slice(-10)
-				: undefined
+		// Для СБП Phone должен быть 11 цифр, начинаться с 7
+		// Согласно документации: "Формат: 11 цифр. Пример: 70123456789"
+		let phoneForSbp: string | undefined = undefined
+		if (phone) {
+			// Убираем все нецифровые символы
+			const cleanPhone = phone.replace(/\D/g, '')
+			
+			// Если номер начинается с 8, заменяем на 7
+			let phoneWith7 = cleanPhone.startsWith('8') 
+				? '7' + cleanPhone.slice(1) 
+				: cleanPhone
+			
+			// Если номер не начинается с 7, добавляем 7 в начало
+			if (!phoneWith7.startsWith('7')) {
+				phoneWith7 = '7' + phoneWith7
+			}
+			
+			// Берем последние 11 цифр (на случай, если номер длиннее)
+			phoneWith7 = phoneWith7.slice(-11)
+			
+			// Проверяем, что получилось 11 цифр и начинается с 7
+			if (phoneWith7.length === 11 && phoneWith7.startsWith('7')) {
+				phoneForSbp = phoneWith7
+			} else {
+				console.error('❌ [CREATE-WITHDRAWAL] Некорректный формат телефона:', {
+					original: phone,
+					cleaned: cleanPhone,
+					formatted: phoneWith7,
+					length: phoneWith7.length,
+					note: 'Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789',
+				})
+				return NextResponse.json(
+					{
+						error: `Некорректный формат телефона. Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789. Получено: ${phone}`,
+					},
+					{ status: 400 }
+				)
+			}
+		}
 
 			withdrawal = await createWithdrawal({
 				amount: amountNumber,
