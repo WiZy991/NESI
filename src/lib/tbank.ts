@@ -67,6 +67,15 @@ export function generateToken(
 		})
 		.join('')
 
+	// Диагностика для E2C (выплаты)
+	if (params.TerminalKey && String(params.TerminalKey).includes('E2C')) {
+		console.log('🔐 [GENERATE-TOKEN] Параметры для подписи E2C:', {
+			sortedKeys,
+			concatenatedLength: concatenated.length,
+			concatenatedPreview: concatenated.substring(0, 200) + '...',
+		})
+	}
+
 	// Вычисляем SHA-256
 	return crypto.createHash('sha256').update(concatenated).digest('hex')
 }
@@ -355,6 +364,12 @@ export async function createWithdrawal(
 	if (!e2cPassword) {
 		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
 	}
+
+	console.log('🔐 [TBANK] Генерация подписи:', {
+		hasE2cPassword: !!e2cPassword,
+		e2cPasswordLength: e2cPassword?.length,
+		parametersForSignature: Object.keys(requestBody).sort(),
+	})
 
 	try {
 		requestBody.Token = generateToken(requestBody, e2cPassword)
