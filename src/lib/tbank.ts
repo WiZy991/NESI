@@ -343,7 +343,7 @@ export async function createWithdrawal(
 	// Если выплата по СБП - дополнительно добавляем Phone + SbpMemberId
 	if (params.phone && params.sbpMemberId) {
 		requestBody.Phone = params.phone
-		requestBody.SbpMemberId = params.sbpMemberId
+		requestBody.SbpMemberId = Number(params.sbpMemberId) // Number согласно документации (стр. 1083)
 	}
 	// Если выплата на карту - добавляем CardId
 	else if (params.cardId) {
