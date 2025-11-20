@@ -14,7 +14,7 @@ const requestBody = {
 	PaymentRecipientId: '79662765973',
 	Phone: '79662765973',
 	SbpMemberId: '100000000004',
-	FinalPayout: true,
+	FinalPayout: 'true', // Строка, а не boolean (согласно документации A2C_V2 стр. 903)
 	NotificationURL: 'https://nesi.su/api/wallet/tbank/webhook',
 }
 

@@ -352,7 +352,7 @@ export async function createWithdrawal(
 
 	// Финальная выплата
 	if (params.finalPayout) {
-		requestBody.FinalPayout = true
+		requestBody.FinalPayout = 'true' // Строка, а не boolean (согласно документации A2C_V2 стр. 903)
 	}
 
 	// URL для нотификаций о статусе выплаты
