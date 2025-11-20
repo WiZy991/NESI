@@ -144,3 +144,4 @@ const redis = new Redis(process.env.REDIS_URL)
 - Подтверждение, что внешние запросы не делаются
 
 
+
