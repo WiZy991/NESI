@@ -331,14 +331,18 @@ export async function POST(req: NextRequest) {
 		const userPhone = phone || user.phone || ''
 		const cleanPhone = userPhone.replace(/\D/g, '')
 
-		// Формируем корректный PaymentRecipientId в формате +7XXXXXXXXXX
+		// Формируем корректный PaymentRecipientId в формате 7XXXXXXXXXX (11 цифр, БЕЗ +)
+		// Согласно документации A2C_V2 стр. 15-16: "PaymentRecipientId": "79066589133"
 		let formattedPhone = ''
-		if (cleanPhone.length >= 10) {
-			// Берем последние 10 цифр и добавляем +7
-			formattedPhone = `+7${cleanPhone.slice(-10)}`
+		if (cleanPhone.length >= 11 && cleanPhone.startsWith('7')) {
+			// Уже есть 11 цифр с '7' в начале
+			formattedPhone = cleanPhone.slice(0, 11)
+		} else if (cleanPhone.length >= 10) {
+			// Берем последние 10 цифр и добавляем '7'
+			formattedPhone = `7${cleanPhone.slice(-10)}`
 		} else {
 			// Если номер недостаточно длинный, используем user.id как fallback
-			formattedPhone = `+7${user.id
+			formattedPhone = `7${user.id
 				.replace(/\D/g, '')
 				.slice(0, 10)
 				.padEnd(10, '0')}`
@@ -358,45 +362,45 @@ export async function POST(req: NextRequest) {
 		// Создаем выплату в Т-Банке
 		let withdrawal
 		try {
-		// Для СБП Phone должен быть 11 цифр, начинаться с 7
-		// Согласно документации: "Формат: 11 цифр. Пример: 70123456789"
-		let phoneForSbp: string | undefined = undefined
-		if (phone) {
-			// Убираем все нецифровые символы
-			const cleanPhone = phone.replace(/\D/g, '')
-			
-			// Если номер начинается с 8, заменяем на 7
-			let phoneWith7 = cleanPhone.startsWith('8') 
-				? '7' + cleanPhone.slice(1) 
-				: cleanPhone
-			
-			// Если номер не начинается с 7, добавляем 7 в начало
-			if (!phoneWith7.startsWith('7')) {
-				phoneWith7 = '7' + phoneWith7
+			// Для СБП Phone должен быть 11 цифр, начинаться с 7
+			// Согласно документации: "Формат: 11 цифр. Пример: 70123456789"
+			let phoneForSbp: string | undefined = undefined
+			if (phone) {
+				// Убираем все нецифровые символы
+				const cleanPhone = phone.replace(/\D/g, '')
+				
+				// Если номер начинается с 8, заменяем на 7
+				let phoneWith7 = cleanPhone.startsWith('8') 
+					? '7' + cleanPhone.slice(1) 
+					: cleanPhone
+				
+				// Если номер не начинается с 7, добавляем 7 в начало
+				if (!phoneWith7.startsWith('7')) {
+					phoneWith7 = '7' + phoneWith7
+				}
+				
+				// Берем последние 11 цифр (на случай, если номер длиннее)
+				phoneWith7 = phoneWith7.slice(-11)
+				
+				// Проверяем, что получилось 11 цифр и начинается с 7
+				if (phoneWith7.length === 11 && phoneWith7.startsWith('7')) {
+					phoneForSbp = phoneWith7
+				} else {
+					console.error('❌ [CREATE-WITHDRAWAL] Некорректный формат телефона:', {
+						original: phone,
+						cleaned: cleanPhone,
+						formatted: phoneWith7,
+						length: phoneWith7.length,
+						note: 'Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789',
+					})
+					return NextResponse.json(
+						{
+							error: `Некорректный формат телефона. Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789. Получено: ${phone}`,
+						},
+						{ status: 400 }
+					)
+				}
 			}
-			
-			// Берем последние 11 цифр (на случай, если номер длиннее)
-			phoneWith7 = phoneWith7.slice(-11)
-			
-			// Проверяем, что получилось 11 цифр и начинается с 7
-			if (phoneWith7.length === 11 && phoneWith7.startsWith('7')) {
-				phoneForSbp = phoneWith7
-			} else {
-				console.error('❌ [CREATE-WITHDRAWAL] Некорректный формат телефона:', {
-					original: phone,
-					cleaned: cleanPhone,
-					formatted: phoneWith7,
-					length: phoneWith7.length,
-					note: 'Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789',
-				})
-				return NextResponse.json(
-					{
-						error: `Некорректный формат телефона. Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789. Получено: ${phone}`,
-					},
-					{ status: 400 }
-				)
-			}
-		}
 
 			withdrawal = await createWithdrawal({
 				amount: amountNumber,
@@ -404,7 +408,7 @@ export async function POST(req: NextRequest) {
 				dealId: finalDealId,
 				paymentRecipientId: formattedPhone,
 				cardId,
-				phone: phoneForSbp,
+				phone: phoneForSbp, // 11 цифр: 7XXXXXXXXXX
 				sbpMemberId,
 				// FinalPayout только если есть DealId
 				finalPayout: finalDealId ? true : false,

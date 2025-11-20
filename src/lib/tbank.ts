@@ -21,17 +21,25 @@ function getApiUrl(): string {
 /**
  * Генерация Token для подписи запроса
  * Алгоритм: SHA-256 от конкатенации отсортированных значений параметров + Password
+ * @param params - параметры запроса
+ * @param password - пароль терминала (по умолчанию TBANK_PASSWORD для EACQ, для E2C передайте TBANK_E2C_PASSWORD)
  */
-export function generateToken(params: Record<string, any>): string {
-	const password = process.env.TBANK_PASSWORD
-	if (!password) {
-		throw new Error('TBANK_PASSWORD не настроен в переменных окружения')
+export function generateToken(
+	params: Record<string, any>,
+	password?: string
+): string {
+	const terminalPassword =
+		password || process.env.TBANK_PASSWORD || process.env.TBANK_E2C_PASSWORD
+	if (!terminalPassword) {
+		throw new Error(
+			'TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения'
+		)
 	}
 
 	// Добавляем пароль к параметрам
 	const paramsWithPassword: Record<string, any> = {
 		...params,
-		Password: password,
+		Password: terminalPassword,
 	}
 
 	// Сортируем ключи и фильтруем пустые значения
@@ -58,6 +66,15 @@ export function generateToken(params: Record<string, any>): string {
 			return String(value)
 		})
 		.join('')
+
+	// Диагностика для E2C (выплаты)
+	if (params.TerminalKey && String(params.TerminalKey).includes('E2C')) {
+		console.log('🔐 [GENERATE-TOKEN] Параметры для подписи E2C:', {
+			sortedKeys,
+			concatenatedLength: concatenated.length,
+			concatenatedPreview: concatenated.substring(0, 200) + '...',
+		})
+	}
 
 	// Вычисляем SHA-256
 	return crypto.createHash('sha256').update(concatenated).digest('hex')
@@ -312,7 +329,6 @@ export async function createWithdrawal(
 		TerminalKey: terminalKey,
 		Amount: amountInKopecks,
 		OrderId: params.orderId,
-		PaymentRecipientId: params.paymentRecipientId,
 	}
 
 	// DealId ОБЯЗАТЕЛЕН для выплат в рамках мультирасчетов
@@ -321,12 +337,10 @@ export async function createWithdrawal(
 	}
 	requestBody.DealId = params.dealId
 
-	// Если указана привязанная карта
-	if (params.cardId) {
-		requestBody.CardId = params.cardId
-	}
+	// PaymentRecipientId ВСЕГДА обязателен (согласно документации A2C_V2 стр. 15-16)
+	requestBody.PaymentRecipientId = params.paymentRecipientId
 
-	// Если выплата по СБП
+	// Если выплата по СБП - дополнительно добавляем Phone + SbpMemberId
 	if (params.phone && params.sbpMemberId) {
 		// ВАЛИДАЦИЯ: Phone должен быть 11 цифр, начинаться с 7
 		// Согласно документации: "Формат: 11 цифр. Пример: 70123456789"
@@ -343,31 +357,49 @@ export async function createWithdrawal(
 		}
 		
 		requestBody.Phone = params.phone
-		requestBody.SbpMemberId = params.sbpMemberId
+		// ВАЖНО: SbpMemberId должен быть Number, а не String (согласно документации стр. 1083)
+		requestBody.SbpMemberId = Number(params.sbpMemberId)
 		
 		console.log('✅ [TBANK] Телефон для СБП валидирован:', {
 			phone: params.phone,
 			length: params.phone.length,
 			format: '11 цифр, начинается с 7',
+			sbpMemberId: requestBody.SbpMemberId,
+			sbpMemberIdType: typeof requestBody.SbpMemberId,
 		})
+	}
+	// Если выплата на карту - добавляем CardId
+	else if (params.cardId) {
+		requestBody.CardId = params.cardId
 	}
 
 	// Финальная выплата
 	if (params.finalPayout) {
-		requestBody.FinalPayout = true
+		requestBody.FinalPayout = 'true' // Строка, а не boolean (согласно документации A2C_V2 стр. 903)
 	}
 
 	// URL для нотификаций о статусе выплаты
 	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 	requestBody.NotificationURL = `${baseUrl}/api/wallet/tbank/webhook`
 
-	// Генерируем Token
+	// Генерируем Token с паролем E2C терминала
+	const e2cPassword = process.env.TBANK_E2C_PASSWORD
+	if (!e2cPassword) {
+		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
+	}
+
+	console.log('🔐 [TBANK] Генерация подписи:', {
+		hasE2cPassword: !!e2cPassword,
+		e2cPasswordLength: e2cPassword?.length,
+		parametersForSignature: Object.keys(requestBody).sort(),
+	})
+
 	try {
-		requestBody.Token = generateToken(requestBody)
+		requestBody.Token = generateToken(requestBody, e2cPassword)
 	} catch (error: any) {
 		throw new Error(
 			`Ошибка генерации токена: ${
-				error.message || 'Проверьте настройки TBANK_PASSWORD'
+				error.message || 'Проверьте настройки TBANK_E2C_PASSWORD'
 			}`
 		)
 	}
@@ -472,7 +504,13 @@ export async function confirmWithdrawal(
 		PaymentId: paymentId,
 	}
 
-	requestBody.Token = generateToken(requestBody)
+	// Генерируем Token с паролем E2C терминала
+	const e2cPassword = process.env.TBANK_E2C_PASSWORD
+	if (!e2cPassword) {
+		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
+	}
+
+	requestBody.Token = generateToken(requestBody, e2cPassword)
 
 	let response: Response
 	try {
