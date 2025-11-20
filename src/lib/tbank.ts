@@ -56,23 +56,43 @@ export function generateToken(
 
 	// Конкатенируем значения
 	// ВАЖНО: Для объектов (включая DATA) нужно сериализовать в JSON БЕЗ пробелов
+	// ВАЖНО: Все значения должны быть преобразованы в строки БЕЗ дополнительных кавычек
 	const concatenated = sortedKeys
 		.map(key => {
 			const value = paramsWithPassword[key]
+			
+			// Диагностика для важных параметров
+			if (key === 'FinalPayout') {
+				console.log('🔐 [GENERATE-TOKEN] FinalPayout:', {
+					value,
+					typeof: typeof value,
+					stringValue: String(value),
+				})
+			}
+			
 			if (typeof value === 'object' && value !== null) {
 				// Сериализуем объекты (включая DATA) в JSON без пробелов
 				return JSON.stringify(value)
 			}
+			// Преобразуем все остальные значения в строки
+			// ВАЖНО: String("true") вернет "true", но мы хотим без кавычек в строке подписи
 			return String(value)
 		})
 		.join('')
 
 	// Диагностика для E2C (выплаты)
 	if (params.TerminalKey && String(params.TerminalKey).includes('E2C')) {
+		const finalPayoutValue = paramsWithPassword.FinalPayout
 		console.log('🔐 [GENERATE-TOKEN] Параметры для подписи E2C:', {
 			sortedKeys,
+			finalPayout: {
+				value: finalPayoutValue,
+				typeof: typeof finalPayoutValue,
+				stringValue: String(finalPayoutValue),
+			},
 			concatenatedLength: concatenated.length,
 			concatenatedPreview: concatenated.substring(0, 200) + '...',
+			fullConcatenated: concatenated,
 		})
 	}
 
@@ -357,8 +377,11 @@ export async function createWithdrawal(
 		}
 		
 		requestBody.Phone = params.phone
-		// ВАЖНО: SbpMemberId должен быть Number, а не String (согласно документации стр. 1083)
-		requestBody.SbpMemberId = Number(params.sbpMemberId)
+		// ПРОТИВОРЕЧИЕ В ДОКУМЕНТАЦИИ:
+		// - В таблице параметров (стр. 565): SbpMemberId Number
+		// - В примере запроса (стр. 902): "SbpMemberId": "100000000004" (строка)
+		// Пробуем передавать как СТРОКУ, как в примере запроса
+		requestBody.SbpMemberId = String(params.sbpMemberId)
 		
 		console.log('✅ [TBANK] Телефон для СБП валидирован:', {
 			phone: params.phone,
@@ -366,6 +389,7 @@ export async function createWithdrawal(
 			format: '11 цифр, начинается с 7',
 			sbpMemberId: requestBody.SbpMemberId,
 			sbpMemberIdType: typeof requestBody.SbpMemberId,
+			note: 'SbpMemberId передается как строка (согласно примеру запроса стр. 902)',
 		})
 	}
 	// Если выплата на карту - добавляем CardId
@@ -392,6 +416,17 @@ export async function createWithdrawal(
 		hasE2cPassword: !!e2cPassword,
 		e2cPasswordLength: e2cPassword?.length,
 		parametersForSignature: Object.keys(requestBody).sort(),
+		finalPayout: {
+			value: requestBody.FinalPayout,
+			typeof: typeof requestBody.FinalPayout,
+			isString: typeof requestBody.FinalPayout === 'string',
+			isBoolean: typeof requestBody.FinalPayout === 'boolean',
+		},
+		sbpMemberId: {
+			value: requestBody.SbpMemberId,
+			typeof: typeof requestBody.SbpMemberId,
+			isNumber: typeof requestBody.SbpMemberId === 'number',
+		},
 	})
 
 	try {
