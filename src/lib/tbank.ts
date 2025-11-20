@@ -328,20 +328,17 @@ export async function createWithdrawal(
 	}
 	requestBody.DealId = params.dealId
 
-	// Если выплата по СБП - используем Phone + SbpMemberId
-	// PaymentRecipientId НЕ НУЖЕН для СБП!
+	// PaymentRecipientId ВСЕГДА обязателен (согласно документации A2C_V2 стр. 15-16)
+	requestBody.PaymentRecipientId = params.paymentRecipientId
+
+	// Если выплата по СБП - дополнительно добавляем Phone + SbpMemberId
 	if (params.phone && params.sbpMemberId) {
 		requestBody.Phone = params.phone
 		requestBody.SbpMemberId = params.sbpMemberId
 	}
-	// Если выплата на карту - используем CardId + PaymentRecipientId
+	// Если выплата на карту - добавляем CardId
 	else if (params.cardId) {
 		requestBody.CardId = params.cardId
-		requestBody.PaymentRecipientId = params.paymentRecipientId
-	}
-	// Если нет ни СБП, ни карты - добавляем PaymentRecipientId как fallback
-	else {
-		requestBody.PaymentRecipientId = params.paymentRecipientId
 	}
 
 	// Финальная выплата

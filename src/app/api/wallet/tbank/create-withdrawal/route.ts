@@ -331,14 +331,18 @@ export async function POST(req: NextRequest) {
 		const userPhone = phone || user.phone || ''
 		const cleanPhone = userPhone.replace(/\D/g, '')
 
-		// Формируем корректный PaymentRecipientId в формате +7XXXXXXXXXX
+		// Формируем корректный PaymentRecipientId в формате 7XXXXXXXXXX (11 цифр, БЕЗ +)
+		// Согласно документации A2C_V2 стр. 15-16: "PaymentRecipientId": "79066589133"
 		let formattedPhone = ''
-		if (cleanPhone.length >= 10) {
-			// Берем последние 10 цифр и добавляем +7
-			formattedPhone = `+7${cleanPhone.slice(-10)}`
+		if (cleanPhone.length >= 11 && cleanPhone.startsWith('7')) {
+			// Уже есть 11 цифр с '7' в начале
+			formattedPhone = cleanPhone.slice(0, 11)
+		} else if (cleanPhone.length >= 10) {
+			// Берем последние 10 цифр и добавляем '7'
+			formattedPhone = `7${cleanPhone.slice(-10)}`
 		} else {
 			// Если номер недостаточно длинный, используем user.id как fallback
-			formattedPhone = `+7${user.id
+			formattedPhone = `7${user.id
 				.replace(/\D/g, '')
 				.slice(0, 10)
 				.padEnd(10, '0')}`
