@@ -312,7 +312,6 @@ export async function createWithdrawal(
 		TerminalKey: terminalKey,
 		Amount: amountInKopecks,
 		OrderId: params.orderId,
-		PaymentRecipientId: params.paymentRecipientId,
 	}
 
 	// DealId ОБЯЗАТЕЛЕН для выплат в рамках мультирасчетов
@@ -321,15 +320,20 @@ export async function createWithdrawal(
 	}
 	requestBody.DealId = params.dealId
 
-	// Если указана привязанная карта
-	if (params.cardId) {
-		requestBody.CardId = params.cardId
-	}
-
-	// Если выплата по СБП
+	// Если выплата по СБП - используем Phone + SbpMemberId
+	// PaymentRecipientId НЕ НУЖЕН для СБП!
 	if (params.phone && params.sbpMemberId) {
 		requestBody.Phone = params.phone
 		requestBody.SbpMemberId = params.sbpMemberId
+	}
+	// Если выплата на карту - используем CardId + PaymentRecipientId
+	else if (params.cardId) {
+		requestBody.CardId = params.cardId
+		requestBody.PaymentRecipientId = params.paymentRecipientId
+	}
+	// Если нет ни СБП, ни карты - добавляем PaymentRecipientId как fallback
+	else {
+		requestBody.PaymentRecipientId = params.paymentRecipientId
 	}
 
 	// Финальная выплата
