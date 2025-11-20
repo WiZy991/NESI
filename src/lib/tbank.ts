@@ -21,17 +21,25 @@ function getApiUrl(): string {
 /**
  * Генерация Token для подписи запроса
  * Алгоритм: SHA-256 от конкатенации отсортированных значений параметров + Password
+ * @param params - параметры запроса
+ * @param password - пароль терминала (по умолчанию TBANK_PASSWORD для EACQ, для E2C передайте TBANK_E2C_PASSWORD)
  */
-export function generateToken(params: Record<string, any>): string {
-	const password = process.env.TBANK_PASSWORD
-	if (!password) {
-		throw new Error('TBANK_PASSWORD не настроен в переменных окружения')
+export function generateToken(
+	params: Record<string, any>,
+	password?: string
+): string {
+	const terminalPassword =
+		password || process.env.TBANK_PASSWORD || process.env.TBANK_E2C_PASSWORD
+	if (!terminalPassword) {
+		throw new Error(
+			'TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения'
+		)
 	}
 
 	// Добавляем пароль к параметрам
 	const paramsWithPassword: Record<string, any> = {
 		...params,
-		Password: password,
+		Password: terminalPassword,
 	}
 
 	// Сортируем ключи и фильтруем пустые значения
@@ -345,13 +353,18 @@ export async function createWithdrawal(
 	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 	requestBody.NotificationURL = `${baseUrl}/api/wallet/tbank/webhook`
 
-	// Генерируем Token
+	// Генерируем Token с паролем E2C терминала
+	const e2cPassword = process.env.TBANK_E2C_PASSWORD
+	if (!e2cPassword) {
+		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
+	}
+
 	try {
-		requestBody.Token = generateToken(requestBody)
+		requestBody.Token = generateToken(requestBody, e2cPassword)
 	} catch (error: any) {
 		throw new Error(
 			`Ошибка генерации токена: ${
-				error.message || 'Проверьте настройки TBANK_PASSWORD'
+				error.message || 'Проверьте настройки TBANK_E2C_PASSWORD'
 			}`
 		)
 	}
@@ -456,7 +469,13 @@ export async function confirmWithdrawal(
 		PaymentId: paymentId,
 	}
 
-	requestBody.Token = generateToken(requestBody)
+	// Генерируем Token с паролем E2C терминала
+	const e2cPassword = process.env.TBANK_E2C_PASSWORD
+	if (!e2cPassword) {
+		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
+	}
+
+	requestBody.Token = generateToken(requestBody, e2cPassword)
 
 	let response: Response
 	try {
