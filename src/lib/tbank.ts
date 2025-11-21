@@ -347,7 +347,7 @@ export async function createWithdrawal(
 
 	const requestBody: any = {
 		TerminalKey: terminalKey,
-		Amount: amountInKopecks,
+		Amount: amountInKopecks, // Number - сумма в копейках
 		OrderId: params.orderId,
 	}
 
@@ -404,10 +404,34 @@ export async function createWithdrawal(
 			note: 'CardId - идентификатор привязанной карты через AddCard',
 		})
 	} else if (params.cardData) {
-		requestBody.CardData = params.cardData
+		// CardData должен быть зашифрован через RSA и закодирован в Base64
+		// Если передан незашифрованный CardData, пытаемся зашифровать
+		let encryptedCardData = params.cardData
+		
+		// Проверяем, зашифрован ли уже CardData (Base64 строка обычно длиннее)
+		// Если CardData не зашифрован, пытаемся зашифровать через RSA
+		const rsaPublicKey = process.env.TBANK_RSA_PUBLIC_KEY
+		if (rsaPublicKey && !params.cardData.startsWith('-----BEGIN')) {
+			try {
+				encryptedCardData = await encryptCardData(params.cardData, rsaPublicKey)
+				console.log('✅ [TBANK] CardData зашифрован через RSA')
+			} catch (encryptError: any) {
+				console.error('❌ [TBANK] Ошибка шифрования CardData:', encryptError.message)
+				throw new Error(
+					`Ошибка шифрования данных карты: ${encryptError.message}\n\n` +
+					`Убедитесь, что TBANK_RSA_PUBLIC_KEY настроен правильно в переменных окружения.`
+				)
+			}
+		} else if (!rsaPublicKey) {
+			console.warn('⚠️ [TBANK] TBANK_RSA_PUBLIC_KEY не настроен - CardData передается незашифрованным')
+			console.warn('⚠️ [TBANK] Т-Банк может отклонить запрос. Получите RSA ключ в поддержке Т-Банка (acq_help@tbank.ru)')
+		}
+		
+		requestBody.CardData = encryptedCardData
 		console.log('💳 [TBANK] Используются данные карты:', {
 			hasCardData: !!params.cardData,
-			note: 'CardData - данные карты в формате JSON-строки',
+			isEncrypted: encryptedCardData !== params.cardData,
+			note: 'CardData должен быть зашифрован через RSA (X509 RSA 2048) и закодирован в Base64',
 		})
 	}
 
@@ -426,19 +450,12 @@ export async function createWithdrawal(
 		})
 	}
 
-	// URL для нотификаций о статусе выплаты
-	// ВАЖНО: В примере запроса для СБП (стр. 896-908) NotificationURL отсутствует
-	// Возможно, он необязателен для E2C выплат, но мы добавляем его для получения вебхуков
-	// ПРОБЛЕМА: NotificationURL может не участвовать в подписи для E2C
-	// Попробуем добавить NotificationURL ПОСЛЕ генерации токена (не участвует в подписи)
-	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-	const notificationURL = `${baseUrl}/api/wallet/tbank/webhook`
-	
+	// ВАЖНО: Согласно документации и примерам запросов (стр. 896-908, 1742-1749)
+	// NotificationURL НЕ передается в запросах на выплату через e2c/v2/Init
+	// Т-Банк сам отправляет нотификации на URL, указанный в настройках терминала
 	console.log('🔧 [TBANK] Параметры запроса перед генерацией токена:', {
-		hasNotificationURL: false,
-		notificationURL: notificationURL,
-		note: 'NotificationURL НЕ участвует в подписи для E2C (согласно примеру стр. 896-908)',
 		allKeysBeforeToken: Object.keys(requestBody).sort(),
+		note: 'NotificationURL НЕ передается в запросах на выплату (согласно документации)',
 	})
 
 	// Генерируем Token с паролем E2C терминала
@@ -474,9 +491,8 @@ export async function createWithdrawal(
 		)
 	}
 
-	// Добавляем NotificationURL ПОСЛЕ генерации токена (не участвует в подписи)
-	// Это нужно для получения вебхуков, но согласно примеру (стр. 896-908) он не должен быть в подписи
-	requestBody.NotificationURL = notificationURL
+	// ВАЖНО: NotificationURL НЕ передается в запросах на выплату
+	// Т-Банк отправляет нотификации на URL, указанный в настройках терминала в личном кабинете
 
 	console.log('📤 [TBANK] Подготовка запроса на выплату:', {
 		requestBody: JSON.stringify(requestBody, null, 2),
@@ -610,15 +626,16 @@ export async function createWithdrawal(
 		
 		// Обработка ошибок для выплат на карту
 		if (data.Details) {
-			if (data.Details.includes('CardId') && data.Details.includes('привязан')) {
+			if (data.Details.includes('CardId') || data.Details.includes('CardData') || data.Details.includes('привязан')) {
 				errorMessage = `❌ Ошибка при выплате на карту: ${data.Details}\n\n` +
-					`Проблема: CardData требует шифрования через RSA.\n\n` +
+					`Проблема: Для выплат на карту через CardData требуется шифрование через RSA.\n\n` +
 					`Решение:\n` +
-					`• Для выплат на карту нужен открытый ключ RSA от Т-Банка\n` +
-					`• Обратитесь в поддержку Т-Банка (acq_help@tbank.ru) для получения ключа\n` +
-					`• CardData должен быть зашифрован через RSA и закодирован в Base64\n` +
-					`• Альтернатива: сначала привяжите карту через метод AddCard, затем используйте CardId\n\n` +
-					`Временное решение: используйте вывод через СБП (если доступен).`
+					`• Обратитесь в поддержку Т-Банка (acq_help@tbank.ru) для получения RSA ключа\n` +
+					`• Получите открытый ключ RSA от Т-Банка для шифрования CardData\n` +
+					`• CardData должен быть зашифрован через RSA (X509 RSA 2048) и закодирован в Base64\n` +
+					`• Альтернатива: используйте метод AddCard для привязки карты, затем используйте CardId\n\n` +
+					`Важно: Без RSA ключа выплаты на карту через CardData невозможны.\n` +
+					`Пока используйте вывод через СБП (если доступен) или привяжите карту через AddCard.`
 			}
 		}
 		
@@ -875,4 +892,41 @@ export function kopecksToRubles(kopecks: number): number {
  */
 export function rublesToKopecks(rubles: number): number {
 	return Math.round(rubles * 100)
+}
+
+/**
+ * Шифрование CardData через RSA (X509 RSA 2048) и кодирование в Base64
+ * @param cardDataPlain - незашифрованные данные карты в формате "PAN=...;ExpDate=...;CardHolder=...;CVV=..."
+ * @param publicKeyPem - открытый ключ RSA в формате PEM
+ * @returns зашифрованная строка в Base64
+ */
+async function encryptCardData(
+	cardDataPlain: string,
+	publicKeyPem: string
+): Promise<string> {
+	try {
+		// Формируем открытый ключ из PEM строки
+		const publicKey = crypto.createPublicKey({
+			key: publicKeyPem,
+			format: 'pem',
+			type: 'spki',
+		})
+
+		// Шифруем данные через RSA с PKCS1 padding
+		const encrypted = crypto.publicEncrypt(
+			{
+				key: publicKey,
+				padding: crypto.constants.RSA_PKCS1_PADDING,
+			},
+			Buffer.from(cardDataPlain, 'utf8')
+		)
+
+		// Кодируем в Base64
+		return encrypted.toString('base64')
+	} catch (error: any) {
+		throw new Error(
+			`Ошибка шифрования CardData: ${error.message}\n` +
+			`Убедитесь, что TBANK_RSA_PUBLIC_KEY содержит корректный открытый ключ RSA в формате PEM.`
+		)
+	}
 }
