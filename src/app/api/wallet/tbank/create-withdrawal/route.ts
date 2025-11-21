@@ -254,6 +254,21 @@ export async function POST(req: NextRequest) {
 					}
 
 					if (!finalDealId) {
+						// Получаем все транзакции пополнения для диагностики
+						const allDepositTxs = await prisma.transaction.findMany({
+							where: {
+								userId: user.id,
+								type: 'deposit',
+							},
+							orderBy: { createdAt: 'desc' },
+							select: {
+								id: true,
+								dealId: true,
+								paymentId: true,
+								createdAt: true,
+							},
+						})
+
 						// Детальная диагностика для пользователя
 						const diagnosticInfo = {
 							hasDeposits: allDepositTxs.length > 0,
@@ -364,36 +379,18 @@ export async function POST(req: NextRequest) {
 			method: hasCardId || hasCardData ? 'card' : hasSbpData ? 'sbp' : 'unknown',
 		})
 
-		// Проверяем доступность СБП перед выплатой (только для СБП выплат) - ИНФОРМАТИВНО, НЕ БЛОКИРУЕМ
-		// Примечание: GetSbpMembers может вернуть ошибку, но сам e2c/v2/Init может принимать СБП выплаты
-		// Поэтому делаем проверку только для информации, но не блокируем выплату
-		if (phone && sbpMemberId) {
-			try {
-				const { getSbpMembers } = await import('@/lib/tbank')
-				console.log('🔍 [CREATE-WITHDRAWAL] Проверка доступности СБП через GetSbpMembers...')
-				const sbpMembers = await getSbpMembers()
-				
-				if (sbpMembers.Success && sbpMembers.Members && sbpMembers.Members.length > 0) {
-					console.log('✅ [CREATE-WITHDRAWAL] СБП доступен для терминала:', {
-						availableBanks: sbpMembers.Members.length,
-						selectedBank: sbpMemberId,
-						isBankAvailable: sbpMembers.Members.some(
-							m => m.MemberId === String(sbpMemberId)
-						),
-					})
-				} else {
-					console.warn('⚠️ [CREATE-WITHDRAWAL] GetSbpMembers вернул ошибку, но продолжаем попытку выплаты:', {
-						success: sbpMembers.Success,
-						errCode: sbpMembers.ErrCode,
-						message: sbpMembers.Message,
-						note: 'GetSbpMembers может быть недоступен, но e2c/v2/Init может принимать СБП выплаты',
-					})
-					// НЕ блокируем - продолжаем попытку выплаты, т.к. e2c/v2/Init сам проверит доступность СБП
-				}
-			} catch (sbpCheckError: any) {
-				console.warn('⚠️ [CREATE-WITHDRAWAL] Ошибка проверки доступности СБП (не блокируем выплату):', sbpCheckError.message)
-				// Не блокируем выплату - продолжаем попытку, e2c/v2/Init сам проверит доступность
-			}
+		// НЕ проверяем доступность СБП через GetSbpMembers - это может мешать
+		// Полагаемся на проверку самого e2c/v2/Init при попытке выплаты
+		// Если СБП недоступен, Т-Банк вернет ошибку, и мы её обработаем
+
+		// Проверяем, что finalDealId определен
+		if (!finalDealId) {
+			return NextResponse.json(
+				{
+					error: 'DealId не найден. Сначала пополните баланс через Т-Банк.',
+				},
+				{ status: 400 }
+			)
 		}
 
 		// Создаем выплату в Т-Банке
@@ -457,10 +454,28 @@ export async function POST(req: NextRequest) {
 				// Без шифрования Т-Банк не примет данные - нужен открытый ключ от Т-Банка
 				const cardDataPlain = `PAN=${cleanCardNumber};ExpDate=${expDate};CardHolder=${cardHolderName};CVV=${cardCvv || ''}`
 				
-				// TODO: Зашифровать через RSA и закодировать в Base64
-				// Для этого нужен открытый ключ от Т-Банка (обратиться в acq_help@tbank.ru)
-				// Пока передаем незашифрованные данные - Т-Банк вернет ошибку
-				// Альтернатива: использовать метод AddCard для привязки карты, затем использовать CardId
+				// Проверяем наличие RSA ключа для шифрования
+				const rsaPublicKey = process.env.TBANK_RSA_PUBLIC_KEY
+				if (!rsaPublicKey) {
+					// БЕЗ RSA ключа CardData НЕЛЬЗЯ передавать - Т-Банк его не примет
+					// Возвращаем понятную ошибку пользователю
+					console.error('❌ [CREATE-WITHDRAWAL] TBANK_RSA_PUBLIC_KEY не настроен - CardData не может быть передан')
+					return NextResponse.json(
+						{
+							error:
+								'❌ Для выплаты на карту через CardData требуется RSA ключ.\n\n' +
+								'Проблема: Без RSA ключа Т-Банк не принимает данные карты.\n\n' +
+								'Решение:\n' +
+								'• Обратитесь в поддержку Т-Банка (acq_help@tbank.ru) для получения RSA ключа\n' +
+								'• Или используйте вывод через СБП (если доступен)\n' +
+								'• Или привяжите карту через метод AddCard (если доступен), затем используйте CardId\n\n' +
+								'Важно: Без RSA ключа выплаты на карту через CardData невозможны.',
+						},
+						{ status: 400 }
+					)
+				}
+				
+				// RSA ключ есть - передаем CardData для шифрования в lib/tbank.ts
 				cardDataString = cardDataPlain
 				
 				console.log('💳 [CREATE-WITHDRAWAL] Сформированы данные карты:', {
@@ -470,8 +485,7 @@ export async function POST(req: NextRequest) {
 					hasHolderName: !!cardHolderName,
 					format: 'PAN=...;ExpDate=...;CardHolder=...;CVV=...',
 					cardDataPreview: cardDataPlain.substring(0, 50) + '...',
-					warning: '⚠️ CardData должен быть зашифрован через RSA и закодирован в Base64. Для получения ключа обратитесь в acq_help@tbank.ru',
-					alternative: 'Альтернатива: используйте метод AddCard для привязки карты, затем CardId',
+					note: 'CardData будет зашифрован через RSA в lib/tbank.ts',
 				})
 			}
 
@@ -523,12 +537,20 @@ export async function POST(req: NextRequest) {
 				userId: user.id,
 				amount: amountNumber,
 			})
-			throw error
+			
+			// Возвращаем ошибку как ответ, а не выбрасываем её снова
+			const errorMessage = error?.message || error?.toString() || 'Ошибка создания выплаты'
+			return NextResponse.json(
+				{
+					error: errorMessage,
+				},
+				{ status: 500 }
+			)
 		}
 
 		// Подтверждаем выплату ТОЛЬКО для выплат на карту
 		// Для выплат по СБП метод Payment НЕ требуется (выплата происходит в рамках Init)
-		if (withdrawal.PaymentId && !phone && !sbpMemberId) {
+		if (withdrawal?.PaymentId && !phone && !sbpMemberId) {
 			// Выплата на карту - требуется подтверждение через Payment
 			try {
 				await confirmWithdrawal(withdrawal.PaymentId)
@@ -547,11 +569,22 @@ export async function POST(req: NextRequest) {
 				})
 				// Не прерываем выполнение, так как выплата уже создана
 			}
-		} else if (phone && sbpMemberId) {
+		} else if (phone && sbpMemberId && withdrawal?.PaymentId) {
 			// Выплата по СБП - Payment не требуется
 			console.log(
 				'✅ [CREATE-WITHDRAWAL] Выплата по СБП создана, Payment не требуется:',
 				withdrawal.PaymentId
+			)
+		}
+
+		// Проверяем, что withdrawal определен и есть PaymentId
+		if (!withdrawal || !withdrawal.PaymentId) {
+			console.error('❌ [CREATE-WITHDRAWAL] withdrawal или PaymentId отсутствует')
+			return NextResponse.json(
+				{
+					error: 'Ошибка создания выплаты: не получен PaymentId от Т-Банка',
+				},
+				{ status: 500 }
 			)
 		}
 
