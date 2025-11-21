@@ -62,22 +62,34 @@ Fail URL: https://nesi.su/profile?payment=failed
 
 ### Firewall
 
-Разрешите входящие запросы от IP Т-Банка:
+Разрешите входящие запросы от IP Т-Банка на порт 443 (HTTPS).
 
-```bash
-# Добавьте в firewall правила для:
+**IP адреса Т-Банка:**
+
+```
 91.194.226.0/23
 91.218.132.0/22
 212.233.80.0/22
 ```
 
-**Для UFW (Ubuntu):**
+**Команды для UFW (Ubuntu):**
 
 ```bash
-sudo ufw allow from 91.194.226.0/23 to any port 443
-sudo ufw allow from 91.218.132.0/22 to any port 443
-sudo ufw allow from 212.233.80.0/22 to any port 443
+# Добавить правила для webhook от Т-Банка
+sudo ufw allow from 91.194.226.0/23 to any port 443 proto tcp comment 'TBank Webhook 1'
+sudo ufw allow from 91.218.132.0/22 to any port 443 proto tcp comment 'TBank Webhook 2'
+sudo ufw allow from 212.233.80.0/22 to any port 443 proto tcp comment 'TBank Webhook 3'
+
+# Перезагрузить firewall
+sudo ufw reload
+
+# Проверить что добавлено
+sudo ufw status numbered | grep TBank
 ```
+
+**Важно:** Эти правила НЕ блокируют остальной трафик, они ДОПОЛНИТЕЛЬНО разрешают IP Т-Банка.
+
+**Подробнее:** См. файлы `НАСТРОЙКА_FIREWALL_UBUNTU.md` и `FIREWALL_КОМАНДЫ.txt`
 
 ---
 

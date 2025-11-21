@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
 				? TBANK_CONFIG.E2C_TERMINAL_PASSWORD
 				: TBANK_CONFIG.TERMINAL_PASSWORD
 
+		// Если это тестовый запрос без Token - возвращаем OK (для проверки доступности)
+		if (!body.Token && (body.test === 'ping' || body.test === 'test')) {
+			logger.info('Тестовый webhook запрос получен', { body })
+			return new Response('OK', { status: 200 })
+		}
+
 		const isValid = verifyTBankToken(body, body.Token, password)
 
 		if (!isValid) {
