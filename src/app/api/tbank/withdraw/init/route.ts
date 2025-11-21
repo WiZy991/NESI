@@ -13,7 +13,8 @@ import {
 	toNumber,
 } from '@/lib/money'
 import prisma from '@/lib/prisma'
-import { TBankPayoutClient } from '@/lib/tbank/client'
+import { TBankClient, TBankPayoutClient } from '@/lib/tbank/client'
+import { TBANK_CONFIG } from '@/lib/tbank/config'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -162,8 +163,11 @@ export async function POST(req: NextRequest) {
 
 		// Инициируем выплату
 		const payoutClient = new TBankPayoutClient()
+		// Генерируем orderId заранее, чтобы использовать его и в API, и в БД
+		const orderId = `PAYOUT_${Date.now()}_${user.id.slice(0, 8)}`
 		const result = await payoutClient.initPayout({
 			amount: amountNumber,
+			orderId,
 			dealId: deal.spAccumulationId,
 			paymentRecipientId: phone,
 			recipientPhone: phone,
@@ -176,6 +180,7 @@ export async function POST(req: NextRequest) {
 				userId: user.id,
 				errorCode: result.ErrorCode,
 				message: result.Message,
+				details: result,
 			})
 
 			return NextResponse.json(
@@ -192,13 +197,13 @@ export async function POST(req: NextRequest) {
 			data: {
 				dealId: deal.id,
 				paymentId: result.PaymentId,
-				orderId: `PAYOUT_${Date.now()}`,
+				orderId,
 				recipientId: user.id,
 				recipientType: phone ? 'phone' : cardId ? 'card' : 'user',
 				amount: new Prisma.Decimal(amountNumber),
 				status: result.Status || 'NEW',
 				isFinal: isFinal || false,
-				terminalKey: payoutClient['terminalKey'],
+				terminalKey: TBANK_CONFIG.E2C_TERMINAL_KEY,
 			},
 		})
 
@@ -228,7 +233,10 @@ export async function POST(req: NextRequest) {
 				'Выплата инициирована. Средства будут переведены после проверки.',
 		})
 	} catch (error) {
-		logger.error('Ошибка инициации вывода', { error })
+		logger.error('Ошибка инициации вывода', {
+			error: error instanceof Error ? error.message : String(error),
+			stack: error instanceof Error ? error.stack : undefined,
+		})
 		return NextResponse.json(
 			{ error: 'Внутренняя ошибка сервера' },
 			{ status: 500 }
