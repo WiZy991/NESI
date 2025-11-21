@@ -429,6 +429,11 @@ export default function ProfilePageContent() {
 		try {
 			// Используем Т-Банк Мультирасчеты
 			if (useTBank) {
+				console.log('💳 Инициализация пополнения баланса:', {
+					amount: depositAmount,
+					phone: depositPhone,
+				})
+
 				const res = await fetch('/api/tbank/deposit/init', {
 					method: 'POST',
 					headers: {
@@ -443,15 +448,27 @@ export default function ProfilePageContent() {
 
 				const data = await res.json()
 
+				console.log('📥 Ответ от сервера:', {
+					ok: res.ok,
+					paymentId: data.paymentId,
+					hasPaymentURL: !!data.paymentURL,
+					error: data.error,
+				})
+
 				if (!res.ok) {
+					console.error('❌ Ошибка инициализации:', data.error)
 					setDepositError(data.error || 'Не удалось инициировать пополнение')
 					return
 				}
 
 				// Перенаправляем на форму оплаты Т-Банка
 				if (data.paymentURL) {
+					console.log('🔗 Перенаправление на страницу оплаты:', data.paymentURL)
 					window.location.href = data.paymentURL
 					return
+				} else {
+					console.error('❌ PaymentURL не получен в ответе')
+					setDepositError('Не получена ссылка для оплаты')
 				}
 			} else {
 				// Старый метод (прямое пополнение)

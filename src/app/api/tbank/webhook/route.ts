@@ -20,7 +20,10 @@ export async function POST(req: NextRequest) {
 			paymentId: body.PaymentId,
 			orderId: body.OrderId,
 			notificationType: body.NotificationType,
+			success: body.Success,
+			amount: body.Amount,
 			hasToken: !!body.Token,
+			timestamp: new Date().toISOString(),
 			fullBody: JSON.stringify(body),
 		})
 
@@ -74,7 +77,13 @@ export async function POST(req: NextRequest) {
 			return new Response('OK', { status: 200 })
 		}
 
-		logger.warn('Платеж/выплата не найдена в БД', { paymentId: PaymentId })
+		logger.warn('⚠️ Платеж/выплата не найдена в БД', {
+			paymentId: PaymentId,
+			status: Status,
+			orderId: body.OrderId,
+			notificationType: body.NotificationType,
+			timestamp: new Date().toISOString(),
+		})
 		return new Response('OK', { status: 200 })
 	} catch (error) {
 		logger.error('Ошибка обработки webhook Т-Банк', { error })
@@ -102,14 +111,18 @@ async function handlePaymentNotification(
 	})
 
 	// Логируем все данные для диагностики
-	logger.info('Обработка платежа в webhook', {
+	logger.info('🔄 Обработка платежа в webhook', {
 		paymentId: payment.paymentId,
+		orderId: payment.orderId,
 		status: Status,
 		success: Success,
 		amount: Amount,
 		dealId: payment.dealId,
 		userId: payment.deal.userId,
 		currentPaymentStatus: payment.status,
+		hasDeal: !!payment.deal,
+		hasUserId: !!payment.deal.userId,
+		timestamp: new Date().toISOString(),
 	})
 
 	// Если платеж подтвержден - начисляем деньги
@@ -130,10 +143,14 @@ async function handlePaymentNotification(
 			? kopecksToRubles(Amount)
 			: toNumber(payment.amount)
 
-		logger.info('Платеж подтвержден, начинаем начисление', {
+		logger.info('✅ Платеж подтвержден, начинаем начисление баланса', {
 			paymentId: payment.paymentId,
+			orderId: payment.orderId,
 			amountRubles,
+			amountKopecks: Amount,
 			userId: payment.deal.userId,
+			dealId: payment.dealId,
+			timestamp: new Date().toISOString(),
 		})
 
 		// Проверяем, не начисляли ли уже баланс (чтобы избежать двойного начисления)
@@ -148,10 +165,17 @@ async function handlePaymentNotification(
 		})
 
 		if (existingTransaction) {
-			logger.warn('Баланс уже был начислен для этого платежа', {
-				paymentId: payment.paymentId,
-				transactionId: existingTransaction.id,
-			})
+			logger.warn(
+				'⚠️ Баланс уже был начислен для этого платежа (пропускаем двойное начисление)',
+				{
+					paymentId: payment.paymentId,
+					orderId: payment.orderId,
+					transactionId: existingTransaction.id,
+					userId: payment.deal.userId,
+					amount: toNumber(existingTransaction.amount),
+					timestamp: new Date().toISOString(),
+				}
+			)
 		} else if (payment.deal.userId) {
 			try {
 				// Начисляем на баланс пользователя

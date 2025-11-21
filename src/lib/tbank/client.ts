@@ -111,6 +111,8 @@ export class TBankClient {
 		paymentRecipientId: string // номер телефона получателя
 		description?: string
 		createDeal?: boolean
+		successURL?: string // URL для возврата после успешной оплаты
+		failURL?: string // URL для возврата после неудачной оплаты
 	}): Promise<{
 		Success: boolean
 		PaymentId?: string
@@ -135,6 +137,14 @@ export class TBankClient {
 			requestParams.CreateDealWithType = 'NN'
 		} else if (params.dealId) {
 			requestParams.DealId = params.dealId
+		}
+
+		// Добавляем URL для возврата после оплаты
+		if (params.successURL) {
+			requestParams.SuccessURL = params.successURL
+		}
+		if (params.failURL) {
+			requestParams.FailURL = params.failURL
 		}
 
 		// Уровень проверки (может потребоваться отдел рисков)

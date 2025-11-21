@@ -42,11 +42,32 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
 		}
 
+		logger.info('🔍 Проверка статуса платежа', {
+			paymentId,
+			userId: user.id,
+			currentStatus: payment.status,
+			dealId: payment.dealId,
+		})
+
 		// Проверяем статус через API Т-Банка
 		const client = new TBankClient()
 		const result = await client.getPaymentState(paymentId)
 
+		logger.info('📊 Результат проверки статуса от Т-Банка', {
+			paymentId,
+			success: result.Success,
+			status: result.Status,
+			amount: result.Amount,
+			errorCode: result.ErrorCode,
+			message: result.Message,
+		})
+
 		if (!result.Success) {
+			logger.error('❌ Ошибка проверки статуса платежа', {
+				paymentId,
+				errorCode: result.ErrorCode,
+				message: result.Message,
+			})
 			return NextResponse.json(
 				{
 					error: result.Message || 'Не удалось проверить статус платежа',
@@ -70,6 +91,13 @@ export async function POST(req: NextRequest) {
 		const isConfirmed =
 			result.Status === 'CONFIRMED' || result.Status === 'AUTHORIZED'
 
+		logger.info('🔎 Проверка необходимости начисления баланса', {
+			paymentId,
+			status: result.Status,
+			isConfirmed,
+			userId: payment.deal.userId,
+		})
+
 		if (isConfirmed) {
 			// Проверяем, не начисляли ли уже баланс
 			const existingTransaction = await prisma.transaction.findFirst({
@@ -80,6 +108,12 @@ export async function POST(req: NextRequest) {
 						contains: payment.paymentId,
 					},
 				},
+			})
+
+			logger.info('💳 Проверка существующих транзакций', {
+				paymentId,
+				hasExistingTransaction: !!existingTransaction,
+				transactionId: existingTransaction?.id,
 			})
 
 			if (!existingTransaction && payment.deal.userId) {
@@ -117,10 +151,15 @@ export async function POST(req: NextRequest) {
 					},
 				})
 
-				logger.info('Баланс начислен вручную после проверки статуса', {
+				logger.info('✅ Баланс успешно начислен после проверки статуса', {
 					userId: payment.deal.userId,
 					amount: amountRubles,
+					amountKopecks: result.Amount,
 					paymentId,
+					orderId: payment.orderId,
+					dealId: payment.dealId,
+					status: result.Status,
+					timestamp: new Date().toISOString(),
 				})
 
 				return NextResponse.json({

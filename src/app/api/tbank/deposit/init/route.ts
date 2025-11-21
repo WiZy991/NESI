@@ -55,6 +55,19 @@ export async function POST(req: NextRequest) {
 		// Создаем клиент
 		const client = new TBankClient()
 
+		// Формируем URL для возврата после оплаты
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+		const successURL = `${appUrl}/payment/return?PaymentId={PaymentId}`
+		const failURL = `${appUrl}/payment/return?PaymentId={PaymentId}&status=failed`
+
+		logger.info('Инициализация пополнения баланса', {
+			userId: user.id,
+			amount: amountNumber,
+			dealId: dealIdToUse,
+			createNewDeal,
+			successURL,
+		})
+
 		// Инициируем платеж
 		const result = await client.initPayment({
 			amount: amountNumber,
@@ -62,6 +75,8 @@ export async function POST(req: NextRequest) {
 			paymentRecipientId,
 			description: `Пополнение баланса пользователя ${user.email}`,
 			createDeal: createNewDeal,
+			successURL,
+			failURL,
 		})
 
 		if (!result.Success || !result.PaymentId) {
@@ -114,11 +129,14 @@ export async function POST(req: NextRequest) {
 			})
 		}
 
-		logger.info('Платеж инициирован', {
+		logger.info('✅ Платеж успешно инициирован', {
 			userId: user.id,
 			paymentId: result.PaymentId,
 			amount: amountNumber,
 			paymentURL: result.PaymentURL,
+			status: result.Status,
+			dealId: deal?.id,
+			orderId: result.OrderId || 'не указан',
 		})
 
 		// Возвращаем URL для оплаты
