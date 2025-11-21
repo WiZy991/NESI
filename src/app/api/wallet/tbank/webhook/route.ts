@@ -122,6 +122,14 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ ok: true, status: Status })
 		}
 
+		console.log('✅ [WEBHOOK] Обрабатываем CONFIRMED платеж:', {
+			PaymentId,
+			OrderId,
+			Amount,
+			dealIdFromWebhook,
+			SpAccumulationId,
+		})
+
 		// Определяем тип операции по OrderId
 		// Формат: deposit_userId_timestamp или withdraw_userId_timestamp
 		const orderParts = OrderId.split('_')

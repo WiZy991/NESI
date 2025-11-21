@@ -465,22 +465,31 @@ export async function POST(req: NextRequest) {
 			let cardDataString: string | undefined = undefined
 			if (hasCardData && !hasCardId) {
 				// Для выплаты на карту через CardData нужны данные карты
+				// Согласно документации (стр. 666): CardData должен быть в формате "ключ=значение" (разделитель ";"),
+				// зашифрован через RSA и закодирован в Base64
+				// Однако, без SDK мы не можем зашифровать. Попробуем передать данные в правильном формате
 				const cleanCardNumber = cardNumber.replace(/\D/g, '')
 				const [expMonth, expYear] = cardExpiry.split('/')
+				const expDate = expYear ? `${expMonth}${expYear}` : expMonth // MMYY
 				
-				cardDataString = JSON.stringify({
-					PAN: cleanCardNumber,
-					ExpDate: expYear ? `${expMonth}${expYear}` : expMonth, // MMYY
-					CVV: cardCvv,
-					CardHolder: cardHolderName,
-				})
+				// Формат CardData: "PAN=...;ExpDate=...;CVV=...;CardHolder=..."
+				// ВАЖНО: CardData должен быть зашифрован через RSA и закодирован в Base64
+				// Без SDK шифрования, скорее всего, Т-Банк не примет незашифрованные данные
+				// Но попробуем передать в правильном формате
+				const cardDataPlain = `PAN=${cleanCardNumber};ExpDate=${expDate};CVV=${cardCvv};CardHolder=${cardHolderName}`
+				
+				// TODO: Зашифровать через RSA и закодировать в Base64
+				// Для этого нужен открытый ключ от Т-Банка (обратиться в acq_help@tbank.ru)
+				// Пока передаем незашифрованные данные - возможно, Т-Банк вернет понятную ошибку
+				cardDataString = cardDataPlain
 				
 				console.log('💳 [CREATE-WITHDRAWAL] Сформированы данные карты:', {
 					cardNumberLength: cleanCardNumber.length,
 					hasExpiry: !!cardExpiry,
 					hasCvv: !!cardCvv,
 					hasHolderName: !!cardHolderName,
-					note: 'CardData будет передан для выплаты на карту',
+					format: 'PAN=...;ExpDate=...;CVV=...;CardHolder=...',
+					warning: '⚠️ CardData должен быть зашифрован через RSA и закодирован в Base64. Для получения ключа обратитесь в acq_help@tbank.ru',
 				})
 			}
 
@@ -489,10 +498,14 @@ export async function POST(req: NextRequest) {
 				orderId,
 				dealId: finalDealId,
 				paymentRecipientId: finalPaymentRecipientId,
-				cardId: finalCardId,
-				cardData: cardDataString, // Данные карты для одноразовой выплаты
-				phone: phoneForSbp, // 11 цифр: 7XXXXXXXXXX (только для СБП)
-				sbpMemberId, // Только для СБП
+				// Передаем cardId только если он есть (привязанная карта)
+				...(finalCardId ? { cardId: finalCardId } : {}),
+				// Передаем cardData только если есть данные карты (незашифрованные данные)
+				...(cardDataString ? { cardData: cardDataString } : {}),
+				// Передаем phone и sbpMemberId только для СБП выплат
+				...(phoneForSbp && sbpMemberId
+					? { phone: phoneForSbp, sbpMemberId }
+					: {}),
 				// НЕ используем FinalPayout для частичных выплат
 				// FinalPayout: true требует, чтобы сумма ТОЧНО совпадала с балансом сделки
 				// Для частичных выплат используем FinalPayout: false (не передаем параметр)
