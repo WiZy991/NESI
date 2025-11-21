@@ -18,7 +18,11 @@ class Logger {
 		return true
 	}
 
-	private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
+	private formatMessage(
+		level: LogLevel,
+		message: string,
+		context?: LogContext
+	): string {
 		const timestamp = new Date().toISOString()
 		const contextStr = context ? ` ${JSON.stringify(context)}` : ''
 		return `[${timestamp}] [${level.toUpperCase()}] ${message}${contextStr}`
@@ -44,14 +48,44 @@ class Logger {
 
 	error(message: string, error?: Error | unknown, context?: LogContext) {
 		if (this.shouldLog('error')) {
-			const errorContext = {
-				...context,
-				...(error instanceof Error
+			// Если второй параметр - это объект контекста (не Error), то это context
+			// Если второй параметр - Error, то это error, а третий - context
+			let errorObj: Error | unknown | undefined
+			let contextObj: LogContext | undefined
+
+			if (error instanceof Error) {
+				// Второй параметр - это Error
+				errorObj = error
+				contextObj = context
+			} else if (error && typeof error === 'object') {
+				// Второй параметр - это context (объект, но не Error)
+				contextObj = error as LogContext
+				errorObj = undefined
+			} else {
+				// Второй параметр - это что-то другое или undefined
+				errorObj = error
+				contextObj = context
+			}
+
+			const errorContext: LogContext = {
+				...(contextObj || {}),
+				...(errorObj instanceof Error
 					? {
-							error: error.message,
-							stack: error.stack,
+							error: errorObj.message,
+							stack: errorObj.stack,
+							errorName: errorObj.name,
 					  }
-					: { error: String(error) }),
+					: errorObj !== undefined
+					? {
+							error:
+								typeof errorObj === 'object' && errorObj !== null
+									? JSON.stringify(
+											errorObj,
+											Object.getOwnPropertyNames(errorObj)
+									  )
+									: String(errorObj),
+					  }
+					: {}),
 			}
 			console.error(this.formatMessage('error', message, errorContext))
 		}
@@ -59,6 +93,3 @@ class Logger {
 }
 
 export const logger = new Logger()
-
-
-

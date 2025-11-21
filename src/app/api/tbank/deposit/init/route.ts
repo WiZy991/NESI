@@ -41,24 +41,29 @@ export async function POST(req: NextRequest) {
 		// Для пополнения баланса используем идентификатор пользователя
 		// Если есть телефон - используем его (в формате +7XXXXXXXXXX), иначе - user.id
 		let paymentRecipientId: string
+		let phoneForData: string | undefined
 
 		// Пробуем использовать телефон из параметров или профиля
 		const userPhone = phone || user.phone
 
 		if (userPhone) {
 			// Приводим к формату +7XXXXXXXXXX
+			let formattedPhone: string
 			if (userPhone.startsWith('+')) {
-				paymentRecipientId = userPhone
+				formattedPhone = userPhone
 			} else if (userPhone.startsWith('7')) {
-				paymentRecipientId = `+${userPhone}`
+				formattedPhone = `+${userPhone}`
 			} else {
 				// Извлекаем только цифры и добавляем +7
 				const digits = userPhone.replace(/\D/g, '')
-				paymentRecipientId = `+7${digits.slice(-10)}` // Берем последние 10 цифр
+				formattedPhone = `+7${digits.slice(-10)}` // Берем последние 10 цифр
 			}
 
 			// Проверяем формат
-			if (!/^\+7\d{10}$/.test(paymentRecipientId)) {
+			if (/^\+7\d{10}$/.test(formattedPhone)) {
+				paymentRecipientId = formattedPhone
+				phoneForData = formattedPhone // Сохраняем для использования в DATA
+			} else {
 				// Если формат неверный, используем идентификатор пользователя
 				paymentRecipientId = `user_${user.id}`
 			}
@@ -121,7 +126,7 @@ export async function POST(req: NextRequest) {
 			successURL,
 			failURL,
 			notificationURL, // URL для получения webhook-уведомлений
-			phone: paymentRecipientId, // Телефон для DATA (уже в формате +7XXXXXXXXXX)
+			phone: phoneForData, // Телефон для DATA (только если есть реальный телефон)
 			email: user.email, // Email для DATA
 		})
 
