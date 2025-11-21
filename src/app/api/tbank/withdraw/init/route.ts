@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
 		})
 
 		if (!result.Success || !result.PaymentId) {
-			logger.error('Ошибка инициации выплаты Т-Банк', {
+			logger.error('Ошибка инициации выплаты Т-Банк', undefined, {
 				userId: user.id,
 				errorCode: result.ErrorCode,
 				message: result.Message,
@@ -260,12 +260,16 @@ export async function POST(req: NextRequest) {
 			errorMessage = String(error)
 		}
 
-		logger.error('Ошибка инициации вывода', {
-			userId: user ? user.id : 'unknown',
-			error: errorMessage,
-			stack: errorStack,
-			details: errorDetails,
-		})
+		logger.error(
+			'Ошибка инициации вывода',
+			error instanceof Error ? error : undefined,
+			{
+				userId: user ? user.id : 'unknown',
+				error: errorMessage,
+				stack: errorStack,
+				details: errorDetails,
+			}
+		)
 		return NextResponse.json(
 			{ error: 'Внутренняя ошибка сервера' },
 			{ status: 500 }

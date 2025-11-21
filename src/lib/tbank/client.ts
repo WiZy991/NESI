@@ -255,13 +255,17 @@ export class TBankPayoutClient {
 			try {
 				data = JSON.parse(responseText)
 			} catch (parseError) {
-				logger.error('TBank E2C API Response Parse Error', {
-					url,
-					endpoint,
-					status: response.status,
-					statusText: response.statusText,
-					responseText: responseText.substring(0, 500), // Первые 500 символов
-				})
+				logger.error(
+					'TBank E2C API Response Parse Error',
+					parseError instanceof Error ? parseError : undefined,
+					{
+						url,
+						endpoint,
+						status: response.status,
+						statusText: response.statusText,
+						responseText: responseText.substring(0, 500), // Первые 500 символов
+					}
+				)
 				throw new Error(
 					`Failed to parse API response: ${response.status} ${
 						response.statusText
@@ -270,7 +274,7 @@ export class TBankPayoutClient {
 			}
 
 			if (!response.ok || !data.Success) {
-				logger.error('TBank E2C API Error', {
+				logger.error('TBank E2C API Error', undefined, {
 					url,
 					status: response.status,
 					errorCode: data.ErrorCode,
@@ -312,14 +316,18 @@ export class TBankPayoutClient {
 				errorMessage = String(error)
 			}
 
-			logger.error('TBank E2C API Request Failed', {
-				url,
-				endpoint,
-				error: errorMessage,
-				stack: errorStack,
-				details: errorDetails,
-				requestParams: JSON.stringify(logParams),
-			})
+			logger.error(
+				'TBank E2C API Request Failed',
+				error instanceof Error ? error : undefined,
+				{
+					url,
+					endpoint,
+					error: errorMessage,
+					stack: errorStack,
+					details: errorDetails,
+					requestParams: JSON.stringify(logParams),
+				}
+			)
 			throw error
 		}
 	}
