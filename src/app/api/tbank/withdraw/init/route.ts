@@ -40,10 +40,11 @@ export async function POST(req: NextRequest) {
 
 		const amountNumber = toNumber(parsedAmount)
 
-		// Минимальная сумма 100 рублей
-		if (amountNumber < 100) {
+		// Минимальная сумма 1000 рублей для E2C выплат
+		// (Т-Банк требует минимальную сумму для выплат через E2C)
+		if (amountNumber < 1000) {
 			return NextResponse.json(
-				{ error: 'Минимальная сумма вывода: 100 ₽' },
+				{ error: 'Минимальная сумма вывода: 1000 ₽' },
 				{ status: 400 }
 			)
 		}
@@ -181,16 +182,26 @@ export async function POST(req: NextRequest) {
 				userId: user.id,
 				errorCode: result.ErrorCode,
 				message: result.Message,
+				details: result.Details,
 				fullResponse: JSON.stringify(result),
 				amount: amountNumber,
 				dealId: deal.spAccumulationId,
 				phone,
 			})
 
+			// Более понятное сообщение об ошибке
+			let errorMessage = result.Message || 'Не удалось инициировать выплату'
+
+			// Если ошибка связана с суммой
+			if (result.Details && result.Details.includes('wrong.payout.amount')) {
+				errorMessage = 'Неверная сумма выплаты. Минимальная сумма: 1000 ₽'
+			}
+
 			return NextResponse.json(
 				{
-					error: result.Message || 'Не удалось инициировать выплату',
+					error: errorMessage,
 					errorCode: result.ErrorCode,
+					details: result.Details,
 				},
 				{ status: 400 }
 			)
