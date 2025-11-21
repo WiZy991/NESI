@@ -1,8 +1,9 @@
 import { getUserFromRequest } from '@/lib/auth'
 import { logger } from '@/lib/logger'
-import { kopecksToRubles, toNumber } from '@/lib/money'
+import { toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { TBankClient } from '@/lib/tbank/client'
+import { kopecksToRubles } from '@/lib/tbank/crypto'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 
