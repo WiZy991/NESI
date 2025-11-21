@@ -1,6 +1,6 @@
 'use client'
 
-import { useUser } from '@/lib/auth'
+import { useUser } from '@/context/UserContext'
 import { motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
