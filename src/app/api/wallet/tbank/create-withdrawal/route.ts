@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
 
 		const amountNumber = toNumber(parsedAmount)
 
-		// Минимальная сумма вывода - 100 рублей (10,000 копеек)
+		// Минимальная сумма вывода - 10 рублей (1,000 копеек) для СБП выплат
+		// Согласно документации: "Минимальная сумма 10 рублей Init"
 		if (amountNumber < 100) {
 			return NextResponse.json(
 				{ error: 'Минимальная сумма вывода: 100 ₽' },

@@ -535,14 +535,37 @@ export async function createWithdrawal(
 	}
 
 	if (!data.Success && data.ErrorCode !== '0') {
-		console.error('❌ [TBANK] Ошибка от API:', {
+		console.error('❌ [TBANK] Ошибка создания выплаты:', {
 			errorCode: data.ErrorCode,
 			message: data.Message,
+			details: data.Details,
+			amount: amountInKopecks,
+			amountInRubles: amountInKopecks / 100,
+			note: 'Проверьте детали ошибки в поле Details',
 		})
-		throw new Error(
-			data.Message ||
-				`Ошибка создания выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
-		)
+		
+		// Обработка конкретных ошибок
+		let errorMessage = data.Message || `Ошибка создания выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
+		
+		if (data.Details) {
+			// Добавляем детали ошибки к сообщению
+			if (data.Details.includes('wrong.payout.amount')) {
+				errorMessage = `Неверная сумма выплаты (${amountInKopecks / 100} ₽). Возможные причины:\n` +
+					`• Сумма слишком мала (минимум для СБП: 10 ₽)\n` +
+					`• Сумма превышает доступный баланс сделки\n` +
+					`• Недостаточно средств на счете сделки для выплаты\n\n` +
+					`Попробуйте:\n` +
+					`• Увеличьте сумму до минимума (10 ₽)\n` +
+					`• Проверьте доступный баланс сделки\n` +
+					`• Пополните баланс через Т-Банк`
+			} else if (data.Details.includes('deal')) {
+				errorMessage = `Ошибка связана со сделкой: ${data.Details}`
+			} else {
+				errorMessage = `${errorMessage}\n\nДетали: ${data.Details}`
+			}
+		}
+		
+		throw new Error(errorMessage)
 	}
 
 	return data
