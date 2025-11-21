@@ -236,9 +236,34 @@ export async function POST(req: NextRequest) {
 				'Выплата инициирована. Средства будут переведены после проверки.',
 		})
 	} catch (error) {
+		let errorMessage = 'Unknown error'
+		let errorStack: string | undefined
+		let errorDetails: any = null
+
+		if (error instanceof Error) {
+			errorMessage = error.message
+			errorStack = error.stack
+			errorDetails = {
+				name: error.name,
+				message: error.message,
+			}
+		} else if (typeof error === 'object' && error !== null) {
+			try {
+				errorDetails = JSON.stringify(error)
+				errorMessage = String(error)
+			} catch {
+				errorMessage = String(error)
+				errorDetails = error
+			}
+		} else {
+			errorMessage = String(error)
+		}
+
 		logger.error('Ошибка инициации вывода', {
-			error: error instanceof Error ? error.message : String(error),
-			stack: error instanceof Error ? error.stack : undefined,
+			userId: user?.id,
+			error: errorMessage,
+			stack: errorStack,
+			details: errorDetails,
 		})
 		return NextResponse.json(
 			{ error: 'Внутренняя ошибка сервера' },

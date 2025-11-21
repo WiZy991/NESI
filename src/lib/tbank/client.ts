@@ -270,10 +270,36 @@ export class TBankPayoutClient {
 
 			return data
 		} catch (error) {
+			let errorMessage = 'Unknown error'
+			let errorStack: string | undefined
+			let errorDetails: any = null
+
+			if (error instanceof Error) {
+				errorMessage = error.message
+				errorStack = error.stack
+				errorDetails = {
+					name: error.name,
+					message: error.message,
+				}
+			} else if (typeof error === 'object' && error !== null) {
+				try {
+					errorDetails = JSON.stringify(error)
+					errorMessage = String(error)
+				} catch {
+					errorMessage = String(error)
+					errorDetails = error
+				}
+			} else {
+				errorMessage = String(error)
+			}
+
 			logger.error('TBank E2C API Request Failed', {
 				url,
-				error: error instanceof Error ? error.message : String(error),
-				stack: error instanceof Error ? error.stack : undefined,
+				endpoint,
+				error: errorMessage,
+				stack: errorStack,
+				details: errorDetails,
+				requestParams: JSON.stringify(logParams),
 			})
 			throw error
 		}
@@ -301,9 +327,27 @@ export class TBankPayoutClient {
 		const orderId = params.orderId || generateOrderId('PAYOUT')
 
 		// DealId должен быть числом (SpAccumulationId)
-		const dealIdNumber = parseInt(params.dealId, 10)
-		if (isNaN(dealIdNumber)) {
-			throw new Error(`Invalid DealId: ${params.dealId}. Must be a number.`)
+		// SpAccumulationId может быть строкой, но API ожидает число
+		let dealIdNumber: number
+		if (typeof params.dealId === 'string') {
+			dealIdNumber = parseInt(params.dealId, 10)
+			if (isNaN(dealIdNumber)) {
+				logger.error('Invalid DealId format', {
+					dealId: params.dealId,
+					type: typeof params.dealId,
+				})
+				throw new Error(`Invalid DealId: ${params.dealId}. Must be a number.`)
+			}
+		} else if (typeof params.dealId === 'number') {
+			dealIdNumber = params.dealId
+		} else {
+			logger.error('Invalid DealId type', {
+				dealId: params.dealId,
+				type: typeof params.dealId,
+			})
+			throw new Error(
+				`Invalid DealId type: ${typeof params.dealId}. Expected string or number.`
+			)
 		}
 
 		const requestParams: Record<string, any> = {
