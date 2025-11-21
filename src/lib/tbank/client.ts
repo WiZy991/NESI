@@ -133,6 +133,9 @@ export class TBankClient {
 		createDeal?: boolean
 		successURL?: string // URL для возврата после успешной оплаты
 		failURL?: string // URL для возврата после неудачной оплаты
+		notificationURL?: string // URL для получения webhook-уведомлений
+		phone?: string // телефон покупателя (для DATA)
+		email?: string // email покупателя (для DATA)
 	}): Promise<{
 		Success: boolean
 		PaymentId?: string
@@ -166,6 +169,22 @@ export class TBankClient {
 		}
 		if (params.failURL) {
 			requestParams.FailURL = params.failURL
+		}
+
+		// Добавляем NotificationURL для получения webhook-уведомлений
+		if (params.notificationURL) {
+			requestParams.NotificationURL = params.notificationURL
+		}
+
+		// Добавляем DATA с Phone и Email (согласно документации)
+		if (params.phone || params.email) {
+			requestParams.DATA = {}
+			if (params.phone) {
+				requestParams.DATA.Phone = params.phone
+			}
+			if (params.email) {
+				requestParams.DATA.Email = params.email
+			}
 		}
 
 		// Уровень проверки (может потребоваться отдел рисков)

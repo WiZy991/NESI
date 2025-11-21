@@ -23,18 +23,38 @@ export function generateTBankToken(
 	const sortedKeys = Object.keys(paramsWithPassword).sort()
 
 	// 4. Конкатенируем значения
+	// Согласно документации Т-Банка:
+	// - Объекты (DATA) не включаются в подпись
+	// - null и undefined не включаются
+	// - Пустые строки не включаются
 	const concatenated = sortedKeys
 		.map(key => {
 			const value = paramsWithPassword[key]
+
+			// Пропускаем null и undefined
+			if (value === null || value === undefined) {
+				return ''
+			}
+
 			// Преобразуем boolean в строку
 			if (typeof value === 'boolean') {
 				return value.toString()
 			}
+
 			// Для объектов не включаем в подпись (согласно документации)
 			if (typeof value === 'object' && value !== null) {
 				return ''
 			}
-			return String(value)
+
+			// Преобразуем в строку
+			const stringValue = String(value)
+
+			// Пропускаем пустые строки
+			if (stringValue === '') {
+				return ''
+			}
+
+			return stringValue
 		})
 		.filter(v => v !== '')
 		.join('')

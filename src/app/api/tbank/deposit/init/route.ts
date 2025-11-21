@@ -36,45 +36,36 @@ export async function POST(req: NextRequest) {
 		}
 
 		// PaymentRecipientId - идентификатор будущего получателя выплаты
-		// Согласно документации Т-Банка, ОБЯЗАТЕЛЬНО должен быть номер телефона в формате "+7XXXXXXXXXX"
-		let paymentRecipientId = phone
+		// Согласно документации, это обязательный параметр для Мультирасчетов
+		// В примере документации используется любой идентификатор (не обязательно телефон)
+		// Для пополнения баланса используем идентификатор пользователя
+		// Если есть телефон - используем его (в формате +7XXXXXXXXXX), иначе - user.id
+		let paymentRecipientId: string
 
-		// Если телефон не передан, пробуем использовать телефон из профиля
-		if (!paymentRecipientId) {
-			if (user.phone) {
-				// Приводим к формату +7XXXXXXXXXX
-				paymentRecipientId = user.phone.startsWith('+')
-					? user.phone
-					: user.phone.startsWith('7')
-					? `+${user.phone}`
-					: `+7${user.phone.replace(/\D/g, '')}`
+		// Пробуем использовать телефон из параметров или профиля
+		const userPhone = phone || user.phone
+
+		if (userPhone) {
+			// Приводим к формату +7XXXXXXXXXX
+			if (userPhone.startsWith('+')) {
+				paymentRecipientId = userPhone
+			} else if (userPhone.startsWith('7')) {
+				paymentRecipientId = `+${userPhone}`
+			} else {
+				// Извлекаем только цифры и добавляем +7
+				const digits = userPhone.replace(/\D/g, '')
+				paymentRecipientId = `+7${digits.slice(-10)}` // Берем последние 10 цифр
+			}
+
+			// Проверяем формат
+			if (!/^\+7\d{10}$/.test(paymentRecipientId)) {
+				// Если формат неверный, используем идентификатор пользователя
+				paymentRecipientId = `user_${user.id}`
 			}
 		} else {
-			// Приводим переданный телефон к формату +7XXXXXXXXXX
-			if (!paymentRecipientId.startsWith('+')) {
-				paymentRecipientId = paymentRecipientId.startsWith('7')
-					? `+${paymentRecipientId}`
-					: `+7${paymentRecipientId.replace(/\D/g, '')}`
-			}
-		}
-
-		// Валидация: PaymentRecipientId должен быть номером телефона в формате +7XXXXXXXXXX
-		if (!paymentRecipientId || !/^\+7\d{10}$/.test(paymentRecipientId)) {
-			logger.error('❌ Некорректный PaymentRecipientId', {
-				userId: user.id,
-				paymentRecipientId,
-				phone,
-				userPhone: user.phone,
-			})
-			return NextResponse.json(
-				{
-					error:
-						'Не указан номер телефона. Укажите номер телефона для пополнения баланса.',
-					details:
-						'PaymentRecipientId должен быть номером телефона в формате +7XXXXXXXXXX',
-				},
-				{ status: 400 }
-			)
+			// Если телефона нет, используем идентификатор пользователя
+			// Это допустимо согласно примеру в документации (там используется "asdasdad")
+			paymentRecipientId = `user_${user.id}`
 		}
 
 		// Ищем открытую сделку пользователя или создаем новую
@@ -116,6 +107,9 @@ export async function POST(req: NextRequest) {
 			successURL,
 		})
 
+		// Формируем NotificationURL для webhook-уведомлений
+		const notificationURL = `${appUrl}/api/tbank/webhook`
+
 		// Инициируем платеж с OrderId
 		const result = await client.initPayment({
 			amount: amountNumber,
@@ -126,6 +120,9 @@ export async function POST(req: NextRequest) {
 			orderId: orderId, // Передаем наш OrderId
 			successURL,
 			failURL,
+			notificationURL, // URL для получения webhook-уведомлений
+			phone: paymentRecipientId, // Телефон для DATA (уже в формате +7XXXXXXXXXX)
+			email: user.email, // Email для DATA
 		})
 
 		if (!result.Success || !result.PaymentId) {
