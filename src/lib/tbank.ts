@@ -405,14 +405,16 @@ export async function createWithdrawal(
 	// URL для нотификаций о статусе выплаты
 	// ВАЖНО: В примере запроса для СБП (стр. 896-908) NotificationURL отсутствует
 	// Возможно, он необязателен для E2C выплат, но мы добавляем его для получения вебхуков
+	// ПРОБЛЕМА: NotificationURL может не участвовать в подписи для E2C
+	// Попробуем добавить NotificationURL ПОСЛЕ генерации токена (не участвует в подписи)
 	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-	requestBody.NotificationURL = `${baseUrl}/api/wallet/tbank/webhook`
+	const notificationURL = `${baseUrl}/api/wallet/tbank/webhook`
 	
 	console.log('🔧 [TBANK] Параметры запроса перед генерацией токена:', {
-		hasNotificationURL: !!requestBody.NotificationURL,
-		notificationURL: requestBody.NotificationURL,
-		allKeys: Object.keys(requestBody).sort(),
-		note: 'Проверяем, что все параметры корректны перед генерацией токена',
+		hasNotificationURL: false,
+		notificationURL: notificationURL,
+		note: 'NotificationURL НЕ участвует в подписи для E2C (согласно примеру стр. 896-908)',
+		allKeysBeforeToken: Object.keys(requestBody).sort(),
 	})
 
 	// Генерируем Token с паролем E2C терминала
@@ -447,6 +449,10 @@ export async function createWithdrawal(
 			}`
 		)
 	}
+
+	// Добавляем NotificationURL ПОСЛЕ генерации токена (не участвует в подписи)
+	// Это нужно для получения вебхуков, но согласно примеру (стр. 896-908) он не должен быть в подписи
+	requestBody.NotificationURL = notificationURL
 
 	console.log('📤 [TBANK] Подготовка запроса на выплату:', {
 		requestBody: JSON.stringify(requestBody, null, 2),
