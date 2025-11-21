@@ -130,7 +130,7 @@ async function handlePaymentNotification(
 	payment: any,
 	notification: any
 ): Promise<void> {
-	const { Status, Success, Amount, SpAccumulationId } = notification
+	let { Status, Success, Amount, SpAccumulationId } = notification
 
 	// Обновляем статус платежа
 	await prisma.tBankPayment.update({
@@ -168,6 +168,55 @@ async function handlePaymentNotification(
 		hasUserId: !!payment.deal.userId,
 		timestamp: new Date().toISOString(),
 	})
+
+	// Согласно документации Т-Банка:
+	// 1. После успешного холдирования (AUTHORIZED) нужно вызвать /v2/Confirm для списания
+	// 2. После Confirm платеж переходит в статус CONFIRMED
+	// 3. Только после CONFIRMED начисляем баланс
+
+	// Если платеж авторизован (AUTHORIZED) - вызываем Confirm для списания
+	if (Status === 'AUTHORIZED') {
+		logger.info('🔄 Платеж авторизован, вызываем Confirm для списания', {
+			paymentId: payment.paymentId,
+			status: Status,
+		})
+
+		try {
+			const { TBankClient } = await import('@/lib/tbank/client')
+			const client = new TBankClient()
+			const confirmResult = await client.confirmPayment(payment.paymentId)
+
+			if (confirmResult.Success) {
+				logger.info('✅ Платеж подтвержден через Confirm', {
+					paymentId: payment.paymentId,
+					confirmStatus: confirmResult.Status,
+				})
+
+				// Обновляем статус платежа
+				await prisma.tBankPayment.update({
+					where: { paymentId: payment.paymentId },
+					data: {
+						status: confirmResult.Status || 'CONFIRMED',
+						confirmedAt: new Date(),
+					},
+				})
+
+				// Продолжаем обработку как CONFIRMED
+				Status = 'CONFIRMED'
+			} else {
+				logger.error('❌ Ошибка подтверждения платежа через Confirm', {
+					paymentId: payment.paymentId,
+					errorCode: confirmResult.ErrorCode,
+					message: confirmResult.Message,
+				})
+			}
+		} catch (error) {
+			logger.error('❌ Ошибка при вызове Confirm', {
+				paymentId: payment.paymentId,
+				error: error instanceof Error ? error.message : String(error),
+			})
+		}
+	}
 
 	// Если платеж подтвержден - начисляем деньги
 	// Проверяем разные статусы, которые означают успешную оплату

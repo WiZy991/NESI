@@ -400,6 +400,7 @@ export class TBankPayoutClient {
 		Status?: string
 		ErrorCode: string
 		Message?: string
+		Details?: string
 		CardId?: string
 	}> {
 		const orderId = params.orderId || generateOrderId('PAYOUT')

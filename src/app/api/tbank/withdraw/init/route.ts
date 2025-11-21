@@ -55,31 +55,38 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Проверка телефона
-		if (!phone || !phone.match(/^\+?[7-8]\d{10}$/)) {
+		// Согласно документации, PaymentRecipientId должен быть в формате +7XXXXXXXXXX (12 символов)
+		// Для Phone в e2c/v2/Init формат: 11 цифр без + (например: 79001234567)
+		if (!phone) {
 			return NextResponse.json(
 				{
-					error:
-						'Укажите корректный номер телефона для вывода (формат: +79001234567)',
+					error: 'Укажите номер телефона для вывода',
 				},
 				{ status: 400 }
 			)
 		}
 
-		// Нормализуем телефон для API (убираем +, оставляем только цифры)
+		// Нормализуем телефон для Phone (11 цифр без +)
 		let normalizedPhone = phone.replace(/[^0-9]/g, '')
 		// Если начинается с 8, заменяем на 7
 		if (normalizedPhone.startsWith('8')) {
 			normalizedPhone = '7' + normalizedPhone.substring(1)
 		}
-		// Проверяем, что телефон состоит из 11 цифр
-		if (normalizedPhone.length !== 11) {
+		// Проверяем, что телефон состоит из 11 цифр (7 + 10 цифр)
+		if (normalizedPhone.length !== 11 || !normalizedPhone.startsWith('7')) {
 			return NextResponse.json(
 				{
-					error: 'Некорректный формат телефона. Должно быть 11 цифр.',
+					error:
+						'Некорректный формат телефона. Должно быть 11 цифр, начинающихся с 7 (например: 79001234567)',
 				},
 				{ status: 400 }
 			)
 		}
+
+		// PaymentRecipientId для выплат: согласно документации может быть 11 цифр без +
+		// В примере документации: "79066589133" (11 цифр)
+		// Используем 11 цифр без + для выплат
+		const paymentRecipientId = normalizedPhone
 
 		// 🛡️ Anti-fraud проверки
 		const validationResult = await validateWithdrawal(user.id, amountNumber)
@@ -211,8 +218,8 @@ export async function POST(req: NextRequest) {
 			amount: amountNumber,
 			orderId,
 			dealId: deal.spAccumulationId,
-			paymentRecipientId: normalizedPhone, // Используем нормализованный телефон без +
-			recipientPhone: normalizedPhone, // Используем нормализованный телефон без +
+			paymentRecipientId: paymentRecipientId, // Формат: +7XXXXXXXXXX (12 символов)
+			recipientPhone: normalizedPhone, // Формат: 11 цифр без + (например: 79001234567)
 			recipientCardId: cardId,
 			isFinal: isFinal || false,
 		})
@@ -292,14 +299,134 @@ export async function POST(req: NextRequest) {
 			paymentId: result.PaymentId,
 			amount: amountNumber,
 			phone,
+			status: result.Status,
+			hasCardId: !!cardId,
 		})
 
+		// Согласно документации:
+		// - Для СБП: выплата происходит в Init, Payment не нужен
+		// - Для карты: нужно вызвать /e2c/v2/Payment после Init
+		// Если указана карта - вызываем Payment сразу
+		if (cardId && result.Status === 'CHECKED') {
+			logger.info('Выплата на карту, вызываем Payment', {
+				paymentId: result.PaymentId,
+			})
+
+			try {
+				const executeResult = await payoutClient.executePayout(result.PaymentId)
+
+				if (executeResult.Success) {
+					// Обновляем статус выплаты
+					await prisma.tBankPayout.update({
+						where: { paymentId: result.PaymentId },
+						data: {
+							status: executeResult.Status || 'COMPLETING',
+						},
+					})
+
+					// Списываем с баланса и размораживаем
+					await prisma.user.update({
+						where: { id: user.id },
+						data: {
+							balance: {
+								decrement: payout.amount,
+							},
+							frozenBalance: {
+								decrement: payout.amount,
+							},
+							transactions: {
+								create: {
+									amount: new Prisma.Decimal(-amountNumber),
+									type: 'withdraw',
+									reason: `Вывод средств через Т-Банк (PaymentId: ${result.PaymentId})`,
+								},
+							},
+						},
+					})
+
+					// Обновляем баланс сделки
+					await prisma.tBankDeal.update({
+						where: { id: deal.id },
+						data: {
+							paidAmount: {
+								increment: payout.amount,
+							},
+							remainingBalance: {
+								decrement: payout.amount,
+							},
+						},
+					})
+
+					logger.info('✅ Выплата на карту выполнена', {
+						paymentId: result.PaymentId,
+						status: executeResult.Status,
+					})
+
+					return NextResponse.json({
+						success: true,
+						paymentId: result.PaymentId,
+						status: executeResult.Status,
+						message: 'Средства успешно выведены на карту',
+					})
+				} else {
+					logger.error('Ошибка выполнения выплаты на карту', {
+						paymentId: result.PaymentId,
+						errorCode: executeResult.ErrorCode,
+						message: executeResult.Message,
+					})
+
+					// Размораживаем средства при ошибке
+					await prisma.user.update({
+						where: { id: user.id },
+						data: {
+							frozenBalance: {
+								decrement: payout.amount,
+							},
+						},
+					})
+
+					return NextResponse.json(
+						{
+							error: executeResult.Message || 'Не удалось выполнить выплату',
+							errorCode: executeResult.ErrorCode,
+						},
+						{ status: 400 }
+					)
+				}
+			} catch (error) {
+				logger.error('Ошибка при вызове Payment для карты', {
+					paymentId: result.PaymentId,
+					error: error instanceof Error ? error.message : String(error),
+				})
+
+				// Размораживаем средства при ошибке
+				await prisma.user.update({
+					where: { id: user.id },
+					data: {
+						frozenBalance: {
+							decrement: payout.amount,
+						},
+					},
+				})
+
+				return NextResponse.json(
+					{
+						error: 'Ошибка при выполнении выплаты',
+					},
+					{ status: 500 }
+				)
+			}
+		}
+
+		// Для СБП выплата происходит в Init, Payment не нужен
 		return NextResponse.json({
 			success: true,
 			paymentId: result.PaymentId,
 			status: result.Status,
 			message:
-				'Выплата инициирована. Средства будут переведены после проверки.',
+				result.Status === 'COMPLETED'
+					? 'Средства успешно переведены'
+					: 'Выплата инициирована. Средства будут переведены после проверки.',
 		})
 	} catch (error) {
 		let errorMessage = 'Unknown error'
