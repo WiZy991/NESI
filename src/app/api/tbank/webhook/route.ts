@@ -15,10 +15,13 @@ export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json()
 
-		logger.info('TBank Webhook получен', {
+		logger.info('📥 TBank Webhook получен', {
 			status: body.Status,
 			paymentId: body.PaymentId,
 			orderId: body.OrderId,
+			notificationType: body.NotificationType,
+			hasToken: !!body.Token,
+			fullBody: JSON.stringify(body),
 		})
 
 		// Проверяем подпись (Token)
@@ -98,17 +101,40 @@ async function handlePaymentNotification(
 		},
 	})
 
+	// Логируем все данные для диагностики
+	logger.info('Обработка платежа в webhook', {
+		paymentId: payment.paymentId,
+		status: Status,
+		success: Success,
+		amount: Amount,
+		dealId: payment.dealId,
+		userId: payment.deal.userId,
+		currentPaymentStatus: payment.status,
+	})
+
 	// Если платеж подтвержден - начисляем деньги
 	// Проверяем разные статусы, которые означают успешную оплату
 	const isConfirmed =
 		Status === 'CONFIRMED' ||
-		Status === 'AUTHORIZED' ||
-		(Success && Status !== 'REJECTED' && Status !== 'CANCELED')
+		(Success === true && Status !== 'REJECTED' && Status !== 'CANCELED')
 
-	if (isConfirmed && Success !== false) {
+	logger.info('Проверка подтверждения платежа', {
+		paymentId: payment.paymentId,
+		status: Status,
+		success: Success,
+		isConfirmed,
+	})
+
+	if (isConfirmed) {
 		const amountRubles = Amount
 			? kopecksToRubles(Amount)
 			: toNumber(payment.amount)
+
+		logger.info('Платеж подтвержден, начинаем начисление', {
+			paymentId: payment.paymentId,
+			amountRubles,
+			userId: payment.deal.userId,
+		})
 
 		// Проверяем, не начисляли ли уже баланс (чтобы избежать двойного начисления)
 		const existingTransaction = await prisma.transaction.findFirst({
@@ -127,48 +153,64 @@ async function handlePaymentNotification(
 				transactionId: existingTransaction.id,
 			})
 		} else if (payment.deal.userId) {
-			// Начисляем на баланс пользователя
-			await prisma.user.update({
-				where: { id: payment.deal.userId },
-				data: {
-					balance: {
-						increment: new Prisma.Decimal(amountRubles),
-					},
-					transactions: {
-						create: {
-							amount: new Prisma.Decimal(amountRubles),
-							type: 'deposit',
-							reason: `Пополнение через Т-Банк Мультирасчеты (PaymentId: ${payment.paymentId})`,
+			try {
+				// Начисляем на баланс пользователя
+				await prisma.user.update({
+					where: { id: payment.deal.userId },
+					data: {
+						balance: {
+							increment: new Prisma.Decimal(amountRubles),
+						},
+						transactions: {
+							create: {
+								amount: new Prisma.Decimal(amountRubles),
+								type: 'deposit',
+								reason: `Пополнение через Т-Банк Мультирасчеты (PaymentId: ${payment.paymentId})`,
+							},
 						},
 					},
-				},
-			})
+				})
 
-			// Обновляем баланс сделки
-			await prisma.tBankDeal.update({
-				where: { id: payment.dealId },
-				data: {
-					totalAmount: {
-						increment: new Prisma.Decimal(amountRubles),
+				// Обновляем баланс сделки
+				await prisma.tBankDeal.update({
+					where: { id: payment.dealId },
+					data: {
+						totalAmount: {
+							increment: new Prisma.Decimal(amountRubles),
+						},
+						remainingBalance: {
+							increment: new Prisma.Decimal(amountRubles),
+						},
 					},
-					remainingBalance: {
-						increment: new Prisma.Decimal(amountRubles),
-					},
-				},
-			})
+				})
 
-			logger.info('Баланс пополнен через Т-Банк', {
-				userId: payment.deal.userId,
-				amount: amountRubles,
-				paymentId: payment.paymentId,
-				status: Status,
-			})
+				logger.info('✅ Баланс успешно пополнен через Т-Банк', {
+					userId: payment.deal.userId,
+					amount: amountRubles,
+					paymentId: payment.paymentId,
+					status: Status,
+				})
+			} catch (error) {
+				logger.error('❌ Ошибка при начислении баланса', {
+					error: error instanceof Error ? error.message : String(error),
+					paymentId: payment.paymentId,
+					userId: payment.deal.userId,
+					amount: amountRubles,
+				})
+			}
 		} else {
-			logger.error('Не найден userId для начисления баланса', {
+			logger.error('❌ Не найден userId для начисления баланса', {
 				paymentId: payment.paymentId,
 				dealId: payment.dealId,
+				deal: payment.deal,
 			})
 		}
+	} else {
+		logger.warn('Платеж не подтвержден, баланс не начисляется', {
+			paymentId: payment.paymentId,
+			status: Status,
+			success: Success,
+		})
 	}
 
 	// Если платеж отклонен
