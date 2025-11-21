@@ -342,6 +342,7 @@ export class TBankPayoutClient {
 		paymentRecipientId: string
 		recipientPhone?: string
 		recipientCardId?: string
+		sbpMemberId?: string | number // Идентификатор банка СБП
 		isFinal?: boolean
 	}): Promise<{
 		Success: boolean
@@ -401,6 +402,23 @@ export class TBankPayoutClient {
 			// Проверяем, что телефон состоит из 11 цифр
 			if (phone.length === 11) {
 				requestParams.Phone = phone
+
+				// Для СБП выплат обязательно нужен SbpMemberId
+				// Если не указан, используем дефолтный (Т-Банк)
+				if (params.sbpMemberId) {
+					requestParams.SbpMemberId =
+						typeof params.sbpMemberId === 'string'
+							? parseInt(params.sbpMemberId, 10)
+							: params.sbpMemberId
+				} else {
+					// Дефолтный банк СБП (Т-Банк) - используется для тестирования
+					// В продакшене нужно получать через getSbpMembers или позволить пользователю выбрать
+					requestParams.SbpMemberId = 100000000004
+					logger.warn('Используется дефолтный SbpMemberId для СБП выплаты', {
+						phone,
+						sbpMemberId: requestParams.SbpMemberId,
+					})
+				}
 			} else {
 				logger.warn('Некорректный формат телефона для СБП', {
 					original: params.recipientPhone,
