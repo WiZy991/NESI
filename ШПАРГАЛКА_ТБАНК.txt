@@ -1,0 +1,162 @@
+╔═══════════════════════════════════════════════════════════╗
+║           ШПАРГАЛКА: Т-Банк Мультирасчеты                 ║
+╚═══════════════════════════════════════════════════════════╝
+
+📋 БЫСТРЫЕ КОМАНДЫ
+
+Применить миграцию:
+  cd NESI && npx prisma migrate dev && npx prisma generate
+
+Проверить конфигурацию:
+  npx ts-node scripts/check-tbank-config.ts
+
+Запустить проект:
+  npm run dev
+
+Открыть Prisma Studio:
+  npx prisma studio
+
+───────────────────────────────────────────────────────────────
+
+🔑 ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (.env)
+
+TBANK_TERMINAL_KEY="TinkoffBankTest"
+TBANK_TERMINAL_PASSWORD="пароль_от_тбанка"
+TBANK_E2C_TERMINAL_KEY="TerminalKeyE2C"
+TBANK_E2C_TERMINAL_PASSWORD="пароль_e2c"
+TBANK_MODE="test"
+NEXT_PUBLIC_BASE_URL="https://nesi.su"
+
+───────────────────────────────────────────────────────────────
+
+🌐 API ENDPOINTS
+
+Создать сделку:
+  POST /api/tbank/deals/create
+
+Список сделок:
+  GET /api/tbank/deals/list
+
+Пополнить баланс:
+  POST /api/tbank/deposit/init
+  Body: { amount: 1000, phone: "+79001234567" }
+
+Вывести средства:
+  POST /api/tbank/withdraw/init
+  Body: { amount: 500, phone: "+79001234567" }
+  
+  POST /api/tbank/withdraw/execute
+  Body: { paymentId: "123456" }
+
+Webhook:
+  POST /api/tbank/webhook
+
+Статус конфигурации:
+  GET /api/tbank/status
+
+───────────────────────────────────────────────────────────────
+
+🧪 ТЕСТОВЫЕ ДАННЫЕ
+
+Карта для пополнения:
+  PAN: 2200770239097761
+  ExpDate: 12/25
+  CVV: 123
+
+Телефон для вывода (СБП):
+  +79066589133
+  SbpMemberId: 100000000004
+
+───────────────────────────────────────────────────────────────
+
+📝 НАСТРОЙКА WEBHOOK
+
+1. Перейти: https://business.tbank.ru
+2. Терминал → Настройки → Уведомления
+3. Notification URL: https://nesi.su/api/tbank/webhook
+4. Включить нотификации: CONFIRMED, AUTHORIZED, REVERSED
+
+Основной URL:
+  Production: https://nesi.su/api/tbank/webhook
+  
+  Для локального тестирования (опционально):
+  1. ngrok http 3000
+  2. Временно используйте URL от ngrok
+
+───────────────────────────────────────────────────────────────
+
+🔍 ОТЛАДКА
+
+Смотреть логи:
+  npm run dev
+  Ищи в консоли: "TBank API Request", "TBank Webhook"
+
+Проверить БД:
+  SELECT * FROM "TBankDeal" ORDER BY "createdAt" DESC LIMIT 5;
+  SELECT * FROM "TBankPayment" ORDER BY "createdAt" DESC;
+  SELECT * FROM "TBankPayout" ORDER BY "createdAt" DESC;
+
+───────────────────────────────────────────────────────────────
+
+⚠️  ЧАСТЫЕ ОШИБКИ
+
+"Неверный токен" (ErrorCode: 204)
+  → Проверь TBANK_TERMINAL_PASSWORD в .env
+
+"Сделка не найдена" (ErrorCode: 927)
+  → Создай сделку перед платежом
+
+"Недостаточно средств"
+  → Проверь баланс и frozenBalance
+
+Webhook не приходит:
+  → Проверь Notification URL
+  → Для localhost используй ngrok
+  → Проверь IP whitelist
+
+───────────────────────────────────────────────────────────────
+
+🎯 WORKFLOW
+
+ПОПОЛНЕНИЕ (упрощенно):
+  Пользователь вводит сумму
+    → POST /api/tbank/deposit/init
+    → Редирект на форму Т-Банка
+    → Оплата картой
+    → Webhook → баланс +💰
+
+ВЫВОД (упрощенно):
+  Пользователь вводит сумму и телефон
+    → POST /api/tbank/withdraw/init (средства замораживаются)
+    → POST /api/tbank/withdraw/execute (выплата на СБП)
+    → Webhook → баланс -💰, средства размораживаются
+
+───────────────────────────────────────────────────────────────
+
+📖 ДОКУМЕНТЫ
+
+⭐ НАЧНИ_ЗДЕСЬ_ТБАНК.md - старт за 5 минут
+📘 APPLY_TBANK_INTEGRATION.md - пошаговая инструкция
+📗 TBANK_QUICK_START.md - быстрый старт
+📕 TBANK_MULTISPLIT_INTEGRATION.md - полная документация
+📙 РЕЗЮМЕ_ТБАНК_ИНТЕГРАЦИЯ.md - это резюме
+📔 ТБАНК_СОЗДАННЫЕ_ФАЙЛЫ.md - список файлов
+
+───────────────────────────────────────────────────────────────
+
+🆘 ПОДДЕРЖКА
+
+Т-Банк:
+  📧 acq_help@tbank.ru
+  🌐 developer.tbank.ru
+  💼 business.tbank.ru
+
+───────────────────────────────────────────────────────────────
+
+✅ ГОТОВО! МОЖНО ИСПОЛЬЗОВАТЬ!
+
+Дизайн: ✅ Работает прямо сейчас
+Т-Банк: ⏳ Требует настройки (20 мин)
+
+╚═══════════════════════════════════════════════════════════╝
+

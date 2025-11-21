@@ -233,6 +233,9 @@ export default function ProfilePageContent() {
 	const [transactionsLoaded, setTransactionsLoaded] = useState(false)
 	const [amount, setAmount] = useState(100)
 	const [depositAmount, setDepositAmount] = useState(100)
+	const [withdrawPhone, setWithdrawPhone] = useState('')
+	const [depositPhone, setDepositPhone] = useState('')
+	const [useTBank, setUseTBank] = useState(true) // Использовать Т-Банк по умолчанию
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
@@ -424,25 +427,54 @@ export default function ProfilePageContent() {
 		setDepositLoading(true)
 
 		try {
-			const res = await fetch('/api/wallet/deposit', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({ amount: depositAmount }),
-			})
+			// Используем Т-Банк Мультирасчеты
+			if (useTBank) {
+				const res = await fetch('/api/tbank/deposit/init', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({
+						amount: depositAmount,
+						phone: depositPhone || undefined,
+					}),
+				})
 
-			const data = await res.json()
+				const data = await res.json()
 
-			if (!res.ok) {
-				setDepositError(data.error || 'Не удалось пополнить баланс')
-				return
+				if (!res.ok) {
+					setDepositError(data.error || 'Не удалось инициировать пополнение')
+					return
+				}
+
+				// Перенаправляем на форму оплаты Т-Банка
+				if (data.paymentURL) {
+					window.location.href = data.paymentURL
+					return
+				}
+			} else {
+				// Старый метод (прямое пополнение)
+				const res = await fetch('/api/wallet/deposit', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({ amount: depositAmount }),
+				})
+
+				const data = await res.json()
+
+				if (!res.ok) {
+					setDepositError(data.error || 'Не удалось пополнить баланс')
+					return
+				}
+
+				await fetchProfile()
+				setDepositAmount(100)
+				setDepositError(null)
 			}
-
-			await fetchProfile()
-			setDepositAmount(100)
-			setDepositError(null)
 		} catch (err: any) {
 			setDepositError(err.message || 'Ошибка при пополнении баланса')
 		} finally {
@@ -456,29 +488,91 @@ export default function ProfilePageContent() {
 			return
 		}
 
+		// Проверяем телефон если используем Т-Банк
+		if (useTBank && !withdrawPhone) {
+			setWithdrawError('Укажите номер телефона для вывода средств')
+			return
+		}
+
+		if (useTBank && !withdrawPhone.match(/^\+?[7-8]\d{10}$/)) {
+			setWithdrawError('Неверный формат телефона (пример: +79001234567)')
+			return
+		}
+
 		setWithdrawError(null)
 		setWithdrawLoading(true)
 
 		try {
-			const res = await fetch('/api/wallet/withdraw', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({ amount }),
-			})
+			// Используем Т-Банк Мультирасчеты
+			if (useTBank) {
+				// Шаг 1: Инициируем выплату
+				const initRes = await fetch('/api/tbank/withdraw/init', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({
+						amount,
+						phone: withdrawPhone,
+					}),
+				})
 
-			const data = await res.json()
+				const initData = await initRes.json()
 
-			if (!res.ok) {
-				setWithdrawError(data.error || 'Не удалось вывести средства')
-				return
+				if (!initRes.ok) {
+					setWithdrawError(initData.error || 'Не удалось инициировать вывод')
+					return
+				}
+
+				// Шаг 2: Выполняем выплату
+				const execRes = await fetch('/api/tbank/withdraw/execute', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({
+						paymentId: initData.paymentId,
+					}),
+				})
+
+				const execData = await execRes.json()
+
+				if (!execRes.ok) {
+					setWithdrawError(execData.error || 'Не удалось выполнить вывод')
+					return
+				}
+
+				await fetchProfile()
+				setAmount(100)
+				setWithdrawError(null)
+				// Показываем сообщение об успехе
+				alert(
+					'Выплата успешно отправлена! Средства поступят в течение нескольких минут.'
+				)
+			} else {
+				// Старый метод
+				const res = await fetch('/api/wallet/withdraw', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({ amount }),
+				})
+
+				const data = await res.json()
+
+				if (!res.ok) {
+					setWithdrawError(data.error || 'Не удалось вывести средства')
+					return
+				}
+
+				await fetchProfile()
+				setAmount(100)
+				setWithdrawError(null)
 			}
-
-			await fetchProfile()
-			setAmount(100)
-			setWithdrawError(null)
 		} catch (err: any) {
 			setWithdrawError(err.message || 'Ошибка при выводе средств')
 		} finally {
@@ -1464,6 +1558,29 @@ export default function ProfilePageContent() {
 										</button>
 									))}
 								</div>
+
+								{/* Поле ввода телефона */}
+								{useTBank && (
+									<div className='mb-4'>
+										<label className='block text-sm text-gray-400 mb-2 font-medium'>
+											Номер телефона для вывода (СБП)
+										</label>
+										<input
+											type='tel'
+											value={withdrawPhone}
+											onChange={e => {
+												setWithdrawPhone(e.target.value)
+												if (withdrawError) setWithdrawError(null)
+											}}
+											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all'
+											placeholder='+79001234567'
+											disabled={withdrawLoading}
+										/>
+										<p className='text-xs text-gray-500 mt-1'>
+											Вывод будет выполнен через СБП на указанный номер
+										</p>
+									</div>
+								)}
 
 								{/* Поле ввода суммы */}
 								<div className='mb-4'>
