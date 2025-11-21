@@ -27,14 +27,121 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
-		// Находим платеж
-		const payment = await prisma.tBankPayment.findUnique({
+		// Находим платеж по paymentId
+		let payment = await prisma.tBankPayment.findUnique({
 			where: { paymentId },
 			include: { deal: true },
 		})
 
+		// Если не найден, пробуем найти по orderId (на случай если paymentId отличается)
 		if (!payment) {
-			return NextResponse.json({ error: 'Платеж не найден' }, { status: 404 })
+			logger.warn('Платеж не найден по paymentId, пробуем найти по orderId', {
+				paymentId,
+				userId: user.id,
+			})
+
+			payment = await prisma.tBankPayment.findFirst({
+				where: {
+					orderId: paymentId, // Иногда в URL может быть orderId вместо paymentId
+					deal: {
+						userId: user.id,
+					},
+				},
+				include: { deal: true },
+			})
+		}
+
+		// Создаем клиент для проверки статуса
+		const client = new TBankClient()
+		let result: any = null
+		let paymentRecovered = false
+
+		// Если платеж не найден в БД, но деньги списались - проверяем через API Т-Банка
+		if (!payment) {
+			logger.warn('⚠️ Платеж не найден в БД, проверяем через API Т-Банка', {
+				paymentId,
+				userId: user.id,
+			})
+
+			// Проверяем статус через API Т-Банка
+			result = await client.getPaymentState(paymentId)
+
+			if (!result.Success) {
+				logger.error('❌ Платеж не найден ни в БД, ни в Т-Банке', {
+					paymentId,
+					errorCode: result.ErrorCode,
+					message: result.Message,
+				})
+				return NextResponse.json(
+					{
+						error: result.Message || 'Платеж не найден',
+						errorCode: result.ErrorCode,
+					},
+					{ status: 404 }
+				)
+			}
+
+			// Платеж существует в Т-Банке, но не в БД - создаем запись
+			logger.info('🔧 Создаем запись о платеже в БД', {
+				paymentId,
+				status: result.Status,
+				userId: user.id,
+			})
+
+			// Ищем или создаем сделку для пользователя
+			let deal = await prisma.tBankDeal.findFirst({
+				where: {
+					userId: user.id,
+					status: 'OPEN',
+				},
+				orderBy: {
+					createdAt: 'desc',
+				},
+			})
+
+			// Если сделки нет, создаем новую (но это не должно происходить в нормальном сценарии)
+			if (!deal) {
+				logger.warn('⚠️ Сделка не найдена, создаем новую', {
+					userId: user.id,
+					paymentId,
+				})
+
+				// Пытаемся найти сделку по SpAccumulationId из ответа Т-Банка
+				// Но если его нет, создаем новую
+				deal = await prisma.tBankDeal.create({
+					data: {
+						spAccumulationId: `RECOVERED_${Date.now()}`,
+						userId: user.id,
+						dealType: 'NN',
+						status: 'OPEN',
+					},
+				})
+			}
+
+			// Создаем запись о платеже
+			const amountRubles = result.Amount ? kopecksToRubles(result.Amount) : 0
+
+			payment = await prisma.tBankPayment.create({
+				data: {
+					dealId: deal.id,
+					paymentId: paymentId,
+					orderId: `RECOVERED_${Date.now()}`,
+					amount: new Prisma.Decimal(amountRubles),
+					status: result.Status || 'NEW',
+					customerId: user.id,
+					terminalKey: client['terminalKey'],
+					confirmedAt: result.Status === 'CONFIRMED' ? new Date() : undefined,
+				},
+				include: { deal: true },
+			})
+
+			paymentRecovered = true
+
+			logger.info('✅ Запись о платеже создана', {
+				paymentId,
+				dealId: deal.id,
+				status: result.Status,
+			})
 		}
 
 		// Проверяем права
@@ -47,11 +154,13 @@ export async function POST(req: NextRequest) {
 			userId: user.id,
 			currentStatus: payment.status,
 			dealId: payment.dealId,
+			recovered: paymentRecovered,
 		})
 
-		// Проверяем статус через API Т-Банка
-		const client = new TBankClient()
-		const result = await client.getPaymentState(paymentId)
+		// Если платеж был восстановлен, result уже есть, иначе проверяем статус
+		if (!result) {
+			result = await client.getPaymentState(paymentId)
+		}
 
 		logger.info('📊 Результат проверки статуса от Т-Банка', {
 			paymentId,
@@ -98,9 +207,11 @@ export async function POST(req: NextRequest) {
 			userId: payment.deal.userId,
 		})
 
+		let existingTransaction = null
+
 		if (isConfirmed) {
 			// Проверяем, не начисляли ли уже баланс
-			const existingTransaction = await prisma.transaction.findFirst({
+			existingTransaction = await prisma.transaction.findFirst({
 				where: {
 					userId: payment.deal.userId,
 					type: 'deposit',

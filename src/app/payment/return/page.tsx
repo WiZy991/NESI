@@ -25,12 +25,20 @@ function PaymentReturnContent() {
 		const paymentIdParam =
 			searchParams.get('PaymentId') || searchParams.get('paymentId')
 
+		console.log('🔍 Параметры URL:', {
+			PaymentId: searchParams.get('PaymentId'),
+			paymentId: searchParams.get('paymentId'),
+			allParams: Object.fromEntries(searchParams.entries()),
+		})
+
 		if (!paymentIdParam) {
+			console.error('❌ PaymentId не найден в URL параметрах')
 			setStatus('failed')
 			setMessage('Не указан ID платежа')
 			return
 		}
 
+		console.log('✅ PaymentId найден:', paymentIdParam)
 		setPaymentId(paymentIdParam)
 		checkPaymentStatus(paymentIdParam)
 		// eslint-disable-next-line react-hooks/exhaustive-deps

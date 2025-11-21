@@ -114,8 +114,30 @@ export async function POST(req: NextRequest) {
 			})
 		}
 
-		// Сохраняем платеж в БД
-		if (deal) {
+		// Если сделки все еще нет - это ошибка, но создаем временную для сохранения платежа
+		if (!deal) {
+			logger.error(
+				'⚠️ Сделка не найдена после инициализации платежа, создаем временную',
+				{
+					userId: user.id,
+					paymentId: result.PaymentId,
+					spAccumulationId: result.SpAccumulationId,
+				}
+			)
+
+			// Создаем временную сделку
+			deal = await prisma.tBankDeal.create({
+				data: {
+					spAccumulationId: result.SpAccumulationId || `TEMP_${Date.now()}`,
+					userId: user.id,
+					dealType: 'NN',
+					status: 'OPEN',
+				},
+			})
+		}
+
+		// Сохраняем платеж в БД (теперь deal гарантированно существует)
+		try {
 			await prisma.tBankPayment.create({
 				data: {
 					dealId: deal.id,
@@ -127,6 +149,26 @@ export async function POST(req: NextRequest) {
 					terminalKey: client['terminalKey'],
 				},
 			})
+
+			logger.info('💾 Платеж сохранен в БД', {
+				paymentId: result.PaymentId,
+				dealId: deal.id,
+				orderId: result.OrderId,
+			})
+		} catch (error: any) {
+			// Если платеж уже существует (дубликат) - это нормально
+			if (error.code === 'P2002') {
+				logger.warn('⚠️ Платеж уже существует в БД (дубликат)', {
+					paymentId: result.PaymentId,
+				})
+			} else {
+				logger.error('❌ Ошибка сохранения платежа в БД', {
+					paymentId: result.PaymentId,
+					error: error.message,
+					code: error.code,
+				})
+				// Не прерываем процесс, платеж все равно инициирован
+			}
 		}
 
 		logger.info('✅ Платеж успешно инициирован', {

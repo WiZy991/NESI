@@ -56,10 +56,28 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Обработка нотификаций для платежей (пополнения)
-		const payment = await prisma.tBankPayment.findUnique({
+		let payment = await prisma.tBankPayment.findUnique({
 			where: { paymentId: PaymentId },
 			include: { deal: { include: { user: true } } },
 		})
+
+		// Если не найден, пробуем найти по orderId
+		if (!payment) {
+			logger.warn(
+				'⚠️ Платеж не найден по paymentId в webhook, пробуем найти по orderId',
+				{
+					paymentId: PaymentId,
+					orderId: body.OrderId,
+				}
+			)
+
+			payment = await prisma.tBankPayment.findFirst({
+				where: {
+					orderId: body.OrderId || PaymentId,
+				},
+				include: { deal: { include: { user: true } } },
+			})
+		}
 
 		if (payment) {
 			await handlePaymentNotification(payment, body)
