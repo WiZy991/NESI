@@ -381,11 +381,10 @@ export async function createWithdrawal(
 		}
 		
 		requestBody.Phone = params.phone
-		// ПРОТИВОРЕЧИЕ В ДОКУМЕНТАЦИИ:
-		// - В таблице параметров (стр. 565): SbpMemberId Number
-		// - В примере запроса (стр. 902): "SbpMemberId": "100000000004" (строка)
-		// Пробуем передавать как СТРОКУ, как в примере запроса
-		requestBody.SbpMemberId = String(params.sbpMemberId)
+		// ВАЖНО: Согласно документации (стр. 565) SbpMemberId должен быть Number
+		// В примере запроса (стр. 902) показана строка, но это может быть ошибка в примере
+		// Передаем как ЧИСЛО, как указано в документации
+		requestBody.SbpMemberId = Number(params.sbpMemberId)
 		
 		console.log('✅ [TBANK] Телефон для СБП валидирован:', {
 			phone: params.phone,
@@ -436,17 +435,18 @@ export async function createWithdrawal(
 	}
 
 	// Финальная выплата
-	// ВАЖНО: FinalPayout: 'true' означает закрытие сделки, и сумма должна быть ТОЧНО равна балансу сделки
-	// Проблема: если сумма не совпадает с балансом сделки, Т-Банк возвращает ошибку wrong.payout.amount
-	// Решение: НЕ передаем FinalPayout для частичных выплат (по умолчанию false)
-	// FinalPayout передается только если сумма точно равна балансу сделки и нужно закрыть сделку
-	// Для частичных выплат FinalPayout не передается (false по умолчанию)
-	if (params.finalPayout) {
-		// НЕ передаем FinalPayout для частичных выплат
-		// requestBody.FinalPayout = 'true' // Отключено, чтобы избежать ошибки wrong.payout.amount
-		console.log('⚠️ [TBANK] FinalPayout отключен для частичной выплаты', {
-			amount: amountInKopecks,
-			note: 'FinalPayout используется только при полной выплате баланса сделки. Для частичных выплат не передается.',
+	// ВАЖНО: FinalPayout передается только если явно указано в params.finalPayout
+	// НЕ передаем FinalPayout автоматически, чтобы избежать ошибок
+	// Согласно документации (стр. 516): FinalPayout Boolean Нет (необязательный параметр)
+	// Если передан в значении true - сделка автоматически закроется после выплаты
+	// Для частичных выплат FinalPayout НЕ передается
+	if (params.finalPayout === true) {
+		// Передаем только если явно указано true
+		requestBody.FinalPayout = true
+		console.log('✅ [TBANK] FinalPayout установлен:', {
+			value: requestBody.FinalPayout,
+			type: typeof requestBody.FinalPayout,
+			note: 'FinalPayout передается только если явно указано в params.finalPayout',
 		})
 	}
 
