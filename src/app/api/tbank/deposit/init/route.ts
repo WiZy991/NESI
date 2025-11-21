@@ -36,13 +36,11 @@ export async function POST(req: NextRequest) {
 		}
 
 		// PaymentRecipientId - идентификатор будущего получателя выплаты
-		// Согласно документации, должен быть номер телефона в формате "+79606747611"
-		// Для пополнения баланса используем телефон пользователя или email как fallback
+		// Согласно документации Т-Банка, ОБЯЗАТЕЛЬНО должен быть номер телефона в формате "+7XXXXXXXXXX"
 		let paymentRecipientId = phone
 
-		// Если телефон не передан, пробуем использовать email или создаем идентификатор
+		// Если телефон не передан, пробуем использовать телефон из профиля
 		if (!paymentRecipientId) {
-			// Если у пользователя есть телефон в профиле, используем его
 			if (user.phone) {
 				// Приводим к формату +7XXXXXXXXXX
 				paymentRecipientId = user.phone.startsWith('+')
@@ -50,9 +48,6 @@ export async function POST(req: NextRequest) {
 					: user.phone.startsWith('7')
 					? `+${user.phone}`
 					: `+7${user.phone.replace(/\D/g, '')}`
-			} else {
-				// Fallback: используем email или создаем идентификатор
-				paymentRecipientId = user.email || `user_${user.id}`
 			}
 		} else {
 			// Приводим переданный телефон к формату +7XXXXXXXXXX
@@ -61,6 +56,25 @@ export async function POST(req: NextRequest) {
 					? `+${paymentRecipientId}`
 					: `+7${paymentRecipientId.replace(/\D/g, '')}`
 			}
+		}
+
+		// Валидация: PaymentRecipientId должен быть номером телефона в формате +7XXXXXXXXXX
+		if (!paymentRecipientId || !/^\+7\d{10}$/.test(paymentRecipientId)) {
+			logger.error('❌ Некорректный PaymentRecipientId', {
+				userId: user.id,
+				paymentRecipientId,
+				phone,
+				userPhone: user.phone,
+			})
+			return NextResponse.json(
+				{
+					error:
+						'Не указан номер телефона. Укажите номер телефона для пополнения баланса.',
+					details:
+						'PaymentRecipientId должен быть номером телефона в формате +7XXXXXXXXXX',
+				},
+				{ status: 400 }
+			)
 		}
 
 		// Ищем открытую сделку пользователя или создаем новую
@@ -115,12 +129,22 @@ export async function POST(req: NextRequest) {
 		})
 
 		if (!result.Success || !result.PaymentId) {
-			logger.error('Ошибка инициации платежа Т-Банк', {
+			logger.error('❌ Ошибка инициации платежа Т-Банк', {
 				userId: user.id,
 				errorCode: result.ErrorCode,
 				message: result.Message,
 				details: result.Details,
-				fullResult: JSON.stringify(result),
+				success: result.Success,
+				paymentId: result.PaymentId,
+				status: result.Status,
+				fullResult: JSON.stringify(result, null, 2),
+				requestParams: {
+					amount: amountNumber,
+					dealId: dealIdToUse,
+					createDeal: createNewDeal,
+					orderId: orderId,
+					paymentRecipientId,
+				},
 			})
 
 			return NextResponse.json(
@@ -330,10 +354,26 @@ export async function POST(req: NextRequest) {
 			dealId: deal?.id,
 			savedInDb: !!finalCheck,
 		})
-	} catch (error) {
-		logger.error('Ошибка при инициации пополнения', { error })
+	} catch (error: any) {
+		const errorMessage = error instanceof Error ? error.message : String(error)
+		const errorStack = error instanceof Error ? error.stack : undefined
+		const errorString = JSON.stringify(error, Object.getOwnPropertyNames(error))
+
+		logger.error('❌ Ошибка при инициации пополнения', {
+			userId: user?.id,
+			error: errorMessage,
+			errorStack,
+			errorString,
+			errorType: error?.constructor?.name,
+			errorCode: error?.code,
+			errorName: error?.name,
+		})
+
 		return NextResponse.json(
-			{ error: 'Внутренняя ошибка сервера' },
+			{
+				error: 'Внутренняя ошибка сервера',
+				message: errorMessage,
+			},
 			{ status: 500 }
 		)
 	}

@@ -55,24 +55,40 @@ export class TBankClient {
 				logger.error('TBank API Error', {
 					url,
 					status: response.status,
+					statusText: response.statusText,
 					errorCode: data.ErrorCode,
 					message: data.Message,
 					details: data.Details,
+					responseData: JSON.stringify(data),
+					requestParams: JSON.stringify(params),
 				})
 			} else {
 				logger.info('TBank API Success', {
 					endpoint,
 					orderId: params.OrderId,
 					paymentId: data.PaymentId,
+					status: data.Status,
 				})
 			}
 
 			return data
-		} catch (error) {
+		} catch (error: any) {
+			const errorMessage =
+				error instanceof Error ? error.message : String(error)
+			const errorStack = error instanceof Error ? error.stack : undefined
+			const errorString = JSON.stringify(
+				error,
+				Object.getOwnPropertyNames(error)
+			)
+
 			logger.error('TBank API Request Failed', {
 				url,
-				error: error instanceof Error ? error.message : String(error),
-				errorDetails: error,
+				endpoint,
+				error: errorMessage,
+				errorStack,
+				errorString,
+				errorType: error?.constructor?.name,
+				requestParams: JSON.stringify(params),
 			})
 			throw error
 		}
