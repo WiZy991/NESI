@@ -411,8 +411,10 @@ export async function POST(req: NextRequest) {
 				cardId,
 				phone: phoneForSbp, // 11 цифр: 7XXXXXXXXXX
 				sbpMemberId,
-				// FinalPayout только если есть DealId
-				finalPayout: finalDealId ? true : false,
+				// НЕ используем FinalPayout для частичных выплат
+				// FinalPayout: true требует, чтобы сумма ТОЧНО совпадала с балансом сделки
+				// Для частичных выплат используем FinalPayout: false (не передаем параметр)
+				finalPayout: false,
 			})
 
 			console.log('✅ [CREATE-WITHDRAWAL] Выплата создана:', {

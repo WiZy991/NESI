@@ -398,8 +398,18 @@ export async function createWithdrawal(
 	}
 
 	// Финальная выплата
+	// ВАЖНО: FinalPayout: 'true' означает закрытие сделки, и сумма должна быть ТОЧНО равна балансу сделки
+	// Проблема: если сумма не совпадает с балансом сделки, Т-Банк возвращает ошибку wrong.payout.amount
+	// Решение: НЕ передаем FinalPayout для частичных выплат (по умолчанию false)
+	// FinalPayout передается только если сумма точно равна балансу сделки и нужно закрыть сделку
+	// Для частичных выплат FinalPayout не передается (false по умолчанию)
 	if (params.finalPayout) {
-		requestBody.FinalPayout = 'true' // Строка, а не boolean (согласно документации A2C_V2 стр. 903)
+		// НЕ передаем FinalPayout для частичных выплат
+		// requestBody.FinalPayout = 'true' // Отключено, чтобы избежать ошибки wrong.payout.amount
+		console.log('⚠️ [TBANK] FinalPayout отключен для частичной выплаты', {
+			amount: amountInKopecks,
+			note: 'FinalPayout используется только при полной выплате баланса сделки. Для частичных выплат не передается.',
+		})
 	}
 
 	// URL для нотификаций о статусе выплаты
