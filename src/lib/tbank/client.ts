@@ -126,6 +126,7 @@ export class TBankClient {
 		Message?: string
 		Details?: string
 		SpAccumulationId?: string
+		OrderId?: string // OrderId возвращается в ответе
 	}> {
 		const orderId = params.orderId || generateOrderId('PAY')
 		const requestParams: Record<string, any> = {

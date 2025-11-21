@@ -22,32 +22,135 @@ function PaymentReturnContent() {
 			return
 		}
 
+		// Согласно документации Т-Банка, в SuccessURL передаются: Success, ErrorCode, OrderId, Message, Details
+		// PaymentId НЕ передается в URL! Используем OrderId для поиска платежа
+		const orderIdParam =
+			searchParams.get('OrderId') || searchParams.get('orderId')
+		const successParam = searchParams.get('Success')
+		const errorCodeParam = searchParams.get('ErrorCode')
+
 		let paymentIdParam =
 			searchParams.get('PaymentId') || searchParams.get('paymentId')
 
 		console.log('🔍 Параметры URL:', {
-			PaymentId: searchParams.get('PaymentId'),
-			paymentId: searchParams.get('paymentId'),
+			OrderId: orderIdParam,
+			Success: successParam,
+			ErrorCode: errorCodeParam,
+			PaymentId: paymentIdParam,
 			allParams: Object.fromEntries(searchParams.entries()),
 		})
 
-		// Если PaymentId не найден в URL или это шаблон {PaymentId}, берем из localStorage
-		if (!paymentIdParam || paymentIdParam === '{PaymentId}') {
-			const savedPaymentId = localStorage.getItem('lastPaymentId')
-			if (savedPaymentId) {
-				console.log('💾 Используем PaymentId из localStorage:', savedPaymentId)
-				paymentIdParam = savedPaymentId
-			} else {
-				console.error('❌ PaymentId не найден ни в URL, ни в localStorage')
-				setStatus('failed')
-				setMessage('Не указан ID платежа. Попробуйте пополнить баланс снова.')
-				return
+		// Если есть OrderId, используем его для поиска платежа
+		if (orderIdParam && !paymentIdParam) {
+			console.log('🔍 Ищем платеж по OrderId из URL:', orderIdParam)
+			try {
+				const res = await fetch('/api/tbank/payment/by-order', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({ orderId: orderIdParam }),
+				})
+
+				if (res.ok) {
+					const data = await res.json()
+					if (data.paymentId) {
+						console.log('✅ Найден PaymentId по OrderId:', data.paymentId)
+						paymentIdParam = data.paymentId
+					}
+				}
+			} catch (error) {
+				console.error('❌ Ошибка поиска платежа по OrderId:', error)
 			}
 		}
 
-		// Очищаем localStorage после использования
+		// Если OrderId не найден в URL, пробуем из localStorage
+		if (!orderIdParam) {
+			const savedOrderId = localStorage.getItem('lastOrderId')
+			if (savedOrderId) {
+				console.log('🔍 Используем OrderId из localStorage:', savedOrderId)
+				try {
+					const res = await fetch('/api/tbank/payment/by-order', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify({ orderId: savedOrderId }),
+					})
+
+					if (res.ok) {
+						const data = await res.json()
+						if (data.paymentId) {
+							console.log(
+								'✅ Найден PaymentId по OrderId из localStorage:',
+								data.paymentId
+							)
+							paymentIdParam = data.paymentId
+						}
+					}
+				} catch (error) {
+					console.error(
+						'❌ Ошибка поиска платежа по OrderId из localStorage:',
+						error
+					)
+				}
+			}
+		}
+
+		// Если PaymentId не найден в URL или это шаблон {PaymentId}, пробуем получить из разных источников
+		if (!paymentIdParam || paymentIdParam === '{PaymentId}') {
+			// 1. Пробуем из localStorage
+			const savedPaymentId = localStorage.getItem('lastPaymentId')
+			if (savedPaymentId && savedPaymentId !== '{PaymentId}') {
+				console.log('💾 Используем PaymentId из localStorage:', savedPaymentId)
+				paymentIdParam = savedPaymentId
+			} else {
+				// 2. Пробуем получить последний платеж из БД
+				console.log(
+					'🔍 PaymentId не найден в localStorage, запрашиваем последний платеж из БД'
+				)
+				try {
+					const res = await fetch('/api/tbank/payment/last', {
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					})
+
+					if (res.ok) {
+						const data = await res.json()
+						if (data.paymentId) {
+							console.log(
+								'✅ Получен последний PaymentId из БД:',
+								data.paymentId
+							)
+							paymentIdParam = data.paymentId
+							// Сохраняем в localStorage для будущего использования
+							localStorage.setItem('lastPaymentId', data.paymentId)
+						}
+					}
+				} catch (error) {
+					console.error('❌ Ошибка получения последнего платежа:', error)
+				}
+
+				// 3. Если все еще не найден - показываем ошибку
+				if (!paymentIdParam || paymentIdParam === '{PaymentId}') {
+					console.error(
+						'❌ PaymentId не найден ни в URL, ни в localStorage, ни в БД'
+					)
+					setStatus('failed')
+					setMessage(
+						'Не указан ID платежа. Попробуйте пополнить баланс снова или проверьте историю платежей в профиле.'
+					)
+					return
+				}
+			}
+		}
+
+		// Сохраняем paymentId в localStorage для будущего использования (не очищаем сразу)
 		if (paymentIdParam && paymentIdParam !== '{PaymentId}') {
-			localStorage.removeItem('lastPaymentId')
+			localStorage.setItem('lastPaymentId', paymentIdParam)
 		}
 
 		console.log('✅ PaymentId найден:', paymentIdParam)
@@ -89,6 +192,9 @@ function PaymentReturnContent() {
 			if (data.balanceUpdated) {
 				setStatus('success')
 				setMessage(`Баланс успешно пополнен на ${data.amount} ₽`)
+
+				// Очищаем localStorage только после успешного начисления баланса
+				localStorage.removeItem('lastPaymentId')
 
 				// Обновляем профиль через 2 секунды
 				setTimeout(() => {

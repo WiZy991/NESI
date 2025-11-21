@@ -463,10 +463,38 @@ export default function ProfilePageContent() {
 
 				// Перенаправляем на форму оплаты Т-Банка
 				if (data.paymentURL) {
-					// Сохраняем paymentId в localStorage для использования при возврате
+					// Сохраняем paymentId и orderId в localStorage для использования при возврате
 					if (data.paymentId) {
-						localStorage.setItem('lastPaymentId', data.paymentId)
-						console.log('💾 PaymentId сохранен в localStorage:', data.paymentId)
+						try {
+							localStorage.setItem('lastPaymentId', data.paymentId)
+							console.log(
+								'💾 PaymentId сохранен в localStorage:',
+								data.paymentId
+							)
+
+							// Проверяем, что сохранение прошло успешно
+							const saved = localStorage.getItem('lastPaymentId')
+							if (saved !== data.paymentId) {
+								console.error(
+									'❌ Ошибка: PaymentId не сохранился в localStorage'
+								)
+							}
+						} catch (error) {
+							console.error('❌ Ошибка сохранения в localStorage:', error)
+						}
+					}
+
+					// Также сохраняем orderId (он будет в URL при возврате)
+					if (data.orderId) {
+						try {
+							localStorage.setItem('lastOrderId', data.orderId)
+							console.log('💾 OrderId сохранен в localStorage:', data.orderId)
+						} catch (error) {
+							console.error(
+								'❌ Ошибка сохранения OrderId в localStorage:',
+								error
+							)
+						}
 					}
 
 					console.log('🔗 Перенаправление на страницу оплаты:', data.paymentURL)

@@ -35,8 +35,33 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
-		// Номер телефона получателя (для идентификации в системе Мультирасчетов)
-		const paymentRecipientId = phone || user.email || `user_${user.id}`
+		// PaymentRecipientId - идентификатор будущего получателя выплаты
+		// Согласно документации, должен быть номер телефона в формате "+79606747611"
+		// Для пополнения баланса используем телефон пользователя или email как fallback
+		let paymentRecipientId = phone
+
+		// Если телефон не передан, пробуем использовать email или создаем идентификатор
+		if (!paymentRecipientId) {
+			// Если у пользователя есть телефон в профиле, используем его
+			if (user.phone) {
+				// Приводим к формату +7XXXXXXXXXX
+				paymentRecipientId = user.phone.startsWith('+')
+					? user.phone
+					: user.phone.startsWith('7')
+					? `+${user.phone}`
+					: `+7${user.phone.replace(/\D/g, '')}`
+			} else {
+				// Fallback: используем email или создаем идентификатор
+				paymentRecipientId = user.email || `user_${user.id}`
+			}
+		} else {
+			// Приводим переданный телефон к формату +7XXXXXXXXXX
+			if (!paymentRecipientId.startsWith('+')) {
+				paymentRecipientId = paymentRecipientId.startsWith('7')
+					? `+${paymentRecipientId}`
+					: `+7${paymentRecipientId.replace(/\D/g, '')}`
+			}
+		}
 
 		// Ищем открытую сделку пользователя или создаем новую
 		let deal = await prisma.tBankDeal.findFirst({
@@ -55,10 +80,19 @@ export async function POST(req: NextRequest) {
 		// Создаем клиент
 		const client = new TBankClient()
 
+		// Генерируем OrderId для этого платежа (будет использован в SuccessURL)
+		// OrderId должен быть уникальным и использоваться для идентификации платежа при возврате
+		const orderId = `DEPOSIT_${user.id}_${Date.now()}_${Math.random()
+			.toString(36)
+			.substring(7)}`
+
 		// Формируем URL для возврата после оплаты
+		// Согласно документации Т-Банка, в SuccessURL можно использовать шаблоны:
+		// ${Success}, ${ErrorCode}, ${OrderId}, ${Message}, ${Details}
+		// PaymentId НЕ передается в URL! Используем OrderId для идентификации платежа
 		const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-		const successURL = `${appUrl}/payment/return?PaymentId={PaymentId}`
-		const failURL = `${appUrl}/payment/return?PaymentId={PaymentId}&status=failed`
+		const successURL = `${appUrl}/payment/return?Success=\${Success}&ErrorCode=\${ErrorCode}&OrderId=\${OrderId}`
+		const failURL = `${appUrl}/payment/return?Success=\${Success}&ErrorCode=\${ErrorCode}&OrderId=\${OrderId}&Message=\${Message}`
 
 		logger.info('Инициализация пополнения баланса', {
 			userId: user.id,
@@ -68,13 +102,14 @@ export async function POST(req: NextRequest) {
 			successURL,
 		})
 
-		// Инициируем платеж
+		// Инициируем платеж с OrderId
 		const result = await client.initPayment({
 			amount: amountNumber,
 			dealId: dealIdToUse,
 			paymentRecipientId,
 			description: `Пополнение баланса пользователя ${user.email}`,
 			createDeal: createNewDeal,
+			orderId: orderId, // Передаем наш OrderId
 			successURL,
 			failURL,
 		})
@@ -153,13 +188,14 @@ export async function POST(req: NextRequest) {
 		// Сохраняем платеж в БД (теперь deal гарантированно существует)
 		let paymentSaved = false
 		try {
-			const orderId = result.OrderId || `PAY_${Date.now()}_${result.PaymentId}`
+			// Используем OrderId из ответа Т-Банка (он должен совпадать с тем, что мы отправили)
+			const finalOrderId = result.OrderId || orderId
 
 			const savedPayment = await prisma.tBankPayment.create({
 				data: {
 					dealId: deal.id,
 					paymentId: result.PaymentId,
-					orderId: orderId,
+					orderId: finalOrderId, // Используем OrderId для связи с URL возврата
 					amount: new Prisma.Decimal(amountNumber),
 					status: result.Status || 'NEW',
 					customerId: user.id,
@@ -173,7 +209,7 @@ export async function POST(req: NextRequest) {
 				paymentId: result.PaymentId,
 				paymentDbId: savedPayment.id,
 				dealId: deal.id,
-				orderId: orderId,
+				orderId: finalOrderId,
 				amount: amountNumber,
 				status: result.Status || 'NEW',
 			})
@@ -279,14 +315,16 @@ export async function POST(req: NextRequest) {
 			paymentURL: result.PaymentURL,
 			status: result.Status,
 			dealId: deal?.id,
-			orderId: result.OrderId || 'не указан',
+			orderId: result.OrderId || orderId,
 			savedInDb: !!finalCheck,
 		})
 
 		// Возвращаем URL для оплаты
+		// Сохраняем orderId в ответе для использования на клиенте
 		return NextResponse.json({
 			success: true,
 			paymentId: result.PaymentId,
+			orderId: result.OrderId || orderId,
 			paymentURL: result.PaymentURL,
 			status: result.Status,
 			dealId: deal?.id,

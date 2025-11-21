@@ -80,6 +80,19 @@ export async function POST(req: NextRequest) {
 		}
 
 		if (payment) {
+			// Если пришел SpAccumulationId и сделка еще не привязана - обновляем
+			if (SpAccumulationId && !payment.deal.spAccumulationId) {
+				logger.info('Обновляем SpAccumulationId для сделки', {
+					dealId: payment.dealId,
+					spAccumulationId: SpAccumulationId,
+				})
+
+				await prisma.tBankDeal.update({
+					where: { id: payment.dealId },
+					data: { spAccumulationId: String(SpAccumulationId) },
+				})
+			}
+
 			await handlePaymentNotification(payment, body)
 			return new Response('OK', { status: 200 })
 		}
@@ -127,6 +140,19 @@ async function handlePaymentNotification(
 			confirmedAt: Status === 'CONFIRMED' ? new Date() : undefined,
 		},
 	})
+
+	// Если пришел SpAccumulationId и сделка еще не привязана - обновляем
+	if (SpAccumulationId && payment.deal && !payment.deal.spAccumulationId) {
+		logger.info('Обновляем SpAccumulationId для сделки из нотификации', {
+			dealId: payment.dealId,
+			spAccumulationId: SpAccumulationId,
+		})
+
+		await prisma.tBankDeal.update({
+			where: { id: payment.dealId },
+			data: { spAccumulationId: String(SpAccumulationId) },
+		})
+	}
 
 	// Логируем все данные для диагностики
 	logger.info('🔄 Обработка платежа в webhook', {
