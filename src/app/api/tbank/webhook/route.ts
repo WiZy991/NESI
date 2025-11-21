@@ -99,13 +99,35 @@ async function handlePaymentNotification(
 	})
 
 	// Если платеж подтвержден - начисляем деньги
-	if (Status === 'CONFIRMED' && Success) {
+	// Проверяем разные статусы, которые означают успешную оплату
+	const isConfirmed =
+		Status === 'CONFIRMED' ||
+		Status === 'AUTHORIZED' ||
+		(Success && Status !== 'REJECTED' && Status !== 'CANCELED')
+
+	if (isConfirmed && Success !== false) {
 		const amountRubles = Amount
 			? kopecksToRubles(Amount)
 			: toNumber(payment.amount)
 
-		// Начисляем на баланс пользователя
-		if (payment.deal.user) {
+		// Проверяем, не начисляли ли уже баланс (чтобы избежать двойного начисления)
+		const existingTransaction = await prisma.transaction.findFirst({
+			where: {
+				userId: payment.deal.userId,
+				type: 'deposit',
+				reason: {
+					contains: payment.paymentId,
+				},
+			},
+		})
+
+		if (existingTransaction) {
+			logger.warn('Баланс уже был начислен для этого платежа', {
+				paymentId: payment.paymentId,
+				transactionId: existingTransaction.id,
+			})
+		} else if (payment.deal.userId) {
+			// Начисляем на баланс пользователя
 			await prisma.user.update({
 				where: { id: payment.deal.userId },
 				data: {
@@ -116,8 +138,21 @@ async function handlePaymentNotification(
 						create: {
 							amount: new Prisma.Decimal(amountRubles),
 							type: 'deposit',
-							reason: 'Пополнение через Т-Банк Мультирасчеты',
+							reason: `Пополнение через Т-Банк Мультирасчеты (PaymentId: ${payment.paymentId})`,
 						},
+					},
+				},
+			})
+
+			// Обновляем баланс сделки
+			await prisma.tBankDeal.update({
+				where: { id: payment.dealId },
+				data: {
+					totalAmount: {
+						increment: new Prisma.Decimal(amountRubles),
+					},
+					remainingBalance: {
+						increment: new Prisma.Decimal(amountRubles),
 					},
 				},
 			})
@@ -126,21 +161,14 @@ async function handlePaymentNotification(
 				userId: payment.deal.userId,
 				amount: amountRubles,
 				paymentId: payment.paymentId,
+				status: Status,
+			})
+		} else {
+			logger.error('Не найден userId для начисления баланса', {
+				paymentId: payment.paymentId,
+				dealId: payment.dealId,
 			})
 		}
-
-		// Обновляем баланс сделки
-		await prisma.tBankDeal.update({
-			where: { id: payment.dealId },
-			data: {
-				totalAmount: {
-					increment: new Prisma.Decimal(amountRubles),
-				},
-				remainingBalance: {
-					increment: new Prisma.Decimal(amountRubles),
-				},
-			},
-		})
 	}
 
 	// Если платеж отклонен
