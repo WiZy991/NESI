@@ -94,9 +94,24 @@ export async function POST(req: NextRequest) {
 
 		// Генерируем OrderId для этого платежа (будет использован в SuccessURL)
 		// OrderId должен быть уникальным и использоваться для идентификации платежа при возврате
-		const orderId = `DEPOSIT_${user.id}_${Date.now()}_${Math.random()
-			.toString(36)
-			.substring(7)}`
+		// OrderId должен быть от 1 до 50 символов согласно документации
+		// Используем короткий формат: DEP_<shortUserId>_<timestamp>_<shortRandom>
+		const shortUserId = user.id.substring(0, 8)
+		const timestamp = Date.now()
+		const shortRandom = Math.random().toString(36).substring(2, 6) // 4 символа
+		let orderId = `DEP_${shortUserId}_${timestamp}_${shortRandom}`
+
+		// Проверяем длину (максимум 50 символов)
+		if (orderId.length > 50) {
+			// Если все еще длинно, используем еще более короткий формат
+			const orderIdShort = `DEP_${shortUserId}_${timestamp}`
+			if (orderIdShort.length <= 50) {
+				orderId = orderIdShort
+			} else {
+				// В крайнем случае используем только timestamp и короткий хеш
+				orderId = `DEP_${timestamp}_${shortRandom}`
+			}
+		}
 
 		// Формируем URL для возврата после оплаты
 		// Согласно документации Т-Банка, в SuccessURL можно использовать шаблоны:
