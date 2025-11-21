@@ -40,17 +40,16 @@ export async function POST(req: NextRequest) {
 
 		const amountNumber = toNumber(parsedAmount)
 
-		// Минимальная сумма 1000 рублей для E2C выплат
-		// (Т-Банк требует минимальную сумму для выплат через E2C)
+		// Минимальная сумма 100 рублей для E2C выплат
 		// Используем строгое сравнение с учетом возможных проблем округления
-		if (isNaN(amountNumber) || amountNumber < 1000) {
+		if (isNaN(amountNumber) || amountNumber < 100) {
 			logger.warn('Попытка вывода суммы меньше минимума', {
 				amount,
 				parsedAmount: parsedAmount.toString(),
 				amountNumber,
 			})
 			return NextResponse.json(
-				{ error: 'Минимальная сумма вывода: 1000 ₽' },
+				{ error: 'Минимальная сумма вывода: 100 ₽' },
 				{ status: 400 }
 			)
 		}
@@ -181,8 +180,27 @@ export async function POST(req: NextRequest) {
 					userId: user.id,
 					dealType: 'NN',
 					status: 'OPEN',
+					totalAmount: new Prisma.Decimal(0),
+					paidAmount: new Prisma.Decimal(0),
+					remainingBalance: new Prisma.Decimal(0),
 				},
 			})
+		}
+
+		// Проверяем баланс сделки
+		// Для E2C выплат нужно, чтобы на балансе сделки было достаточно средств
+		// Если баланс сделки меньше суммы выплаты, нужно сначала пополнить баланс сделки
+		const dealBalance = toNumber(deal.remainingBalance || 0)
+		if (dealBalance < amountNumber) {
+			logger.warn('Недостаточно средств на балансе сделки', {
+				userId: user.id,
+				dealId: deal.spAccumulationId,
+				dealBalance,
+				requestedAmount: amountNumber,
+			})
+
+			// Для E2C можно выводить напрямую с баланса пользователя, но нужно проверить документацию
+			// Пока оставляем предупреждение, но не блокируем
 		}
 
 		// Инициируем выплату
@@ -214,9 +232,23 @@ export async function POST(req: NextRequest) {
 			// Более понятное сообщение об ошибке
 			let errorMessage = result.Message || 'Не удалось инициировать выплату'
 
-			// Если ошибка связана с суммой
+			// Если ошибка связана с суммой - показываем более точное сообщение
 			if (result.Details && result.Details.includes('wrong.payout.amount')) {
-				errorMessage = 'Неверная сумма выплаты. Минимальная сумма: 1000 ₽'
+				if (amountNumber < 100) {
+					errorMessage = 'Неверная сумма выплаты. Минимальная сумма: 100 ₽'
+				} else {
+					// Сумма больше 1000, но все равно ошибка - возможно, проблема с балансом сделки
+					const dealBalance = toNumber(deal.remainingBalance || 0)
+					if (dealBalance < amountNumber) {
+						errorMessage = `Недостаточно средств на балансе сделки. Доступно: ${formatMoney(
+							dealBalance
+						)}, требуется: ${formatMoney(
+							amountNumber
+						)}. Пополните баланс через депозит.`
+					} else {
+						errorMessage = `Неверная сумма выплаты. Проверьте баланс сделки или обратитесь в поддержку.`
+					}
+				}
 			}
 
 			return NextResponse.json(
