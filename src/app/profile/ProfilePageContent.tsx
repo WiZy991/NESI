@@ -463,6 +463,12 @@ export default function ProfilePageContent() {
 
 				// Перенаправляем на форму оплаты Т-Банка
 				if (data.paymentURL) {
+					// Сохраняем paymentId в localStorage для использования при возврате
+					if (data.paymentId) {
+						localStorage.setItem('lastPaymentId', data.paymentId)
+						console.log('💾 PaymentId сохранен в localStorage:', data.paymentId)
+					}
+
 					console.log('🔗 Перенаправление на страницу оплаты:', data.paymentURL)
 					window.location.href = data.paymentURL
 					return

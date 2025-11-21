@@ -71,11 +71,14 @@ export async function POST(req: NextRequest) {
 					paymentId,
 					errorCode: result.ErrorCode,
 					message: result.Message,
+					details: result.Details,
+					fullResult: JSON.stringify(result),
 				})
 				return NextResponse.json(
 					{
 						error: result.Message || 'Платеж не найден',
 						errorCode: result.ErrorCode,
+						details: result.Details,
 					},
 					{ status: 404 }
 				)

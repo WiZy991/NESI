@@ -69,7 +69,11 @@ export class TBankClient {
 
 			return data
 		} catch (error) {
-			logger.error('TBank API Request Failed', { url, error })
+			logger.error('TBank API Request Failed', {
+				url,
+				error: error instanceof Error ? error.message : String(error),
+				errorDetails: error,
+			})
 			throw error
 		}
 	}

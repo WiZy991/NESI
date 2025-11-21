@@ -22,7 +22,7 @@ function PaymentReturnContent() {
 			return
 		}
 
-		const paymentIdParam =
+		let paymentIdParam =
 			searchParams.get('PaymentId') || searchParams.get('paymentId')
 
 		console.log('🔍 Параметры URL:', {
@@ -31,11 +31,23 @@ function PaymentReturnContent() {
 			allParams: Object.fromEntries(searchParams.entries()),
 		})
 
-		if (!paymentIdParam) {
-			console.error('❌ PaymentId не найден в URL параметрах')
-			setStatus('failed')
-			setMessage('Не указан ID платежа')
-			return
+		// Если PaymentId не найден в URL или это шаблон {PaymentId}, берем из localStorage
+		if (!paymentIdParam || paymentIdParam === '{PaymentId}') {
+			const savedPaymentId = localStorage.getItem('lastPaymentId')
+			if (savedPaymentId) {
+				console.log('💾 Используем PaymentId из localStorage:', savedPaymentId)
+				paymentIdParam = savedPaymentId
+			} else {
+				console.error('❌ PaymentId не найден ни в URL, ни в localStorage')
+				setStatus('failed')
+				setMessage('Не указан ID платежа. Попробуйте пополнить баланс снова.')
+				return
+			}
+		}
+
+		// Очищаем localStorage после использования
+		if (paymentIdParam && paymentIdParam !== '{PaymentId}') {
+			localStorage.removeItem('lastPaymentId')
 		}
 
 		console.log('✅ PaymentId найден:', paymentIdParam)

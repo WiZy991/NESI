@@ -84,6 +84,8 @@ export async function POST(req: NextRequest) {
 				userId: user.id,
 				errorCode: result.ErrorCode,
 				message: result.Message,
+				details: result.Details,
+				fullResult: JSON.stringify(result),
 			})
 
 			return NextResponse.json(
@@ -93,6 +95,18 @@ export async function POST(req: NextRequest) {
 					errorCode: result.ErrorCode,
 				},
 				{ status: 400 }
+			)
+		}
+
+		// Проверяем, что все необходимые данные получены
+		if (!result.PaymentId) {
+			logger.error('❌ PaymentId не получен от Т-Банка', {
+				userId: user.id,
+				result: JSON.stringify(result),
+			})
+			return NextResponse.json(
+				{ error: 'Не получен ID платежа от Т-Банка' },
+				{ status: 500 }
 			)
 		}
 
@@ -137,12 +151,15 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Сохраняем платеж в БД (теперь deal гарантированно существует)
+		let paymentSaved = false
 		try {
-			await prisma.tBankPayment.create({
+			const orderId = result.OrderId || `PAY_${Date.now()}_${result.PaymentId}`
+
+			const savedPayment = await prisma.tBankPayment.create({
 				data: {
 					dealId: deal.id,
 					paymentId: result.PaymentId,
-					orderId: result.OrderId || `PAY_${Date.now()}`,
+					orderId: orderId,
 					amount: new Prisma.Decimal(amountNumber),
 					status: result.Status || 'NEW',
 					customerId: user.id,
@@ -150,25 +167,109 @@ export async function POST(req: NextRequest) {
 				},
 			})
 
-			logger.info('💾 Платеж сохранен в БД', {
+			paymentSaved = true
+
+			logger.info('💾 Платеж успешно сохранен в БД', {
 				paymentId: result.PaymentId,
+				paymentDbId: savedPayment.id,
 				dealId: deal.id,
-				orderId: result.OrderId,
+				orderId: orderId,
+				amount: amountNumber,
+				status: result.Status || 'NEW',
 			})
+
+			// Проверяем, что платеж действительно сохранен
+			const verifyPayment = await prisma.tBankPayment.findUnique({
+				where: { paymentId: result.PaymentId },
+			})
+
+			if (!verifyPayment) {
+				logger.error(
+					'❌ КРИТИЧЕСКАЯ ОШИБКА: Платеж не найден после сохранения!',
+					{
+						paymentId: result.PaymentId,
+						dealId: deal.id,
+					}
+				)
+			} else {
+				logger.info('✅ Платеж подтвержден в БД', {
+					paymentId: result.PaymentId,
+					paymentDbId: verifyPayment.id,
+				})
+			}
 		} catch (error: any) {
-			// Если платеж уже существует (дубликат) - это нормально
+			// Если платеж уже существует (дубликат) - проверяем, что он есть
 			if (error.code === 'P2002') {
 				logger.warn('⚠️ Платеж уже существует в БД (дубликат)', {
 					paymentId: result.PaymentId,
 				})
+
+				// Проверяем, что платеж действительно существует
+				const existingPayment = await prisma.tBankPayment.findUnique({
+					where: { paymentId: result.PaymentId },
+				})
+
+				if (existingPayment) {
+					paymentSaved = true
+					logger.info('✅ Существующий платеж найден в БД', {
+						paymentId: result.PaymentId,
+						paymentDbId: existingPayment.id,
+						dealId: existingPayment.dealId,
+					})
+				} else {
+					logger.error(
+						'❌ КРИТИЧЕСКАЯ ОШИБКА: Дубликат, но платеж не найден!',
+						{
+							paymentId: result.PaymentId,
+						}
+					)
+				}
 			} else {
 				logger.error('❌ Ошибка сохранения платежа в БД', {
 					paymentId: result.PaymentId,
 					error: error.message,
 					code: error.code,
+					stack: error.stack,
+					dealId: deal.id,
 				})
 				// Не прерываем процесс, платеж все равно инициирован
 			}
+		}
+
+		// Если платеж не был сохранен - это критическая ошибка
+		if (!paymentSaved) {
+			logger.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Платеж не был сохранен в БД!', {
+				paymentId: result.PaymentId,
+				userId: user.id,
+				dealId: deal.id,
+				amount: amountNumber,
+			})
+		}
+
+		// Финальная проверка: убеждаемся, что платеж сохранен в БД
+		const finalCheck = await prisma.tBankPayment.findUnique({
+			where: { paymentId: result.PaymentId },
+			select: { id: true, dealId: true, status: true },
+		})
+
+		if (!finalCheck) {
+			logger.error(
+				'❌ КРИТИЧЕСКАЯ ОШИБКА: Платеж не найден в БД перед возвратом ответа!',
+				{
+					paymentId: result.PaymentId,
+					userId: user.id,
+					dealId: deal?.id,
+				}
+			)
+			// Все равно возвращаем успех, так как платеж инициирован в Т-Банке
+			// Система восстановления в check-status должна помочь
+		} else {
+			logger.info('✅ Финальная проверка: Платеж найден в БД', {
+				paymentId: result.PaymentId,
+				paymentDbId: finalCheck.id,
+				dealId: finalCheck.dealId,
+				status: finalCheck.status,
+			})
 		}
 
 		logger.info('✅ Платеж успешно инициирован', {
@@ -179,6 +280,7 @@ export async function POST(req: NextRequest) {
 			status: result.Status,
 			dealId: deal?.id,
 			orderId: result.OrderId || 'не указан',
+			savedInDb: !!finalCheck,
 		})
 
 		// Возвращаем URL для оплаты
@@ -188,6 +290,7 @@ export async function POST(req: NextRequest) {
 			paymentURL: result.PaymentURL,
 			status: result.Status,
 			dealId: deal?.id,
+			savedInDb: !!finalCheck,
 		})
 	} catch (error) {
 		logger.error('Ошибка при инициации пополнения', { error })
