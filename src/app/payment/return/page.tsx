@@ -3,9 +3,9 @@
 import { useUser } from '@/context/UserContext'
 import { motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 
-export default function PaymentReturnPage() {
+function PaymentReturnContent() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
 	const { token } = useUser()
@@ -242,5 +242,31 @@ export default function PaymentReturnPage() {
 				)}
 			</motion.div>
 		</div>
+	)
+}
+
+export default function PaymentReturnPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4 text-white'>
+					<div className='bg-black/40 border border-emerald-500/40 rounded-2xl shadow-[0_0_35px_rgba(16,185,129,0.4)] p-10 max-w-md w-full backdrop-blur-md text-center'>
+						<motion.div
+							animate={{ rotate: 360 }}
+							transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+							className='text-5xl mb-4'
+						>
+							⏳
+						</motion.div>
+						<h1 className='text-2xl font-bold mb-4 text-emerald-400'>
+							Загрузка...
+						</h1>
+						<p className='text-gray-300'>Проверяем статус платежа...</p>
+					</div>
+				</div>
+			}
+		>
+			<PaymentReturnContent />
+		</Suspense>
 	)
 }
