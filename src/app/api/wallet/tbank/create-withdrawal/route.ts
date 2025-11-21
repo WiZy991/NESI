@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
 
-		const { amount, cardId, phone, sbpMemberId, dealId } = await req.json()
+		const { amount, cardId, phone, sbpMemberId, dealId, cardNumber, cardExpiry, cardCvv, cardHolderName, paymentRecipientId } = await req.json()
 
 		// Парсим и валидируем сумму
 		const parsedAmount = parseUserInput(amount)
@@ -102,11 +102,19 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Проверяем наличие способа выплаты
-		if (!cardId && (!phone || !sbpMemberId)) {
+		// Для карты: cardId ИЛИ (cardNumber + cardExpiry + cardCvv + cardHolderName)
+		// Для СБП: phone + sbpMemberId
+		const hasCardId = !!cardId
+		const hasCardData = !!(cardNumber && cardExpiry && cardCvv && cardHolderName)
+		const hasSbpData = !!(phone && sbpMemberId)
+		
+		if (!hasCardId && !hasCardData && !hasSbpData) {
 			return NextResponse.json(
 				{
 					error:
-						'Не указан способ выплаты. Укажите cardId или phone+sbpMemberId',
+						'Не указан способ выплаты. Укажите:\n' +
+						'• Для карты: cardId или данные карты (номер, срок, CVV, имя)\n' +
+						'• Для СБП: phone и sbpMemberId',
 				},
 				{ status: 400 }
 			)
@@ -327,26 +335,38 @@ export async function POST(req: NextRequest) {
 			}
 		}
 
-		// Получаем телефон пользователя для PaymentRecipientId
-		// Используем телефон из запроса (для СБП) или телефон из профиля пользователя
-		const userPhone = phone || user.phone || ''
-		const cleanPhone = userPhone.replace(/\D/g, '')
-
-		// Формируем корректный PaymentRecipientId в формате 7XXXXXXXXXX (11 цифр, БЕЗ +)
-		// Согласно документации A2C_V2 стр. 15-16: "PaymentRecipientId": "79066589133"
-		let formattedPhone = ''
-		if (cleanPhone.length >= 11 && cleanPhone.startsWith('7')) {
-			// Уже есть 11 цифр с '7' в начале
-			formattedPhone = cleanPhone.slice(0, 11)
-		} else if (cleanPhone.length >= 10) {
-			// Берем последние 10 цифр и добавляем '7'
-			formattedPhone = `7${cleanPhone.slice(-10)}`
+		// Определяем способ выплаты и формируем PaymentRecipientId
+		let finalCardId: string | undefined = undefined
+		let finalPaymentRecipientId: string
+		
+		if (hasCardId) {
+			// Если указан CardId (привязанная карта)
+			finalCardId = cardId
+			// PaymentRecipientId для карты - телефон или последние 4 цифры карты
+			finalPaymentRecipientId = paymentRecipientId || user.phone || user.id.slice(-4)
+		} else if (hasCardData) {
+			// Если указаны данные карты, CardId не используется
+			// PaymentRecipientId - последние 4 цифры карты или телефон
+			const cleanCardNumber = cardNumber.replace(/\D/g, '')
+			finalPaymentRecipientId = paymentRecipientId || cleanCardNumber.slice(-4) || user.phone || user.id.slice(-4)
 		} else {
-			// Если номер недостаточно длинный, используем user.id как fallback
-			formattedPhone = `7${user.id
-				.replace(/\D/g, '')
-				.slice(0, 10)
-				.padEnd(10, '0')}`
+			// Для СБП - используем телефон
+			const userPhone = phone || user.phone || ''
+			const cleanPhone = userPhone.replace(/\D/g, '')
+			
+			// Формируем корректный PaymentRecipientId в формате 7XXXXXXXXXX (11 цифр, БЕЗ +)
+			// Согласно документации A2C_V2 стр. 15-16: "PaymentRecipientId": "79066589133"
+			if (cleanPhone.length >= 11 && cleanPhone.startsWith('7')) {
+				finalPaymentRecipientId = cleanPhone.slice(0, 11)
+			} else if (cleanPhone.length >= 10) {
+				finalPaymentRecipientId = `7${cleanPhone.slice(-10)}`
+			} else {
+				// Если номер недостаточно длинный, используем user.id как fallback
+				finalPaymentRecipientId = `7${user.id
+					.replace(/\D/g, '')
+					.slice(0, 10)
+					.padEnd(10, '0')}`
+			}
 		}
 
 		console.log('💸 [CREATE-WITHDRAWAL] Параметры выплаты:', {
@@ -359,6 +379,41 @@ export async function POST(req: NextRequest) {
 			phone: phone || 'не указан',
 			sbpMemberId: sbpMemberId || 'не указан',
 		})
+
+		// Проверяем доступность СБП перед выплатой (только для СБП выплат)
+		if (phone && sbpMemberId) {
+			try {
+				const { getSbpMembers } = await import('@/lib/tbank')
+				console.log('🔍 [CREATE-WITHDRAWAL] Проверка доступности СБП через GetSbpMembers...')
+				const sbpMembers = await getSbpMembers()
+				
+				if (sbpMembers.Success && sbpMembers.Members && sbpMembers.Members.length > 0) {
+					console.log('✅ [CREATE-WITHDRAWAL] СБП доступен для терминала:', {
+						availableBanks: sbpMembers.Members.length,
+						selectedBank: sbpMemberId,
+						isBankAvailable: sbpMembers.Members.some(
+							m => m.MemberId === String(sbpMemberId)
+						),
+					})
+				} else {
+					console.error('❌ [CREATE-WITHDRAWAL] СБП недоступен для терминала:', {
+						success: sbpMembers.Success,
+						errCode: sbpMembers.ErrCode,
+						message: sbpMembers.Message,
+					})
+					return NextResponse.json(
+						{
+							error: `СБП недоступен для вашего терминала. Обратитесь в поддержку Т-Банка для включения выплат через СБП.\n\nДетали: ${sbpMembers.Message || 'Неизвестная ошибка'}`,
+						},
+						{ status: 400 }
+					)
+				}
+			} catch (sbpCheckError: any) {
+				console.error('❌ [CREATE-WITHDRAWAL] Ошибка проверки доступности СБП:', sbpCheckError)
+				// Не блокируем выплату, если проверка не удалась - возможно, это временная проблема
+				console.warn('⚠️ [CREATE-WITHDRAWAL] Продолжаем выплату, несмотря на ошибку проверки СБП')
+			}
+		}
 
 		// Создаем выплату в Т-Банке
 		let withdrawal
@@ -403,18 +458,41 @@ export async function POST(req: NextRequest) {
 				}
 			}
 
+			// Формируем CardData для выплаты на карту, если указаны данные карты
+			let cardDataString: string | undefined = undefined
+			if (hasCardData && !hasCardId) {
+				// Для выплаты на карту через CardData нужны данные карты
+				const cleanCardNumber = cardNumber.replace(/\D/g, '')
+				const [expMonth, expYear] = cardExpiry.split('/')
+				
+				cardDataString = JSON.stringify({
+					PAN: cleanCardNumber,
+					ExpDate: expYear ? `${expMonth}${expYear}` : expMonth, // MMYY
+					CVV: cardCvv,
+					CardHolder: cardHolderName,
+				})
+				
+				console.log('💳 [CREATE-WITHDRAWAL] Сформированы данные карты:', {
+					cardNumberLength: cleanCardNumber.length,
+					hasExpiry: !!cardExpiry,
+					hasCvv: !!cardCvv,
+					hasHolderName: !!cardHolderName,
+					note: 'CardData будет передан для выплаты на карту',
+				})
+			}
+
 			withdrawal = await createWithdrawal({
 				amount: amountNumber,
 				orderId,
 				dealId: finalDealId,
-				paymentRecipientId: formattedPhone,
-				cardId,
-				phone: phoneForSbp, // 11 цифр: 7XXXXXXXXXX
-				sbpMemberId,
+				paymentRecipientId: finalPaymentRecipientId,
+				cardId: finalCardId,
+				cardData: cardDataString, // Данные карты для одноразовой выплаты
+				phone: phoneForSbp, // 11 цифр: 7XXXXXXXXXX (только для СБП)
+				sbpMemberId, // Только для СБП
 				// НЕ используем FinalPayout для частичных выплат
 				// FinalPayout: true требует, чтобы сумма ТОЧНО совпадала с балансом сделки
 				// Для частичных выплат используем FinalPayout: false (не передаем параметр)
-				finalPayout: false,
 			})
 
 			console.log('✅ [CREATE-WITHDRAWAL] Выплата создана:', {

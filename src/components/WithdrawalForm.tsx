@@ -30,6 +30,10 @@ export default function WithdrawalForm({
 	const [method, setMethod] = useState<'sbp' | 'card'>('sbp')
 	const [phone, setPhone] = useState('')
 	const [selectedBank, setSelectedBank] = useState(SBP_BANKS[0].id)
+	const [cardNumber, setCardNumber] = useState('')
+	const [cardExpiry, setCardExpiry] = useState('')
+	const [cardCvv, setCardCvv] = useState('')
+	const [cardHolderName, setCardHolderName] = useState('')
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [success, setSuccess] = useState(false)
@@ -67,15 +71,56 @@ export default function WithdrawalForm({
 				setError('Номер должен быть в формате +7XXXXXXXXXX (11 цифр)')
 				return
 			}
+		} else if (method === 'card') {
+			// Валидация данных карты
+			const cleanCardNumber = cardNumber.replace(/\D/g, '')
+			if (cleanCardNumber.length < 16 || cleanCardNumber.length > 19) {
+				setError('Номер карты должен содержать от 16 до 19 цифр')
+				return
+			}
+
+			if (!cardExpiry.match(/^\d{2}\/\d{2}$/)) {
+				setError('Срок действия должен быть в формате MM/YY')
+				return
+			}
+
+			if (cardCvv.length < 3 || cardCvv.length > 4) {
+				setError('CVV должен содержать 3 или 4 цифры')
+				return
+			}
+
+			if (!cardHolderName.trim()) {
+				setError('Укажите имя держателя карты')
+				return
+			}
 		}
 
 		setLoading(true)
 
 		try {
-			const phoneDigits = phone.trim().replace(/\D/g, '')
-			const formattedPhone = phoneDigits.startsWith('7')
-				? phoneDigits
-				: `7${phoneDigits.slice(-10)}`
+			const requestBody: any = {
+				amount,
+			}
+
+			if (method === 'sbp') {
+				const phoneDigits = phone.trim().replace(/\D/g, '')
+				const formattedPhone = phoneDigits.startsWith('7')
+					? phoneDigits
+					: `7${phoneDigits.slice(-10)}`
+
+				requestBody.phone = formattedPhone
+				requestBody.sbpMemberId = selectedBank
+			} else if (method === 'card') {
+				// Для выплаты на карту передаем данные карты
+				// PaymentRecipientId - это телефон или номер карты
+				const cleanCardNumber = cardNumber.replace(/\D/g, '')
+				requestBody.cardNumber = cleanCardNumber
+				requestBody.cardExpiry = cardExpiry
+				requestBody.cardCvv = cardCvv
+				requestBody.cardHolderName = cardHolderName.trim()
+				// PaymentRecipientId - последние 4 цифры номера карты или полный номер
+				requestBody.paymentRecipientId = cleanCardNumber.slice(-4)
+			}
 
 			const response = await fetch('/api/wallet/tbank/create-withdrawal', {
 				method: 'POST',
@@ -83,11 +128,7 @@ export default function WithdrawalForm({
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({
-					amount,
-					phone: formattedPhone,
-					sbpMemberId: selectedBank,
-				}),
+				body: JSON.stringify(requestBody),
 			})
 
 			const data = await response.json()
@@ -100,6 +141,10 @@ export default function WithdrawalForm({
 			setSuccess(true)
 			setAmount(100)
 			setPhone('')
+			setCardNumber('')
+			setCardExpiry('')
+			setCardCvv('')
+			setCardHolderName('')
 			onSuccess()
 
 			// Показываем успешное сообщение
@@ -169,12 +214,18 @@ export default function WithdrawalForm({
 						</button>
 						<button
 							type='button'
-							disabled
-							className='flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-gray-700 text-gray-600 cursor-not-allowed'
-							title='Вывод на карту временно недоступен'
+							onClick={() => {
+								setMethod('card')
+								setError(null)
+							}}
+							className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition ${
+								method === 'card'
+									? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
+									: 'border-gray-600 text-gray-400 hover:border-gray-500'
+							}`}
 						>
 							<FaCreditCard />
-							На карту (скоро)
+							На карту
 						</button>
 					</div>
 				</div>
@@ -226,6 +277,99 @@ export default function WithdrawalForm({
 									</button>
 								))}
 							</div>
+						</div>
+					</>
+				)}
+
+				{/* Форма для выплаты на карту */}
+				{method === 'card' && (
+					<>
+						{/* Номер карты */}
+						<div>
+							<label className='block text-sm font-medium text-gray-300 mb-2'>
+								<FaCreditCard className='inline mr-2' />
+								Номер карты
+							</label>
+							<input
+								type='text'
+								value={cardNumber}
+								onChange={e => {
+									// Форматируем номер карты с пробелами
+									const value = e.target.value.replace(/\D/g, '').slice(0, 19)
+									const formatted = value.replace(/(.{4})/g, '$1 ').trim()
+									setCardNumber(formatted)
+									setError(null)
+								}}
+								placeholder='0000 0000 0000 0000'
+								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono'
+								disabled={loading}
+							/>
+							<p className='text-xs text-gray-400 mt-1'>
+								Введите 16-19 цифр номера карты
+							</p>
+						</div>
+
+						{/* Срок действия и CVV */}
+						<div className='grid grid-cols-2 gap-4'>
+							<div>
+								<label className='block text-sm font-medium text-gray-300 mb-2'>
+									Срок действия
+								</label>
+								<input
+									type='text'
+									value={cardExpiry}
+									onChange={e => {
+										let value = e.target.value.replace(/\D/g, '').slice(0, 4)
+										if (value.length >= 2) {
+											value = value.slice(0, 2) + '/' + value.slice(2)
+										}
+										setCardExpiry(value)
+										setError(null)
+									}}
+									placeholder='MM/YY'
+									className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono'
+									disabled={loading}
+								/>
+							</div>
+							<div>
+								<label className='block text-sm font-medium text-gray-300 mb-2'>
+									CVV
+								</label>
+								<input
+									type='text'
+									value={cardCvv}
+									onChange={e => {
+										const value = e.target.value.replace(/\D/g, '').slice(0, 4)
+										setCardCvv(value)
+										setError(null)
+									}}
+									placeholder='123'
+									className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono'
+									disabled={loading}
+									maxLength={4}
+								/>
+							</div>
+						</div>
+
+						{/* Имя держателя карты */}
+						<div>
+							<label className='block text-sm font-medium text-gray-300 mb-2'>
+								Имя держателя карты
+							</label>
+							<input
+								type='text'
+								value={cardHolderName}
+								onChange={e => {
+									setCardHolderName(e.target.value.toUpperCase())
+									setError(null)
+								}}
+								placeholder='IVAN PETROV'
+								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition uppercase'
+								disabled={loading}
+							/>
+							<p className='text-xs text-gray-400 mt-1'>
+								Как указано на карте (латиница)
+							</p>
 						</div>
 					</>
 				)}

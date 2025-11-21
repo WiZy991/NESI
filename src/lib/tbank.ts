@@ -355,7 +355,11 @@ export async function createWithdrawal(
 	if (!params.dealId) {
 		throw new Error('DealId обязателен для выплат в рамках мультирасчетов')
 	}
-	requestBody.DealId = params.dealId
+	// ПРОТИВОРЕЧИЕ В ДОКУМЕНТАЦИИ:
+	// - В таблице параметров (стр. 500): DealId Number
+	// - В примере запроса (стр. 905): "DealId": "9043456" (строка)
+	// Пробуем передавать как СТРОКУ, как в примере запроса
+	requestBody.DealId = String(params.dealId)
 
 	// PaymentRecipientId ВСЕГДА обязателен (согласно документации A2C_V2 стр. 15-16)
 	requestBody.PaymentRecipientId = params.paymentRecipientId
@@ -392,9 +396,19 @@ export async function createWithdrawal(
 			note: 'SbpMemberId передается как строка (согласно примеру запроса стр. 902)',
 		})
 	}
-	// Если выплата на карту - добавляем CardId
-	else if (params.cardId) {
+	// Если выплата на карту - добавляем CardId или CardData
+	if (params.cardId) {
 		requestBody.CardId = params.cardId
+		console.log('💳 [TBANK] Используется привязанная карта:', {
+			cardId: params.cardId,
+			note: 'CardId - идентификатор привязанной карты через AddCard',
+		})
+	} else if (params.cardData) {
+		requestBody.CardData = params.cardData
+		console.log('💳 [TBANK] Используются данные карты:', {
+			hasCardData: !!params.cardData,
+			note: 'CardData - данные карты в формате JSON-строки',
+		})
 	}
 
 	// Финальная выплата
@@ -575,6 +589,19 @@ export async function createWithdrawal(
 			}
 		}
 		
+		// Обработка конкретных сообщений об ошибках
+		if (data.Message) {
+			if (data.Message.includes('СБП недоступен') || data.Message.includes('СБП не доступен') || data.Message.includes('недоступен для магазина')) {
+				errorMessage = `❌ Способ выплаты СБП недоступен для вашего терминала.\n\n` +
+					`Решение:\n` +
+					`• Обратитесь в поддержку Т-Банка (acq_help@tbank.ru)\n` +
+					`• Попросите включить выплаты через СБП для терминала E2C\n` +
+					`• Проверьте настройки терминала в личном кабинете Т-Банка\n` +
+					`• Убедитесь, что терминал E2C настроен для выплат через СБП\n\n` +
+					`Пока СБП недоступен, используйте вывод на банковскую карту.`
+			}
+		}
+		
 		throw new Error(errorMessage)
 	}
 
@@ -649,6 +676,84 @@ export async function confirmWithdrawal(
 				`Ошибка подтверждения выплаты: ${
 					data.ErrorCode || 'неизвестная ошибка'
 				}`
+		)
+	}
+
+	return data
+}
+
+/**
+ * Получение списка банков СБП (GetSbpMembers)
+ * Используется для проверки доступности СБП для терминала
+ */
+export async function getSbpMembers(): Promise<{
+	Success: boolean
+	ErrCode: string
+	Message?: string
+	Members?: Array<{
+		MemberId: string
+		MemberName?: string
+		MemberNameRus: string
+	}>
+}> {
+	const terminalKey = process.env.TBANK_E2C_TERMINAL_KEY || process.env.TBANK_TERMINAL_KEY
+	if (!terminalKey) {
+		throw new Error('TBANK_E2C_TERMINAL_KEY не настроен в переменных окружения')
+	}
+
+	const requestBody: Record<string, any> = {
+		TerminalKey: terminalKey,
+	}
+
+	// Генерируем Token с паролем E2C терминала
+	const e2cPassword = process.env.TBANK_E2C_PASSWORD || process.env.TBANK_PASSWORD
+	if (!e2cPassword) {
+		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
+	}
+
+	requestBody.Token = generateToken(requestBody, e2cPassword)
+
+	// URL для GetSbpMembers отличается от обычного API URL
+	// Боевой: https://securepay.tinkoff.ru/a2c/sbp/GetSbpMembers
+	// Тестовый: https://rest-api-test.tinkoff.ru/a2c/sbp/GetSbpMembers
+	const baseUrl = process.env.NODE_ENV === 'production'
+		? 'https://securepay.tinkoff.ru'
+		: 'https://rest-api-test.tinkoff.ru'
+	const sbpMembersUrl = `${baseUrl}/a2c/sbp/GetSbpMembers`
+
+	console.log('🔍 [TBANK] Запрос списка банков СБП (GetSbpMembers):', {
+		url: sbpMembersUrl,
+		terminalKey,
+		hasPassword: !!e2cPassword,
+		environment: process.env.NODE_ENV,
+	})
+
+	const response = await fetch(sbpMembersUrl, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify(requestBody),
+	})
+
+	if (!response.ok) {
+		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
+		throw new Error(`HTTP ошибка ${response.status} при получении списка банков СБП: ${errorText}`)
+	}
+
+	const data = await response.json()
+
+	console.log('📥 [TBANK] Ответ от GetSbpMembers:', {
+		success: data.Success,
+		errCode: data.ErrCode,
+		message: data.Message,
+		membersCount: data.Members?.length || 0,
+		members: data.Members?.slice(0, 5), // Первые 5 банков для примера
+	})
+
+	if (!data.Success && data.ErrCode !== '0') {
+		throw new Error(
+			data.Message || `Ошибка получения списка банков СБП: ${data.ErrCode || 'неизвестная ошибка'}`
 		)
 	}
 
