@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
 
 		if (!isValid) {
 			logger.error('Неверная подпись webhook Т-Банк', { body })
-			return new Response('INVALID_SIGNATURE', { status: 400 })
+			// Return OK even for invalid signatures to prevent T-Bank from retrying
+			return new Response('OK', { status: 200 })
 		}
 
 		// Определяем тип нотификации
