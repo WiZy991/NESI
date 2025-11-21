@@ -374,10 +374,13 @@ export async function POST(req: NextRequest) {
 			amount: amountNumber,
 			orderId,
 			dealId: finalDealId || 'не указан',
-			paymentRecipientId: formattedPhone,
-			cardId: cardId || 'не указан',
+			paymentRecipientId: finalPaymentRecipientId,
+			cardId: finalCardId || cardId || 'не указан',
+			hasCardData: hasCardData,
+			hasCardId: hasCardId,
 			phone: phone || 'не указан',
 			sbpMemberId: sbpMemberId || 'не указан',
+			method: hasCardId || hasCardData ? 'card' : hasSbpData ? 'sbp' : 'unknown',
 		})
 
 		// Проверяем доступность СБП перед выплатой (только для СБП выплат)
