@@ -42,7 +42,13 @@ export async function POST(req: NextRequest) {
 
 		// Минимальная сумма 1000 рублей для E2C выплат
 		// (Т-Банк требует минимальную сумму для выплат через E2C)
-		if (amountNumber < 1000) {
+		// Используем строгое сравнение с учетом возможных проблем округления
+		if (isNaN(amountNumber) || amountNumber < 1000) {
+			logger.warn('Попытка вывода суммы меньше минимума', {
+				amount,
+				parsedAmount: parsedAmount.toString(),
+				amountNumber,
+			})
 			return NextResponse.json(
 				{ error: 'Минимальная сумма вывода: 1000 ₽' },
 				{ status: 400 }

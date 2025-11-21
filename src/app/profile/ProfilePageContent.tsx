@@ -488,6 +488,15 @@ export default function ProfilePageContent() {
 			return
 		}
 
+		// Проверка минимальной суммы для Т-Банк (1000 рублей)
+		if (useTBank) {
+			const amountNum = typeof amount === 'string' ? parseFloat(amount) : amount
+			if (isNaN(amountNum) || amountNum < 1000) {
+				setWithdrawError('Минимальная сумма вывода: 1000 ₽')
+				return
+			}
+		}
+
 		// Проверяем телефон если используем Т-Банк
 		if (useTBank && !withdrawPhone) {
 			setWithdrawError('Укажите номер телефона для вывода средств')
