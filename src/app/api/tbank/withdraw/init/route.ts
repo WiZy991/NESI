@@ -54,39 +54,53 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
-		// Проверка телефона
-		// Согласно документации, PaymentRecipientId должен быть в формате +7XXXXXXXXXX (12 символов)
-		// Для Phone в e2c/v2/Init формат: 11 цифр без + (например: 79001234567)
-		if (!phone) {
+		// Проверка: для вывода нужна либо карта, либо телефон
+		// Если карта не указана, требуется телефон для СБП
+		if (!cardId && !phone) {
 			return NextResponse.json(
 				{
-					error: 'Укажите номер телефона для вывода',
+					error: 'Укажите номер телефона или привязанную карту для вывода',
 				},
 				{ status: 400 }
 			)
 		}
 
-		// Нормализуем телефон для Phone (11 цифр без +)
-		let normalizedPhone = phone.replace(/[^0-9]/g, '')
-		// Если начинается с 8, заменяем на 7
-		if (normalizedPhone.startsWith('8')) {
-			normalizedPhone = '7' + normalizedPhone.substring(1)
-		}
-		// Проверяем, что телефон состоит из 11 цифр (7 + 10 цифр)
-		if (normalizedPhone.length !== 11 || !normalizedPhone.startsWith('7')) {
+		// Нормализуем телефон для Phone и PaymentRecipientId (11 цифр без +)
+		let normalizedPhone: string | undefined
+		let paymentRecipientId: string
+
+		if (phone) {
+			let phoneDigits = phone.replace(/[^0-9]/g, '')
+			// Если начинается с 8, заменяем на 7
+			if (phoneDigits.startsWith('8')) {
+				phoneDigits = '7' + phoneDigits.substring(1)
+			}
+			// Проверяем, что телефон состоит из 11 цифр (7 + 10 цифр)
+			if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
+				return NextResponse.json(
+					{
+						error:
+							'Некорректный формат телефона. Должно быть 11 цифр, начинающихся с 7 (например: 79001234567)',
+					},
+					{ status: 400 }
+				)
+			}
+			normalizedPhone = phoneDigits
+			// PaymentRecipientId для выплат: 11 цифр без + (например: "79066589133")
+			paymentRecipientId = phoneDigits
+		} else if (cardId) {
+			// Если карта указана, но телефон не указан - PaymentRecipientId обязателен
+			// Используем короткий ID пользователя (для карты можно использовать любой идентификатор)
+			paymentRecipientId = user.id.substring(0, 8)
+		} else {
+			// Не должно произойти, но на всякий случай
 			return NextResponse.json(
 				{
-					error:
-						'Некорректный формат телефона. Должно быть 11 цифр, начинающихся с 7 (например: 79001234567)',
+					error: 'Укажите номер телефона или привязанную карту для вывода',
 				},
 				{ status: 400 }
 			)
 		}
-
-		// PaymentRecipientId для выплат: согласно документации может быть 11 цифр без +
-		// В примере документации: "79066589133" (11 цифр)
-		// Используем 11 цифр без + для выплат
-		const paymentRecipientId = normalizedPhone
 
 		// 🛡️ Anti-fraud проверки
 		const validationResult = await validateWithdrawal(user.id, amountNumber)
@@ -214,12 +228,14 @@ export async function POST(req: NextRequest) {
 		const payoutClient = new TBankPayoutClient()
 		// Генерируем orderId заранее, чтобы использовать его и в API, и в БД
 		const orderId = `PAYOUT_${Date.now()}_${user.id.slice(0, 8)}`
+		// Если карта не указана, но СБП недоступен - требуем карту
+		// Но сначала попробуем, может быть СБП доступен
 		const result = await payoutClient.initPayout({
 			amount: amountNumber,
 			orderId,
 			dealId: deal.spAccumulationId,
-			paymentRecipientId: paymentRecipientId, // Формат: +7XXXXXXXXXX (12 символов)
-			recipientPhone: normalizedPhone, // Формат: 11 цифр без + (например: 79001234567)
+			paymentRecipientId: paymentRecipientId, // Формат: 11 цифр без + (например: 79001234567)
+			recipientPhone: cardId ? undefined : normalizedPhone, // Для карты не передаем Phone
 			recipientCardId: cardId,
 			isFinal: isFinal || false,
 		})

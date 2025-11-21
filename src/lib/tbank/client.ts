@@ -445,6 +445,7 @@ export class TBankPayoutClient {
 		if (params.recipientCardId) {
 			requestParams.CardId = params.recipientCardId
 			// Для выплаты на карту не передаем Phone и SbpMemberId
+			// PaymentRecipientId для карты может быть в формате +7XXXXXXXXXX или 11 цифр
 		} else if (params.recipientPhone) {
 			// Если карта не указана, но указан телефон - пытаемся использовать СБП
 			// Формат: 11 цифр без + (например: 79001234567)
