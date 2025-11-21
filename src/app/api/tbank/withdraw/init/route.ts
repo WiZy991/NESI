@@ -23,8 +23,9 @@ import { NextRequest, NextResponse } from 'next/server'
  * Инициирует вывод средств через Т-Банк Мультирасчеты (E2C)
  */
 export async function POST(req: NextRequest) {
+	let user: any = null
 	try {
-		const user = await getUserFromRequest(req)
+		user = await getUserFromRequest(req)
 		if (!user) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
@@ -260,7 +261,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		logger.error('Ошибка инициации вывода', {
-			userId: user?.id,
+			userId: user ? user.id : 'unknown',
 			error: errorMessage,
 			stack: errorStack,
 			details: errorDetails,
