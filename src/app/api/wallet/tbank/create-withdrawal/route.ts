@@ -53,8 +53,7 @@ export async function POST(req: NextRequest) {
 
 		const amountNumber = toNumber(parsedAmount)
 
-		// Минимальная сумма вывода - 10 рублей (1,000 копеек) для СБП выплат
-		// Согласно документации: "Минимальная сумма 10 рублей Init"
+		// Минимальная сумма вывода - 100 рублей (10,000 копеек)
 		if (amountNumber < 100) {
 			return NextResponse.json(
 				{ error: 'Минимальная сумма вывода: 100 ₽' },
@@ -124,7 +123,7 @@ export async function POST(req: NextRequest) {
 		const orderId = `withdraw_${user.id}_${Date.now()}`
 
 		// Для выплат в рамках мультирасчетов DealId ОБЯЗАТЕЛЕН
-		// Ищем последний DealId из транзакций пополнения пользователя
+		// Используем последний DealId из транзакций пополнения
 		let finalDealId = dealId
 
 		if (!finalDealId) {
@@ -136,41 +135,19 @@ export async function POST(req: NextRequest) {
 					dealId: { not: null },
 				},
 				orderBy: { createdAt: 'desc' },
-				select: { dealId: true, paymentId: true, createdAt: true },
-			})
-
-			// Диагностика: проверяем все транзакции пополнения
-			const allDepositTxs = await prisma.transaction.findMany({
-				where: {
-					userId: user.id,
-					type: 'deposit',
-				},
-				orderBy: { createdAt: 'desc' },
 				select: {
 					id: true,
 					dealId: true,
 					paymentId: true,
+					amount: true,
 					createdAt: true,
-					reason: true,
 				},
-				take: 5,
-			})
-
-			console.log('🔍 [CREATE-WITHDRAWAL] Диагностика транзакций пополнения:', {
-				totalDeposits: allDepositTxs.length,
-				transactions: allDepositTxs.map(tx => ({
-					id: tx.id,
-					dealId: tx.dealId,
-					paymentId: tx.paymentId,
-					createdAt: tx.createdAt,
-					hasDealId: !!tx.dealId,
-				})),
 			})
 
 			if (lastDepositTx?.dealId) {
-				finalDealId = lastDepositTx.dealId
+				finalDealId = String(lastDepositTx.dealId)
 				console.log(
-					'📋 [CREATE-WITHDRAWAL] Найден DealId из транзакций:',
+					'✅ [CREATE-WITHDRAWAL] Найден DealId из последней транзакции:',
 					finalDealId
 				)
 			} else {
@@ -262,7 +239,7 @@ export async function POST(req: NextRequest) {
 							})
 
 							if (retryDepositTx?.dealId) {
-								finalDealId = retryDepositTx.dealId
+								finalDealId = String(retryDepositTx.dealId)
 								console.log(
 									'✅ [CREATE-WITHDRAWAL] DealId найден после обновления:',
 									finalDealId
@@ -334,6 +311,10 @@ export async function POST(req: NextRequest) {
 				}
 			}
 		}
+
+		// НЕ проверяем баланс сделки в нашей БД - Т-Банк сам проверит баланс
+		// Если баланс недостаточен, Т-Банк вернет ошибку wrong.payout.amount
+		// Мы обработаем эту ошибку и покажем понятное сообщение пользователю
 
 		// Определяем способ выплаты и формируем PaymentRecipientId
 		let finalCardId: string | undefined = undefined
