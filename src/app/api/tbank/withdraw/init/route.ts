@@ -60,6 +60,22 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
+		// Нормализуем телефон для API (убираем +, оставляем только цифры)
+		let normalizedPhone = phone.replace(/[^0-9]/g, '')
+		// Если начинается с 8, заменяем на 7
+		if (normalizedPhone.startsWith('8')) {
+			normalizedPhone = '7' + normalizedPhone.substring(1)
+		}
+		// Проверяем, что телефон состоит из 11 цифр
+		if (normalizedPhone.length !== 11) {
+			return NextResponse.json(
+				{
+					error: 'Некорректный формат телефона. Должно быть 11 цифр.',
+				},
+				{ status: 400 }
+			)
+		}
+
 		// 🛡️ Anti-fraud проверки
 		const validationResult = await validateWithdrawal(user.id, amountNumber)
 
@@ -171,8 +187,8 @@ export async function POST(req: NextRequest) {
 			amount: amountNumber,
 			orderId,
 			dealId: deal.spAccumulationId,
-			paymentRecipientId: phone,
-			recipientPhone: phone,
+			paymentRecipientId: normalizedPhone, // Используем нормализованный телефон без +
+			recipientPhone: normalizedPhone, // Используем нормализованный телефон без +
 			recipientCardId: cardId,
 			isFinal: isFinal || false,
 		})
