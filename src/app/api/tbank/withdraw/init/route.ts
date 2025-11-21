@@ -234,10 +234,17 @@ export async function POST(req: NextRequest) {
 				amount: amountNumber,
 				dealId: deal.spAccumulationId,
 				phone,
+				hasCardId: !!cardId,
 			})
 
 			// Более понятное сообщение об ошибке
 			let errorMessage = result.Message || 'Не удалось инициировать выплату'
+
+			// Если СБП недоступен и карта не указана - предлагаем использовать карту
+			if (result.ErrorCode === '3004' && !cardId) {
+				errorMessage =
+					'СБП недоступен для этого терминала. Пожалуйста, укажите привязанную карту для вывода средств.'
+			}
 
 			// Если ошибка связана с суммой - показываем более точное сообщение
 			if (result.Details && result.Details.includes('wrong.payout.amount')) {

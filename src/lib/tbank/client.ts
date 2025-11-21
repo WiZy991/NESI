@@ -441,9 +441,13 @@ export class TBankPayoutClient {
 			requestParams.FinalPayout = true
 		}
 
-		// Если указан телефон для СБП
-		// Формат: 11 цифр без + (например: 79001234567)
-		if (params.recipientPhone) {
+		// Если указана привязанная карта - используем карту (не СБП)
+		if (params.recipientCardId) {
+			requestParams.CardId = params.recipientCardId
+			// Для выплаты на карту не передаем Phone и SbpMemberId
+		} else if (params.recipientPhone) {
+			// Если карта не указана, но указан телефон - пытаемся использовать СБП
+			// Формат: 11 цифр без + (например: 79001234567)
 			// Убираем + и оставляем только цифры
 			let phone = params.recipientPhone.replace(/[^0-9]/g, '')
 			// Если начинается с 8, заменяем на 7
@@ -476,11 +480,6 @@ export class TBankPayoutClient {
 					cleaned: phone,
 				})
 			}
-		}
-
-		// Если указана привязанная карта
-		if (params.recipientCardId) {
-			requestParams.CardId = params.recipientCardId
 		}
 
 		return this.makeRequest('/e2c/v2/Init', requestParams)

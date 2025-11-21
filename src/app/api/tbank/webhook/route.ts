@@ -117,7 +117,29 @@ export async function POST(req: NextRequest) {
 		})
 		return new Response('OK', { status: 200 })
 	} catch (error) {
-		logger.error('Ошибка обработки webhook Т-Банк', { error })
+		// Детальная обработка ошибок Prisma
+		if (error && typeof error === 'object' && 'name' in error) {
+			if (error.name === 'PrismaClientValidationError') {
+				logger.error('Ошибка валидации Prisma в webhook', {
+					error: error instanceof Error ? error.message : String(error),
+					errorName: error.name,
+					body: JSON.stringify(body),
+				})
+			} else {
+				logger.error('Ошибка обработки webhook Т-Банк', {
+					error: error instanceof Error ? error.message : String(error),
+					errorStack: error instanceof Error ? error.stack : undefined,
+					errorName: error.name,
+					body: JSON.stringify(body),
+				})
+			}
+		} else {
+			logger.error('Ошибка обработки webhook Т-Банк', {
+				error: error instanceof Error ? error.message : String(error),
+				errorStack: error instanceof Error ? error.stack : undefined,
+				body: JSON.stringify(body),
+			})
+		}
 		// Все равно возвращаем OK чтобы Т-Банк не повторял запросы
 		return new Response('OK', { status: 200 })
 	}
