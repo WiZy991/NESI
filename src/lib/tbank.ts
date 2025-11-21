@@ -403,8 +403,17 @@ export async function createWithdrawal(
 	}
 
 	// URL для нотификаций о статусе выплаты
+	// ВАЖНО: В примере запроса для СБП (стр. 896-908) NotificationURL отсутствует
+	// Возможно, он необязателен для E2C выплат, но мы добавляем его для получения вебхуков
 	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 	requestBody.NotificationURL = `${baseUrl}/api/wallet/tbank/webhook`
+	
+	console.log('🔧 [TBANK] Параметры запроса перед генерацией токена:', {
+		hasNotificationURL: !!requestBody.NotificationURL,
+		notificationURL: requestBody.NotificationURL,
+		allKeys: Object.keys(requestBody).sort(),
+		note: 'Проверяем, что все параметры корректны перед генерацией токена',
+	})
 
 	// Генерируем Token с паролем E2C терминала
 	const e2cPassword = process.env.TBANK_E2C_PASSWORD
@@ -492,19 +501,30 @@ export async function createWithdrawal(
 
 	let data: PaymentResponse
 	try {
-		data = await response.json()
-		console.log('📥 [TBANK] Ответ от API:', {
+		const responseText = await response.text()
+		console.log('📥 [TBANK] Ответ от e2c/v2/Init (raw):', {
+			status: response.status,
+			statusText: response.statusText,
+			responseLength: responseText.length,
+			responseText: responseText,
+		})
+		data = JSON.parse(responseText)
+		console.log('📥 [TBANK] Ответ от e2c/v2/Init (parsed):', {
 			success: data.Success,
 			errorCode: data.ErrorCode,
 			message: data.Message,
+			details: data.Details,
 			paymentId: data.PaymentId,
+			fullResponse: JSON.stringify(data, null, 2),
 		})
 	} catch (error: any) {
 		console.error('❌ [TBANK] Ошибка парсинга JSON:', error)
+		const text = await response.text().catch(() => 'Не удалось прочитать ответ')
+		console.error('❌ [TBANK] Raw response text:', text.substring(0, 500))
 		throw new Error(
 			`Ошибка парсинга ответа от Т-Банка: ${
 				error.message || 'Некорректный формат ответа'
-			}`
+			}. Ответ: ${text.substring(0, 500)}`
 		)
 	}
 
