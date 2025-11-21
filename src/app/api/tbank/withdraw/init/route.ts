@@ -180,7 +180,10 @@ export async function POST(req: NextRequest) {
 				userId: user.id,
 				errorCode: result.ErrorCode,
 				message: result.Message,
-				details: result,
+				fullResponse: JSON.stringify(result),
+				amount: amountNumber,
+				dealId: deal.spAccumulationId,
+				phone,
 			})
 
 			return NextResponse.json(

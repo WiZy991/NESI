@@ -228,10 +228,15 @@ export class TBankPayoutClient {
 
 		const url = `${this.baseUrl}${endpoint}`
 
+		// Логируем запрос (без пароля и токена)
+		const logParams = { ...params }
+		delete logParams.Token
+		delete logParams.Password
+
 		logger.info('TBank E2C API Request', {
 			url,
 			endpoint,
-			orderId: params.OrderId,
+			params: JSON.stringify(logParams),
 		})
 
 		try {
@@ -252,6 +257,8 @@ export class TBankPayoutClient {
 					errorCode: data.ErrorCode,
 					message: data.Message,
 					details: data.Details,
+					fullResponse: JSON.stringify(data),
+					requestParams: JSON.stringify(requestParams),
 				})
 			} else {
 				logger.info('TBank E2C API Success', {
@@ -263,7 +270,11 @@ export class TBankPayoutClient {
 
 			return data
 		} catch (error) {
-			logger.error('TBank E2C API Request Failed', { url, error })
+			logger.error('TBank E2C API Request Failed', {
+				url,
+				error: error instanceof Error ? error.message : String(error),
+				stack: error instanceof Error ? error.stack : undefined,
+			})
 			throw error
 		}
 	}
@@ -288,10 +299,17 @@ export class TBankPayoutClient {
 		CardId?: string
 	}> {
 		const orderId = params.orderId || generateOrderId('PAYOUT')
+
+		// DealId должен быть числом (SpAccumulationId)
+		const dealIdNumber = parseInt(params.dealId, 10)
+		if (isNaN(dealIdNumber)) {
+			throw new Error(`Invalid DealId: ${params.dealId}. Must be a number.`)
+		}
+
 		const requestParams: Record<string, any> = {
 			Amount: rublesToKopecks(params.amount),
 			OrderId: orderId,
-			DealId: params.dealId,
+			DealId: dealIdNumber,
 			PaymentRecipientId: params.paymentRecipientId,
 		}
 
@@ -301,9 +319,23 @@ export class TBankPayoutClient {
 		}
 
 		// Если указан телефон для СБП
+		// Формат: 11 цифр без + (например: 79001234567)
 		if (params.recipientPhone) {
-			requestParams.Phone = params.recipientPhone
-			// Здесь можно добавить SbpMemberId если нужно
+			// Убираем + и оставляем только цифры
+			let phone = params.recipientPhone.replace(/[^0-9]/g, '')
+			// Если начинается с 8, заменяем на 7
+			if (phone.startsWith('8')) {
+				phone = '7' + phone.substring(1)
+			}
+			// Проверяем, что телефон состоит из 11 цифр
+			if (phone.length === 11) {
+				requestParams.Phone = phone
+			} else {
+				logger.warn('Некорректный формат телефона для СБП', {
+					original: params.recipientPhone,
+					cleaned: phone,
+				})
+			}
 		}
 
 		// Если указана привязанная карта
