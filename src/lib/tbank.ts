@@ -381,10 +381,9 @@ export async function createWithdrawal(
 		}
 		
 		requestBody.Phone = params.phone
-		// ВАЖНО: Согласно документации (стр. 565) SbpMemberId должен быть Number
-		// В примере запроса (стр. 902) показана строка, но это может быть ошибка в примере
-		// Передаем как ЧИСЛО, как указано в документации
-		requestBody.SbpMemberId = Number(params.sbpMemberId)
+		// ВАЖНО: В примере запроса для СБП (стр. 15-16) SbpMemberId передается как СТРОКА "100000000004"
+		// Хотя в таблице параметров указано Number, следуем примеру запроса - это то, что реально работает
+		requestBody.SbpMemberId = String(params.sbpMemberId)
 		
 		console.log('✅ [TBANK] Телефон для СБП валидирован:', {
 			phone: params.phone,
@@ -392,7 +391,7 @@ export async function createWithdrawal(
 			format: '11 цифр, начинается с 7',
 			sbpMemberId: requestBody.SbpMemberId,
 			sbpMemberIdType: typeof requestBody.SbpMemberId,
-			note: 'SbpMemberId передается как строка (согласно примеру запроса стр. 902)',
+			note: 'SbpMemberId передается как строка (согласно примеру запроса стр. 15-16)',
 		})
 	}
 	// Если выплата на карту - добавляем CardId или CardData
@@ -435,18 +434,24 @@ export async function createWithdrawal(
 	}
 
 	// Финальная выплата
-	// ВАЖНО: FinalPayout передается только если явно указано в params.finalPayout
-	// НЕ передаем FinalPayout автоматически, чтобы избежать ошибок
-	// Согласно документации (стр. 516): FinalPayout Boolean Нет (необязательный параметр)
-	// Если передан в значении true - сделка автоматически закроется после выплаты
-	// Для частичных выплат FinalPayout НЕ передается
-	if (params.finalPayout === true) {
-		// Передаем только если явно указано true
-		requestBody.FinalPayout = true
-		console.log('✅ [TBANK] FinalPayout установлен:', {
+	// ВАЖНО: В примере запроса для СБП (стр. 15-16) FinalPayout передается как СТРОКА "true"
+	// В примере для карты (стр. 15) FinalPayout передается как boolean true
+	// Для СБП выплат передаем FinalPayout как строку "true" (согласно примеру стр. 15-16)
+	if (params.phone && params.sbpMemberId) {
+		// Для СБП выплат передаем FinalPayout как строку "true" (согласно примеру)
+		requestBody.FinalPayout = 'true'
+		console.log('✅ [TBANK] FinalPayout установлен для СБП:', {
 			value: requestBody.FinalPayout,
 			type: typeof requestBody.FinalPayout,
-			note: 'FinalPayout передается только если явно указано в params.finalPayout',
+			note: 'Для СБП FinalPayout передается как строка "true" (согласно примеру стр. 15-16)',
+		})
+	} else if (params.finalPayout === true) {
+		// Для выплат на карту передаем как boolean true, если указано
+		requestBody.FinalPayout = true
+		console.log('✅ [TBANK] FinalPayout установлен для карты:', {
+			value: requestBody.FinalPayout,
+			type: typeof requestBody.FinalPayout,
+			note: 'Для карты FinalPayout передается как boolean true (согласно примеру стр. 15)',
 		})
 	}
 
