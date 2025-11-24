@@ -153,10 +153,13 @@ export async function validateWithdrawal(
 		where: { id: userId },
 		select: {
 			createdAt: true,
+<<<<<<< HEAD
 			executedTasks: {
 				where: { status: 'completed' },
 				select: { id: true },
 			},
+=======
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 		},
 	})
 
@@ -164,6 +167,7 @@ export async function validateWithdrawal(
 		return { allowed: false, error: 'Пользователь не найден' }
 	}
 
+<<<<<<< HEAD
 	// Проверка 1: Хотя бы одна выполненная задача
 	const completedTasksCount = user.executedTasks.length
 	if (completedTasksCount === 0) {
@@ -174,6 +178,9 @@ export async function validateWithdrawal(
 	}
 
 	// Проверка 2: Лимиты для новых аккаунтов (младше 7 дней)
+=======
+	// Проверка 1: Лимиты для новых аккаунтов (младше 7 дней)
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 	const accountAge = Date.now() - user.createdAt.getTime()
 	const isNewAccount = accountAge < 7 * 24 * 60 * 60 * 1000 // 7 дней
 
@@ -185,14 +192,38 @@ export async function validateWithdrawal(
 		}
 	}
 
+<<<<<<< HEAD
 	// Проверка 3: Активные споры
 	const activeDisputes = await prisma.dispute.count({
 		where: {
 			OR: [{ Task: { customerId: userId } }, { Task: { executorId: userId } }],
+=======
+	// Проверка 2: Активные споры
+	// Получаем все активные споры, где пользователь является заказчиком или исполнителем задачи
+	const disputesAsCustomer = await prisma.dispute.count({
+		where: {
+			Task: {
+				customerId: userId,
+			},
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 			status: { in: ['open', 'in_review'] },
 		},
 	})
 
+<<<<<<< HEAD
+=======
+	const disputesAsExecutor = await prisma.dispute.count({
+		where: {
+			Task: {
+				executorId: userId,
+			},
+			status: { in: ['open', 'in_review'] },
+		},
+	})
+
+	const activeDisputes = disputesAsCustomer + disputesAsExecutor
+
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 	if (activeDisputes > 0) {
 		return {
 			allowed: false,

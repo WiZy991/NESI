@@ -605,7 +605,18 @@ export async function createWithdrawal(
 		// Обработка конкретных ошибок
 		let errorMessage = data.Message || `Ошибка создания выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
 		
-		if (data.Details) {
+		// Специальная обработка ошибки 648 - магазин заблокирован
+		if (data.ErrorCode === '648') {
+			errorMessage = `❌ Терминал E2C заблокирован или не активирован.\n\n` +
+				`Проблема: Т-Банк сообщает, что ваш терминал (${terminalKey}) заблокирован или еще не активирован для выплат.\n\n` +
+				`Детали: ${data.Details || 'submerchant_id заблокирован'}\n\n` +
+				`Решение:\n` +
+				`• Обратитесь в поддержку Т-Банка (acq_help@tbank.ru)\n` +
+				`• Уточните статус терминала E2C в личном кабинете Т-Банка\n` +
+				`• Попросите активировать терминал E2C для выплат\n` +
+				`• Проверьте, что терминал правильно настроен и не заблокирован\n\n` +
+				`Важно: Без активированного терминала E2C выплаты невозможны.`
+		} else if (data.Details) {
 			// Добавляем детали ошибки к сообщению
 			if (data.Details.includes('wrong.payout.amount')) {
 				const dealIdInfo = params.dealId ? `\n• DealId: ${params.dealId}` : ''
@@ -624,6 +635,13 @@ export async function createWithdrawal(
 				errorMessage = `Ошибка связана со сделкой: ${data.Details}\n\n` +
 					`DealId: ${params.dealId || 'не указан'}\n` +
 					`Проверьте статус сделки в личном кабинете Т-Банка.`
+			} else if (data.Details.includes('заблокирован') || data.Details.includes('submerchant_id')) {
+				errorMessage = `❌ Терминал заблокирован или не активирован.\n\n` +
+					`Детали: ${data.Details}\n\n` +
+					`Решение:\n` +
+					`• Обратитесь в поддержку Т-Банка (acq_help@tbank.ru)\n` +
+					`• Уточните статус терминала E2C в личном кабинете Т-Банка\n` +
+					`• Попросите активировать терминал E2C для выплат`
 			} else {
 				errorMessage = `${errorMessage}\n\nДетали: ${data.Details}`
 			}

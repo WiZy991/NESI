@@ -14,16 +14,21 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import {
+	FaArrowDown,
+	FaArrowUp,
 	FaAward,
 	FaCalendarAlt,
 	FaCertificate,
 	FaChartLine,
 	FaChevronRight,
 	FaCode,
+	FaCreditCard,
 	FaDatabase,
 	FaEdit,
 	FaGlobe,
+	FaInfoCircle,
 	FaJs,
+	FaMoneyBillWave,
 	FaPython,
 	FaStar,
 	FaTasks,
@@ -228,9 +233,14 @@ export default function ProfilePageContent() {
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [transactionsLoaded, setTransactionsLoaded] = useState(false)
 	const [amount, setAmount] = useState(100)
+	const [depositAmount, setDepositAmount] = useState(100)
+	const [withdrawPhone, setWithdrawPhone] = useState('')
+	const [depositPhone, setDepositPhone] = useState('')
+	const [useTBank, setUseTBank] = useState(true) // Использовать Т-Банк по умолчанию
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
+<<<<<<< HEAD
 	const [withdrawPhone, setWithdrawPhone] = useState('')
 	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'card'>('sbp')
 
@@ -246,6 +256,10 @@ export default function ProfilePageContent() {
 
 	// Состояние для модального окна вывода средств
 	const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
+=======
+	const [depositError, setDepositError] = useState<string | null>(null)
+	const [depositLoading, setDepositLoading] = useState(false)
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 	const [checkingBadges, setCheckingBadges] = useState(false)
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
@@ -476,6 +490,7 @@ export default function ProfilePageContent() {
 	}, [activeTab, token])
 
 	const handleDeposit = async () => {
+<<<<<<< HEAD
 		if (!depositAmount || depositAmount < 1) {
 			setDepositError('Минимальная сумма пополнения: 1 ₽')
 			return
@@ -483,6 +498,15 @@ export default function ProfilePageContent() {
 
 		if (depositAmount > 300000) {
 			setDepositError('Максимальная сумма пополнения: 300,000 ₽')
+=======
+		if (!depositAmount || depositAmount <= 0) {
+			setDepositError('Укажите сумму для пополнения')
+			return
+		}
+
+		if (depositAmount < 100) {
+			setDepositError('Минимальная сумма пополнения: 100 ₽')
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 			return
 		}
 
@@ -490,6 +514,7 @@ export default function ProfilePageContent() {
 		setDepositLoading(true)
 
 		try {
+<<<<<<< HEAD
 			const res = await fetch('/api/wallet/tbank/create-payment', {
 				method: 'POST',
 				headers: {
@@ -521,6 +546,109 @@ export default function ProfilePageContent() {
 			}
 		} catch (err: any) {
 			setDepositError(err.message || 'Ошибка при создании платежа')
+=======
+			// Используем Т-Банк Мультирасчеты
+			if (useTBank) {
+				console.log('💳 Инициализация пополнения баланса:', {
+					amount: depositAmount,
+					phone: depositPhone,
+				})
+
+				const res = await fetch('/api/tbank/deposit/init', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({
+						amount: depositAmount,
+						phone: depositPhone || undefined,
+					}),
+				})
+
+				const data = await res.json()
+
+				console.log('📥 Ответ от сервера:', {
+					ok: res.ok,
+					paymentId: data.paymentId,
+					hasPaymentURL: !!data.paymentURL,
+					error: data.error,
+				})
+
+				if (!res.ok) {
+					console.error('❌ Ошибка инициализации:', data.error)
+					setDepositError(data.error || 'Не удалось инициировать пополнение')
+					return
+				}
+
+				// Перенаправляем на форму оплаты Т-Банка
+				if (data.paymentURL) {
+					// Сохраняем paymentId и orderId в localStorage для использования при возврате
+					if (data.paymentId) {
+						try {
+							localStorage.setItem('lastPaymentId', data.paymentId)
+							console.log(
+								'💾 PaymentId сохранен в localStorage:',
+								data.paymentId
+							)
+
+							// Проверяем, что сохранение прошло успешно
+							const saved = localStorage.getItem('lastPaymentId')
+							if (saved !== data.paymentId) {
+								console.error(
+									'❌ Ошибка: PaymentId не сохранился в localStorage'
+								)
+							}
+						} catch (error) {
+							console.error('❌ Ошибка сохранения в localStorage:', error)
+						}
+					}
+
+					// Также сохраняем orderId (он будет в URL при возврате)
+					if (data.orderId) {
+						try {
+							localStorage.setItem('lastOrderId', data.orderId)
+							console.log('💾 OrderId сохранен в localStorage:', data.orderId)
+						} catch (error) {
+							console.error(
+								'❌ Ошибка сохранения OrderId в localStorage:',
+								error
+							)
+						}
+					}
+
+					console.log('🔗 Перенаправление на страницу оплаты:', data.paymentURL)
+					window.location.href = data.paymentURL
+					return
+				} else {
+					console.error('❌ PaymentURL не получен в ответе')
+					setDepositError('Не получена ссылка для оплаты')
+				}
+			} else {
+				// Старый метод (прямое пополнение)
+				const res = await fetch('/api/wallet/deposit', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({ amount: depositAmount }),
+				})
+
+				const data = await res.json()
+
+				if (!res.ok) {
+					setDepositError(data.error || 'Не удалось пополнить баланс')
+					return
+				}
+
+				await fetchProfile()
+				setDepositAmount(100)
+				setDepositError(null)
+			}
+		} catch (err: any) {
+			setDepositError(err.message || 'Ошибка при пополнении баланса')
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 		} finally {
 			setDepositLoading(false)
 		}
@@ -532,6 +660,7 @@ export default function ProfilePageContent() {
 			return
 		}
 
+<<<<<<< HEAD
 		if (amount < 100) {
 			setWithdrawError('Минимальная сумма вывода: 100 ₽')
 			return
@@ -552,12 +681,33 @@ export default function ProfilePageContent() {
 				)
 				return
 			}
+=======
+		// Проверка минимальной суммы для Т-Банк (100 рублей)
+		if (useTBank) {
+			const amountNum = typeof amount === 'string' ? parseFloat(amount) : amount
+			if (isNaN(amountNum) || amountNum < 100) {
+				setWithdrawError('Минимальная сумма вывода: 100 ₽')
+				return
+			}
+		}
+
+		// Проверяем телефон если используем Т-Банк
+		if (useTBank && !withdrawPhone) {
+			setWithdrawError('Укажите номер телефона для вывода средств')
+			return
+		}
+
+		if (useTBank && !withdrawPhone.match(/^\+?[7-8]\d{10}$/)) {
+			setWithdrawError('Неверный формат телефона (пример: +79001234567)')
+			return
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 		}
 
 		setWithdrawError(null)
 		setWithdrawLoading(true)
 
 		try {
+<<<<<<< HEAD
 			// Формируем данные для выплаты
 			const withdrawalData: any = {
 				amount,
@@ -587,9 +737,26 @@ export default function ProfilePageContent() {
 				},
 				body: JSON.stringify(withdrawalData),
 			})
+=======
+			// Используем Т-Банк Мультирасчеты
+			if (useTBank) {
+				// Шаг 1: Инициируем выплату
+				const initRes = await fetch('/api/tbank/withdraw/init', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({
+						amount,
+						phone: withdrawPhone,
+					}),
+				})
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 
-			const data = await res.json()
+				const initData = await initRes.json()
 
+<<<<<<< HEAD
 			if (!res.ok) {
 				setWithdrawError(
 					data.error || data.details || 'Не удалось вывести средства'
@@ -605,6 +772,61 @@ export default function ProfilePageContent() {
 			alert(
 				'Заявка на вывод средств создана. Средства поступят в течение нескольких минут.'
 			)
+=======
+				if (!initRes.ok) {
+					setWithdrawError(initData.error || 'Не удалось инициировать вывод')
+					return
+				}
+
+				// Шаг 2: Выполняем выплату
+				const execRes = await fetch('/api/tbank/withdraw/execute', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({
+						paymentId: initData.paymentId,
+					}),
+				})
+
+				const execData = await execRes.json()
+
+				if (!execRes.ok) {
+					setWithdrawError(execData.error || 'Не удалось выполнить вывод')
+					return
+				}
+
+				await fetchProfile()
+				setAmount(100)
+				setWithdrawError(null)
+				// Показываем сообщение об успехе
+				alert(
+					'Выплата успешно отправлена! Средства поступят в течение нескольких минут.'
+				)
+			} else {
+				// Старый метод
+				const res = await fetch('/api/wallet/withdraw', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({ amount }),
+				})
+
+				const data = await res.json()
+
+				if (!res.ok) {
+					setWithdrawError(data.error || 'Не удалось вывести средства')
+					return
+				}
+
+				await fetchProfile()
+				setAmount(100)
+				setWithdrawError(null)
+			}
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 		} catch (err: any) {
 			setWithdrawError(err.message || 'Ошибка при выводе средств')
 		} finally {
@@ -1391,37 +1613,83 @@ export default function ProfilePageContent() {
 
 				{/* Кошелёк */}
 				{activeTab === 'wallet' && (
-					<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-						<div className='lg:col-span-2 space-y-4'>
-							{/* Баланс */}
-							<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
-								<h3 className='text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2'>
-									<FaWallet />
-									Баланс
+					<div className='space-y-6'>
+						{/* Карточка баланса */}
+						<div className='bg-gradient-to-br from-emerald-900/40 via-black/40 to-emerald-950/40 p-6 rounded-2xl border border-emerald-500/30 shadow-xl'>
+							<div className='flex items-center justify-between mb-6'>
+								<h3 className='text-2xl font-bold text-white flex items-center gap-3'>
+									<div className='bg-emerald-500/20 p-3 rounded-xl'>
+										<FaWallet className='text-emerald-400 text-2xl' />
+									</div>
+									Мой кошелек
 								</h3>
-								<div className='mb-4'>
-									<p className='text-3xl font-bold text-emerald-300 mb-2'>
-										{Number(profile.balance ?? 0).toFixed(2)} ₽
-									</p>
-									{profile.frozenBalance &&
-										Number(profile.frozenBalance) > 0 && (
-											<div className='text-sm text-gray-400 space-y-1'>
-												<div className='text-yellow-400'>
-													🔒 Заморожено:{' '}
+							</div>
+
+							<div className='bg-black/40 backdrop-blur-sm p-6 rounded-xl border border-emerald-500/20 mb-4'>
+								<div className='flex items-baseline gap-2 mb-3'>
+									<span className='text-gray-400 text-sm font-medium'>
+										Общий баланс
+									</span>
+								</div>
+								<div className='flex items-baseline gap-2'>
+									<span className='text-5xl font-bold text-white'>
+										{Number(profile.balance ?? 0).toFixed(2)}
+									</span>
+									<span className='text-2xl text-emerald-400 font-semibold'>
+										₽
+									</span>
+								</div>
+
+								{profile.frozenBalance && Number(profile.frozenBalance) > 0 && (
+									<div className='mt-4 pt-4 border-t border-gray-700/50 grid grid-cols-2 gap-4'>
+										<div className='flex items-center gap-2'>
+											<div className='bg-yellow-500/10 p-2 rounded-lg'>
+												<FaInfoCircle className='text-yellow-400' />
+											</div>
+											<div>
+												<p className='text-xs text-gray-500'>Заморожено</p>
+												<p className='text-sm font-semibold text-yellow-400'>
 													{Number(profile.frozenBalance).toFixed(2)} ₽
-												</div>
-												<div className='text-emerald-400'>
-													✓ Доступно:{' '}
+												</p>
+											</div>
+										</div>
+										<div className='flex items-center gap-2'>
+											<div className='bg-emerald-500/10 p-2 rounded-lg'>
+												<FaMoneyBillWave className='text-emerald-400' />
+											</div>
+											<div>
+												<p className='text-xs text-gray-500'>Доступно</p>
+												<p className='text-sm font-semibold text-emerald-400'>
 													{(
 														Number(profile.balance ?? 0) -
 														Number(profile.frozenBalance)
 													).toFixed(2)}{' '}
 													₽
-												</div>
+												</p>
 											</div>
-										)}
+										</div>
+									</div>
+								)}
+							</div>
+						</div>
+
+						{/* Операции с балансом */}
+						<div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+							{/* Пополнение */}
+							<div className='bg-black/40 backdrop-blur-sm p-6 rounded-2xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all'>
+								<div className='flex items-center gap-3 mb-5'>
+									<div className='bg-emerald-500/20 p-3 rounded-xl'>
+										<FaArrowDown className='text-emerald-400 text-xl' />
+									</div>
+									<div>
+										<h4 className='text-xl font-bold text-white'>
+											Пополнить баланс
+										</h4>
+										<p className='text-xs text-gray-500'>Минимум 100 ₽</p>
+									</div>
 								</div>
 
+<<<<<<< HEAD
 								{/* Кнопки управления */}
 								<div className='mb-4 grid grid-cols-2 gap-2'>
 									<button
@@ -1488,45 +1756,294 @@ export default function ProfilePageContent() {
 										</div>
 									)}
 								</div>
+=======
+								{/* Предустановленные суммы */}
+								<div className='grid grid-cols-4 gap-2 mb-4'>
+									{[100, 500, 1000, 5000].map(preset => (
+										<button
+											key={preset}
+											onClick={() => {
+												setDepositAmount(preset)
+												if (depositError) setDepositError(null)
+											}}
+											disabled={depositLoading}
+											className={`py-3 px-2 rounded-lg text-sm font-semibold transition-all ${
+												depositAmount === preset
+													? 'bg-emerald-500 text-black'
+													: 'bg-black/60 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-400 border border-emerald-500/20'
+											} disabled:opacity-50 disabled:cursor-not-allowed`}
+										>
+											{preset} ₽
+										</button>
+									))}
+								</div>
+
+								{/* Поле ввода суммы */}
+								<div className='mb-4'>
+									<label className='block text-sm text-gray-400 mb-2 font-medium'>
+										Или укажите свою сумму
+									</label>
+									<div className='relative'>
+										<input
+											type='number'
+											value={depositAmount}
+											onChange={e => {
+												setDepositAmount(parseInt(e.target.value) || 0)
+												if (depositError) setDepositError(null)
+											}}
+											className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all text-lg font-semibold'
+											placeholder='Введите сумму'
+											disabled={depositLoading}
+											min='100'
+										/>
+										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg'>
+											₽
+										</span>
+									</div>
+								</div>
+
+								{/* Кнопка пополнения */}
+								<button
+									onClick={handleDeposit}
+									disabled={
+										depositLoading || !depositAmount || depositAmount < 100
+									}
+									className='w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2'
+								>
+									{depositLoading ? (
+										<>
+											<span className='w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin' />
+											<span>Обработка...</span>
+										</>
+									) : (
+										<>
+											<FaCreditCard className='text-xl' />
+											<span>Пополнить баланс</span>
+										</>
+									)}
+								</button>
+
+								{/* Ошибка пополнения */}
+								{depositError && (
+									<div className='mt-4 bg-red-900/20 border border-red-500/30 rounded-xl p-4 flex items-start gap-3'>
+										<FaInfoCircle className='text-red-400 text-lg flex-shrink-0 mt-0.5' />
+										<div>
+											<p className='font-semibold text-red-400 text-sm'>
+												Ошибка
+											</p>
+											<p className='text-red-300/90 text-sm mt-1'>
+												{depositError}
+											</p>
+										</div>
+									</div>
+								)}
+>>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 							</div>
 
-							{/* История транзакций */}
-							<div className='bg-black/40 p-5 rounded-xl border border-emerald-500/30'>
-								<h3 className='text-lg font-semibold text-emerald-400 mb-4'>
-									История транзакций
-								</h3>
-								{transactions.length === 0 ? (
-									<p className='text-gray-500 text-sm text-center py-4'>
-										Пока нет транзакций
-									</p>
-								) : (
-									<div className='space-y-2 max-h-96 overflow-y-auto'>
-										{transactions.map(t => (
-											<div
-												key={t.id}
-												className='flex justify-between items-center p-3 bg-black/60 rounded-lg border border-emerald-500/10'
-											>
-												<div className='flex-1 min-w-0'>
-													<p className='text-sm text-gray-300 truncate'>
-														{t.reason}
-													</p>
-													<p className='text-xs text-gray-500'>
-														{new Date(t.createdAt).toLocaleDateString('ru-RU')}
-													</p>
-												</div>
-												<span
-													className={`font-semibold text-sm ml-3 ${
-														t.amount > 0 ? 'text-green-400' : 'text-red-400'
-													}`}
-												>
-													{t.amount > 0 ? '+' : ''}
-													{t.amount} ₽
-												</span>
-											</div>
-										))}
+							{/* Вывод средств */}
+							<div className='bg-black/40 backdrop-blur-sm p-6 rounded-2xl border border-red-500/30 hover:border-red-500/50 transition-all'>
+								<div className='flex items-center gap-3 mb-5'>
+									<div className='bg-red-500/20 p-3 rounded-xl'>
+										<FaArrowUp className='text-red-400 text-xl' />
+									</div>
+									<div>
+										<h4 className='text-xl font-bold text-white'>
+											Вывод средств
+										</h4>
+										<p className='text-xs text-gray-500'>
+											Доступно:{' '}
+											{(
+												Number(profile.balance ?? 0) -
+												Number(profile.frozenBalance ?? 0)
+											).toFixed(2)}{' '}
+											₽
+										</p>
+									</div>
+								</div>
+
+								{/* Предустановленные суммы */}
+								<div className='grid grid-cols-4 gap-2 mb-4'>
+									{[100, 500, 1000, 5000].map(preset => (
+										<button
+											key={preset}
+											onClick={() => {
+												setAmount(preset)
+												if (withdrawError) setWithdrawError(null)
+											}}
+											disabled={withdrawLoading}
+											className={`py-3 px-2 rounded-lg text-sm font-semibold transition-all ${
+												amount === preset
+													? 'bg-red-500 text-white'
+													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 hover:text-red-400 border border-red-500/20'
+											} disabled:opacity-50 disabled:cursor-not-allowed`}
+										>
+											{preset} ₽
+										</button>
+									))}
+								</div>
+
+								{/* Поле ввода телефона */}
+								{useTBank && (
+									<div className='mb-4'>
+										<label className='block text-sm text-gray-400 mb-2 font-medium'>
+											Номер телефона для вывода (СБП)
+										</label>
+										<input
+											type='tel'
+											value={withdrawPhone}
+											onChange={e => {
+												setWithdrawPhone(e.target.value)
+												if (withdrawError) setWithdrawError(null)
+											}}
+											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all'
+											placeholder='+79001234567'
+											disabled={withdrawLoading}
+										/>
+										<p className='text-xs text-gray-500 mt-1'>
+											Вывод будет выполнен через СБП на указанный номер
+										</p>
+									</div>
+								)}
+
+								{/* Поле ввода суммы */}
+								<div className='mb-4'>
+									<label className='block text-sm text-gray-400 mb-2 font-medium'>
+										Или укажите свою сумму
+									</label>
+									<div className='relative'>
+										<input
+											type='number'
+											value={amount}
+											onChange={e => {
+												setAmount(parseInt(e.target.value) || 0)
+												if (withdrawError) setWithdrawError(null)
+											}}
+											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-lg font-semibold'
+											placeholder='Введите сумму'
+											disabled={withdrawLoading}
+											min='0'
+										/>
+										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400 font-bold text-lg'>
+											₽
+										</span>
+									</div>
+								</div>
+
+								{/* Кнопка вывода */}
+								<button
+									onClick={handleWithdraw}
+									disabled={withdrawLoading || !amount || amount <= 0}
+									className='w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-red-500/20 flex items-center justify-center gap-2'
+								>
+									{withdrawLoading ? (
+										<>
+											<span className='w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin' />
+											<span>Обработка...</span>
+										</>
+									) : (
+										<>
+											<FaMoneyBillWave className='text-xl' />
+											<span>Вывести средства</span>
+										</>
+									)}
+								</button>
+
+								{/* Ошибка вывода */}
+								{withdrawError && (
+									<div className='mt-4 bg-red-900/20 border border-red-500/30 rounded-xl p-4 flex items-start gap-3'>
+										<FaInfoCircle className='text-red-400 text-lg flex-shrink-0 mt-0.5' />
+										<div>
+											<p className='font-semibold text-red-400 text-sm'>
+												Ошибка
+											</p>
+											<p className='text-red-300/90 text-sm mt-1'>
+												{withdrawError}
+											</p>
+										</div>
 									</div>
 								)}
 							</div>
+						</div>
+
+						{/* История транзакций */}
+						<div className='bg-black/40 backdrop-blur-sm p-6 rounded-2xl border border-emerald-500/30'>
+							<h3 className='text-xl font-bold text-white mb-5 flex items-center gap-3'>
+								<div className='bg-emerald-500/20 p-2.5 rounded-xl'>
+									<FaChartLine className='text-emerald-400' />
+								</div>
+								История транзакций
+							</h3>
+							{transactions.length === 0 ? (
+								<div className='text-center py-12'>
+									<div className='bg-gray-800/40 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4'>
+										<FaWallet className='text-4xl text-gray-600' />
+									</div>
+									<p className='text-gray-400 font-medium'>
+										Пока нет транзакций
+									</p>
+									<p className='text-gray-600 text-sm mt-1'>
+										Ваши операции появятся здесь
+									</p>
+								</div>
+							) : (
+								<div className='space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar'>
+									{transactions.map(t => (
+										<div
+											key={t.id}
+											className='flex justify-between items-center p-4 bg-black/60 rounded-xl border border-emerald-500/10 hover:border-emerald-500/30 transition-all group'
+										>
+											<div className='flex items-center gap-3 flex-1 min-w-0'>
+												<div
+													className={`p-2.5 rounded-lg ${
+														t.amount > 0
+															? 'bg-emerald-500/10 group-hover:bg-emerald-500/20'
+															: 'bg-red-500/10 group-hover:bg-red-500/20'
+													} transition-colors`}
+												>
+													{t.amount > 0 ? (
+														<FaArrowDown className='text-emerald-400' />
+													) : (
+														<FaArrowUp className='text-red-400' />
+													)}
+												</div>
+												<div className='flex-1 min-w-0'>
+													<p className='text-sm font-semibold text-gray-200 truncate'>
+														{t.reason}
+													</p>
+													<p className='text-xs text-gray-500 mt-0.5'>
+														{new Date(t.createdAt).toLocaleDateString('ru-RU', {
+															day: 'numeric',
+															month: 'long',
+															year: 'numeric',
+															hour: '2-digit',
+															minute: '2-digit',
+														})}
+													</p>
+												</div>
+											</div>
+											<div className='ml-4 text-right'>
+												<span
+													className={`font-bold text-lg ${
+														t.amount > 0 ? 'text-emerald-400' : 'text-red-400'
+													}`}
+												>
+													{t.amount > 0 ? '+' : ''}
+													{Number(t.amount).toFixed(2)}
+												</span>
+												<span
+													className={`ml-1 text-sm ${
+														t.amount > 0
+															? 'text-emerald-400/70'
+															: 'text-red-400/70'
+													}`}
+												>
+													₽
+												</span>
+											</div>
+										</div>
+									))}
+								</div>
+							)}
 						</div>
 					</div>
 				)}

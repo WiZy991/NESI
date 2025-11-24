@@ -55,6 +55,7 @@ export function formatAmount(
 
 /**
  * Проверяет, достаточно ли средств на балансе
+ * Учитывает возможные погрешности округления при сравнении (допуск 0.01)
  */
 export function hasEnoughBalance(
 	balance: Decimal | number | string,
@@ -66,7 +67,9 @@ export function hasEnoughBalance(
 	const requiredNum = toNumber(requiredAmount)
 
 	const availableBalance = balanceNum - frozenNum
-	return availableBalance >= requiredNum
+	// Используем небольшой допуск (0.01) для учета погрешности округления при работе с Decimal
+	// Если availableBalance >= requiredAmount - 0.01, считаем что средств достаточно
+	return availableBalance >= requiredNum - 0.01
 }
 
 /**

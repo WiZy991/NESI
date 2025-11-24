@@ -94,18 +94,43 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 			)
 		}
 
+		// Конвертируем все значения для логирования
+		const balanceNum = toNumber(customer.balance)
+		const frozenNum = toNumber(customer.frozenBalance)
+		const priceNum = toNumber(price)
+		const available = balanceNum - frozenNum
+
+		// Логируем для диагностики
+		logger.debug('Проверка баланса при назначении исполнителя', {
+			userId: user.id,
+			taskId,
+			balance: balanceNum,
+			frozenBalance: frozenNum,
+			availableBalance: available,
+			requiredPrice: priceNum,
+			hasEnough: hasEnoughBalance(customer.balance, customer.frozenBalance, price),
+		})
+
 		// Проверяем, достаточно ли свободных средств
 		if (!hasEnoughBalance(customer.balance, customer.frozenBalance, price)) {
-			const available =
-				toNumber(customer.balance) - toNumber(customer.frozenBalance)
+			logger.warn('Недостаточно средств для назначения исполнителя', {
+				userId: user.id,
+				taskId,
+				balance: balanceNum,
+				frozenBalance: frozenNum,
+				availableBalance: available,
+				requiredPrice: priceNum,
+			})
 			return NextResponse.json(
 				{
 					error: 'Недостаточно средств',
 					details: `Требуется: ${formatMoney(price)}, доступно: ${formatMoney(
 						available
 					)}`,
-					required: toNumber(price),
+					required: priceNum,
 					available: available,
+					balance: balanceNum,
+					frozenBalance: frozenNum,
 				},
 				{ status: 400 }
 			)

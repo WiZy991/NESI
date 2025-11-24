@@ -1,0 +1,406 @@
+'use client'
+
+import { useUser } from '@/context/UserContext'
+import { motion } from 'framer-motion'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+
+function PaymentReturnContent() {
+	const router = useRouter()
+	const searchParams = useSearchParams()
+	const { token } = useUser()
+	const [status, setStatus] = useState<
+		'checking' | 'success' | 'failed' | 'pending'
+	>('checking')
+	const [message, setMessage] = useState('Проверяем статус платежа...')
+	const [paymentId, setPaymentId] = useState<string | null>(null)
+
+	useEffect(() => {
+		if (!token) {
+			setStatus('failed')
+			setMessage('Необходима авторизация')
+			return
+		}
+
+		// Создаем async функцию внутри useEffect
+		const loadPaymentId = async () => {
+			// Согласно документации Т-Банка, в SuccessURL передаются: Success, ErrorCode, OrderId, Message, Details
+			// PaymentId НЕ передается в URL! Используем OrderId для поиска платежа
+			const orderIdParam =
+				searchParams.get('OrderId') || searchParams.get('orderId')
+			const successParam = searchParams.get('Success')
+			const errorCodeParam = searchParams.get('ErrorCode')
+
+			let paymentIdParam =
+				searchParams.get('PaymentId') || searchParams.get('paymentId')
+
+			console.log('🔍 Параметры URL:', {
+				OrderId: orderIdParam,
+				Success: successParam,
+				ErrorCode: errorCodeParam,
+				PaymentId: paymentIdParam,
+				allParams: Object.fromEntries(searchParams.entries()),
+			})
+
+			// Если есть OrderId, используем его для поиска платежа
+			if (orderIdParam && !paymentIdParam) {
+				console.log('🔍 Ищем платеж по OrderId из URL:', orderIdParam)
+				try {
+					const res = await fetch('/api/tbank/payment/by-order', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify({ orderId: orderIdParam }),
+					})
+
+					if (res.ok) {
+						const data = await res.json()
+						if (data.paymentId) {
+							console.log('✅ Найден PaymentId по OrderId:', data.paymentId)
+							paymentIdParam = data.paymentId
+						}
+					}
+				} catch (error) {
+					console.error('❌ Ошибка поиска платежа по OrderId:', error)
+				}
+			}
+
+			// Если OrderId не найден в URL, пробуем из localStorage
+			if (!orderIdParam && !paymentIdParam) {
+				const savedOrderId = localStorage.getItem('lastOrderId')
+				if (savedOrderId) {
+					console.log('🔍 Используем OrderId из localStorage:', savedOrderId)
+					try {
+						const res = await fetch('/api/tbank/payment/by-order', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								Authorization: `Bearer ${token}`,
+							},
+							body: JSON.stringify({ orderId: savedOrderId }),
+						})
+
+						if (res.ok) {
+							const data = await res.json()
+							if (data.paymentId) {
+								console.log(
+									'✅ Найден PaymentId по OrderId из localStorage:',
+									data.paymentId
+								)
+								paymentIdParam = data.paymentId
+							}
+						}
+					} catch (error) {
+						console.error(
+							'❌ Ошибка поиска платежа по OrderId из localStorage:',
+							error
+						)
+					}
+				}
+			}
+
+			// Если PaymentId не найден в URL или это шаблон {PaymentId}, пробуем получить из разных источников
+			if (!paymentIdParam || paymentIdParam === '{PaymentId}') {
+				// 1. Пробуем из localStorage
+				const savedPaymentId = localStorage.getItem('lastPaymentId')
+				if (savedPaymentId && savedPaymentId !== '{PaymentId}') {
+					console.log(
+						'💾 Используем PaymentId из localStorage:',
+						savedPaymentId
+					)
+					paymentIdParam = savedPaymentId
+				} else {
+					// 2. Пробуем получить последний платеж из БД
+					console.log(
+						'🔍 PaymentId не найден в localStorage, запрашиваем последний платеж из БД'
+					)
+					try {
+						const res = await fetch('/api/tbank/payment/last', {
+							headers: {
+								Authorization: `Bearer ${token}`,
+							},
+						})
+
+						if (res.ok) {
+							const data = await res.json()
+							if (data.paymentId) {
+								console.log(
+									'✅ Получен последний PaymentId из БД:',
+									data.paymentId
+								)
+								paymentIdParam = data.paymentId
+								// Сохраняем в localStorage для будущего использования
+								localStorage.setItem('lastPaymentId', data.paymentId)
+							}
+						}
+					} catch (error) {
+						console.error('❌ Ошибка получения последнего платежа:', error)
+					}
+
+					// 3. Если все еще не найден - показываем ошибку
+					if (!paymentIdParam || paymentIdParam === '{PaymentId}') {
+						console.error(
+							'❌ PaymentId не найден ни в URL, ни в localStorage, ни в БД'
+						)
+						setStatus('failed')
+						setMessage(
+							'Не указан ID платежа. Попробуйте пополнить баланс снова или проверьте историю платежей в профиле.'
+						)
+						return
+					}
+				}
+			}
+
+			// Сохраняем paymentId в localStorage для будущего использования (не очищаем сразу)
+			if (paymentIdParam && paymentIdParam !== '{PaymentId}') {
+				localStorage.setItem('lastPaymentId', paymentIdParam)
+			}
+
+			console.log('✅ PaymentId найден:', paymentIdParam)
+			setPaymentId(paymentIdParam)
+			checkPaymentStatus(paymentIdParam)
+		}
+
+		loadPaymentId()
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [searchParams, token])
+
+	const checkPaymentStatus = async (id: string) => {
+		if (!token) {
+			setStatus('failed')
+			setMessage('Необходима авторизация')
+			return
+		}
+
+		try {
+			console.log('🔍 Проверка статуса платежа:', id)
+
+			const res = await fetch('/api/tbank/payment/check-status', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ paymentId: id }),
+			})
+
+			const data = await res.json()
+
+			console.log('📊 Результат проверки статуса:', data)
+
+			if (!res.ok) {
+				setStatus('failed')
+				setMessage(data.error || 'Ошибка при проверке статуса платежа')
+				return
+			}
+
+			// Если баланс был обновлен
+			if (data.balanceUpdated) {
+				setStatus('success')
+				setMessage(`Баланс успешно пополнен на ${data.amount} ₽`)
+
+				// Очищаем localStorage только после успешного начисления баланса
+				localStorage.removeItem('lastPaymentId')
+
+				// Обновляем профиль через 2 секунды
+				setTimeout(() => {
+					router.push('/profile')
+				}, 2000)
+				return
+			}
+
+			// Если платеж подтвержден, но баланс еще не начислен (webhook еще не пришел)
+			if (data.status === 'CONFIRMED' || data.status === 'AUTHORIZED') {
+				setStatus('pending')
+				setMessage('Платеж подтвержден. Ожидаем обработки...')
+
+				// Повторяем проверку через 3 секунды
+				setTimeout(() => {
+					checkPaymentStatus(id)
+				}, 3000)
+				return
+			}
+
+			// Если платеж еще не подтвержден
+			if (data.status === 'NEW' || data.status === 'FORM_SHOWED') {
+				setStatus('pending')
+				setMessage('Платеж обрабатывается. Пожалуйста, подождите...')
+
+				// Повторяем проверку через 5 секунд
+				setTimeout(() => {
+					checkPaymentStatus(id)
+				}, 5000)
+				return
+			}
+
+			// Если платеж отклонен
+			if (data.status === 'REJECTED' || data.status === 'CANCELED') {
+				setStatus('failed')
+				setMessage('Платеж был отклонен или отменен')
+				return
+			}
+
+			// Неизвестный статус
+			setStatus('pending')
+			setMessage(
+				`Статус платежа: ${data.status || 'неизвестен'}. Ожидаем обработки...`
+			)
+
+			// Повторяем проверку через 5 секунд
+			setTimeout(() => {
+				checkPaymentStatus(id)
+			}, 5000)
+		} catch (error: any) {
+			console.error('❌ Ошибка проверки статуса платежа:', error)
+			setStatus('failed')
+			setMessage(
+				'Ошибка при проверке статуса платежа. Попробуйте обновить страницу.'
+			)
+		}
+	}
+
+	return (
+		<div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4 text-white'>
+			<motion.div
+				initial={{ opacity: 0, scale: 0.9, y: 20 }}
+				animate={{ opacity: 1, scale: 1, y: 0 }}
+				transition={{ duration: 0.7, ease: 'easeOut' }}
+				className='bg-black/40 border border-emerald-500/40 rounded-2xl shadow-[0_0_35px_rgba(16,185,129,0.4)] p-10 max-w-md w-full backdrop-blur-md text-center'
+			>
+				{status === 'checking' && (
+					<>
+						<motion.div
+							animate={{ rotate: 360 }}
+							transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+							className='text-5xl mb-4'
+						>
+							⏳
+						</motion.div>
+						<h1 className='text-2xl font-bold mb-4 text-emerald-400'>
+							Проверка платежа
+						</h1>
+						<p className='text-gray-300 mb-6'>{message}</p>
+						{paymentId && (
+							<p className='text-xs text-gray-500'>ID: {paymentId}</p>
+						)}
+					</>
+				)}
+
+				{status === 'success' && (
+					<>
+						<motion.div
+							initial={{ scale: 0.8, opacity: 0 }}
+							animate={{ scale: 1, opacity: 1 }}
+							transition={{ delay: 0.3, duration: 0.6 }}
+							className='text-6xl mb-4'
+						>
+							✅
+						</motion.div>
+						<h1 className='text-2xl font-bold mb-4 text-emerald-400'>
+							Платеж успешно обработан!
+						</h1>
+						<p className='text-gray-300 mb-6'>{message}</p>
+						<motion.div
+							animate={{
+								opacity: [1, 0.7, 1],
+							}}
+							transition={{
+								duration: 1.6,
+								repeat: Infinity,
+							}}
+							className='text-emerald-400 font-medium'
+						>
+							Переходим в профиль...
+						</motion.div>
+					</>
+				)}
+
+				{status === 'pending' && (
+					<>
+						<motion.div
+							animate={{ rotate: 360 }}
+							transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+							className='text-5xl mb-4'
+						>
+							⏳
+						</motion.div>
+						<h1 className='text-2xl font-bold mb-4 text-yellow-400'>
+							Обработка платежа
+						</h1>
+						<p className='text-gray-300 mb-6'>{message}</p>
+						<p className='text-xs text-gray-500 mb-4'>
+							Это может занять несколько секунд
+						</p>
+						<button
+							onClick={() => router.push('/profile')}
+							className='px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors'
+						>
+							Вернуться в профиль
+						</button>
+					</>
+				)}
+
+				{status === 'failed' && (
+					<>
+						<motion.div
+							initial={{ scale: 0.8, opacity: 0 }}
+							animate={{ scale: 1, opacity: 1 }}
+							transition={{ delay: 0.3, duration: 0.6 }}
+							className='text-6xl mb-4'
+						>
+							❌
+						</motion.div>
+						<h1 className='text-2xl font-bold mb-4 text-red-400'>
+							Ошибка обработки платежа
+						</h1>
+						<p className='text-gray-300 mb-6'>{message}</p>
+						<div className='flex gap-4 justify-center'>
+							<button
+								onClick={() => router.push('/profile')}
+								className='px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors'
+							>
+								Вернуться в профиль
+							</button>
+							{paymentId && (
+								<button
+									onClick={() => checkPaymentStatus(paymentId)}
+									className='px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors'
+								>
+									Проверить снова
+								</button>
+							)}
+						</div>
+					</>
+				)}
+			</motion.div>
+		</div>
+	)
+}
+
+export default function PaymentReturnPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-[#02150F] to-[#04382A] px-4 text-white'>
+					<div className='bg-black/40 border border-emerald-500/40 rounded-2xl shadow-[0_0_35px_rgba(16,185,129,0.4)] p-10 max-w-md w-full backdrop-blur-md text-center'>
+						<motion.div
+							animate={{ rotate: 360 }}
+							transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+							className='text-5xl mb-4'
+						>
+							⏳
+						</motion.div>
+						<h1 className='text-2xl font-bold mb-4 text-emerald-400'>
+							Загрузка...
+						</h1>
+						<p className='text-gray-300'>Проверяем статус платежа...</p>
+					</div>
+				</div>
+			}
+		>
+			<PaymentReturnContent />
+		</Suspense>
+	)
+}
