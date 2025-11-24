@@ -233,14 +233,11 @@ export default function ProfilePageContent() {
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [transactionsLoaded, setTransactionsLoaded] = useState(false)
 	const [amount, setAmount] = useState(100)
-	const [depositAmount, setDepositAmount] = useState(100)
-	const [withdrawPhone, setWithdrawPhone] = useState('')
 	const [depositPhone, setDepositPhone] = useState('')
 	const [useTBank, setUseTBank] = useState(true) // Использовать Т-Банк по умолчанию
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
-<<<<<<< HEAD
 	const [withdrawPhone, setWithdrawPhone] = useState('')
 	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'card'>('sbp')
 
@@ -256,10 +253,6 @@ export default function ProfilePageContent() {
 
 	// Состояние для модального окна вывода средств
 	const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
-=======
-	const [depositError, setDepositError] = useState<string | null>(null)
-	const [depositLoading, setDepositLoading] = useState(false)
->>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 	const [checkingBadges, setCheckingBadges] = useState(false)
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
@@ -490,23 +483,13 @@ export default function ProfilePageContent() {
 	}, [activeTab, token])
 
 	const handleDeposit = async () => {
-<<<<<<< HEAD
-		if (!depositAmount || depositAmount < 1) {
-			setDepositError('Минимальная сумма пополнения: 1 ₽')
+		if (!depositAmount || depositAmount < 100) {
+			setDepositError('Минимальная сумма пополнения: 100 ₽')
 			return
 		}
 
 		if (depositAmount > 300000) {
 			setDepositError('Максимальная сумма пополнения: 300,000 ₽')
-=======
-		if (!depositAmount || depositAmount <= 0) {
-			setDepositError('Укажите сумму для пополнения')
-			return
-		}
-
-		if (depositAmount < 100) {
-			setDepositError('Минимальная сумма пополнения: 100 ₽')
->>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 			return
 		}
 
@@ -514,7 +497,6 @@ export default function ProfilePageContent() {
 		setDepositLoading(true)
 
 		try {
-<<<<<<< HEAD
 			const res = await fetch('/api/wallet/tbank/create-payment', {
 				method: 'POST',
 				headers: {
@@ -546,109 +528,6 @@ export default function ProfilePageContent() {
 			}
 		} catch (err: any) {
 			setDepositError(err.message || 'Ошибка при создании платежа')
-=======
-			// Используем Т-Банк Мультирасчеты
-			if (useTBank) {
-				console.log('💳 Инициализация пополнения баланса:', {
-					amount: depositAmount,
-					phone: depositPhone,
-				})
-
-				const res = await fetch('/api/tbank/deposit/init', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({
-						amount: depositAmount,
-						phone: depositPhone || undefined,
-					}),
-				})
-
-				const data = await res.json()
-
-				console.log('📥 Ответ от сервера:', {
-					ok: res.ok,
-					paymentId: data.paymentId,
-					hasPaymentURL: !!data.paymentURL,
-					error: data.error,
-				})
-
-				if (!res.ok) {
-					console.error('❌ Ошибка инициализации:', data.error)
-					setDepositError(data.error || 'Не удалось инициировать пополнение')
-					return
-				}
-
-				// Перенаправляем на форму оплаты Т-Банка
-				if (data.paymentURL) {
-					// Сохраняем paymentId и orderId в localStorage для использования при возврате
-					if (data.paymentId) {
-						try {
-							localStorage.setItem('lastPaymentId', data.paymentId)
-							console.log(
-								'💾 PaymentId сохранен в localStorage:',
-								data.paymentId
-							)
-
-							// Проверяем, что сохранение прошло успешно
-							const saved = localStorage.getItem('lastPaymentId')
-							if (saved !== data.paymentId) {
-								console.error(
-									'❌ Ошибка: PaymentId не сохранился в localStorage'
-								)
-							}
-						} catch (error) {
-							console.error('❌ Ошибка сохранения в localStorage:', error)
-						}
-					}
-
-					// Также сохраняем orderId (он будет в URL при возврате)
-					if (data.orderId) {
-						try {
-							localStorage.setItem('lastOrderId', data.orderId)
-							console.log('💾 OrderId сохранен в localStorage:', data.orderId)
-						} catch (error) {
-							console.error(
-								'❌ Ошибка сохранения OrderId в localStorage:',
-								error
-							)
-						}
-					}
-
-					console.log('🔗 Перенаправление на страницу оплаты:', data.paymentURL)
-					window.location.href = data.paymentURL
-					return
-				} else {
-					console.error('❌ PaymentURL не получен в ответе')
-					setDepositError('Не получена ссылка для оплаты')
-				}
-			} else {
-				// Старый метод (прямое пополнение)
-				const res = await fetch('/api/wallet/deposit', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({ amount: depositAmount }),
-				})
-
-				const data = await res.json()
-
-				if (!res.ok) {
-					setDepositError(data.error || 'Не удалось пополнить баланс')
-					return
-				}
-
-				await fetchProfile()
-				setDepositAmount(100)
-				setDepositError(null)
-			}
-		} catch (err: any) {
-			setDepositError(err.message || 'Ошибка при пополнении баланса')
->>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 		} finally {
 			setDepositLoading(false)
 		}
@@ -660,7 +539,6 @@ export default function ProfilePageContent() {
 			return
 		}
 
-<<<<<<< HEAD
 		if (amount < 100) {
 			setWithdrawError('Минимальная сумма вывода: 100 ₽')
 			return
@@ -681,33 +559,12 @@ export default function ProfilePageContent() {
 				)
 				return
 			}
-=======
-		// Проверка минимальной суммы для Т-Банк (100 рублей)
-		if (useTBank) {
-			const amountNum = typeof amount === 'string' ? parseFloat(amount) : amount
-			if (isNaN(amountNum) || amountNum < 100) {
-				setWithdrawError('Минимальная сумма вывода: 100 ₽')
-				return
-			}
-		}
-
-		// Проверяем телефон если используем Т-Банк
-		if (useTBank && !withdrawPhone) {
-			setWithdrawError('Укажите номер телефона для вывода средств')
-			return
-		}
-
-		if (useTBank && !withdrawPhone.match(/^\+?[7-8]\d{10}$/)) {
-			setWithdrawError('Неверный формат телефона (пример: +79001234567)')
-			return
->>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 		}
 
 		setWithdrawError(null)
 		setWithdrawLoading(true)
 
 		try {
-<<<<<<< HEAD
 			// Формируем данные для выплаты
 			const withdrawalData: any = {
 				amount,
@@ -737,26 +594,9 @@ export default function ProfilePageContent() {
 				},
 				body: JSON.stringify(withdrawalData),
 			})
-=======
-			// Используем Т-Банк Мультирасчеты
-			if (useTBank) {
-				// Шаг 1: Инициируем выплату
-				const initRes = await fetch('/api/tbank/withdraw/init', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({
-						amount,
-						phone: withdrawPhone,
-					}),
-				})
->>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 
-				const initData = await initRes.json()
+			const data = await res.json()
 
-<<<<<<< HEAD
 			if (!res.ok) {
 				setWithdrawError(
 					data.error || data.details || 'Не удалось вывести средства'
@@ -772,61 +612,6 @@ export default function ProfilePageContent() {
 			alert(
 				'Заявка на вывод средств создана. Средства поступят в течение нескольких минут.'
 			)
-=======
-				if (!initRes.ok) {
-					setWithdrawError(initData.error || 'Не удалось инициировать вывод')
-					return
-				}
-
-				// Шаг 2: Выполняем выплату
-				const execRes = await fetch('/api/tbank/withdraw/execute', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({
-						paymentId: initData.paymentId,
-					}),
-				})
-
-				const execData = await execRes.json()
-
-				if (!execRes.ok) {
-					setWithdrawError(execData.error || 'Не удалось выполнить вывод')
-					return
-				}
-
-				await fetchProfile()
-				setAmount(100)
-				setWithdrawError(null)
-				// Показываем сообщение об успехе
-				alert(
-					'Выплата успешно отправлена! Средства поступят в течение нескольких минут.'
-				)
-			} else {
-				// Старый метод
-				const res = await fetch('/api/wallet/withdraw', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({ amount }),
-				})
-
-				const data = await res.json()
-
-				if (!res.ok) {
-					setWithdrawError(data.error || 'Не удалось вывести средства')
-					return
-				}
-
-				await fetchProfile()
-				setAmount(100)
-				setWithdrawError(null)
-			}
->>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 		} catch (err: any) {
 			setWithdrawError(err.message || 'Ошибка при выводе средств')
 		} finally {
@@ -1689,7 +1474,6 @@ export default function ProfilePageContent() {
 									</div>
 								</div>
 
-<<<<<<< HEAD
 								{/* Кнопки управления */}
 								<div className='mb-4 grid grid-cols-2 gap-2'>
 									<button
@@ -1756,88 +1540,6 @@ export default function ProfilePageContent() {
 										</div>
 									)}
 								</div>
-=======
-								{/* Предустановленные суммы */}
-								<div className='grid grid-cols-4 gap-2 mb-4'>
-									{[100, 500, 1000, 5000].map(preset => (
-										<button
-											key={preset}
-											onClick={() => {
-												setDepositAmount(preset)
-												if (depositError) setDepositError(null)
-											}}
-											disabled={depositLoading}
-											className={`py-3 px-2 rounded-lg text-sm font-semibold transition-all ${
-												depositAmount === preset
-													? 'bg-emerald-500 text-black'
-													: 'bg-black/60 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-400 border border-emerald-500/20'
-											} disabled:opacity-50 disabled:cursor-not-allowed`}
-										>
-											{preset} ₽
-										</button>
-									))}
-								</div>
-
-								{/* Поле ввода суммы */}
-								<div className='mb-4'>
-									<label className='block text-sm text-gray-400 mb-2 font-medium'>
-										Или укажите свою сумму
-									</label>
-									<div className='relative'>
-										<input
-											type='number'
-											value={depositAmount}
-											onChange={e => {
-												setDepositAmount(parseInt(e.target.value) || 0)
-												if (depositError) setDepositError(null)
-											}}
-											className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all text-lg font-semibold'
-											placeholder='Введите сумму'
-											disabled={depositLoading}
-											min='100'
-										/>
-										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg'>
-											₽
-										</span>
-									</div>
-								</div>
-
-								{/* Кнопка пополнения */}
-								<button
-									onClick={handleDeposit}
-									disabled={
-										depositLoading || !depositAmount || depositAmount < 100
-									}
-									className='w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2'
-								>
-									{depositLoading ? (
-										<>
-											<span className='w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin' />
-											<span>Обработка...</span>
-										</>
-									) : (
-										<>
-											<FaCreditCard className='text-xl' />
-											<span>Пополнить баланс</span>
-										</>
-									)}
-								</button>
-
-								{/* Ошибка пополнения */}
-								{depositError && (
-									<div className='mt-4 bg-red-900/20 border border-red-500/30 rounded-xl p-4 flex items-start gap-3'>
-										<FaInfoCircle className='text-red-400 text-lg flex-shrink-0 mt-0.5' />
-										<div>
-											<p className='font-semibold text-red-400 text-sm'>
-												Ошибка
-											</p>
-											<p className='text-red-300/90 text-sm mt-1'>
-												{depositError}
-											</p>
-										</div>
-									</div>
-								)}
->>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
 							</div>
 
 							{/* Вывод средств */}
@@ -1882,8 +1584,8 @@ export default function ProfilePageContent() {
 									))}
 								</div>
 
-								{/* Поле ввода телефона */}
-								{useTBank && (
+								{/* Поле ввода телефона для СБП */}
+								{withdrawMethod === 'sbp' && (
 									<div className='mb-4'>
 										<label className='block text-sm text-gray-400 mb-2 font-medium'>
 											Номер телефона для вывода (СБП)

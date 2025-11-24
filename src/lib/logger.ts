@@ -93,10 +93,3 @@ class Logger {
 }
 
 export const logger = new Logger()
-<<<<<<< HEAD
-
-
-
-
-=======
->>>>>>> 8500b26eb6ac8f59cfd0fcfdccb818e3b53a8d8e
