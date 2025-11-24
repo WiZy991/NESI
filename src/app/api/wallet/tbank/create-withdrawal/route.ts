@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 		let finalDealId = dealId
 
 		if (!finalDealId) {
-			// Ищем последнюю транзакцию пополнения с DealId
+			// Шаг 1: Ищем последнюю транзакцию пополнения с DealId
 			const lastDepositTx = await prisma.transaction.findFirst({
 				where: {
 					userId: user.id,
@@ -150,40 +150,73 @@ export async function POST(req: NextRequest) {
 					'✅ [CREATE-WITHDRAWAL] Найден DealId из последней транзакции:',
 					finalDealId
 				)
-			} else {
-				// Если DealId не найден, пытаемся получить его из последнего платежа через API
-				const lastDepositTxWithoutDealId = await prisma.transaction.findFirst({
+			}
+
+			// Шаг 2: Если не нашли, ищем ЛЮБУЮ транзакцию пополнения с DealId
+			if (!finalDealId) {
+				const anyDepositTx = await prisma.transaction.findFirst({
+					where: {
+						userId: user.id,
+						type: 'deposit',
+						dealId: { not: null },
+					},
+					orderBy: { createdAt: 'asc' }, // Берем самую старую
+					select: { dealId: true },
+				})
+
+				if (anyDepositTx?.dealId) {
+					finalDealId = String(anyDepositTx.dealId)
+					console.log(
+						'✅ [CREATE-WITHDRAWAL] Найден DealId из любой транзакции пополнения:',
+						finalDealId
+					)
+				}
+			}
+
+			// Шаг 3: Если DealId все еще не найден, пытаемся получить его из всех транзакций через API
+			if (!finalDealId) {
+				// Получаем все транзакции пополнения с PaymentId, но без DealId
+				// Используем более простую проверку
+				const allDepositTxs = await prisma.transaction.findMany({
 					where: {
 						userId: user.id,
 						type: 'deposit',
 						paymentId: { not: null },
 					},
 					orderBy: { createdAt: 'desc' },
-					select: { paymentId: true },
+					select: { paymentId: true, dealId: true },
+					take: 5, // Проверяем последние 5 транзакций
 				})
+				
+				// Фильтруем только те, у которых нет DealId
+				const allDepositTxsWithoutDealId = allDepositTxs.filter(tx => !tx.dealId)
 
-				if (lastDepositTxWithoutDealId?.paymentId) {
+				// Перебираем все транзакции и пытаемся получить DealId через API
+				for (const tx of allDepositTxsWithoutDealId) {
+					if (finalDealId) break // Если нашли DealId, прекращаем поиск
+					
+					if (!tx.paymentId) continue
+
 					try {
 						const { checkPaymentStatus } = await import('@/lib/tbank')
 						console.log(
 							'🔍 [CREATE-WITHDRAWAL] Пытаемся получить DealId из API для PaymentId:',
-							lastDepositTxWithoutDealId.paymentId
+							tx.paymentId
 						)
-						const paymentStatus = await checkPaymentStatus(
-							lastDepositTxWithoutDealId.paymentId
-						)
+						const paymentStatus = await checkPaymentStatus(tx.paymentId)
 
 						if (paymentStatus.Success) {
 							const apiDealId =
 								paymentStatus.SpAccumulationId || paymentStatus.DealId
-							finalDealId = apiDealId ? String(apiDealId) : null
-
-							if (finalDealId) {
-								// Обновляем транзакцию с DealId
+							
+							if (apiDealId) {
+								finalDealId = String(apiDealId)
+								
+								// Обновляем ВСЕ транзакции пользователя с этим PaymentId
 								await prisma.transaction.updateMany({
 									where: {
 										userId: user.id,
-										paymentId: lastDepositTxWithoutDealId.paymentId,
+										paymentId: tx.paymentId,
 									},
 									data: { dealId: finalDealId },
 								})
@@ -191,18 +224,21 @@ export async function POST(req: NextRequest) {
 									'✅ [CREATE-WITHDRAWAL] DealId получен из API и сохранен:',
 									finalDealId
 								)
+								break // Нашли DealId, прекращаем поиск
 							}
 						}
 					} catch (error) {
 						console.error(
-							'❌ [CREATE-WITHDRAWAL] Ошибка получения DealId из API:',
+							'❌ [CREATE-WITHDRAWAL] Ошибка получения DealId из API для PaymentId:',
+							tx.paymentId,
 							error
 						)
+						// Продолжаем поиск в следующей транзакции
 					}
 				}
 
+				// Шаг 4: Если DealId все еще не найден, вызываем API для обновления всех DealId
 				if (!finalDealId) {
-					// Последняя попытка - вызываем API для обновления всех DealId
 					try {
 						console.log(
 							'🔄 [CREATE-WITHDRAWAL] Пытаемся обновить все DealId через API...'
@@ -252,78 +288,104 @@ export async function POST(req: NextRequest) {
 							updateError
 						)
 					}
+				}
+			}
 
-					if (!finalDealId) {
-						// Получаем все транзакции пополнения для диагностики
-						const allDepositTxs = await prisma.transaction.findMany({
-							where: {
-								userId: user.id,
-								type: 'deposit',
-							},
-							orderBy: { createdAt: 'desc' },
-							select: {
-								id: true,
-								dealId: true,
-								paymentId: true,
-								createdAt: true,
-							},
-						})
+			// Финальная проверка: если DealId все еще не найден, пытаемся создать сделку
+			if (!finalDealId) {
+				// Последняя попытка - создаем новую сделку через createSpDeal
+				try {
+					console.log(
+						'🔄 [CREATE-WITHDRAWAL] DealId не найден, пытаемся создать новую сделку...'
+					)
+					const { createSpDeal } = await import('@/lib/tbank')
+					const dealResult = await createSpDeal()
 
-						// Детальная диагностика для пользователя
-						const diagnosticInfo = {
-							hasDeposits: allDepositTxs.length > 0,
-							depositsWithDealId: allDepositTxs.filter(tx => tx.dealId).length,
-							depositsWithPaymentId: allDepositTxs.filter(tx => tx.paymentId)
-								.length,
-							lastDeposit: allDepositTxs[0]
-								? {
-										hasDealId: !!allDepositTxs[0].dealId,
-										hasPaymentId: !!allDepositTxs[0].paymentId,
-										createdAt: allDepositTxs[0].createdAt,
-								  }
-								: null,
-						}
-
-						console.error(
-							'❌ [CREATE-WITHDRAWAL] DealId не найден. Диагностика:',
-							diagnosticInfo
-						)
-
-						let errorMessage = 'Не найден DealId для выплаты.\n\n'
-
-						if (!diagnosticInfo.hasDeposits) {
-							errorMessage += '❌ У вас нет транзакций пополнения.\n'
-							errorMessage += '→ Сначала пополните баланс через Т-Банк.\n\n'
-						} else if (diagnosticInfo.depositsWithDealId === 0) {
-							errorMessage += '❌ В ваших транзакциях пополнения нет DealId.\n'
-							errorMessage += '→ Возможные причины:\n'
-							errorMessage +=
-								'  1. Вебхук от Т-Банка еще не обработан (подождите 1-2 минуты)\n'
-							errorMessage +=
-								'  2. Вебхук не настроен в личном кабинете Т-Банка\n'
-							errorMessage += '  3. Сделка не была создана при пополнении\n\n'
-							errorMessage += '→ Решения:\n'
-							errorMessage +=
-								'  • Подождите несколько минут и попробуйте снова\n'
-							errorMessage +=
-								'  • Используйте кнопку "Обновить DealId" (если есть)\n'
-							errorMessage += '  • Пополните баланс заново через Т-Банк\n'
-						} else {
-							errorMessage +=
-								'❌ Не удалось найти DealId в последней транзакции.\n'
-							errorMessage +=
-								'→ Попробуйте обновить DealId или пополните баланс заново.\n'
-						}
-
-						return NextResponse.json(
-							{
-								error: errorMessage,
-								diagnostic: diagnosticInfo,
-							},
-							{ status: 400 }
+					if (dealResult.Success && dealResult.SpAccumulationId) {
+						finalDealId = String(dealResult.SpAccumulationId)
+						console.log(
+							'✅ [CREATE-WITHDRAWAL] Новая сделка создана:',
+							finalDealId
 						)
 					}
+				} catch (createDealError) {
+					console.error(
+						'❌ [CREATE-WITHDRAWAL] Ошибка создания сделки:',
+						createDealError
+					)
 				}
+			}
+
+			// Если DealId все еще не найден, возвращаем ошибку
+			if (!finalDealId) {
+				// Получаем все транзакции пополнения для диагностики
+				const allDepositTxs = await prisma.transaction.findMany({
+					where: {
+						userId: user.id,
+						type: 'deposit',
+					},
+					orderBy: { createdAt: 'desc' },
+					select: {
+						id: true,
+						dealId: true,
+						paymentId: true,
+						createdAt: true,
+					},
+				})
+
+				// Детальная диагностика для пользователя
+				const diagnosticInfo = {
+					hasDeposits: allDepositTxs.length > 0,
+					depositsWithDealId: allDepositTxs.filter(tx => tx.dealId).length,
+					depositsWithPaymentId: allDepositTxs.filter(tx => tx.paymentId)
+						.length,
+					lastDeposit: allDepositTxs[0]
+						? {
+								hasDealId: !!allDepositTxs[0].dealId,
+								hasPaymentId: !!allDepositTxs[0].paymentId,
+								createdAt: allDepositTxs[0].createdAt,
+						  }
+						: null,
+				}
+
+				console.error(
+					'❌ [CREATE-WITHDRAWAL] DealId не найден после всех попыток. Диагностика:',
+					diagnosticInfo
+				)
+
+				let errorMessage = 'Не найден DealId для выплаты.\n\n'
+
+				if (!diagnosticInfo.hasDeposits) {
+					errorMessage += '❌ У вас нет транзакций пополнения.\n'
+					errorMessage += '→ Сначала пополните баланс через Т-Банк.\n\n'
+				} else if (diagnosticInfo.depositsWithDealId === 0) {
+					errorMessage += '❌ В ваших транзакциях пополнения нет DealId.\n'
+					errorMessage += '→ Возможные причины:\n'
+					errorMessage +=
+						'  1. Вебхук от Т-Банка еще не обработан (подождите 1-2 минуты)\n'
+					errorMessage +=
+						'  2. Вебхук не настроен в личном кабинете Т-Банка\n'
+					errorMessage += '  3. Сделка не была создана при пополнении\n\n'
+					errorMessage += '→ Решения:\n'
+					errorMessage +=
+						'  • Подождите несколько минут и попробуйте снова\n'
+					errorMessage +=
+						'  • Используйте кнопку "Обновить DealId" (если есть)\n'
+					errorMessage += '  • Пополните баланс заново через Т-Банк\n'
+				} else {
+					errorMessage +=
+						'❌ Не удалось найти DealId в последней транзакции.\n'
+					errorMessage +=
+						'→ Попробуйте обновить DealId или пополните баланс заново.\n'
+				}
+
+				return NextResponse.json(
+					{
+						error: errorMessage,
+						diagnostic: diagnosticInfo,
+					},
+					{ status: 400 }
+				)
 			}
 		}
 

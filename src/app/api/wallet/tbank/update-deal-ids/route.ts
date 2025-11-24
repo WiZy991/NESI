@@ -16,11 +16,10 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Находим все транзакции пополнения без DealId, но с PaymentId
-		const transactionsWithoutDealId = await prisma.transaction.findMany({
+		const allDepositTxs = await prisma.transaction.findMany({
 			where: {
 				userId: user.id,
 				type: 'deposit',
-				dealId: null,
 				paymentId: { not: null },
 				status: 'completed',
 			},
@@ -30,7 +29,16 @@ export async function POST(req: NextRequest) {
 				createdAt: true,
 			},
 			orderBy: { createdAt: 'desc' },
+			select: {
+				id: true,
+				paymentId: true,
+				dealId: true,
+				createdAt: true,
+			},
 		})
+
+		// Фильтруем только те, у которых нет DealId
+		const transactionsWithoutDealId = allDepositTxs.filter(tx => !tx.dealId)
 
 		if (transactionsWithoutDealId.length === 0) {
 			return NextResponse.json({
