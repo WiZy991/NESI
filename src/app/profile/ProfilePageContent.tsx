@@ -5,7 +5,6 @@ import BadgesModal from '@/components/BadgesModal'
 import EditProfileModal from '@/components/EditProfileModal'
 import { LevelBadge } from '@/components/LevelBadge'
 import { ProfileBackgroundSelector } from '@/components/ProfileBackgroundSelector'
-import WithdrawalForm from '@/components/WithdrawalForm'
 import { useUser } from '@/context/UserContext'
 import { getBackgroundById } from '@/lib/level/profileBackgrounds'
 import { getLevelVisuals } from '@/lib/level/rewards'
@@ -232,7 +231,7 @@ export default function ProfilePageContent() {
 
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [transactionsLoaded, setTransactionsLoaded] = useState(false)
-	const [amount, setAmount] = useState(100)
+	const [amount, setAmount] = useState(1)
 	const [depositPhone, setDepositPhone] = useState('')
 	const [useTBank, setUseTBank] = useState(true) // Использовать Т-Банк по умолчанию
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -242,7 +241,6 @@ export default function ProfilePageContent() {
 	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'card'>('sbp')
 
 	// Состояния для пополнения баланса
-	const [isDepositModalOpen, setIsDepositModalOpen] = useState(false)
 	const [depositAmount, setDepositAmount] = useState(1000)
 	const [depositLoading, setDepositLoading] = useState(false)
 	const [depositError, setDepositError] = useState<string | null>(null)
@@ -250,9 +248,6 @@ export default function ProfilePageContent() {
 	const [checkingPayment, setCheckingPayment] = useState(false)
 	const [manualPaymentId, setManualPaymentId] = useState('')
 	const [showManualCheck, setShowManualCheck] = useState(false)
-
-	// Состояние для модального окна вывода средств
-	const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
 	const [checkingBadges, setCheckingBadges] = useState(false)
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
@@ -307,21 +302,27 @@ export default function ProfilePageContent() {
 	// Ленивая загрузка транзакций только при открытии вкладки wallet
 	useEffect(() => {
 		const fetchTransactions = async () => {
-			if (!token || activeTab !== 'wallet' || transactionsLoaded) return
+			if (!token || activeTab !== 'wallet') return
 			try {
 				const txRes = await fetch('/api/wallet/transactions', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
 				if (txRes.ok) {
 					const txData = await txRes.json()
+					console.log('📊 Загружены транзакции:', txData.transactions?.length || 0)
 					setTransactions(txData.transactions || [])
 					setTransactionsLoaded(true)
+				} else {
+					console.error('Ошибка загрузки транзакций:', txRes.status)
 				}
 			} catch (txErr) {
 				console.error('Ошибка загрузки транзакций:', txErr)
 			}
 		}
-		fetchTransactions()
+		// Загружаем транзакции каждый раз при открытии вкладки wallet
+		if (activeTab === 'wallet' && !transactionsLoaded) {
+			fetchTransactions()
+		}
 	}, [token, activeTab, transactionsLoaded])
 
 	useEffect(() => {
@@ -539,8 +540,8 @@ export default function ProfilePageContent() {
 			return
 		}
 
-		if (amount < 100) {
-			setWithdrawError('Минимальная сумма вывода: 100 ₽')
+		if (amount < 1) {
+			setWithdrawError('Минимальная сумма вывода: 1 ₽')
 			return
 		}
 
@@ -605,7 +606,7 @@ export default function ProfilePageContent() {
 			}
 
 			await fetchProfile()
-			setAmount(100)
+			setAmount(1)
 			setWithdrawError(null)
 
 			// Показываем успешное сообщение
@@ -1474,25 +1475,90 @@ export default function ProfilePageContent() {
 									</div>
 								</div>
 
-								{/* Кнопки управления */}
-								<div className='mb-4 grid grid-cols-2 gap-2'>
-									<button
-										onClick={() => setIsDepositModalOpen(true)}
-										className='px-4 py-3 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition text-sm font-medium'
-									>
-										💳 Пополнить
-									</button>
-									<button
-										onClick={() => setIsWithdrawModalOpen(true)}
-										className='px-4 py-3 rounded-lg border border-red-400 text-red-400 hover:bg-red-400 hover:text-black transition text-sm font-medium'
-									>
-										💸 Вывести
-									</button>
+								{/* Предустановленные суммы */}
+								<div className='grid grid-cols-4 gap-2 mb-4'>
+									{[100, 500, 1000, 5000].map(preset => (
+										<button
+											key={preset}
+											onClick={() => {
+												setDepositAmount(preset)
+												if (depositError) setDepositError(null)
+											}}
+											disabled={depositLoading}
+											className={`py-3 px-2 rounded-lg text-sm font-semibold transition-all ${
+												depositAmount === preset
+													? 'bg-emerald-500 text-black'
+													: 'bg-black/60 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-400 border border-emerald-500/20'
+											} disabled:opacity-50 disabled:cursor-not-allowed`}
+										>
+											{preset} ₽
+										</button>
+									))}
 								</div>
 
+								{/* Поле ввода суммы */}
+								<div className='mb-4'>
+									<label className='block text-sm text-gray-400 mb-2 font-medium'>
+										Или укажите свою сумму
+									</label>
+									<div className='relative'>
+										<input
+											type='number'
+											value={depositAmount}
+											onChange={e => {
+												setDepositAmount(parseInt(e.target.value) || 0)
+												if (depositError) setDepositError(null)
+											}}
+											className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all text-lg font-semibold'
+											placeholder='Введите сумму'
+											disabled={depositLoading}
+											min='100'
+										/>
+										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg'>
+											₽
+										</span>
+									</div>
+								</div>
+
+								{/* Кнопка пополнения */}
+								<button
+									onClick={handleDeposit}
+									disabled={
+										depositLoading || !depositAmount || depositAmount < 100
+									}
+									className='w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2'
+								>
+									{depositLoading ? (
+										<>
+											<span className='w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin' />
+											<span>Обработка...</span>
+										</>
+									) : (
+										<>
+											<FaCreditCard className='text-xl' />
+											<span>Пополнить баланс</span>
+										</>
+									)}
+								</button>
+
+								{/* Ошибка пополнения */}
+								{depositError && (
+									<div className='mt-4 bg-red-900/20 border border-red-500/30 rounded-xl p-4 flex items-start gap-3'>
+										<FaInfoCircle className='text-red-400 text-lg flex-shrink-0 mt-0.5' />
+										<div>
+											<p className='font-semibold text-red-400 text-sm'>
+												Ошибка
+											</p>
+											<p className='text-red-300/90 text-sm mt-1'>
+												{depositError}
+											</p>
+										</div>
+									</div>
+								)}
+
 								{/* Кнопка проверки платежа */}
-								<div className='space-y-2'>
-									{lastPaymentId && (
+								{lastPaymentId && (
+									<div className='mt-4 space-y-2'>
 										<button
 											onClick={() => handleCheckPayment()}
 											disabled={checkingPayment}
@@ -1507,39 +1573,39 @@ export default function ProfilePageContent() {
 												'🔍 Проверить платеж (если деньги не поступили)'
 											)}
 										</button>
-									)}
 
-									{/* Кнопка для ручного ввода PaymentId */}
-									<button
-										onClick={() => setShowManualCheck(!showManualCheck)}
-										className='w-full px-4 py-2 rounded border border-gray-500 text-gray-400 hover:bg-gray-800 transition text-xs'
-									>
-										{showManualCheck
-											? '✕ Скрыть'
-											: '🔑 Ввести PaymentId вручную'}
-									</button>
+										{/* Кнопка для ручного ввода PaymentId */}
+										<button
+											onClick={() => setShowManualCheck(!showManualCheck)}
+											className='w-full px-4 py-2 rounded border border-gray-500 text-gray-400 hover:bg-gray-800 transition text-xs'
+										>
+											{showManualCheck
+												? '✕ Скрыть'
+												: '🔑 Ввести PaymentId вручную'}
+										</button>
 
-									{showManualCheck && (
-										<div className='space-y-2 p-3 bg-black/60 rounded border border-gray-600'>
-											<input
-												type='text'
-												value={manualPaymentId}
-												onChange={e => setManualPaymentId(e.target.value)}
-												placeholder='Введите PaymentId из Т-Банка'
-												className='w-full bg-black/60 border border-gray-500 text-white p-2 rounded text-sm'
-											/>
-											<button
-												onClick={() =>
-													handleCheckPayment(manualPaymentId.trim())
-												}
-												disabled={!manualPaymentId.trim() || checkingPayment}
-												className='w-full px-4 py-2 rounded bg-yellow-600 hover:bg-yellow-500 text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
-											>
-												Проверить
-											</button>
-										</div>
-									)}
-								</div>
+										{showManualCheck && (
+											<div className='space-y-2 p-3 bg-black/60 rounded border border-gray-600'>
+												<input
+													type='text'
+													value={manualPaymentId}
+													onChange={e => setManualPaymentId(e.target.value)}
+													placeholder='Введите PaymentId из Т-Банка'
+													className='w-full bg-black/60 border border-gray-500 text-white p-2 rounded text-sm'
+												/>
+												<button
+													onClick={() =>
+														handleCheckPayment(manualPaymentId.trim())
+													}
+													disabled={!manualPaymentId.trim() || checkingPayment}
+													className='w-full px-4 py-2 rounded bg-yellow-600 hover:bg-yellow-500 text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
+												>
+													Проверить
+												</button>
+											</div>
+										)}
+									</div>
+								)}
 							</div>
 
 							{/* Вывод средств */}
@@ -1565,7 +1631,7 @@ export default function ProfilePageContent() {
 
 								{/* Предустановленные суммы */}
 								<div className='grid grid-cols-4 gap-2 mb-4'>
-									{[100, 500, 1000, 5000].map(preset => (
+									{[1, 100, 500, 1000].map(preset => (
 										<button
 											key={preset}
 											onClick={() => {
@@ -1623,7 +1689,7 @@ export default function ProfilePageContent() {
 											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-lg font-semibold'
 											placeholder='Введите сумму'
 											disabled={withdrawLoading}
-											min='0'
+											min='1'
 										/>
 										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400 font-bold text-lg'>
 											₽
@@ -1800,98 +1866,6 @@ export default function ProfilePageContent() {
 				/>
 			)}
 
-			{/* Модальное окно пополнения баланса */}
-			{isDepositModalOpen && (
-				<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4'>
-					<div className='bg-[#001410] border border-emerald-500/40 rounded-2xl p-6 max-w-md w-full'>
-						<h3 className='text-xl font-bold text-emerald-400 mb-4'>
-							Пополнение баланса
-						</h3>
-						<div className='space-y-4'>
-							<div>
-								<label className='block text-sm text-gray-300 mb-2'>
-									Сумма пополнения (₽)
-								</label>
-								<input
-									type='number'
-									value={depositAmount}
-									onChange={e => {
-										const value = parseInt(e.target.value) || 0
-										setDepositAmount(value)
-										if (depositError) setDepositError(null)
-									}}
-									className='w-full bg-black/60 border border-emerald-500/30 text-white p-3 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400'
-									placeholder='1000'
-									min={1}
-									max={300000}
-								/>
-								<p className='text-xs text-gray-400 mt-1'>
-									Минимум: 1 ₽, Максимум: 300,000 ₽
-								</p>
-							</div>
-							{depositError && (
-								<div className='bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400'>
-									<span className='font-semibold'>⚠️ Ошибка:</span>{' '}
-									{depositError}
-								</div>
-							)}
-							<div className='flex gap-3'>
-								<button
-									onClick={handleDeposit}
-									disabled={depositLoading}
-									className='flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded transition disabled:opacity-50 disabled:cursor-not-allowed'
-								>
-									{depositLoading ? (
-										<span className='flex items-center justify-center gap-2'>
-											<span className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin' />
-											Обработка...
-										</span>
-									) : (
-										'Продолжить'
-									)}
-								</button>
-								<button
-									onClick={() => {
-										setIsDepositModalOpen(false)
-										setDepositError(null)
-									}}
-									className='px-4 py-2 border border-gray-600 text-gray-400 rounded hover:bg-gray-800 transition'
-								>
-									Отмена
-								</button>
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
-
-			{/* Модальное окно вывода средств */}
-			{isWithdrawModalOpen && (
-				<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4'>
-					<div className='bg-[#001410] border border-emerald-500/40 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto'>
-						<div className='flex justify-between items-center mb-4'>
-							<h3 className='text-xl font-bold text-emerald-400'>
-								Вывод средств
-							</h3>
-							<button
-								onClick={() => setIsWithdrawModalOpen(false)}
-								className='text-gray-400 hover:text-white transition text-2xl'
-							>
-								×
-							</button>
-						</div>
-						<WithdrawalForm
-							balance={Number(profile.balance ?? 0)}
-							frozenBalance={Number(profile.frozenBalance ?? 0)}
-							token={token || ''}
-							onSuccess={() => {
-								setIsWithdrawModalOpen(false)
-								fetchProfile()
-							}}
-						/>
-					</div>
-				</div>
-			)}
 		</div>
 	)
 }
