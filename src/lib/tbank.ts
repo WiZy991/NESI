@@ -5,6 +5,35 @@
 
 import crypto from 'crypto'
 
+/**
+ * Проверка конфигурации Т-Банка
+ * Возвращает информацию о том, какие переменные окружения настроены
+ */
+export function validateTBankConfig(): {
+	valid: boolean
+	missing: string[]
+} {
+	const required = [
+		'TBANK_TERMINAL_KEY',
+		'TBANK_PASSWORD',
+		'TBANK_E2C_TERMINAL_KEY',
+		'TBANK_E2C_PASSWORD',
+	]
+
+	const missing: string[] = []
+
+	for (const key of required) {
+		if (!process.env[key]) {
+			missing.push(key)
+		}
+	}
+
+	return {
+		valid: missing.length === 0,
+		missing,
+	}
+}
+
 const TBANK_API_URL =
 	process.env.TBANK_API_URL || 'https://securepay.tinkoff.ru'
 const TBANK_TEST_API_URL = 'https://rest-api-test.tinkoff.ru'
