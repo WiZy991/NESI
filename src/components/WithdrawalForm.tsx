@@ -39,7 +39,7 @@ export default function WithdrawalForm({
 	const [success, setSuccess] = useState(false)
 
 	const availableBalance = balance - frozenBalance
-	const minAmount = 100
+	const minAmount = 1
 	const maxAmount = availableBalance
 
 	const handleSubmit = async (e: React.FormEvent) => {

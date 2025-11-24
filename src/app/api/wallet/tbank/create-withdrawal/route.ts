@@ -53,10 +53,10 @@ export async function POST(req: NextRequest) {
 
 		const amountNumber = toNumber(parsedAmount)
 
-		// Минимальная сумма вывода - 100 рублей (10,000 копеек)
-		if (amountNumber < 100) {
+		// Минимальная сумма вывода - 1 рубль
+		if (amountNumber < 1) {
 			return NextResponse.json(
-				{ error: 'Минимальная сумма вывода: 100 ₽' },
+				{ error: 'Минимальная сумма вывода: 1 ₽' },
 				{ status: 400 }
 			)
 		}
