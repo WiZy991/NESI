@@ -94,6 +94,30 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			})
 		}
 
+		// Находим DealId заказчика из его транзакций пополнения через Т-Банк
+		// Это нужно для того, чтобы исполнитель мог вывести деньги через Т-Банк
+		const customerDepositTx = await prisma.transaction.findFirst({
+			where: {
+				userId: task.customerId,
+				type: 'deposit',
+				dealId: { not: null },
+				paymentId: { not: null },
+			},
+			orderBy: { createdAt: 'desc' },
+			select: { dealId: true },
+		})
+		
+		const customerDealId = customerDepositTx?.dealId
+			? String(customerDepositTx.dealId)
+			: null
+
+		console.log('💼 [COMPLETE-TASK] DealId заказчика для транзакции исполнителя:', {
+			customerId: task.customerId,
+			executorId: task.executorId,
+			customerDealId: customerDealId || 'не найден',
+			note: 'DealId нужен для вывода средств исполнителем через Т-Банк',
+		})
+
 		await prisma.$transaction([
 			// Завершаем задачу
 			// Сохраняем цену в поле price для аналитики
@@ -133,6 +157,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			}),
 
 			// Исполнителю: начисляем выплату (80%)
+			// Сохраняем DealId заказчика, чтобы исполнитель мог вывести деньги через Т-Банк
 			prisma.user.update({
 				where: { id: task.executorId },
 				data: {
@@ -142,6 +167,8 @@ export async function PATCH(req: NextRequest, { params }: any) {
 							amount: payoutDecimal,
 							type: 'earn',
 							reason: `Выплата за задачу "${task.title}"`,
+							taskId: task.id,
+							dealId: customerDealId, // Сохраняем DealId заказчика для вывода через Т-Банк
 						},
 					},
 				},

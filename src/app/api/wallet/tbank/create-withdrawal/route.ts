@@ -123,54 +123,62 @@ export async function POST(req: NextRequest) {
 		const orderId = `withdraw_${user.id}_${Date.now()}`
 
 		// Для выплат в рамках мультирасчетов DealId ОБЯЗАТЕЛЕН
-		// Используем последний DealId из транзакций пополнения
+		// Ищем DealId из транзакций пополнения пользователя ИЛИ от заказчиков через задачи
 		let finalDealId = dealId
 
 		if (!finalDealId) {
-			// Шаг 1: Ищем последнюю транзакцию пополнения с DealId и PaymentId (Т-Банк)
-			const lastDepositTx = await prisma.transaction.findFirst({
+			// Шаг 1: Ищем последнюю транзакцию с DealId (может быть 'deposit' или 'earn' от задач)
+			// 'earn' транзакции содержат DealId заказчика, который пополнял через Т-Банк
+			const lastTxWithDealId = await prisma.transaction.findFirst({
 				where: {
 					userId: user.id,
-					type: 'deposit',
 					dealId: { not: null },
-					paymentId: { not: null }, // Только транзакции Т-Банка
+					OR: [
+						{ type: 'deposit', paymentId: { not: null } }, // Пополнения через Т-Банк
+						{ type: 'earn' }, // Выплаты за задачи (содержат DealId заказчика)
+					],
 				},
 				orderBy: { createdAt: 'desc' },
 				select: {
 					id: true,
 					dealId: true,
 					paymentId: true,
+					type: true,
 					amount: true,
 					createdAt: true,
 				},
 			})
 
-			if (lastDepositTx?.dealId) {
-				finalDealId = String(lastDepositTx.dealId)
+			if (lastTxWithDealId?.dealId) {
+				finalDealId = String(lastTxWithDealId.dealId)
 				console.log(
 					'✅ [CREATE-WITHDRAWAL] Найден DealId из последней транзакции:',
-					finalDealId
+					finalDealId,
+					`(тип: ${lastTxWithDealId.type})`
 				)
 			}
 
-			// Шаг 2: Если не нашли, ищем ЛЮБУЮ транзакцию пополнения с DealId и PaymentId (Т-Банк)
+			// Шаг 2: Если не нашли, ищем ЛЮБУЮ транзакцию с DealId (deposit или earn)
 			if (!finalDealId) {
-				const anyDepositTx = await prisma.transaction.findFirst({
+				const anyTxWithDealId = await prisma.transaction.findFirst({
 					where: {
 						userId: user.id,
-						type: 'deposit',
 						dealId: { not: null },
-						paymentId: { not: null }, // Только транзакции Т-Банка
+						OR: [
+							{ type: 'deposit', paymentId: { not: null } },
+							{ type: 'earn' },
+						],
 					},
 					orderBy: { createdAt: 'asc' }, // Берем самую старую
-					select: { dealId: true },
+					select: { dealId: true, type: true },
 				})
 
-				if (anyDepositTx?.dealId) {
-					finalDealId = String(anyDepositTx.dealId)
+				if (anyTxWithDealId?.dealId) {
+					finalDealId = String(anyTxWithDealId.dealId)
 					console.log(
-						'✅ [CREATE-WITHDRAWAL] Найден DealId из любой транзакции пополнения:',
-						finalDealId
+						'✅ [CREATE-WITHDRAWAL] Найден DealId из любой транзакции:',
+						finalDealId,
+						`(тип: ${anyTxWithDealId.type})`
 					)
 				}
 			}
