@@ -1,16 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { clientLogger } from '@/lib/clientLogger'
 
 interface DisputeFormProps {
 	taskId: string
 	onSuccess: () => void
 	token: string
+	forceOpen?: boolean // Принудительно открыть форму
+	onClose?: () => void // Callback при закрытии
 }
 
-export function DisputeForm({ taskId, onSuccess, token }: DisputeFormProps) {
-	const [isOpen, setIsOpen] = useState(false)
+export function DisputeForm({ taskId, onSuccess, token, forceOpen = false, onClose }: DisputeFormProps) {
+	const [isOpen, setIsOpen] = useState(forceOpen)
+	
+	// Обновляем состояние при изменении forceOpen
+	React.useEffect(() => {
+		if (forceOpen) {
+			setIsOpen(true)
+		}
+	}, [forceOpen])
 	const [reason, setReason] = useState('')
 	const [details, setDetails] = useState('')
 	const [loading, setLoading] = useState(false)
@@ -39,6 +48,7 @@ export function DisputeForm({ taskId, onSuccess, token }: DisputeFormProps) {
 				// Добавляем небольшую задержку перед обновлением состояния
 				setTimeout(() => {
 					onSuccess()
+					onClose?.()
 				}, 100)
 			} else {
 				const data = await res.json().catch(() => ({}))
@@ -117,6 +127,7 @@ export function DisputeForm({ taskId, onSuccess, token }: DisputeFormProps) {
 						setReason('')
 						setDetails('')
 						setError(null)
+						onClose?.()
 					}}
 					className='px-5 py-3 rounded-xl bg-gray-700/50 hover:bg-gray-700 text-white font-semibold transition-all duration-300'
 				>

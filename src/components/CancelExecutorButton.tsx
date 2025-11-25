@@ -23,10 +23,10 @@ export default function CancelExecutorButton({
 			return
 		}
 		await confirm({
-			title: 'Отмена исполнителя',
-			message: 'Вы уверены, что хотите отменить исполнителя и вернуть средства? Это действие нельзя отменить.',
+			title: 'Запрос на отмену исполнителя',
+			message: 'Вы уверены, что хотите запросить отмену исполнителя? Исполнитель получит уведомление и сможет согласиться или оспорить отмену. Средства будут возвращены только если исполнитель согласится.',
 			type: 'warning',
-			confirmText: 'Отменить',
+			confirmText: 'Отправить запрос',
 			cancelText: 'Отмена',
 			onConfirm: async () => {
 				setLoading(true)
@@ -39,8 +39,12 @@ export default function CancelExecutorButton({
 					const data = await res.json().catch(() => ({}))
 					if (!res.ok) throw new Error(data?.error || `Ошибка ${res.status}`)
 
-					toast.success('Исполнитель отменён, средства возвращены')
+					toast.success('Запрос на отмену отправлен. Ожидайте ответа исполнителя.')
 					onCancelled?.()
+					// Автообновление страницы
+					setTimeout(() => {
+						window.location.reload()
+					}, 1000)
 				} catch (e: any) {
 					setErr(e.message || 'Не удалось отменить')
 					toast.error(e.message || 'Не удалось отменить')

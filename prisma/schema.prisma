@@ -160,6 +160,8 @@ model Task {
   escrowAmount            Decimal            @default(0.00) @db.Decimal(15, 2)
   customerLastReadAt      DateTime?
   executorLastReadAt      DateTime?
+  cancellationRequestedAt DateTime?         // Время запроса на отмену от заказчика
+  cancellationReason      String?           // Причина отмены от заказчика
   Dispute                 Dispute[]
   files                   File[]             @relation("TaskFiles")
   messages                Message[]

@@ -11,13 +11,13 @@ import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
 
-export async function POST(req: Request, context: { params: { id: string } }) {
+export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
 	try {
 		const user = await getUserFromRequest(req)
 		if (!user)
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-		const { id: taskId } = context.params
+		const { id: taskId } = await context.params
 		
 		let body
 		try {

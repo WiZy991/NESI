@@ -27,6 +27,8 @@ export type Task = {
 		minPrice: number
 	} | null
 	subcategoryId?: string | null
+	cancellationRequestedAt?: string | null
+	cancellationReason?: string | null
 	files?: Array<{
 		id: string
 		filename: string

@@ -11,7 +11,8 @@ import { getLevelVisuals } from '@/lib/level/rewards'
 import '@/styles/level-animations.css'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { toast } from 'sonner'
 import {
 	FaArrowDown,
 	FaArrowUp,
@@ -239,6 +240,97 @@ export default function ProfilePageContent() {
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
 	const [withdrawPhone, setWithdrawPhone] = useState('')
 	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'card'>('sbp')
+	const [sbpBanks, setSbpBanks] = useState<Array<{MemberId: string; MemberName: string; MemberNameRus: string}>>([])
+	const [selectedBankId, setSelectedBankId] = useState<string>('')
+	const [loadingBanks, setLoadingBanks] = useState(false)
+	const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false)
+	// Состояния для данных карты
+	const [cardNumber, setCardNumber] = useState('')
+	const [cardExpDate, setCardExpDate] = useState('')
+	const [cardHolder, setCardHolder] = useState('')
+	const [cardCvv, setCardCvv] = useState('')
+	const amountInputRef = useRef<HTMLInputElement>(null)
+	const previousAmountRef = useRef<number>(0)
+	const depositAmountInputRef = useRef<HTMLInputElement>(null)
+	const previousDepositAmountRef = useRef<number>(0)
+
+	// Функция форматирования телефона в маску +7 (XXX) XXX-XX-XX
+	const formatPhoneNumber = (value: string): string => {
+		// Убираем все нецифровые символы кроме +
+		const digitsOnly = value.replace(/[^\d+]/g, '')
+		
+		// Если начинается не с +7, добавляем +7
+		if (!digitsOnly.startsWith('+7') && !digitsOnly.startsWith('7')) {
+			const cleanDigits = digitsOnly.replace(/\+/g, '')
+			if (cleanDigits.length === 0) return '+7'
+			if (cleanDigits.startsWith('7')) {
+				return `+7${cleanDigits.slice(1)}`
+			}
+			return `+7${cleanDigits}`
+		}
+		
+		// Убираем + если есть, оставляем только цифры
+		let phone = digitsOnly.replace(/\+/g, '')
+		
+		// Если начинается с 7, убираем её (будет добавлена +7)
+		if (phone.startsWith('7')) {
+			phone = phone.slice(1)
+		}
+		
+		// Ограничиваем до 10 цифр (после +7)
+		phone = phone.slice(0, 10)
+		
+		// Форматируем: +7 (XXX) XXX-XX-XX
+		if (phone.length === 0) return '+7'
+		if (phone.length <= 3) return `+7 (${phone}`
+		if (phone.length <= 6) return `+7 (${phone.slice(0, 3)}) ${phone.slice(3)}`
+		if (phone.length <= 8) return `+7 (${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`
+		return `+7 (${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6, 8)}-${phone.slice(8, 10)}`
+	}
+
+	// Функция для получения только цифр из отформатированного телефона
+	const getPhoneDigits = (formattedPhone: string): string => {
+		const digits = formattedPhone.replace(/\D/g, '')
+		// Если начинается с 7, оставляем как есть, иначе добавляем 7
+		if (digits.startsWith('7')) {
+			return digits.slice(0, 11) // +7 и 10 цифр
+		}
+		return `7${digits.slice(0, 10)}` // Добавляем 7 и ограничиваем 10 цифрами
+	}
+
+	// Функция форматирования номера карты (добавляет пробелы каждые 4 цифры)
+	const formatCardNumber = (value: string): string => {
+		const digitsOnly = value.replace(/\D/g, '').slice(0, 16)
+		return digitsOnly.replace(/(.{4})/g, '$1 ').trim()
+	}
+
+	// Функция форматирования срока действия карты (MM/YY)
+	const formatCardExpDate = (value: string): string => {
+		const digitsOnly = value.replace(/\D/g, '').slice(0, 4)
+		if (digitsOnly.length <= 2) return digitsOnly
+		return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}`
+	}
+
+	// Функция форматирования CVV (только 3 цифры)
+	const formatCardCvv = (value: string): string => {
+		return value.replace(/\D/g, '').slice(0, 3)
+	}
+
+	// Функция создания CardData строки для отправки в Т-Банк
+	const createCardDataString = (): string => {
+		const pan = cardNumber.replace(/\D/g, '')
+		const expDate = cardExpDate.replace(/\D/g, '')
+		const cardHolderName = cardHolder.trim().toUpperCase()
+		const cvv = cardCvv.replace(/\D/g, '')
+
+		const parts: string[] = []
+		if (pan) parts.push(`PAN=${pan}`)
+		if (expDate.length === 4) parts.push(`ExpDate=${expDate}`)
+		if (cardHolderName) parts.push(`CardHolder=${cardHolderName}`)
+		if (cvv) parts.push(`CVV=${cvv}`)
+
+		return parts.join(';')
+	}
 
 	// Состояния для пополнения баланса
 	const [depositAmount, setDepositAmount] = useState(1000)
@@ -333,6 +425,54 @@ export default function ProfilePageContent() {
 			setLastPaymentId(savedPaymentId)
 		}
 	}, [token])
+
+	// Загрузка списка банков для СБП
+	useEffect(() => {
+		const loadBanks = async () => {
+			if (!token || activeTab !== 'wallet') return
+			setLoadingBanks(true)
+			try {
+				const res = await fetch('/api/wallet/tbank/get-sbp-banks', {
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				const data = await res.json()
+				if (data.success && data.banks && data.banks.length > 0) {
+					setSbpBanks(data.banks)
+					if (!selectedBankId && data.banks.length > 0) {
+						setSelectedBankId(data.banks[0].MemberId)
+					}
+				} else {
+					// Fallback банки
+					const fallbackBanks = [
+						{ MemberId: '100000000004', MemberName: 'Tinkoff', MemberNameRus: 'Т-Банк' },
+						{ MemberId: '100000000111', MemberName: 'Sberbank', MemberNameRus: 'Сбербанк' },
+						{ MemberId: '100000000005', MemberName: 'VTB', MemberNameRus: 'ВТБ' },
+						{ MemberId: '100000000008', MemberName: 'Alfa-Bank', MemberNameRus: 'Альфа-Банк' },
+					]
+					setSbpBanks(fallbackBanks)
+					if (!selectedBankId) {
+						setSelectedBankId(fallbackBanks[0].MemberId)
+					}
+				}
+			} catch (err) {
+				console.error('Ошибка загрузки банков:', err)
+				// Fallback банки при ошибке
+				const fallbackBanks = [
+					{ MemberId: '100000000004', MemberName: 'Tinkoff', MemberNameRus: 'Т-Банк' },
+					{ MemberId: '100000000111', MemberName: 'Sberbank', MemberNameRus: 'Сбербанк' },
+					{ MemberId: '100000000005', MemberName: 'VTB', MemberNameRus: 'ВТБ' },
+					{ MemberId: '100000000008', MemberName: 'Alfa-Bank', MemberNameRus: 'Альфа-Банк' },
+				]
+				setSbpBanks(fallbackBanks)
+				if (!selectedBankId) {
+					setSelectedBankId(fallbackBanks[0].MemberId)
+				}
+			} finally {
+				setLoadingBanks(false)
+			}
+		}
+		loadBanks()
+	}, [token, activeTab])
 
 	// Телефон будет вводиться пользователем вручную
 
@@ -552,11 +692,11 @@ export default function ProfilePageContent() {
 				return
 			}
 
-			// Проверяем формат телефона
-			const phoneDigits = withdrawPhone.trim().replace(/\D/g, '')
+			// Проверяем формат телефона используя функцию getPhoneDigits
+			const phoneDigits = getPhoneDigits(withdrawPhone)
 			if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
 				setWithdrawError(
-					'Номер телефона должен быть в формате +7XXXXXXXXXX (11 цифр)'
+					'Номер телефона должен быть в формате +7 (XXX) XXX-XX-XX'
 				)
 				return
 			}
@@ -572,19 +712,70 @@ export default function ProfilePageContent() {
 			}
 
 			if (withdrawMethod === 'sbp') {
-				const phoneDigits = withdrawPhone.trim().replace(/\D/g, '')
-				const formattedPhone = phoneDigits.startsWith('7')
-					? phoneDigits
-					: `7${phoneDigits.slice(-10)}`
+				// Получаем только цифры из отформатированного телефона
+				const phoneDigits = getPhoneDigits(withdrawPhone)
+				
+				// Проверяем, что номер полный (11 цифр: 7 + 10)
+				if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
+					setWithdrawError('Введите полный номер телефона в формате +7 (XXX) XXX-XX-XX')
+					setWithdrawLoading(false)
+					return
+				}
 
-				withdrawalData.phone = formattedPhone
-				withdrawalData.sbpMemberId = '100000000004' // Т-Банк SBP Member ID
+				withdrawalData.phone = phoneDigits
+				// Используем выбранный банк из списка
+				if (selectedBankId) {
+					withdrawalData.sbpMemberId = selectedBankId
+				} else {
+					toast.error('Выберите банк для вывода средств')
+					return
+				}
 			} else if (withdrawMethod === 'card') {
-				// Для карты нужен cardId, который получается после привязки карты
-				// Пока оставляем как есть, можно добавить позже
-				setWithdrawError('Вывод на карту временно недоступен. Используйте СБП.')
-				setWithdrawLoading(false)
-				return
+				// Валидация данных карты
+				const cardNumberDigits = cardNumber.replace(/\D/g, '')
+				const cardExpDateDigits = cardExpDate.replace(/\D/g, '')
+				const cardCvvDigits = cardCvv.replace(/\D/g, '')
+
+				if (cardNumberDigits.length !== 16) {
+					setWithdrawError('Номер карты должен содержать 16 цифр')
+					setWithdrawLoading(false)
+					return
+				}
+
+				if (cardExpDateDigits.length !== 4) {
+					setWithdrawError('Укажите срок действия карты в формате MM/YY')
+					setWithdrawLoading(false)
+					return
+				}
+
+				// Проверяем, что месяц валидный (01-12)
+				const month = parseInt(cardExpDateDigits.slice(0, 2), 10)
+				if (month < 1 || month > 12) {
+					setWithdrawError('Месяц должен быть от 01 до 12')
+					setWithdrawLoading(false)
+					return
+				}
+
+				if (cardCvvDigits.length !== 3) {
+					setWithdrawError('CVV должен содержать 3 цифры')
+					setWithdrawLoading(false)
+					return
+				}
+
+				if (!cardHolder.trim()) {
+					setWithdrawError('Укажите имя держателя карты')
+					setWithdrawLoading(false)
+					return
+				}
+
+				// Отправляем данные карты отдельными полями (API соберет их в CardData)
+				// Формат ExpDate: MMYY (4 цифры)
+				const expDate = cardExpDateDigits.length === 4 ? cardExpDateDigits : ''
+				
+				withdrawalData.cardNumber = cardNumberDigits
+				withdrawalData.cardExpiry = expDate
+				withdrawalData.cardCvv = cardCvvDigits
+				withdrawalData.cardHolderName = cardHolder.trim().toUpperCase()
 			}
 
 			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
@@ -1460,8 +1651,9 @@ export default function ProfilePageContent() {
 						</div>
 
 						{/* Операции с балансом */}
-						<div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-							{/* Пополнение */}
+						<div className={`grid gap-6 ${profile.role === 'executor' ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+							{/* Пополнение - только для заказчиков, не для исполнителей */}
+							{profile.role !== 'executor' && (
 							<div className='bg-black/40 backdrop-blur-sm p-6 rounded-2xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all'>
 								<div className='flex items-center gap-3 mb-5'>
 									<div className='bg-emerald-500/20 p-3 rounded-xl'>
@@ -1503,18 +1695,48 @@ export default function ProfilePageContent() {
 									</label>
 									<div className='relative'>
 										<input
-											type='number'
-											value={depositAmount}
+											type='text'
+											inputMode='numeric'
+											ref={depositAmountInputRef}
+											value={depositAmount === 0 ? '' : depositAmount.toString()}
 											onChange={e => {
-												setDepositAmount(parseInt(e.target.value) || 0)
+												const value = e.target.value
+												// Убираем все нецифровые символы
+												const digitsOnly = value.replace(/\D/g, '')
+												
+												// Если поле пустое
+												if (digitsOnly === '') {
+													setDepositAmount(0)
+													previousDepositAmountRef.current = 0
+												} else {
+													const numValue = parseInt(digitsOnly, 10)
+													const newAmount = isNaN(numValue) ? 0 : numValue
+													
+													// Если предыдущее значение было 0 или пустое, и пользователь вводит новую цифру
+													// то заменяем значение, а не добавляем к 0
+													if (previousDepositAmountRef.current === 0 && digitsOnly.length === 1 && newAmount > 0) {
+														setDepositAmount(newAmount)
+													} else {
+														// Иначе просто парсим (автоматически убирает ведущие нули)
+														setDepositAmount(newAmount)
+													}
+													previousDepositAmountRef.current = newAmount
+												}
 												if (depositError) setDepositError(null)
 											}}
-											className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all text-lg font-semibold'
+											onBlur={e => {
+												// Если поле пустое при потере фокуса, ставим 0
+												const currentValue = e.target.value.trim()
+												if (currentValue === '' || currentValue === '0' || parseInt(currentValue, 10) === 0) {
+													setDepositAmount(0)
+													previousDepositAmountRef.current = 0
+												}
+											}}
+											className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 											placeholder='Введите сумму'
 											disabled={depositLoading}
-											min='100'
 										/>
-										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg'>
+										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg pointer-events-none'>
 											₽
 										</span>
 									</div>
@@ -1607,6 +1829,7 @@ export default function ProfilePageContent() {
 									</div>
 								)}
 							</div>
+							)}
 
 							{/* Вывод средств */}
 							<div className='bg-black/40 backdrop-blur-sm p-6 rounded-2xl border border-red-500/30 hover:border-red-500/50 transition-all'>
@@ -1629,9 +1852,59 @@ export default function ProfilePageContent() {
 									</div>
 								</div>
 
+								{/* Переключатель метода вывода */}
+								<div className='mb-4'>
+									<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+										<span className='text-base'></span>
+										<span>Способ вывода</span>
+									</label>
+									<div className='grid grid-cols-2 gap-3'>
+										<button
+											type='button'
+											onClick={() => {
+												setWithdrawMethod('sbp')
+												setWithdrawError(null)
+												// Очищаем данные карты при переключении на СБП
+												setCardNumber('')
+												setCardExpDate('')
+												setCardHolder('')
+												setCardCvv('')
+											}}
+											disabled={withdrawLoading}
+											className={`py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+												withdrawMethod === 'sbp'
+													? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 hover:text-red-400 border-2 border-red-500/20'
+											} disabled:opacity-50 disabled:cursor-not-allowed`}
+										>
+											<span className='text-lg'></span>
+											<span>СБП</span>
+										</button>
+										<button
+											type='button'
+											onClick={() => {
+												setWithdrawMethod('card')
+												setWithdrawError(null)
+												// Очищаем данные СБП при переключении на карту
+												setWithdrawPhone('')
+												setSelectedBankId('')
+											}}
+											disabled={withdrawLoading}
+											className={`py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+												withdrawMethod === 'card'
+													? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 hover:text-red-400 border-2 border-red-500/20'
+											} disabled:opacity-50 disabled:cursor-not-allowed`}
+										>
+											<span className='text-lg'></span>
+											<span>Карта</span>
+										</button>
+									</div>
+								</div>
+
 								{/* Предустановленные суммы */}
 								<div className='grid grid-cols-4 gap-2 mb-4'>
-									{[1, 100, 500, 1000].map(preset => (
+									{[100, 500, 1000, 5000].map(preset => (
 										<button
 											key={preset}
 											onClick={() => {
@@ -1650,27 +1923,228 @@ export default function ProfilePageContent() {
 									))}
 								</div>
 
-								{/* Поле ввода телефона для СБП */}
+								{/* Поля для СБП */}
 								{withdrawMethod === 'sbp' && (
-									<div className='mb-4'>
-										<label className='block text-sm text-gray-400 mb-2 font-medium'>
-											Номер телефона для вывода (СБП)
-										</label>
-										<input
-											type='tel'
-											value={withdrawPhone}
-											onChange={e => {
-												setWithdrawPhone(e.target.value)
-												if (withdrawError) setWithdrawError(null)
-											}}
-											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all'
-											placeholder='+79001234567'
-											disabled={withdrawLoading}
-										/>
-										<p className='text-xs text-gray-500 mt-1'>
-											Вывод будет выполнен через СБП на указанный номер
-										</p>
-									</div>
+									<>
+										{/* Выбор банка */}
+										<div className='mb-4'>
+											<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+												<span className='text-base'></span>
+												<span>Банк получателя</span>
+												{loadingBanks && (
+													<span className='ml-auto text-xs text-red-400/60 flex items-center gap-1'>
+														<span className='w-3 h-3 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
+														загрузка...
+													</span>
+												)}
+											</label>
+											{loadingBanks ? (
+												<div className='text-center py-6 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 border border-red-500/30 rounded-xl'>
+													<span className='w-6 h-6 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin inline-block mb-2' />
+													<p className='text-sm text-red-300/80 mt-2'>Загрузка списка банков...</p>
+												</div>
+											) : sbpBanks.length > 0 ? (
+												<div className='relative bank-dropdown-container'>
+													{/* Кастомный dropdown */}
+													<button
+														type='button'
+														onClick={(e) => {
+															e.stopPropagation()
+															setIsBankDropdownOpen(!isBankDropdownOpen)
+														}}
+														disabled={withdrawLoading}
+														className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between'
+													>
+														<span className='truncate'>
+															{sbpBanks.find(b => b.MemberId === selectedBankId)?.MemberNameRus || 
+															 sbpBanks.find(b => b.MemberId === selectedBankId)?.MemberName || 
+															 'Выберите банк'}
+														</span>
+														<svg
+															className={`w-5 h-5 text-red-400 transition-transform duration-300 flex-shrink-0 ml-2 ${isBankDropdownOpen ? 'rotate-180' : ''}`}
+															fill='none'
+															stroke='currentColor'
+															viewBox='0 0 24 24'
+															xmlns='http://www.w3.org/2000/svg'
+														>
+															<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2.5} d='M19 9l-7 7-7-7' />
+														</svg>
+													</button>
+													
+													{/* Выпадающий список */}
+													{isBankDropdownOpen && (
+														<div 
+															className='absolute z-50 w-full mt-2 bg-gradient-to-br from-red-900/30 via-black/80 to-black/80 border-2 border-red-500/40 rounded-xl shadow-[0_0_30px_rgba(239,68,68,0.3)] backdrop-blur-md overflow-hidden'
+															style={{
+																animation: 'slideDown 0.2s ease-out forwards'
+															}}
+														>
+															<div className='max-h-60 overflow-y-auto custom-scrollbar'>
+																{sbpBanks.map(bank => (
+																	<button
+																		key={bank.MemberId}
+																		type='button'
+																		onClick={(e) => {
+																			e.stopPropagation()
+																			setSelectedBankId(bank.MemberId)
+																			setIsBankDropdownOpen(false)
+																			if (withdrawError) setWithdrawError(null)
+																		}}
+																		className={`w-full text-left px-4 py-3 transition-all duration-200 ${
+																			selectedBankId === bank.MemberId
+																				? 'bg-red-500/30 text-white border-l-4 border-red-400 font-semibold'
+																				: 'text-gray-300 hover:bg-red-500/20 hover:text-white'
+																		}`}
+																	>
+																		{bank.MemberNameRus || bank.MemberName}
+																	</button>
+																))}
+															</div>
+														</div>
+													)}
+												</div>
+											) : (
+												<div className='text-sm text-red-300/70 p-4 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 rounded-xl border border-red-500/30 flex items-center gap-2'>
+													<span className='text-lg'>⚠️</span>
+													<span>Не удалось загрузить список банков. Попробуйте позже.</span>
+												</div>
+											)}
+											<p className='text-xs text-red-300/60 mt-2 flex items-center gap-1'>
+												<span>💡</span>
+												<span>Выберите банк, в который нужно вывести средства через СБП</span>
+											</p>
+										</div>
+										{/* Номер телефона */}
+										<div className='mb-4'>
+											<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+												<span className='text-base'></span>
+												<span>Номер телефона для вывода (СБП)</span>
+											</label>
+											<input
+												type='tel'
+												value={withdrawPhone}
+												onChange={e => {
+													const formatted = formatPhoneNumber(e.target.value)
+													setWithdrawPhone(formatted)
+													if (withdrawError) setWithdrawError(null)
+												}}
+												onBlur={e => {
+													// При потере фокуса проверяем, что номер полный
+													const digits = getPhoneDigits(e.target.value)
+													if (digits.length < 11) {
+														// Если номер неполный, оставляем как есть (пользователь может еще вводить)
+													}
+												}}
+												className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 placeholder:text-gray-500'
+												placeholder='+7 (999) 123-45-67'
+												disabled={withdrawLoading}
+												maxLength={18} // +7 (999) 123-45-67 = 18 символов
+											/>
+											<p className='text-xs text-red-300/60 mt-2 flex items-center gap-1'>
+												<span>💡</span>
+												<span>Вывод будет выполнен через СБП на указанный номер</span>
+											</p>
+										</div>
+									</>
+								)}
+
+								{/* Поля для ввода данных карты */}
+								{withdrawMethod === 'card' && (
+									<>
+										{/* Номер карты */}
+										<div className='mb-4'>
+											<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+												<span className='text-base'></span>
+												<span>Номер карты</span>
+											</label>
+											<input
+												type='text'
+												inputMode='numeric'
+												value={formatCardNumber(cardNumber)}
+												onChange={e => {
+													const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 16)
+													setCardNumber(digitsOnly)
+													if (withdrawError) setWithdrawError(null)
+												}}
+												className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 placeholder:text-gray-500'
+												placeholder='1234 5678 9012 3456'
+												disabled={withdrawLoading}
+												maxLength={19} // 16 цифр + 3 пробела
+											/>
+										</div>
+
+										{/* Срок действия и CVV в одной строке */}
+										<div className='grid grid-cols-2 gap-4 mb-4'>
+											{/* Срок действия */}
+											<div>
+												<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+													<span className='text-base'></span>
+													<span>Срок действия</span>
+												</label>
+												<input
+													type='text'
+													inputMode='numeric'
+													value={formatCardExpDate(cardExpDate)}
+													onChange={e => {
+														const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 4)
+														setCardExpDate(digitsOnly)
+														if (withdrawError) setWithdrawError(null)
+													}}
+													className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 placeholder:text-gray-500'
+													placeholder='MM/YY'
+													disabled={withdrawLoading}
+													maxLength={5} // MM/YY
+												/>
+											</div>
+
+											{/* CVV */}
+											<div>
+												<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+													<span className='text-base'></span>
+													<span>CVV</span>
+												</label>
+												<input
+													type='text'
+													inputMode='numeric'
+													value={cardCvv}
+													onChange={e => {
+														setCardCvv(formatCardCvv(e.target.value))
+														if (withdrawError) setWithdrawError(null)
+													}}
+													className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 placeholder:text-gray-500'
+													placeholder='123'
+													disabled={withdrawLoading}
+													maxLength={3}
+												/>
+											</div>
+										</div>
+
+										{/* Имя держателя карты */}
+										<div className='mb-4'>
+											<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+												<span className='text-base'></span>
+												<span>Имя держателя карты</span>
+											</label>
+											<input
+												type='text'
+												value={cardHolder}
+												onChange={e => {
+													// Только латинские буквы, пробелы и дефисы
+													const value = e.target.value.replace(/[^A-Za-z\s-]/g, '').toUpperCase()
+													setCardHolder(value)
+													if (withdrawError) setWithdrawError(null)
+												}}
+												className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 placeholder:text-gray-500'
+												placeholder='IVAN PETROV'
+												disabled={withdrawLoading}
+												maxLength={50}
+											/>
+											<p className='text-xs text-red-300/60 mt-2 flex items-center gap-1'>
+												<span>💡</span>
+												<span>Укажите имя и фамилию как на карте (латиницей)</span>
+											</p>
+										</div>
+									</>
 								)}
 
 								{/* Поле ввода суммы */}
@@ -1680,18 +2154,48 @@ export default function ProfilePageContent() {
 									</label>
 									<div className='relative'>
 										<input
-											type='number'
-											value={amount}
+											type='text'
+											inputMode='numeric'
+											ref={amountInputRef}
+											value={amount === 0 ? '' : amount.toString()}
 											onChange={e => {
-												setAmount(parseInt(e.target.value) || 0)
+												const value = e.target.value
+												// Убираем все нецифровые символы
+												const digitsOnly = value.replace(/\D/g, '')
+												
+												// Если поле пустое
+												if (digitsOnly === '') {
+													setAmount(0)
+													previousAmountRef.current = 0
+												} else {
+													const numValue = parseInt(digitsOnly, 10)
+													const newAmount = isNaN(numValue) ? 0 : numValue
+													
+													// Если предыдущее значение было 0 или пустое, и пользователь вводит новую цифру
+													// то заменяем значение, а не добавляем к 0
+													if (previousAmountRef.current === 0 && digitsOnly.length === 1 && newAmount > 0) {
+														setAmount(newAmount)
+													} else {
+														// Иначе просто парсим (автоматически убирает ведущие нули)
+														setAmount(newAmount)
+													}
+													previousAmountRef.current = newAmount
+												}
 												if (withdrawError) setWithdrawError(null)
 											}}
-											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-lg font-semibold'
+											onBlur={e => {
+												// Если поле пустое при потере фокуса, ставим 0
+												const currentValue = e.target.value.trim()
+												if (currentValue === '' || currentValue === '0' || parseInt(currentValue, 10) === 0) {
+													setAmount(0)
+													previousAmountRef.current = 0
+												}
+											}}
+											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 											placeholder='Введите сумму'
 											disabled={withdrawLoading}
-											min='1'
 										/>
-										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400 font-bold text-lg'>
+										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400 font-bold text-lg pointer-events-none'>
 											₽
 										</span>
 									</div>

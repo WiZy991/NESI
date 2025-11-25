@@ -1714,15 +1714,36 @@ export default function ChatMessage({
 									}`}
 									onClick={e => {
 										e.stopPropagation()
-										// Прокрутка к исходному сообщению
+										// Прокрутка к исходному сообщению через контейнер (чтобы избежать подпрыгивания)
 										const originalMessage = document.querySelector(
 											`[data-message-id="${message.replyTo?.id}"]`
-										)
+										) as HTMLElement
+										
 										if (originalMessage) {
-											originalMessage.scrollIntoView({
-												behavior: 'smooth',
-												block: 'center',
-											})
+											// Находим контейнер сообщений (родительский элемент с overflow)
+											let container = originalMessage.parentElement
+											while (container && !container.classList.contains('overflow-y-auto') && !container.classList.contains('overflow-auto')) {
+												container = container.parentElement
+											}
+											
+											if (container) {
+												const elementRect = originalMessage.getBoundingClientRect()
+												const containerRect = container.getBoundingClientRect()
+												const offsetTop = elementRect.top - containerRect.top + container.scrollTop
+												const targetScroll = offsetTop - container.clientHeight / 2 + elementRect.height / 2
+												
+												container.scrollTo({
+													top: Math.max(0, targetScroll),
+													behavior: 'smooth',
+												})
+											} else {
+												// Fallback на scrollIntoView, если контейнер не найден
+												originalMessage.scrollIntoView({
+													behavior: 'smooth',
+													block: 'center',
+												})
+											}
+											
 											// Визуальное выделение на 2 секунды
 											originalMessage.classList.add(
 												'ring-2',

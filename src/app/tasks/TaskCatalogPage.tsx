@@ -86,6 +86,7 @@ export default function TaskCatalogPage() {
 	const [recommendedLoading, setRecommendedLoading] = useState(true)
 	const [recommendedError, setRecommendedError] = useState<string | null>(null)
 	const [activeReasonId, setActiveReasonId] = useState<string | null>(null)
+	const recommendationContainerRef = useRef<HTMLDivElement>(null)
 
 	const searchParams = useSearchParams()
 	const router = useRouter()
@@ -747,8 +748,50 @@ export default function TaskCatalogPage() {
 											</button>
 										</div>
 
-										<div className='grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-											{recommendedTasks.map(recommendation => {
+										{/* Слайдер рекомендаций */}
+										<div className='relative'>
+											{/* Кнопки навигации */}
+											{recommendedTasks.length > 3 && (
+												<>
+													<button
+														onClick={() => {
+															if (recommendationContainerRef.current) {
+																const container = recommendationContainerRef.current
+																const scrollAmount = container.clientWidth * 0.8
+																container.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
+															}
+														}}
+														className='absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg'
+														aria-label='Предыдущие рекомендации'
+													>
+														<ChevronDown className='w-5 h-5 rotate-90' />
+													</button>
+													<button
+														onClick={() => {
+															if (recommendationContainerRef.current) {
+																const container = recommendationContainerRef.current
+																const scrollAmount = container.clientWidth * 0.8
+																container.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+															}
+														}}
+														className='absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg'
+														aria-label='Следующие рекомендации'
+													>
+														<ChevronDown className='w-5 h-5 -rotate-90' />
+													</button>
+												</>
+											)}
+											
+											{/* Контейнер слайдера */}
+											<div
+												ref={recommendationContainerRef}
+												className='flex gap-3 sm:gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth'
+												style={{
+													scrollbarWidth: 'none',
+													msOverflowStyle: 'none',
+												}}
+											>
+												{recommendedTasks.map(recommendation => {
 												const task = recommendation.task
 												const reasonsKey = `recommended-${task.id}`
 												const showReasons = activeReasonId === reasonsKey
@@ -778,7 +821,7 @@ export default function TaskCatalogPage() {
 													<Link
 														key={task.id}
 														href={`/tasks/${task.id}`}
-														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden'
+														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden flex-shrink-0 w-[280px] sm:w-[320px] snap-start'
 													>
 														<div className='space-y-3'>
 															<div className='flex-1 min-w-0'>
@@ -932,8 +975,9 @@ export default function TaskCatalogPage() {
 												)
 											})}
 										</div>
-									</section>
-								) : (
+									</div>
+								</section>
+							) : (
 									<section className='p-4 sm:p-5 lg:p-6 bg-black/35 border border-emerald-500/20 rounded-2xl text-sm text-emerald-200/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
 										<div>
 											<h3 className='text-base font-semibold text-emerald-200'>

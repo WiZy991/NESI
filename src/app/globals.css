@@ -102,6 +102,40 @@ body {
 	}
 }
 
+@keyframes slideDown {
+	from {
+		opacity: 0;
+		transform: translateY(-10px) scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+/* Кастомный скроллбар для dropdown банков */
+.bank-dropdown-container .custom-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(239, 68, 68, 0.4) transparent;
+}
+
+.bank-dropdown-container .custom-scrollbar::-webkit-scrollbar {
+	width: 6px;
+}
+
+.bank-dropdown-container .custom-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.bank-dropdown-container .custom-scrollbar::-webkit-scrollbar-thumb {
+	background: rgba(239, 68, 68, 0.4);
+	border-radius: 3px;
+}
+
+.bank-dropdown-container .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: rgba(239, 68, 68, 0.6);
+}
+
 @keyframes fadeOut {
 	from {
 		opacity: 1;
@@ -514,6 +548,68 @@ textarea[class*='rounded-full']:active {
 .neon-select option:checked {
 	background: rgba(16, 185, 129, 0.3);
 	color: #fff;
+}
+
+/* 🔴 Стили для селекта банков в блоке вывода средств (красная тема) */
+.bank-select-red,
+select[data-bank-select='true'],
+select.bank-select-red {
+	background: linear-gradient(to bottom right, rgba(127, 29, 29, 0.2), rgba(0, 0, 0, 0.6)) !important;
+	border: 2px solid rgba(239, 68, 68, 0.4) !important;
+	color: #ffffff !important;
+}
+
+.bank-select-red:focus,
+select[data-bank-select='true']:focus,
+select.bank-select-red:focus {
+	border-color: rgba(239, 68, 68, 1) !important;
+	outline: none !important;
+	box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5) !important;
+}
+
+.bank-select-red option,
+select[data-bank-select='true'] option,
+select.bank-select-red option {
+	background: #0f172a !important;
+	color: #ffffff !important;
+	padding: 12px !important;
+}
+
+.bank-select-red option:hover,
+select[data-bank-select='true'] option:hover,
+select.bank-select-red option:hover {
+	background: rgba(239, 68, 68, 0.2) !important;
+	color: #ffffff !important;
+}
+
+.bank-select-red option:checked,
+select[data-bank-select='true'] option:checked,
+select.bank-select-red option:checked,
+.bank-select-red option:focus,
+select[data-bank-select='true'] option:focus,
+select.bank-select-red option:focus {
+	background: rgba(239, 68, 68, 0.4) !important;
+	color: #ffffff !important;
+}
+
+/* Убираем синий цвет выделения браузера */
+.bank-select-red::-ms-expand,
+select[data-bank-select='true']::-ms-expand {
+	display: none;
+}
+
+/* Для Firefox */
+.bank-select-red option,
+select[data-bank-select='true'] option {
+	background-color: #0f172a !important;
+	color: #ffffff !important;
+}
+
+/* Убираем зеленые обводки из focus-visible */
+.bank-select-red:focus-visible,
+select[data-bank-select='true']:focus-visible {
+	outline: 2px solid rgba(239, 68, 68, 0.8) !important;
+	outline-offset: 2px !important;
 }
 
 /* === НЕОНОВАЯ КНОПКА SELECT === */

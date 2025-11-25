@@ -12,12 +12,14 @@ import { logger } from '@/lib/logger'
 
 export async function POST(
 	req: Request,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
 		const customer = await getUserFromRequest(req)
 		if (!customer)
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+
+		const { id: taskId } = await params
 
 		let body: { executorId?: string; price?: unknown }
 		try {
@@ -81,7 +83,7 @@ export async function POST(
 		const priceDecimal = new Prisma.Decimal(toNumber(parsedPrice))
 
 		const task = await prisma.task.update({
-			where: { id: params.id },
+			where: { id: taskId },
 			data: {
 				executorId,
 				status: 'in_progress',
