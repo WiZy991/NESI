@@ -87,8 +87,8 @@ export function generateToken(
 		})
 
 	// Конкатенируем значения
-	// ВАЖНО: Для объектов (включая DATA) нужно сериализовать в JSON БЕЗ пробелов
-	// ВАЖНО: Все значения должны быть преобразованы в строки БЕЗ дополнительных кавычек
+	// ВАЖНО: Согласно документации Т-Банка, объекты (включая DATA) НЕ должны включаться в подпись
+	// См. multisplit.md раздел 5.1 и vyplaty-multisplit.md раздел 3.1
 	const concatenated = sortedKeys
 		.map(key => {
 			const value = paramsWithPassword[key]
@@ -102,14 +102,33 @@ export function generateToken(
 				})
 			}
 			
-			if (typeof value === 'object' && value !== null) {
-				// Сериализуем объекты (включая DATA) в JSON без пробелов
-				return JSON.stringify(value)
+			// Пропускаем null и undefined
+			if (value === null || value === undefined) {
+				return ''
 			}
+			
+			// ВАЖНО: Объекты (включая DATA, senderAccountInfo, recipientAccountInfo) НЕ включаются в подпись
+			// Согласно документации Т-Банка (multisplit.md раздел 5.1, пример запроса стр. 506-512)
+			if (typeof value === 'object' && value !== null) {
+				return ''
+			}
+			
+			// Преобразуем boolean в строку (true -> "true", false -> "false")
+			if (typeof value === 'boolean') {
+				return value.toString()
+			}
+			
 			// Преобразуем все остальные значения в строки
-			// ВАЖНО: String("true") вернет "true", но мы хотим без кавычек в строке подписи
-			return String(value)
+			const stringValue = String(value)
+			
+			// Пропускаем пустые строки
+			if (stringValue === '') {
+				return ''
+			}
+			
+			return stringValue
 		})
+		.filter(v => v !== '')
 		.join('')
 
 	// Диагностика для E2C (выплаты)
@@ -394,11 +413,17 @@ export async function createWithdrawal(
 	if (!params.dealId) {
 		throw new Error('DealId обязателен для выплат в рамках мультирасчетов')
 	}
-	// ПРОТИВОРЕЧИЕ В ДОКУМЕНТАЦИИ:
-	// - В таблице параметров (стр. 500): DealId Number
-	// - В примере запроса (стр. 905): "DealId": "9043456" (строка)
-	// Пробуем передавать как СТРОКУ, как в примере запроса
-	requestBody.DealId = String(params.dealId)
+	// ВАЖНО: Согласно документации Т-Банка (vyplaty-multisplit.md стр. 500, таблица 2.4.1)
+	// DealId должен быть типа Number (SpAccumulationId - числовой идентификатор сделки)
+	// В примерах запросов иногда передается как строка, но согласно официальной спецификации - Number
+	// Преобразуем в число
+	const dealIdNumber = typeof params.dealId === 'string' 
+		? parseInt(params.dealId, 10) 
+		: params.dealId
+	if (isNaN(dealIdNumber as number)) {
+		throw new Error(`Некорректный формат DealId: ${params.dealId}. Ожидается число или строка, преобразуемая в число.`)
+	}
+	requestBody.DealId = dealIdNumber as number
 
 	// PaymentRecipientId ВСЕГДА обязателен (согласно документации A2C_V2 стр. 15-16)
 	requestBody.PaymentRecipientId = params.paymentRecipientId
@@ -420,9 +445,12 @@ export async function createWithdrawal(
 		}
 		
 		requestBody.Phone = params.phone
-		// ВАЖНО: В примере запроса для СБП (стр. 15-16) SbpMemberId передается как СТРОКА "100000000004"
-		// Хотя в таблице параметров указано Number, следуем примеру запроса - это то, что реально работает
-		requestBody.SbpMemberId = String(params.sbpMemberId)
+		// ВАЖНО: Согласно документации Т-Банка (multisplit.md стр. 1083, таблица 6.2)
+		// SbpMemberId должен быть типа Number, не String
+		// Преобразуем в число, если передана строка
+		requestBody.SbpMemberId = typeof params.sbpMemberId === 'string' 
+			? parseInt(params.sbpMemberId, 10) 
+			: params.sbpMemberId
 		
 		console.log('✅ [TBANK] Телефон для СБП валидирован:', {
 			phone: params.phone,
@@ -485,24 +513,19 @@ export async function createWithdrawal(
 	}
 
 	// Финальная выплата
-	// ВАЖНО: В примере запроса для СБП (стр. 15-16) FinalPayout передается как СТРОКА "true"
-	// В примере для карты (стр. 15) FinalPayout передается как boolean true
-	// Для СБП выплат передаем FinalPayout как строку "true" (согласно примеру стр. 15-16)
-	if (params.phone && params.sbpMemberId) {
-		// Для СБП выплат передаем FinalPayout как строку "true" (согласно примеру)
-		requestBody.FinalPayout = 'true'
-		console.log('✅ [TBANK] FinalPayout установлен для СБП:', {
-			value: requestBody.FinalPayout,
-			type: typeof requestBody.FinalPayout,
-			note: 'Для СБП FinalPayout передается как строка "true" (согласно примеру стр. 15-16)',
-		})
-	} else if (params.finalPayout === true) {
-		// Для выплат на карту передаем как boolean true, если указано
+	// ВАЖНО: Согласно документации Т-Банка (vyplaty-multisplit.md стр. 516, таблица 2.4.1)
+	// FinalPayout должен быть типа Boolean, не String
+	// В примерах запросов есть противоречие:
+	// - Стр. 903 (СБП): "FinalPayout": "true" (строка) - НО это в примере, возможно опечатка
+	// - Стр. 917 (Партнер): "FinalPayout": true (boolean)
+	// Согласно таблице параметров (стр. 516) - тип Boolean
+	// Используем Boolean согласно официальной спецификации
+	if (params.finalPayout === true) {
 		requestBody.FinalPayout = true
-		console.log('✅ [TBANK] FinalPayout установлен для карты:', {
+		console.log('✅ [TBANK] FinalPayout установлен:', {
 			value: requestBody.FinalPayout,
 			type: typeof requestBody.FinalPayout,
-			note: 'Для карты FinalPayout передается как boolean true (согласно примеру стр. 15)',
+			note: 'FinalPayout передается как boolean true согласно документации (vyplaty-multisplit.md стр. 516)',
 		})
 	}
 
