@@ -71,6 +71,8 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		const platformOwnerId = process.env.PLATFORM_OWNER_ID
 
 		// Формируем транзакции для владельца платформы
+		// КРИТИЧНО: Сохраняем DealId заказчика в транзакции комиссии
+		// Это нужно для вывода комиссии владельцем платформы через Т-Банк
 		const ownerTransactions = []
 		if (platformOwnerId) {
 			ownerTransactions.push(
@@ -83,6 +85,8 @@ export async function PATCH(req: NextRequest, { params }: any) {
 								amount: commissionDecimal,
 								type: 'commission',
 								reason: `Комиссия платформы ${Math.round(commissionRate * 100)}% с задачи "${task.title}"`,
+								dealId: customerDealId, // Сохраняем DealId заказчика для вывода комиссии
+								taskId: task.id, // Связь с задачей для аналитики
 							},
 						},
 					},

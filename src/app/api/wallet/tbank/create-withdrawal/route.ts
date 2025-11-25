@@ -126,9 +126,14 @@ export async function POST(req: NextRequest) {
 		// Ищем DealId из транзакций пополнения пользователя ИЛИ от заказчиков через задачи
 		let finalDealId = dealId
 
+		// КРИТИЧНО: Для владельца платформы ищем DealId из транзакций комиссии
+		// Комиссия берется из той же сделки, что и платеж заказчика
+		const platformOwnerId = process.env.PLATFORM_OWNER_ID
+		const isPlatformOwner = platformOwnerId === user.id
+
 		if (!finalDealId) {
-			// Шаг 1: Ищем последнюю транзакцию с DealId (может быть 'deposit' или 'earn' от задач)
-			// 'earn' транзакции содержат DealId заказчика, который пополнял через Т-Банк
+			// Шаг 1: Ищем последнюю транзакцию с DealId (может быть 'deposit', 'earn' или 'commission')
+			// 'earn' и 'commission' транзакции содержат DealId заказчика, который пополнял через Т-Банк
 			const lastTxWithDealId = await prisma.transaction.findFirst({
 				where: {
 					userId: user.id,
@@ -136,6 +141,7 @@ export async function POST(req: NextRequest) {
 					OR: [
 						{ type: 'deposit', paymentId: { not: null } }, // Пополнения через Т-Банк
 						{ type: 'earn' }, // Выплаты за задачи (содержат DealId заказчика)
+						...(isPlatformOwner ? [{ type: 'commission' }] : []), // Комиссия для владельца платформы
 					],
 				},
 				orderBy: { createdAt: 'desc' },
@@ -158,7 +164,7 @@ export async function POST(req: NextRequest) {
 				)
 			}
 
-			// Шаг 2: Если не нашли, ищем ЛЮБУЮ транзакцию с DealId (deposit или earn)
+			// Шаг 2: Если не нашли, ищем ЛЮБУЮ транзакцию с DealId (deposit, earn или commission)
 			if (!finalDealId) {
 				const anyTxWithDealId = await prisma.transaction.findFirst({
 					where: {
@@ -167,6 +173,7 @@ export async function POST(req: NextRequest) {
 						OR: [
 							{ type: 'deposit', paymentId: { not: null } },
 							{ type: 'earn' },
+							...(isPlatformOwner ? [{ type: 'commission' }] : []), // Комиссия для владельца платформы
 						],
 					},
 					orderBy: { createdAt: 'asc' }, // Берем самую старую
@@ -359,17 +366,31 @@ export async function POST(req: NextRequest) {
 
 				// Если нет транзакций Т-Банка вообще
 				if (!diagnosticInfo.hasTBankDeposits) {
-					errorMessage += '❌ У вас нет транзакций пополнения через Т-Банк.\n'
-					errorMessage +=
-						'→ Вывод средств возможен только после пополнения баланса через Т-Банк.\n'
-					errorMessage +=
-						'→ Старые пополнения (без PaymentId) не могут быть использованы для выплат.\n\n'
-					errorMessage += '→ Решение:\n'
-					errorMessage +=
-						'  • Пополните баланс через Т-Банк (кнопка "Пополнить")\n'
-					errorMessage +=
-						'  • После оплаты подождите 1-2 минуты (придет вебхук с DealId)\n'
-					errorMessage += '  • Затем попробуйте вывести средства снова\n'
+					if (isPlatformOwner) {
+						errorMessage += '❌ У вас нет транзакций комиссии с DealId.\n'
+						errorMessage +=
+							'→ Для вывода комиссии нужен DealId из транзакций заказчиков.\n'
+						errorMessage +=
+							'→ DealId появляется, когда заказчики пополняют баланс через Т-Банк.\n\n'
+						errorMessage += '→ Решение:\n'
+						errorMessage +=
+							'  • Дождитесь, пока заказчики пополнят баланс через Т-Банк\n'
+						errorMessage +=
+							'  • После завершения задач комиссия получит DealId автоматически\n'
+						errorMessage += '  • Затем попробуйте вывести средства снова\n'
+					} else {
+						errorMessage += '❌ У вас нет транзакций пополнения через Т-Банк.\n'
+						errorMessage +=
+							'→ Вывод средств возможен только после пополнения баланса через Т-Банк.\n'
+						errorMessage +=
+							'→ Старые пополнения (без PaymentId) не могут быть использованы для выплат.\n\n'
+						errorMessage += '→ Решение:\n'
+						errorMessage +=
+							'  • Пополните баланс через Т-Банк (кнопка "Пополнить")\n'
+						errorMessage +=
+							'  • После оплаты подождите 1-2 минуты (придет вебхук с DealId)\n'
+						errorMessage += '  • Затем попробуйте вывести средства снова\n'
+					}
 				} else if (diagnosticInfo.tbankDepositsWithDealId === 0) {
 					errorMessage += '❌ В ваших транзакциях пополнения через Т-Банк нет DealId.\n'
 					errorMessage += '→ Возможные причины:\n'

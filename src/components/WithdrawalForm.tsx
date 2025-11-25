@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FaCreditCard, FaMobile, FaUniversity, FaWallet } from 'react-icons/fa'
 
 interface WithdrawalFormProps {
@@ -10,14 +10,19 @@ interface WithdrawalFormProps {
 	token: string
 }
 
-// Список популярных банков для СБП
-const SBP_BANKS = [
-	{ id: '100000000004', name: 'Т-Банк', icon: '🏦' },
-	{ id: '100000000111', name: 'Сбербанк', icon: '🟢' },
-	{ id: '100000000005', name: 'ВТБ', icon: '🔵' },
-	{ id: '100000000008', name: 'Альфа-Банк', icon: '🔴' },
-	{ id: '100000000015', name: 'Райффайзенбанк', icon: '🟡' },
-	{ id: '100000000012', name: 'Газпромбанк', icon: '⚪' },
+interface SbpBank {
+	MemberId: string
+	MemberName: string
+	MemberNameRus: string
+}
+
+// Список популярных банков для СБП (fallback)
+const FALLBACK_BANKS: SbpBank[] = [
+	{ MemberId: '100000000004', MemberName: 'Sberbank', MemberNameRus: 'Сбербанк' },
+	{ MemberId: '100000000111', MemberName: 'Tinkoff', MemberNameRus: 'Т-Банк' },
+	{ MemberId: '100000000007', MemberName: 'VTB', MemberNameRus: 'ВТБ' },
+	{ MemberId: '100000000013', MemberName: 'Alfa-Bank', MemberNameRus: 'Альфа-Банк' },
+	{ MemberId: '100000000015', MemberName: 'Raiffeisenbank', MemberNameRus: 'Райффайзенбанк' },
 ]
 
 export default function WithdrawalForm({
@@ -29,7 +34,9 @@ export default function WithdrawalForm({
 	const [amount, setAmount] = useState(100)
 	const [method, setMethod] = useState<'sbp' | 'card'>('sbp')
 	const [phone, setPhone] = useState('')
-	const [selectedBank, setSelectedBank] = useState(SBP_BANKS[0].id)
+	const [banks, setBanks] = useState<SbpBank[]>(FALLBACK_BANKS)
+	const [selectedBank, setSelectedBank] = useState<string>('')
+	const [loadingBanks, setLoadingBanks] = useState(false)
 	const [cardNumber, setCardNumber] = useState('')
 	const [cardExpiry, setCardExpiry] = useState('')
 	const [cardCvv, setCardCvv] = useState('')
@@ -37,6 +44,53 @@ export default function WithdrawalForm({
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [success, setSuccess] = useState(false)
+
+	// Загружаем список банков при монтировании компонента
+	useEffect(() => {
+		const loadBanks = async () => {
+			setLoadingBanks(true)
+			try {
+				const response = await fetch('/api/wallet/tbank/get-sbp-banks', {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				})
+
+				const data = await response.json()
+
+				if (data.success && data.banks && data.banks.length > 0) {
+					setBanks(data.banks)
+					// Устанавливаем первый банк по умолчанию
+					if (!selectedBank) {
+						setSelectedBank(data.banks[0].MemberId)
+					}
+				} else if (data.banks && data.banks.length > 0) {
+					// Используем fallback банки из ответа
+					setBanks(data.banks)
+					if (!selectedBank) {
+						setSelectedBank(data.banks[0].MemberId)
+					}
+				} else {
+					// Используем fallback банки
+					setBanks(FALLBACK_BANKS)
+					if (!selectedBank) {
+						setSelectedBank(FALLBACK_BANKS[0].MemberId)
+					}
+				}
+			} catch (err) {
+				console.error('Ошибка загрузки списка банков:', err)
+				// Используем fallback банки
+				setBanks(FALLBACK_BANKS)
+				if (!selectedBank) {
+					setSelectedBank(FALLBACK_BANKS[0].MemberId)
+				}
+			} finally {
+				setLoadingBanks(false)
+			}
+		}
+
+		loadBanks()
+	}, [token, selectedBank])
 
 	const availableBalance = balance - frozenBalance
 	const minAmount = 1
@@ -69,6 +123,11 @@ export default function WithdrawalForm({
 			const phoneDigits = phone.trim().replace(/\D/g, '')
 			if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
 				setError('Номер должен быть в формате +7XXXXXXXXXX (11 цифр)')
+				return
+			}
+
+			if (!selectedBank) {
+				setError('Выберите банк получателя')
 				return
 			}
 		} else if (method === 'card') {
@@ -260,23 +319,42 @@ export default function WithdrawalForm({
 							<label className='block text-sm font-medium text-gray-300 mb-2'>
 								<FaUniversity className='inline mr-2' />
 								Банк получателя
+								{loadingBanks && (
+									<span className='ml-2 text-xs text-gray-400'>
+										(загрузка...)
+									</span>
+								)}
 							</label>
-							<div className='grid grid-cols-2 sm:grid-cols-3 gap-2'>
-								{SBP_BANKS.map(bank => (
-									<button
-										key={bank.id}
-										type='button'
-										onClick={() => setSelectedBank(bank.id)}
-										className={`px-3 py-2 rounded-lg border text-sm transition ${
-											selectedBank === bank.id
-												? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
-												: 'border-gray-600 text-gray-400 hover:border-gray-500'
-										}`}
+							{loadingBanks ? (
+								<div className='text-center py-4 text-gray-400'>
+									<span className='w-5 h-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin inline-block' />
+									<span className='ml-2'>Загрузка списка банков...</span>
+								</div>
+							) : (
+								<>
+									{/* Выпадающий список для выбора банка */}
+									<select
+										value={selectedBank}
+										onChange={e => {
+											setSelectedBank(e.target.value)
+											setError(null)
+										}}
+										className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition mb-2'
+										disabled={loading}
 									>
-										{bank.icon} {bank.name}
-									</button>
-								))}
-							</div>
+										{banks.map(bank => (
+											<option key={bank.MemberId} value={bank.MemberId}>
+												{bank.MemberNameRus || bank.MemberName}
+											</option>
+										))}
+									</select>
+									<p className='text-xs text-gray-400'>
+										Выберите банк, в который нужно вывести средства. Средства
+										поступят на счет в выбранном банке, привязанный к указанному
+										номеру телефона.
+									</p>
+								</>
+							)}
 						</div>
 					</>
 				)}
