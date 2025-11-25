@@ -94,8 +94,10 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			})
 		}
 
-		// Находим DealId заказчика из его транзакций пополнения через Т-Банк
-		// Это нужно для того, чтобы исполнитель мог вывести деньги через Т-Банк
+		// Находим PaymentId и DealId заказчика из его транзакций пополнения через Т-Банк
+		// Это нужно для:
+		// 1. Подтверждения платежа (Confirm) - списание средств в Т-Банке
+		// 2. Вывода средств исполнителем через Т-Банк
 		const customerDepositTx = await prisma.transaction.findFirst({
 			where: {
 				userId: task.customerId,
@@ -104,19 +106,73 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				paymentId: { not: null },
 			},
 			orderBy: { createdAt: 'desc' },
-			select: { dealId: true },
+			select: { dealId: true, paymentId: true },
 		})
 		
 		const customerDealId = customerDepositTx?.dealId
 			? String(customerDepositTx.dealId)
 			: null
+		
+		const customerPaymentId = customerDepositTx?.paymentId || null
 
-		console.log('💼 [COMPLETE-TASK] DealId заказчика для транзакции исполнителя:', {
+		console.log('💼 [COMPLETE-TASK] Параметры Т-Банка для завершения задачи:', {
 			customerId: task.customerId,
 			executorId: task.executorId,
 			customerDealId: customerDealId || 'не найден',
-			note: 'DealId нужен для вывода средств исполнителем через Т-Банк',
+			customerPaymentId: customerPaymentId || 'не найден',
+			escrowAmount: escrowNum,
+			note: 'PaymentId нужен для Confirm, DealId нужен для вывода средств исполнителем',
 		})
+
+		// КРИТИЧНО: Подтверждаем платеж в Т-Банке перед начислением средств исполнителю
+		// Согласно документации Т-Банка (multisplit.md раздел 6.1, пункт 4):
+		// "После успешного оказания услуги Покупателю Площадка отправляет /v2/Confirm для списания средств с Покупателя"
+		// Без Confirm средства остаются в статусе AUTHORIZED и недоступны для выплат
+		if (customerPaymentId) {
+			try {
+				console.log('🔄 [COMPLETE-TASK] Подтверждаем платеж в Т-Банке:', {
+					paymentId: customerPaymentId,
+					dealId: customerDealId,
+					amount: escrowNum,
+				})
+
+				const { TBankClient } = await import('@/lib/tbank/client')
+				const tbankClient = new TBankClient()
+				const confirmResult = await tbankClient.confirmPayment(customerPaymentId)
+
+				if (!confirmResult.Success) {
+					logger.error('Ошибка подтверждения платежа в Т-Банке', undefined, {
+						paymentId: customerPaymentId,
+						dealId: customerDealId,
+						errorCode: confirmResult.ErrorCode,
+						message: confirmResult.Message,
+						taskId: task.id,
+					})
+					// Не прерываем выполнение, но логируем ошибку
+					// Платеж может быть уже подтвержден или подтвердится автоматически
+				} else {
+					console.log('✅ [COMPLETE-TASK] Платеж успешно подтвержден в Т-Банке:', {
+						paymentId: customerPaymentId,
+						status: confirmResult.Status,
+						dealId: customerDealId,
+					})
+				}
+			} catch (confirmError: any) {
+				logger.error('Ошибка при вызове Confirm в Т-Банке', confirmError, {
+					paymentId: customerPaymentId,
+					dealId: customerDealId,
+					taskId: task.id,
+				})
+				// Не прерываем выполнение - возможно платеж уже подтвержден
+				// Или подтвердится автоматически через несколько дней
+			}
+		} else {
+			logger.warn('PaymentId заказчика не найден - невозможно подтвердить платеж в Т-Банке', {
+				customerId: task.customerId,
+				taskId: task.id,
+				note: 'Выплаты могут не работать без подтвержденного платежа в Т-Банке',
+			})
+		}
 
 		await prisma.$transaction([
 			// Завершаем задачу
