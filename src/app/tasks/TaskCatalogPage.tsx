@@ -678,7 +678,7 @@ export default function TaskCatalogPage() {
 				</div>
 
 				{/* Задачи */}
-				<div className='flex-1 space-y-4 sm:space-y-6'>
+				<div className='flex-1 min-w-0 space-y-4 sm:space-y-6'>
 					{loading || userLoading ? (
 						<div className='space-y-4'>
 							{[...Array(6)].map((_, i) => (
@@ -748,8 +748,8 @@ export default function TaskCatalogPage() {
 											</button>
 										</div>
 
-										{/* Слайдер рекомендаций - ограничен для показа 3 карточек */}
-										<div className='relative overflow-hidden max-w-[992px] sm:max-w-[992px]'>
+										{/* Слайдер рекомендаций */}
+										<div className='relative overflow-hidden'>
 											{/* Кнопки навигации */}
 											{recommendedTasks.length > 3 && (
 												<>
