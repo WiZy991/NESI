@@ -153,6 +153,7 @@ export async function validateWithdrawal(
 		where: { id: userId },
 		select: {
 			createdAt: true,
+			role: true,
 			executedTasks: {
 				where: { status: 'completed' },
 				select: { id: true },
@@ -164,12 +165,15 @@ export async function validateWithdrawal(
 		return { allowed: false, error: 'Пользователь не найден' }
 	}
 
-	// Проверка 1: Хотя бы одна выполненная задача
-	const completedTasksCount = user.executedTasks.length
-	if (completedTasksCount === 0) {
-		return {
-			allowed: false,
-			error: 'Вывод доступен только после выполнения хотя бы одной задачи',
+	// Проверка 1: Хотя бы одна выполненная задача (только для исполнителей)
+	// Для заказчиков проверка не требуется
+	if (user.role === 'executor') {
+		const completedTasksCount = user.executedTasks.length
+		if (completedTasksCount === 0) {
+			return {
+				allowed: false,
+				error: 'Вывод доступен только после выполнения хотя бы одной задачи',
+			}
 		}
 	}
 
