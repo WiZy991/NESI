@@ -67,6 +67,28 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		const commissionDecimal = new Prisma.Decimal(commission)
 		const payoutDecimal = new Prisma.Decimal(payout)
 
+		// КРИТИЧНО: Находим PaymentId и DealId заказчика ПЕРЕД созданием транзакций
+		// Это нужно для:
+		// 1. Сохранения DealId в транзакции комиссии (для вывода владельцем платформы)
+		// 2. Подтверждения платежа (Confirm) - списание средств в Т-Банке
+		// 3. Вывода средств исполнителем через Т-Банк
+		const customerDepositTx = await prisma.transaction.findFirst({
+			where: {
+				userId: task.customerId,
+				type: 'deposit',
+				dealId: { not: null },
+				paymentId: { not: null },
+			},
+			orderBy: { createdAt: 'desc' },
+			select: { dealId: true, paymentId: true },
+		})
+		
+		const customerDealId = customerDepositTx?.dealId
+			? String(customerDepositTx.dealId)
+			: null
+		
+		const customerPaymentId = customerDepositTx?.paymentId || null
+
 		// 💰 Получаем ID владельца платформы из env
 		const platformOwnerId = process.env.PLATFORM_OWNER_ID
 
@@ -97,27 +119,6 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				taskId: task.id,
 			})
 		}
-
-		// Находим PaymentId и DealId заказчика из его транзакций пополнения через Т-Банк
-		// Это нужно для:
-		// 1. Подтверждения платежа (Confirm) - списание средств в Т-Банке
-		// 2. Вывода средств исполнителем через Т-Банк
-		const customerDepositTx = await prisma.transaction.findFirst({
-			where: {
-				userId: task.customerId,
-				type: 'deposit',
-				dealId: { not: null },
-				paymentId: { not: null },
-			},
-			orderBy: { createdAt: 'desc' },
-			select: { dealId: true, paymentId: true },
-		})
-		
-		const customerDealId = customerDepositTx?.dealId
-			? String(customerDepositTx.dealId)
-			: null
-		
-		const customerPaymentId = customerDepositTx?.paymentId || null
 
 		console.log('💼 [COMPLETE-TASK] Параметры Т-Банка для завершения задачи:', {
 			customerId: task.customerId,
