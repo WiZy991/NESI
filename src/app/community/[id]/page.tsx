@@ -321,17 +321,22 @@ export default function CommunityPostPage() {
 				mediaType = isVideo ? 'video' : 'image'
 			}
 
+			const body: any = {}
+			if (commentText.trim()) {
+				body.content = commentText.trim()
+			}
+			if (imageUrl) {
+				body.imageUrl = imageUrl
+				body.mediaType = mediaType
+			}
+
 			const res = await fetch(`/api/community/${id}/comment`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({
-					content: commentText.trim() || '',
-					imageUrl,
-					mediaType,
-				}),
+				body: JSON.stringify(body),
 			})
 
 			if (res.ok) {

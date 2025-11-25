@@ -230,8 +230,10 @@ export default function CommunityPost({ post }: { post: Post }) {
 
     try {
       const body: any = {
-        content: commentInput,
-        parentId: replyTo,
+        content: commentInput || undefined,
+      }
+      if (replyTo) {
+        body.parentId = replyTo
       }
       if (imageUrl) {
         body.imageUrl = imageUrl

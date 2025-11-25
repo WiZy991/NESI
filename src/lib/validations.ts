@@ -99,10 +99,16 @@ export const resetPasswordSchema = z.object({
 // Валидация URL изображения или медиа файла
 // Принимает как полные URL (http/https), так и относительные пути (/api/files/..., /uploads/...)
 export const imageUrlSchema = z
-  .string()
+  .union([
+    z.string(),
+    z.literal(''),
+    z.null(),
+    z.undefined(),
+  ])
   .refine(
     (val) => {
-      if (!val || val.trim() === '') return true // Пустая строка разрешена
+      // Разрешаем null, undefined и пустые строки
+      if (!val || val === null || val === undefined || val.trim() === '') return true
       
       // Полный URL (http/https)
       if (val.startsWith('http://') || val.startsWith('https://')) {
@@ -135,7 +141,8 @@ export const imageUrlSchema = z
     }
   )
   .optional()
-  .or(z.literal(''))
+  .nullable()
+  .transform(val => val === null || val === undefined || val === '' ? undefined : val)
 
 // Валидация с обработкой ошибок
 export function validateWithZod<T>(schema: z.ZodSchema<T>, data: unknown): {

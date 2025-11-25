@@ -12,10 +12,17 @@ const createCommentSchema = z.object({
 		.string()
 		.max(2000, 'Комментарий слишком длинный (максимум 2000 символов)')
 		.trim()
-		.optional(),
+		.optional()
+		.nullable()
+		.transform(val => val === null || val === undefined || val === '' ? undefined : val),
 	imageUrl: imageUrlSchema,
-	parentId: z.string().uuid('Некорректный ID родительского комментария').optional(),
-	mediaType: z.enum(['image', 'video']).optional(),
+	parentId: z
+		.string()
+		.uuid('Некорректный ID родительского комментария')
+		.optional()
+		.nullable()
+		.transform(val => val === null || val === undefined || val === '' ? undefined : val),
+	mediaType: z.enum(['image', 'video']).optional().nullable(),
 })
 
 // 📌 Оптимизированная функция для построения дерева комментариев
@@ -103,8 +110,12 @@ export async function POST(
     // Валидация данных
     const validation = validateWithZod(createCommentSchema, body)
     if (!validation.success) {
+      logger.warn('Ошибка валидации комментария', {
+        errors: validation.errors,
+        body: JSON.stringify(body),
+      })
       return NextResponse.json(
-        { error: validation.errors.join(', ') },
+        { error: validation.errors.join(', ') || 'Invalid input' },
         { status: 400 }
       )
     }
