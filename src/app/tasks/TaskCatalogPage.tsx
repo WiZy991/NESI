@@ -764,10 +764,10 @@ export default function TaskCatalogPage() {
 																container.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
 															}
 														}}
-														className='absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg'
+														className='absolute left-2 top-1/4 -translate-y-1/2 z-20 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg backdrop-blur-sm'
 														aria-label='Предыдущие рекомендации'
 													>
-														<ChevronDown className='w-5 h-5 rotate-90' />
+														<ChevronDown className='w-4 h-4 rotate-90' />
 													</button>
 													<button
 														onClick={() => {
@@ -780,10 +780,10 @@ export default function TaskCatalogPage() {
 																container.scrollBy({ left: scrollAmount, behavior: 'smooth' })
 															}
 														}}
-														className='absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg'
+														className='absolute right-2 top-1/4 -translate-y-1/2 z-20 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg backdrop-blur-sm'
 														aria-label='Следующие рекомендации'
 													>
-														<ChevronDown className='w-5 h-5 -rotate-90' />
+														<ChevronDown className='w-4 h-4 -rotate-90' />
 													</button>
 												</>
 											)}
