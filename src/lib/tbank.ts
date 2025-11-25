@@ -15,9 +15,9 @@ export function validateTBankConfig(): {
 } {
 	const required = [
 		'TBANK_TERMINAL_KEY',
-		'TBANK_TERMINAL_PASSWORD', // Используем правильное имя переменной
+		'TBANK_TERMINAL_PASSWORD',
 		'TBANK_E2C_TERMINAL_KEY',
-		'TBANK_E2C_PASSWORD',
+		'TBANK_E2C_TERMINAL_PASSWORD',
 	]
 
 	const missing: string[] = []
@@ -51,7 +51,7 @@ function getApiUrl(): string {
  * Генерация Token для подписи запроса
  * Алгоритм: SHA-256 от конкатенации отсортированных значений параметров + Password
  * @param params - параметры запроса
- * @param password - пароль терминала (по умолчанию TBANK_PASSWORD для EACQ, для E2C передайте TBANK_E2C_PASSWORD)
+ * @param password - пароль терминала (по умолчанию TBANK_TERMINAL_PASSWORD для EACQ, для E2C передайте TBANK_E2C_TERMINAL_PASSWORD)
  */
 export function generateToken(
 	params: Record<string, any>,
@@ -61,10 +61,10 @@ export function generateToken(
 		password || 
 		process.env.TBANK_TERMINAL_PASSWORD || 
 		process.env.TBANK_PASSWORD || 
-		process.env.TBANK_E2C_PASSWORD
+		process.env.TBANK_E2C_TERMINAL_PASSWORD
 	if (!terminalPassword) {
 		throw new Error(
-			'TBANK_TERMINAL_PASSWORD, TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения'
+			'TBANK_TERMINAL_PASSWORD, TBANK_PASSWORD или TBANK_E2C_TERMINAL_PASSWORD не настроен в переменных окружения'
 		)
 	}
 
@@ -305,9 +305,9 @@ export async function createSpDeal(): Promise<{
 	}
 
 	// Используем пароль для E2C терминала, если доступен, иначе обычный пароль
-	const password = process.env.TBANK_E2C_PASSWORD || process.env.TBANK_TERMINAL_PASSWORD || process.env.TBANK_PASSWORD
+	const password = process.env.TBANK_E2C_TERMINAL_PASSWORD || process.env.TBANK_TERMINAL_PASSWORD || process.env.TBANK_PASSWORD
 	if (!password) {
-		throw new Error('TBANK_TERMINAL_PASSWORD, TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения')
+		throw new Error('TBANK_E2C_TERMINAL_PASSWORD, TBANK_TERMINAL_PASSWORD или TBANK_PASSWORD не настроен в переменных окружения')
 	}
 
 	const requestBody: Record<string, any> = {
@@ -515,9 +515,9 @@ export async function createWithdrawal(
 	})
 
 	// Генерируем Token с паролем E2C терминала
-	const e2cPassword = process.env.TBANK_E2C_PASSWORD
+	const e2cPassword = process.env.TBANK_E2C_TERMINAL_PASSWORD
 	if (!e2cPassword) {
-		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
+		throw new Error('TBANK_E2C_TERMINAL_PASSWORD не настроен в переменных окружения')
 	}
 
 	console.log('🔐 [TBANK] Генерация подписи:', {
@@ -542,7 +542,7 @@ export async function createWithdrawal(
 	} catch (error: any) {
 		throw new Error(
 			`Ошибка генерации токена: ${
-				error.message || 'Проверьте настройки TBANK_E2C_PASSWORD'
+				error.message || 'Проверьте настройки TBANK_E2C_TERMINAL_PASSWORD'
 			}`
 		)
 	}
@@ -741,9 +741,9 @@ export async function confirmWithdrawal(
 	}
 
 	// Генерируем Token с паролем E2C терминала
-	const e2cPassword = process.env.TBANK_E2C_PASSWORD
+	const e2cPassword = process.env.TBANK_E2C_TERMINAL_PASSWORD
 	if (!e2cPassword) {
-		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
+		throw new Error('TBANK_E2C_TERMINAL_PASSWORD не настроен в переменных окружения')
 	}
 
 	requestBody.Token = generateToken(requestBody, e2cPassword)
@@ -821,9 +821,9 @@ export async function getSbpMembers(): Promise<{
 	}
 
 	// Генерируем Token с паролем E2C терминала
-	const e2cPassword = process.env.TBANK_E2C_PASSWORD || process.env.TBANK_TERMINAL_PASSWORD || process.env.TBANK_PASSWORD
+	const e2cPassword = process.env.TBANK_E2C_TERMINAL_PASSWORD || process.env.TBANK_TERMINAL_PASSWORD || process.env.TBANK_PASSWORD
 	if (!e2cPassword) {
-		throw new Error('TBANK_E2C_PASSWORD, TBANK_TERMINAL_PASSWORD или TBANK_PASSWORD не настроен в переменных окружения')
+		throw new Error('TBANK_E2C_TERMINAL_PASSWORD, TBANK_TERMINAL_PASSWORD или TBANK_PASSWORD не настроен в переменных окружения')
 	}
 
 	requestBody.Token = generateToken(requestBody, e2cPassword)
