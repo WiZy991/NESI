@@ -748,8 +748,8 @@ export default function TaskCatalogPage() {
 											</button>
 										</div>
 
-										{/* Слайдер рекомендаций */}
-										<div className='relative'>
+										{/* Слайдер рекомендаций - ограничен для показа 3 карточек */}
+										<div className='relative overflow-hidden max-w-[992px] sm:max-w-[992px]'>
 											{/* Кнопки навигации */}
 											{recommendedTasks.length > 3 && (
 												<>
@@ -757,11 +757,14 @@ export default function TaskCatalogPage() {
 														onClick={() => {
 															if (recommendationContainerRef.current) {
 																const container = recommendationContainerRef.current
-																const scrollAmount = container.clientWidth * 0.8
+																// Прокручиваем на ширину одной карточки + gap
+																const cardWidth = 320 // sm:w-[320px]
+																const gap = 16 // gap-4 = 1rem = 16px
+																const scrollAmount = cardWidth + gap
 																container.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
 															}
 														}}
-														className='absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg'
+														className='absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg'
 														aria-label='Предыдущие рекомендации'
 													>
 														<ChevronDown className='w-5 h-5 rotate-90' />
@@ -770,11 +773,14 @@ export default function TaskCatalogPage() {
 														onClick={() => {
 															if (recommendationContainerRef.current) {
 																const container = recommendationContainerRef.current
-																const scrollAmount = container.clientWidth * 0.8
+																// Прокручиваем на ширину одной карточки + gap
+																const cardWidth = 320 // sm:w-[320px]
+																const gap = 16 // gap-4 = 1rem = 16px
+																const scrollAmount = cardWidth + gap
 																container.scrollBy({ left: scrollAmount, behavior: 'smooth' })
 															}
 														}}
-														className='absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg'
+														className='absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg'
 														aria-label='Следующие рекомендации'
 													>
 														<ChevronDown className='w-5 h-5 -rotate-90' />
@@ -782,13 +788,15 @@ export default function TaskCatalogPage() {
 												</>
 											)}
 											
-											{/* Контейнер слайдера */}
+											{/* Контейнер слайдера - ограничен по ширине для показа 3 карточек */}
 											<div
 												ref={recommendationContainerRef}
 												className='flex gap-3 sm:gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth'
 												style={{
 													scrollbarWidth: 'none',
 													msOverflowStyle: 'none',
+													// Ограничиваем видимую область: 3 карточки по 320px + 2 gap по 16px = 992px
+													// На мобильных: 3 карточки по 280px + 2 gap по 12px = 864px
 												}}
 											>
 												{recommendedTasks.map(recommendation => {
