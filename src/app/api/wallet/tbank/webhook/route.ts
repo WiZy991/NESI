@@ -146,36 +146,12 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Invalid OrderId' }, { status: 400 })
 		}
 
-		// Проверяем, не обработан ли уже этот платеж
+		// Проверяем, существует ли транзакция для этого платежа
 		const existingTx = await prisma.transaction.findFirst({
 			where: {
-				OR: [
-					{ paymentId: paymentIdString },
-					{ reason: { contains: paymentIdString || '' } },
-				],
+				paymentId: paymentIdString,
 			},
 		})
-
-		if (existingTx) {
-			// Если транзакция существует, но DealId не был сохранен, обновляем его
-			if (!existingTx.dealId && dealIdFromWebhook) {
-				await prisma.transaction.update({
-					where: { id: existingTx.id },
-					data: { dealId: dealIdFromWebhook },
-				})
-				console.log(
-					'✅ [WEBHOOK] Обновлен DealId в существующей транзакции:',
-					dealIdFromWebhook
-				)
-				logger.info('Обновлен DealId в существующей транзакции', {
-					transactionId: existingTx.id,
-					paymentId: PaymentId,
-					dealId: dealIdFromWebhook,
-				})
-			}
-			logger.info('✅ Платеж уже обработан:', PaymentId)
-			return NextResponse.json({ ok: true, alreadyProcessed: true })
-		}
 
 		const amount = kopecksToRubles(Amount || 0)
 		const amountDecimal = new Prisma.Decimal(amount)
@@ -233,36 +209,95 @@ export async function POST(req: NextRequest) {
 				currentBalance: user.balance.toString(),
 			})
 
-			const updated = await prisma.user.update({
-				where: { id: userId },
-				data: {
-					balance: { increment: amountDecimal },
-					transactions: {
-						create: {
-							amount: amountDecimal,
-							type: 'deposit',
-							reason: `Пополнение через Т-Банк (PaymentId: ${PaymentId}, DealId: ${
-								finalDealId || 'N/A'
-							})`,
-							dealId: finalDealId || null,
-							paymentId: paymentIdString,
-							status: 'completed',
+			// Если транзакция уже существует (создана при создании платежа), обновляем ее
+			if (existingTx) {
+				// Проверяем, не был ли баланс уже начислен (статус 'completed')
+				const needsBalanceIncrement = existingTx.status !== 'completed'
+
+				// Обновляем транзакцию: добавляем DealId, меняем статус на 'completed'
+				await prisma.transaction.update({
+					where: { id: existingTx.id },
+					data: {
+						dealId: finalDealId || existingTx.dealId,
+						status: 'completed',
+						reason: `Пополнение через Т-Банк (PaymentId: ${PaymentId}, DealId: ${
+							finalDealId || 'N/A'
+						})`,
+					},
+				})
+				console.log('✅ [WEBHOOK] Обновлена существующая транзакция:', {
+					transactionId: existingTx.id,
+					paymentId: PaymentId,
+					dealId: finalDealId,
+					previousStatus: existingTx.status,
+					needsBalanceIncrement,
+				})
+
+				// Начисляем баланс только если он еще не был начислен
+				let updated
+				if (needsBalanceIncrement) {
+					updated = await prisma.user.update({
+						where: { id: userId },
+						data: {
+							balance: { increment: amountDecimal },
+						},
+						select: { balance: true },
+					})
+				} else {
+					// Баланс уже был начислен ранее - получаем текущий баланс
+					const currentUser = await prisma.user.findUnique({
+						where: { id: userId },
+						select: { balance: true },
+					})
+					updated = currentUser!
+					console.log(
+						'⚠️ [WEBHOOK] Баланс уже был начислен ранее, пропускаем начисление'
+					)
+				}
+
+				console.log('✅ [WEBHOOK] Начисление успешно (транзакция обновлена):', {
+					userId,
+					amount,
+					oldBalance: user.balance.toString(),
+					newBalance: updated.balance.toString(),
+					paymentId: PaymentId,
+					dealId: finalDealId,
+					savedDealId: finalDealId || 'NULL',
+					transactionUpdated: true,
+				})
+			} else {
+				// Если транзакции нет (старый код), создаем новую
+				const updated = await prisma.user.update({
+					where: { id: userId },
+					data: {
+						balance: { increment: amountDecimal },
+						transactions: {
+							create: {
+								amount: amountDecimal,
+								type: 'deposit',
+								reason: `Пополнение через Т-Банк (PaymentId: ${PaymentId}, DealId: ${
+									finalDealId || 'N/A'
+								})`,
+								dealId: finalDealId || null,
+								paymentId: paymentIdString,
+								status: 'completed',
+							},
 						},
 					},
-				},
-				select: { balance: true },
-			})
+					select: { balance: true },
+				})
 
-			console.log('✅ [WEBHOOK] Начисление успешно:', {
-				userId,
-				amount,
-				oldBalance: user.balance.toString(),
-				newBalance: updated.balance.toString(),
-				paymentId: PaymentId,
-				dealId: finalDealId,
-				savedDealId: finalDealId || 'NULL',
-				transactionCreated: true,
-			})
+				console.log('✅ [WEBHOOK] Начисление успешно (транзакция создана):', {
+					userId,
+					amount,
+					oldBalance: user.balance.toString(),
+					newBalance: updated.balance.toString(),
+					paymentId: PaymentId,
+					dealId: finalDealId,
+					savedDealId: finalDealId || 'NULL',
+					transactionCreated: true,
+				})
+			}
 
 			// КРИТИЧЕСКИ ВАЖНО: Если DealId все еще NULL, это проблема!
 			if (!finalDealId) {

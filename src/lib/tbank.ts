@@ -15,7 +15,7 @@ export function validateTBankConfig(): {
 } {
 	const required = [
 		'TBANK_TERMINAL_KEY',
-		'TBANK_PASSWORD',
+		'TBANK_TERMINAL_PASSWORD', // Используем правильное имя переменной
 		'TBANK_E2C_TERMINAL_KEY',
 		'TBANK_E2C_PASSWORD',
 	]
@@ -58,10 +58,13 @@ export function generateToken(
 	password?: string
 ): string {
 	const terminalPassword =
-		password || process.env.TBANK_PASSWORD || process.env.TBANK_E2C_PASSWORD
+		password || 
+		process.env.TBANK_TERMINAL_PASSWORD || 
+		process.env.TBANK_PASSWORD || 
+		process.env.TBANK_E2C_PASSWORD
 	if (!terminalPassword) {
 		throw new Error(
-			'TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения'
+			'TBANK_TERMINAL_PASSWORD, TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения'
 		)
 	}
 
@@ -302,9 +305,9 @@ export async function createSpDeal(): Promise<{
 	}
 
 	// Используем пароль для E2C терминала, если доступен, иначе обычный пароль
-	const password = process.env.TBANK_E2C_PASSWORD || process.env.TBANK_PASSWORD
+	const password = process.env.TBANK_E2C_PASSWORD || process.env.TBANK_TERMINAL_PASSWORD || process.env.TBANK_PASSWORD
 	if (!password) {
-		throw new Error('TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения')
+		throw new Error('TBANK_TERMINAL_PASSWORD, TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения')
 	}
 
 	const requestBody: Record<string, any> = {
@@ -818,9 +821,9 @@ export async function getSbpMembers(): Promise<{
 	}
 
 	// Генерируем Token с паролем E2C терминала
-	const e2cPassword = process.env.TBANK_E2C_PASSWORD || process.env.TBANK_PASSWORD
+	const e2cPassword = process.env.TBANK_E2C_PASSWORD || process.env.TBANK_TERMINAL_PASSWORD || process.env.TBANK_PASSWORD
 	if (!e2cPassword) {
-		throw new Error('TBANK_E2C_PASSWORD не настроен в переменных окружения')
+		throw new Error('TBANK_E2C_PASSWORD, TBANK_TERMINAL_PASSWORD или TBANK_PASSWORD не настроен в переменных окружения')
 	}
 
 	requestBody.Token = generateToken(requestBody, e2cPassword)

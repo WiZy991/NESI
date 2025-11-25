@@ -3,6 +3,8 @@ import { logger } from '@/lib/logger'
 import { isPositiveAmount, parseUserInput, toNumber } from '@/lib/money'
 import { createPayment } from '@/lib/tbank'
 import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 /**
  * API для создания платежа на пополнение баланса через Т-Банк
@@ -73,6 +75,41 @@ export async function POST(req: NextRequest) {
 			allFields: JSON.stringify(payment, null, 2),
 		})
 
+		// Создаем транзакцию сразу после создания платежа (со статусом 'pending')
+		// Это гарантирует, что PaymentId будет сохранен, даже если вебхук не придет
+		if (payment.PaymentId) {
+			try {
+				const amountDecimal = new Prisma.Decimal(amountNumber)
+				await prisma.transaction.create({
+					data: {
+						userId: user.id,
+						amount: amountDecimal,
+						type: 'deposit',
+						reason: `Пополнение через Т-Банк (PaymentId: ${payment.PaymentId}${dealId ? `, DealId: ${dealId}` : ''})`,
+						paymentId: String(payment.PaymentId),
+						dealId: dealId ? String(dealId) : null,
+						status: 'pending', // Статус 'pending' - баланс НЕ начисляется до подтверждения
+					},
+				})
+				console.log('✅ [CREATE-PAYMENT] Транзакция создана (pending):', {
+					paymentId: payment.PaymentId,
+					dealId: dealId || 'NULL',
+					note: 'Баланс будет начислен после подтверждения платежа через вебхук',
+				})
+			} catch (txError: any) {
+				// Если транзакция уже существует (дубликат), игнорируем ошибку
+				if (txError.code === 'P2002') {
+					console.log('⚠️ [CREATE-PAYMENT] Транзакция с таким PaymentId уже существует')
+				} else {
+					console.error('❌ [CREATE-PAYMENT] Ошибка создания транзакции:', txError)
+					logger.error('Ошибка создания транзакции при создании платежа', txError, {
+						userId: user.id,
+						paymentId: payment.PaymentId,
+					})
+				}
+			}
+		}
+
 		logger.info('Создан платеж Т-Банк', {
 			userId: user.id,
 			paymentId: payment.PaymentId,
@@ -87,7 +124,9 @@ export async function POST(req: NextRequest) {
 			paymentId: payment.PaymentId,
 			paymentUrl: payment.PaymentURL,
 			dealId: dealId,
-			note: 'DealId может прийти только в вебхуке после оплаты',
+			note: dealId
+				? 'DealId получен из ответа Init'
+				: 'DealId будет получен в вебхуке после оплаты',
 		})
 
 		return NextResponse.json({
@@ -96,7 +135,9 @@ export async function POST(req: NextRequest) {
 			paymentUrl: payment.PaymentURL,
 			amount: amountNumber,
 			dealId: dealId,
-			note: dealId ? 'DealId получен из ответа Init' : 'DealId будет получен в вебхуке после оплаты',
+			note: dealId
+				? 'DealId получен из ответа Init'
+				: 'DealId будет получен в вебхуке после оплаты',
 		})
 	} catch (error: any) {
 		console.error('❌ [CREATE-PAYMENT] Ошибка создания платежа:', {
