@@ -301,12 +301,18 @@ export async function createSpDeal(): Promise<{
 		throw new Error('TBANK_TERMINAL_KEY не настроен в переменных окружения')
 	}
 
+	// Используем пароль для E2C терминала, если доступен, иначе обычный пароль
+	const password = process.env.TBANK_E2C_PASSWORD || process.env.TBANK_PASSWORD
+	if (!password) {
+		throw new Error('TBANK_PASSWORD или TBANK_E2C_PASSWORD не настроен в переменных окружения')
+	}
+
 	const requestBody: Record<string, any> = {
 		TerminalKey: terminalKey,
 		SpDealType: 'NN',
 	}
 
-	requestBody.Token = generateToken(requestBody)
+	requestBody.Token = generateToken(requestBody, password)
 
 	console.log('🔧 [TBANK] Создаем сделку через createSpDeal:', {
 		url: `${getApiUrl()}/v2/createSpDeal`,

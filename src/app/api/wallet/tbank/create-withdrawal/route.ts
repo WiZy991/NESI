@@ -127,12 +127,13 @@ export async function POST(req: NextRequest) {
 		let finalDealId = dealId
 
 		if (!finalDealId) {
-			// Шаг 1: Ищем последнюю транзакцию пополнения с DealId
+			// Шаг 1: Ищем последнюю транзакцию пополнения с DealId и PaymentId (Т-Банк)
 			const lastDepositTx = await prisma.transaction.findFirst({
 				where: {
 					userId: user.id,
 					type: 'deposit',
 					dealId: { not: null },
+					paymentId: { not: null }, // Только транзакции Т-Банка
 				},
 				orderBy: { createdAt: 'desc' },
 				select: {
@@ -152,13 +153,14 @@ export async function POST(req: NextRequest) {
 				)
 			}
 
-			// Шаг 2: Если не нашли, ищем ЛЮБУЮ транзакцию пополнения с DealId
+			// Шаг 2: Если не нашли, ищем ЛЮБУЮ транзакцию пополнения с DealId и PaymentId (Т-Банк)
 			if (!finalDealId) {
 				const anyDepositTx = await prisma.transaction.findFirst({
 					where: {
 						userId: user.id,
 						type: 'deposit',
 						dealId: { not: null },
+						paymentId: { not: null }, // Только транзакции Т-Банка
 					},
 					orderBy: { createdAt: 'asc' }, // Берем самую старую
 					select: { dealId: true },
@@ -263,12 +265,13 @@ export async function POST(req: NextRequest) {
 								updateData
 							)
 
-							// Пытаемся найти DealId снова
+							// Пытаемся найти DealId снова (только Т-Банк транзакции)
 							const retryDepositTx = await prisma.transaction.findFirst({
 								where: {
 									userId: user.id,
 									type: 'deposit',
 									dealId: { not: null },
+									paymentId: { not: null }, // Только транзакции Т-Банка
 								},
 								orderBy: { createdAt: 'desc' },
 								select: { dealId: true },
@@ -291,34 +294,25 @@ export async function POST(req: NextRequest) {
 				}
 			}
 
-			// Финальная проверка: если DealId все еще не найден, пытаемся создать сделку
-			if (!finalDealId) {
-				// Последняя попытка - создаем новую сделку через createSpDeal
-				try {
-					console.log(
-						'🔄 [CREATE-WITHDRAWAL] DealId не найден, пытаемся создать новую сделку...'
-					)
-					const { createSpDeal } = await import('@/lib/tbank')
-					const dealResult = await createSpDeal()
-
-					if (dealResult.Success && dealResult.SpAccumulationId) {
-						finalDealId = String(dealResult.SpAccumulationId)
-						console.log(
-							'✅ [CREATE-WITHDRAWAL] Новая сделка создана:',
-							finalDealId
-						)
-					}
-				} catch (createDealError) {
-					console.error(
-						'❌ [CREATE-WITHDRAWAL] Ошибка создания сделки:',
-						createDealError
-					)
-				}
-			}
-
 			// Если DealId все еще не найден, возвращаем ошибку
 			if (!finalDealId) {
-				// Получаем все транзакции пополнения для диагностики
+				// Получаем только транзакции Т-Банка (с PaymentId) для диагностики
+				const tbankDepositTxs = await prisma.transaction.findMany({
+					where: {
+						userId: user.id,
+						type: 'deposit',
+						paymentId: { not: null }, // Только транзакции Т-Банка
+					},
+					orderBy: { createdAt: 'desc' },
+					select: {
+						id: true,
+						dealId: true,
+						paymentId: true,
+						createdAt: true,
+					},
+				})
+
+				// Получаем все транзакции для общей статистики
 				const allDepositTxs = await prisma.transaction.findMany({
 					where: {
 						userId: user.id,
@@ -331,14 +325,14 @@ export async function POST(req: NextRequest) {
 						paymentId: true,
 						createdAt: true,
 					},
+					take: 1,
 				})
 
 				// Детальная диагностика для пользователя
 				const diagnosticInfo = {
 					hasDeposits: allDepositTxs.length > 0,
-					depositsWithDealId: allDepositTxs.filter(tx => tx.dealId).length,
-					depositsWithPaymentId: allDepositTxs.filter(tx => tx.paymentId)
-						.length,
+					hasTBankDeposits: tbankDepositTxs.length > 0,
+					tbankDepositsWithDealId: tbankDepositTxs.filter(tx => tx.dealId).length,
 					lastDeposit: allDepositTxs[0]
 						? {
 								hasDealId: !!allDepositTxs[0].dealId,
@@ -355,11 +349,21 @@ export async function POST(req: NextRequest) {
 
 				let errorMessage = 'Не найден DealId для выплаты.\n\n'
 
-				if (!diagnosticInfo.hasDeposits) {
-					errorMessage += '❌ У вас нет транзакций пополнения.\n'
-					errorMessage += '→ Сначала пополните баланс через Т-Банк.\n\n'
-				} else if (diagnosticInfo.depositsWithDealId === 0) {
-					errorMessage += '❌ В ваших транзакциях пополнения нет DealId.\n'
+				// Если нет транзакций Т-Банка вообще
+				if (!diagnosticInfo.hasTBankDeposits) {
+					errorMessage += '❌ У вас нет транзакций пополнения через Т-Банк.\n'
+					errorMessage +=
+						'→ Вывод средств возможен только после пополнения баланса через Т-Банк.\n'
+					errorMessage +=
+						'→ Старые пополнения (без PaymentId) не могут быть использованы для выплат.\n\n'
+					errorMessage += '→ Решение:\n'
+					errorMessage +=
+						'  • Пополните баланс через Т-Банк (кнопка "Пополнить")\n'
+					errorMessage +=
+						'  • После оплаты подождите 1-2 минуты (придет вебхук с DealId)\n'
+					errorMessage += '  • Затем попробуйте вывести средства снова\n'
+				} else if (diagnosticInfo.tbankDepositsWithDealId === 0) {
+					errorMessage += '❌ В ваших транзакциях пополнения через Т-Банк нет DealId.\n'
 					errorMessage += '→ Возможные причины:\n'
 					errorMessage +=
 						'  1. Вебхук от Т-Банка еще не обработан (подождите 1-2 минуты)\n'
