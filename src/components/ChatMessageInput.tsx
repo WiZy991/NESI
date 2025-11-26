@@ -1083,50 +1083,49 @@ export default function MessageInput({
 								const updatedAttachment = updated.find(att => att.id === attachmentId)
 								if (updatedAttachment && (kind === 'image' || kind === 'video')) {
 									setTimeout(() => {
-										// Если это первое изображение, открываем модальное окно
-										// Если уже есть другие изображения, добавляем к списку
-										const currentImages = updated.filter(
-											att => att.kind === 'image' && att.previewUrl
+										// Фильтруем все медиа файлы (изображения И видео)
+										const currentMedia = updated.filter(
+											att => (att.kind === 'image' || att.kind === 'video') && att.previewUrl
 										)
 										
 										// Всегда обновляем список вложений в модальном окне
-										setPreviewModalAttachments(currentImages)
+										setPreviewModalAttachments(currentMedia)
 										
 										// Если модальное окно уже открыто
 										if (previewModalAttachment) {
-											// Проверяем, является ли добавленное изображение новым (не текущим)
-											const isNewImage = updatedAttachment.id !== previewModalAttachment.id
+											// Проверяем, является ли добавленное медиа новым (не текущим)
+											const isNewMedia = updatedAttachment.id !== previewModalAttachment.id
 											
-											if (isNewImage) {
-												// Это новое изображение - переходим на него
-												const newIndex = currentImages.findIndex(att => att.id === updatedAttachment.id)
+											if (isNewMedia) {
+												// Это новое медиа - переходим на него
+												const newIndex = currentMedia.findIndex(att => att.id === updatedAttachment.id)
 												if (newIndex >= 0) {
 													setPreviewModalCurrentIndex(newIndex)
-													setPreviewModalAttachment(currentImages[newIndex])
-													setPreviewModalCaption(currentImages[newIndex].caption || '')
+													setPreviewModalAttachment(currentMedia[newIndex])
+													setPreviewModalCaption(currentMedia[newIndex].caption || '')
 												}
 											} else {
-												// Это обновление текущего изображения - остаемся на нем, но обновляем данные
-												const currentIndex = currentImages.findIndex(att => att.id === previewModalAttachment.id)
+												// Это обновление текущего медиа - остаемся на нем, но обновляем данные
+												const currentIndex = currentMedia.findIndex(att => att.id === previewModalAttachment.id)
 												if (currentIndex >= 0) {
 													setPreviewModalCurrentIndex(currentIndex)
-													setPreviewModalAttachment(currentImages[currentIndex])
+													setPreviewModalAttachment(currentMedia[currentIndex])
 												}
 											}
 										} else {
 											// Если модальное окно не открыто, открываем его
-											if (currentImages.length === 1) {
-												// Первое изображение
+											if (currentMedia.length === 1) {
+												// Первое медиа (изображение или видео)
 												setPreviewModalCurrentIndex(0)
 												setPreviewModalAttachment(updatedAttachment)
 												setPreviewModalCaption(updatedAttachment.caption || '')
 												setPreviewModalCompress(updatedAttachment.compress !== false)
 											} else {
-												// Несколько изображений - открываем с последним добавленным
-												const lastIndex = currentImages.length - 1
+												// Несколько медиа - открываем с последним добавленным
+												const lastIndex = currentMedia.length - 1
 												setPreviewModalCurrentIndex(lastIndex)
-												setPreviewModalAttachment(currentImages[lastIndex])
-												setPreviewModalCaption(currentImages[lastIndex].caption || '')
+												setPreviewModalAttachment(currentMedia[lastIndex])
+												setPreviewModalCaption(currentMedia[lastIndex].caption || '')
 											}
 										}
 									}, 100)
