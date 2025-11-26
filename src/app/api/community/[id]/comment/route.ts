@@ -108,11 +108,21 @@ export async function POST(
     }
 
     // Валидация данных
+    logger.debug('Создание комментария', {
+      postId: id,
+      hasContent: !!body.content,
+      hasParentId: !!body.parentId,
+      parentId: body.parentId,
+      bodyKeys: Object.keys(body),
+      bodyContent: typeof body.content === 'string' ? body.content.substring(0, 50) : body.content,
+    })
+    
     const validation = validateWithZod(createCommentSchema, body)
     if (!validation.success) {
       logger.warn('Ошибка валидации комментария', {
         errors: validation.errors,
         body: JSON.stringify(body),
+        rawBody: body,
       })
       return NextResponse.json(
         { error: validation.errors.join(', ') || 'Invalid input' },
@@ -121,6 +131,13 @@ export async function POST(
     }
 
     const { content, parentId, imageUrl, mediaType } = validation.data
+    
+    logger.debug('Валидация прошла успешно', {
+      hasContent: !!content,
+      hasParentId: !!parentId,
+      parentId: parentId,
+      contentLength: content?.length || 0,
+    })
 
     // Разрешаем пустой контент если есть файл
     if ((!content || !content.trim()) && !imageUrl) {

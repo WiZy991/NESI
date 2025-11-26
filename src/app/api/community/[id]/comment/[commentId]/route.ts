@@ -101,13 +101,25 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true, deleted: toDelete.length })
   } catch (err: any) {
-    const resolvedParams = 'then' in params ? await params : params
+    // Пытаемся получить params для логирования
+    let commentIdForLog: string | undefined
+    let postIdForLog: string | undefined
+    try {
+      const resolvedParams = 'then' in params ? await params : params
+      commentIdForLog = resolvedParams?.commentId
+      postIdForLog = resolvedParams?.postId
+    } catch {
+      // Игнорируем ошибку получения params
+    }
+    
     logger.error('Ошибка удаления комментария', err, {
-      commentId: resolvedParams?.commentId,
-      postId: resolvedParams?.postId,
+      commentId: commentIdForLog,
+      postId: postIdForLog,
     })
+    
+    const errorMessage = err?.message || 'Ошибка сервера'
     return NextResponse.json({ 
-      error: err?.message || 'Ошибка сервера',
+      error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? err?.message : undefined
     }, { status: 500 })
   }

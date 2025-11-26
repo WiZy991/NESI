@@ -369,20 +369,48 @@ export default function CommunityPostPage() {
 
 	const sendReply = async (parentId: string) => {
 		const text = replyText[parentId]?.trim()
-		if (!text) return
-		setReplyText(s => ({ ...s, [parentId]: '' }))
+		if (!text) {
+			toast.error('Введите текст ответа')
+			return
+		}
+		
+		if (!token) {
+			toast.error('Необходимо авторизоваться')
+			return
+		}
+		
 		try {
+			console.log('Отправка ответа на комментарий:', { parentId, text: text.substring(0, 50), postId: id })
+			
+			const requestBody = { content: text, parentId }
+			console.log('Тело запроса:', requestBody)
+			
 			const res = await fetch(`/api/community/${id}/comment`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({ content: text, parentId }),
+				body: JSON.stringify(requestBody),
 			})
-			if (res.ok) fetchPost()
-		} catch (e) {
+			
+			const responseData = await res.json().catch(() => ({}))
+			console.log('Ответ сервера:', { status: res.status, ok: res.ok, data: responseData })
+			
+			if (res.ok) {
+				// Очищаем поле только после успешной отправки
+				setReplyText(s => ({ ...s, [parentId]: '' }))
+				setReplyOpen(s => ({ ...s, [parentId]: false }))
+				fetchPost()
+				toast.success('Ответ отправлен')
+			} else {
+				const errorMessage = responseData.error || `Ошибка ${res.status}: ${res.statusText}`
+				toast.error(errorMessage)
+				console.error('Ошибка отправки ответа:', { status: res.status, error: responseData })
+			}
+		} catch (e: any) {
 			console.error('Ошибка ответа на комментарий:', e)
+			toast.error(e?.message || 'Ошибка сети при отправке ответа')
 		}
 	}
 
@@ -1089,6 +1117,11 @@ function CommentNode({
 	}
 
 	const deleteComment = async () => {
+		if (!token) {
+			toast.error('Необходимо авторизоваться')
+			return
+		}
+		
 		await confirm({
 			title: 'Удаление комментария',
 			message: 'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.',
@@ -1097,21 +1130,35 @@ function CommentNode({
 			cancelText: 'Отмена',
 			onConfirm: async () => {
 				try {
+					console.log('Удаление комментария:', { commentId: node.id, postId })
+					
 					const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
 						method: 'DELETE',
-						headers: { Authorization: `Bearer ${token}` },
+						headers: { 
+							Authorization: `Bearer ${token}`,
+							'Content-Type': 'application/json',
+						},
 					})
+					
+					const responseData = await res.json().catch(() => ({}))
+					console.log('Ответ сервера при удалении:', { status: res.status, ok: res.ok, data: responseData })
+					
 					if (res.ok) {
 						toast.success('Комментарий удалён')
 						fetchPost()
 					} else {
-						const errorData = await res.json().catch(() => ({}))
-						const errorMessage = errorData.error || 'Ошибка удаления комментария'
+						const errorMessage = typeof responseData === 'object' && responseData !== null && 'error' in responseData
+							? String(responseData.error)
+							: typeof responseData === 'string'
+							? responseData
+							: `Ошибка ${res.status}: ${res.statusText}`
 						toast.error(errorMessage)
+						console.error('Ошибка удаления комментария:', { status: res.status, responseData, type: typeof responseData })
 					}
 				} catch (err: any) {
 					console.error('Ошибка удаления комментария:', err)
-					toast.error(err?.message || 'Ошибка сети при удалении комментария')
+					const errorMsg = err?.message || String(err) || 'Ошибка сети при удалении комментария'
+					toast.error(errorMsg)
 				}
 			},
 		})
@@ -1329,8 +1376,14 @@ function CommentNode({
 						/>
 						<div className='mt-2'>
 							<button
-								onClick={() => sendReply(node.id)}
-								className='flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold'
+								type='button'
+								onClick={(e) => {
+									e.preventDefault()
+									e.stopPropagation()
+									sendReply(node.id)
+								}}
+								disabled={!replyText[node.id]?.trim()}
+								className='flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all'
 							>
 								<Send className='w-4 h-4' /> Отправить ответ
 							</button>
