@@ -25,7 +25,7 @@ const createCommentSchema = z.object({
 				}
 				return val
 			},
-			z.string().uuid('Некорректный ID родительского комментария').optional()
+			z.string().min(1, 'Некорректный ID родительского комментария').optional()
 		),
 	mediaType: z.enum(['image', 'video']).optional().nullable(),
 })
