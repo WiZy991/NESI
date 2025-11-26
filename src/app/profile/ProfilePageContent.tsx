@@ -30,6 +30,7 @@ import {
 	FaJs,
 	FaMoneyBillWave,
 	FaPython,
+	FaSearch,
 	FaStar,
 	FaTasks,
 	FaToolbox,
@@ -244,6 +245,7 @@ export default function ProfilePageContent() {
 	const [selectedBankId, setSelectedBankId] = useState<string>('')
 	const [loadingBanks, setLoadingBanks] = useState(false)
 	const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false)
+	const [bankSearchQuery, setBankSearchQuery] = useState('')
 	// Состояния для данных карты
 	const [cardNumber, setCardNumber] = useState('')
 	const [cardExpDate, setCardExpDate] = useState('')
@@ -1803,6 +1805,9 @@ export default function ProfilePageContent() {
 														onClick={(e) => {
 															e.stopPropagation()
 															setIsBankDropdownOpen(!isBankDropdownOpen)
+															if (!isBankDropdownOpen) {
+																setBankSearchQuery('')
+															}
 														}}
 														disabled={withdrawLoading}
 														className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between'
@@ -1831,26 +1836,75 @@ export default function ProfilePageContent() {
 																animation: 'slideDown 0.2s ease-out forwards'
 															}}
 														>
-															<div className='max-h-60 overflow-y-auto custom-scrollbar'>
-																{sbpBanks.map(bank => (
-																	<button
-																		key={bank.MemberId}
-																		type='button'
-																		onClick={(e) => {
+															{/* Поле поиска */}
+															<div className='p-3 border-b border-red-500/30'>
+																<div className='relative'>
+																	<FaSearch className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm' />
+																	<input
+																		type='text'
+																		value={bankSearchQuery}
+																		onChange={(e) => {
 																			e.stopPropagation()
-																			setSelectedBankId(bank.MemberId)
-																			setIsBankDropdownOpen(false)
-																			if (withdrawError) setWithdrawError(null)
+																			setBankSearchQuery(e.target.value)
 																		}}
-																		className={`w-full text-left px-4 py-3 transition-all duration-200 ${
-																			selectedBankId === bank.MemberId
-																				? 'bg-red-500/30 text-white border-l-4 border-red-400 font-semibold'
-																				: 'text-gray-300 hover:bg-red-500/20 hover:text-white'
-																		}`}
-																	>
-																		{bank.MemberNameRus || bank.MemberName}
-																	</button>
-																))}
+																		onClick={(e) => e.stopPropagation()}
+																		placeholder='Поиск банка...'
+																		className='w-full bg-black/60 border border-red-500/40 text-white pl-10 pr-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all placeholder:text-gray-500 text-sm'
+																	/>
+																	{bankSearchQuery && (
+																		<button
+																			type='button'
+																			onClick={(e) => {
+																				e.stopPropagation()
+																				setBankSearchQuery('')
+																			}}
+																			className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-400 transition-colors'
+																		>
+																			×
+																		</button>
+																	)}
+																</div>
+															</div>
+															<div className='max-h-60 overflow-y-auto custom-scrollbar'>
+																{sbpBanks
+																	.filter(bank => {
+																		if (!bankSearchQuery.trim()) return true
+																		const query = bankSearchQuery.toLowerCase()
+																		const nameRus = (bank.MemberNameRus || '').toLowerCase()
+																		const name = (bank.MemberName || '').toLowerCase()
+																		return nameRus.includes(query) || name.includes(query)
+																	})
+																	.map(bank => (
+																		<button
+																			key={bank.MemberId}
+																			type='button'
+																			onClick={(e) => {
+																				e.stopPropagation()
+																				setSelectedBankId(bank.MemberId)
+																				setIsBankDropdownOpen(false)
+																				setBankSearchQuery('')
+																				if (withdrawError) setWithdrawError(null)
+																			}}
+																			className={`w-full text-left px-4 py-3 transition-all duration-200 ${
+																				selectedBankId === bank.MemberId
+																					? 'bg-red-500/30 text-white border-l-4 border-red-400 font-semibold'
+																					: 'text-gray-300 hover:bg-red-500/20 hover:text-white'
+																			}`}
+																		>
+																			{bank.MemberNameRus || bank.MemberName}
+																		</button>
+																	))}
+																{sbpBanks.filter(bank => {
+																	if (!bankSearchQuery.trim()) return false
+																	const query = bankSearchQuery.toLowerCase()
+																	const nameRus = (bank.MemberNameRus || '').toLowerCase()
+																	const name = (bank.MemberName || '').toLowerCase()
+																	return nameRus.includes(query) || name.includes(query)
+																}).length === 0 && bankSearchQuery.trim() && (
+																	<div className='px-4 py-6 text-center text-gray-400 text-sm'>
+																		Банки не найдены
+																	</div>
+																)}
 															</div>
 														</div>
 													)}
