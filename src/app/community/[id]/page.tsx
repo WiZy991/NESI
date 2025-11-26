@@ -963,6 +963,7 @@ export default function CommunityPostPage() {
 										sendReply={sendReply}
 										postId={id}
 										onReport={setReportTarget}
+										confirm={confirm}
 									/>
 								))}
 							</div>
@@ -1095,6 +1096,7 @@ function CommentNode({
 	sendReply,
 	postId,
 	onReport,
+	confirm,
 }: any) {
 	const [openMenu, setOpenMenu] = useState(false)
 	const [editing, setEditing] = useState(false)
@@ -1145,37 +1147,55 @@ function CommentNode({
 			return
 		}
 		
-		const confirmed = await confirm({
-			title: 'Удаление комментария',
-			message: 'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.',
-			type: 'danger',
-			confirmText: 'Удалить',
-			cancelText: 'Отмена',
-			onConfirm: async () => {
-				const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
-					method: 'DELETE',
-					headers: { 
-						Authorization: `Bearer ${token}`,
-						'Content-Type': 'application/json',
-					},
-				})
-				
-				if (!res.ok) {
-					const responseData = await res.json().catch(() => ({}))
-					const errorMessage = typeof responseData?.error === 'string' 
-						? responseData.error 
-						: 'Ошибка при удалении комментария'
-					toast.error(errorMessage)
-					throw new Error(errorMessage)
-				}
-				
-				toast.success('Комментарий удалён')
-				fetchPost()
-			},
-		})
+		if (!confirm) {
+			console.error('confirm function not available in CommentNode')
+			toast.error('Ошибка: функция подтверждения недоступна')
+			return
+		}
 		
-		// Если пользователь отменил, ничего не делаем
-		if (!confirmed) return
+		try {
+			const confirmed = await confirm({
+				title: 'Удаление комментария',
+				message: 'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.',
+				type: 'danger',
+				confirmText: 'Удалить',
+				cancelText: 'Отмена',
+				onConfirm: async () => {
+					try {
+						const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
+							method: 'DELETE',
+							headers: { 
+								Authorization: `Bearer ${token}`,
+								'Content-Type': 'application/json',
+							},
+						})
+						
+						if (!res.ok) {
+							const responseData = await res.json().catch(() => ({}))
+							const errorMessage = typeof responseData?.error === 'string' 
+								? responseData.error 
+								: 'Ошибка при удалении комментария'
+							toast.error(errorMessage)
+							throw new Error(errorMessage)
+						}
+						
+						toast.success('Комментарий удалён')
+						fetchPost()
+					} catch (err: any) {
+						console.error('Ошибка при удалении комментария:', err)
+						const errorMsg = err?.message || 'Ошибка сети при удалении комментария'
+						toast.error(errorMsg)
+						throw err
+					}
+				},
+			})
+			
+			// Если пользователь отменил, ничего не делаем
+			if (!confirmed) return
+		} catch (err: any) {
+			console.error('Ошибка в confirm dialog:', err)
+			toast.error(err?.message || 'Ошибка при открытии диалога подтверждения')
+		}
 	}
 
 	return (
@@ -1422,6 +1442,7 @@ function CommentNode({
 						sendReply={sendReply}
 						postId={postId}
 						onReport={onReport}
+						confirm={confirm}
 					/>
 				))}
 		</div>

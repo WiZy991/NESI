@@ -1911,10 +1911,20 @@ export default function ChatMessage({
 										return null
 									}
 
+									// Улучшенная проверка типа изображения - более надежная проверка
+									const isImageFile = isImage || 
+										(message.fileName && /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(message.fileName)) ||
+										(message.fileMimetype && message.fileMimetype.startsWith('image/'))
+									
+									// Также проверяем видео
+									const isVideoFile = isVideo ||
+										(message.fileName && /\.(mp4|webm|mov|avi|mkv|wmv|m4v|flv)$/i.test(message.fileName)) ||
+										(message.fileMimetype && message.fileMimetype.startsWith('video/'))
+
 									// Показываем файл только если это точно НЕ голосовое сообщение
 									return (
 										<div className={message.content ? 'mb-2' : ''}>
-											{isImage ? (
+											{isImageFile ? (
 												<>
 													<div
 														className='relative block rounded-lg overflow-hidden group cursor-pointer'
@@ -1927,12 +1937,18 @@ export default function ChatMessage({
 															src={fileUrl}
 															alt={message.fileName || 'Изображение'}
 															className='max-w-full max-h-64 sm:max-h-80 rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02]'
+															loading='lazy'
 															onError={e => {
 																// Если изображение не загружается, показываем как файл
 																console.error(
 																	'Ошибка загрузки изображения:',
-																	fileUrl
+																	fileUrl,
+																	message.fileName,
+																	message.fileMimetype
 																)
+																// Не заменяем на файл, чтобы пользователь видел, что изображение не загрузилось
+																const target = e.target as HTMLImageElement
+																target.style.display = 'none'
 															}}
 														/>
 														{/* Кнопка скачивания - появляется при наведении */}
@@ -2003,7 +2019,7 @@ export default function ChatMessage({
 															document.body
 														)}
 												</>
-											) : isVideo ? (
+											) : isVideoFile ? (
 												<>
 													<div
 														className='max-w-full rounded-lg overflow-hidden relative group bg-black/20 cursor-pointer'

@@ -112,7 +112,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[9999]"
+      className="fixed inset-0 z-[9998]"
       style={{ 
         position: 'fixed', 
         top: 0, 
