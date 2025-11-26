@@ -139,28 +139,28 @@ export default function ExecutorAnalyticsPage() {
 
 	return (
 		<ProtectedPage>
-			<div className="min-h-screen bg-black text-white p-8">
-				<div className="max-w-6xl mx-auto">
+			<div className="min-h-screen bg-gradient-to-b from-black via-[#001a12] to-black text-white p-3 sm:p-4 md:p-8 overflow-x-hidden">
+				<div className="max-w-6xl mx-auto w-full">
 					{/* Заголовок */}
-					<div className="mb-8">
-						<h1 className="text-4xl font-bold text-emerald-400 mb-2">
+					<div className="mb-6 md:mb-8">
+						<h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-300 mb-2">
 							Персональная аналитика
 						</h1>
-						<p className="text-gray-400">Ваша статистика на платформе NESI</p>
+						<p className="text-sm md:text-base text-gray-400">Ваша статистика на платформе NESI</p>
 					</div>
 
 					{/* Период */}
-					<div className="mb-6">
-						<h2 className="text-xl font-semibold text-emerald-400 mb-4">Период</h2>
-						<div className="flex gap-4">
+					<div className="mb-4 md:mb-6">
+						<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-3 md:mb-4">Период</h2>
+						<div className="flex flex-wrap gap-2 md:gap-4">
 							{['day', 'week', 'month', 'year'].map((period) => (
 								<button
 									key={period}
 									onClick={() => setSelectedPeriod(period)}
-									className={`px-6 py-2 rounded-lg border transition ${
+									className={`px-3 md:px-6 py-2 rounded-lg border transition text-sm md:text-base ${
 										selectedPeriod === period
 											? 'bg-emerald-500 border-emerald-500 text-white'
-											: 'bg-black border-emerald-500/30 text-emerald-400 hover:border-emerald-500/50'
+											: 'bg-black/60 border-emerald-500/30 text-emerald-400 hover:border-emerald-500/50'
 									}`}
 								>
 									{period === 'day' ? 'День' : period === 'week' ? 'Неделя' : period === 'month' ? 'Месяц' : 'Год'}
@@ -170,48 +170,52 @@ export default function ExecutorAnalyticsPage() {
 					</div>
 
 					{/* КПИ */}
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6">
-							<div className="text-gray-400 text-sm mb-2">Выполнено задач</div>
-							<div className="text-3xl font-bold text-emerald-400">{stats.tasksCompleted}</div>
+					<div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
+						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6">
+							<div className="text-gray-400 text-xs md:text-sm mb-2">Выполнено задач</div>
+							<div className="text-xl md:text-2xl lg:text-3xl font-bold text-emerald-400">{stats.tasksCompleted}</div>
 						</div>
-						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6">
-							<div className="text-gray-400 text-sm mb-2">Заработано</div>
-							<div className="text-3xl font-bold text-emerald-400">
+						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6">
+							<div className="text-gray-400 text-xs md:text-sm mb-2">Заработано</div>
+							<div className="text-xl md:text-2xl lg:text-3xl font-bold text-emerald-400 break-words">
 								{stats.totalEarned.toLocaleString('ru-RU')}₽
 							</div>
 						</div>
-						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6">
-							<div className="text-gray-400 text-sm mb-2">Средний рейтинг</div>
-							<div className="text-3xl font-bold text-emerald-400">
+						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6">
+							<div className="text-gray-400 text-xs md:text-sm mb-2">Средний рейтинг</div>
+							<div className="text-xl md:text-2xl lg:text-3xl font-bold text-emerald-400">
 								{(analytics.avgRating || 0).toFixed(1)} ⭐
 							</div>
 						</div>
-						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6">
-							<div className="text-gray-400 text-sm mb-2">Конверсия</div>
-							<div className="text-3xl font-bold text-emerald-400">
+						<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6">
+							<div className="text-gray-400 text-xs md:text-sm mb-2">Конверсия</div>
+							<div className="text-xl md:text-2xl lg:text-3xl font-bold text-emerald-400">
 								{stats.responseRate.toFixed(2)}%
 							</div>
 						</div>
 					</div>
 
 					{/* График динамики заработка */}
-					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6 mb-8">
-						<h2 className="text-xl font-semibold text-emerald-400 mb-4">Динамика заработка</h2>
+					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6 mb-6 md:mb-8">
+						<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-4">Динамика заработка</h2>
 						{chartData.length > 0 ? (
-							<ResponsiveContainer width="100%" height={350}>
+							<ResponsiveContainer width="100%" height={250} className="md:h-[350px]">
 								<LineChart data={chartData}>
 									<CartesianGrid strokeDasharray="3 3" stroke="#14532d" />
 									<XAxis 
 										dataKey="date" 
 										stroke="#10b981" 
-										tick={{ fill: '#10b981', fontSize: 12 }}
+										tick={{ fill: '#10b981', fontSize: 10 }}
 										tickFormatter={formatDate}
+										angle={-45}
+										textAnchor="end"
+										height={60}
 									/>
 									<YAxis 
 										stroke="#10b981" 
-										tick={{ fill: '#10b981', fontSize: 12 }}
+										tick={{ fill: '#10b981', fontSize: 10 }}
 										tickFormatter={(value) => `${value}₽`}
+										width={60}
 									/>
 									<Tooltip
 										contentStyle={{
@@ -219,48 +223,49 @@ export default function ExecutorAnalyticsPage() {
 											border: '1px solid #10b981',
 											borderRadius: '0.5rem',
 											color: '#10b981',
+											fontSize: '12px',
 										}}
 										formatter={(value: number) => [`${value.toLocaleString('ru-RU')}₽`, 'Заработано']}
 									/>
-									<Legend wrapperStyle={{ color: '#10b981' }} />
+									<Legend wrapperStyle={{ color: '#10b981', fontSize: '12px' }} />
 									<Line
 										type="monotone"
 										dataKey="earnings"
 										stroke="#10b981"
 										strokeWidth={2}
-										dot={{ fill: '#10b981', r: 4 }}
+										dot={{ fill: '#10b981', r: 3 }}
 										name="Заработано"
 									/>
 								</LineChart>
 							</ResponsiveContainer>
 						) : (
-							<div className="flex items-center justify-center h-[350px] text-gray-500">
+							<div className="flex items-center justify-center h-[250px] md:h-[350px] text-gray-500">
 								Нет данных за выбранный период
 							</div>
 						)}
 					</div>
 
 					{/* Общая информация */}
-					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-6">
-						<h2 className="text-xl font-semibold text-emerald-400 mb-4">Общая информация</h2>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div className="bg-black/60 border border-emerald-500/30 rounded-xl p-4 md:p-6">
+						<h2 className="text-lg md:text-xl font-semibold text-emerald-400 mb-4">Общая информация</h2>
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 							<div>
-								<div className="text-gray-400 text-sm">Дата регистрации</div>
-								<div className="text-emerald-400">
+								<div className="text-gray-400 text-xs md:text-sm mb-1">Дата регистрации</div>
+								<div className="text-emerald-400 text-sm md:text-base">
 									{new Date(analytics.createdAt).toLocaleDateString('ru-RU')}
 								</div>
 							</div>
 							<div>
-								<div className="text-gray-400 text-sm">Роль</div>
-								<div className="text-emerald-400">Исполнитель</div>
+								<div className="text-gray-400 text-xs md:text-sm mb-1">Роль</div>
+								<div className="text-emerald-400 text-sm md:text-base">Исполнитель</div>
 							</div>
 							<div>
-								<div className="text-gray-400 text-sm">Всего задач</div>
-								<div className="text-emerald-400">{stats.tasksExecuted}</div>
+								<div className="text-gray-400 text-xs md:text-sm mb-1">Всего задач</div>
+								<div className="text-emerald-400 text-sm md:text-base">{stats.tasksExecuted}</div>
 							</div>
 							<div>
-								<div className="text-gray-400 text-sm">Средний рейтинг</div>
-								<div className="text-emerald-400">
+								<div className="text-gray-400 text-xs md:text-sm mb-1">Средний рейтинг</div>
+								<div className="text-emerald-400 text-sm md:text-base">
 									{(analytics.avgRating || 0).toFixed(1)} ⭐
 								</div>
 							</div>

@@ -34,6 +34,10 @@
 /* 🧠 Базовый стиль html и body */
 html {
 	background-color: #111827;
+	overflow-x: hidden;
+	width: 100%;
+	max-width: 100vw;
+	position: relative;
 }
 
 body {
@@ -46,7 +50,11 @@ body {
 	letter-spacing: 0.02em;
 	position: relative;
 	overflow-x: hidden;
+	width: 100%;
+	max-width: 100vw;
 	z-index: 1;
+	margin: 0;
+	padding: 0;
 
 	/* iOS-style smooth scrolling */
 	scroll-behavior: smooth;

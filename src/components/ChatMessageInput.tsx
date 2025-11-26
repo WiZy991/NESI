@@ -2252,39 +2252,39 @@ export default function MessageInput({
 									}`}
 								/>
 							</button>
-							{showSendMenu && (
-								<div
-									ref={sendMenuRef}
-									className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 space-y-1 animate-fadeIn z-50'
-									onClick={e => e.stopPropagation()}
-								>
-									<button
-										type='button'
-										onClick={() => {
-											startRecording().catch(err =>
-												console.error('Ошибка запуска записи:', err)
-											)
-											setShowSendMenu(false)
-										}}
-										className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
-									>
-										<Mic className='w-5 h-5 text-emerald-400' />
-									</button>
-									<button
-										type='button'
-										onClick={() => {
-											setPreferSendMode(true)
-											setShowSendMenu(false)
-											if (textareaRef.current) {
-												textareaRef.current.focus()
-											}
-										}}
-										className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
-									>
-										<Send className='w-5 h-5 text-emerald-400' />
-									</button>
-								</div>
-							)}
+									{showSendMenu && (
+										<div
+											ref={sendMenuRef}
+											className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 flex flex-col gap-1 animate-fadeIn z-50'
+											onClick={e => e.stopPropagation()}
+										>
+											<button
+												type='button'
+												onClick={() => {
+													startRecording().catch(err =>
+														console.error('Ошибка запуска записи:', err)
+													)
+													setShowSendMenu(false)
+												}}
+												className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+											>
+												<Mic className='w-5 h-5 text-emerald-400' />
+											</button>
+											<button
+												type='button'
+												onClick={() => {
+													setPreferSendMode(true)
+													setShowSendMenu(false)
+													if (textareaRef.current) {
+														textareaRef.current.focus()
+													}
+												}}
+												className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+											>
+												<Send className='w-5 h-5 text-emerald-400' />
+											</button>
+										</div>
+									)}
 						</div>
 					) : (
 						// Кнопка отправки (с меню, если preferSendMode и поле пустое)
@@ -2366,7 +2366,7 @@ export default function MessageInput({
 									{showSendMenu && (
 										<div
 											ref={sendMenuRef}
-											className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 space-y-1 animate-fadeIn z-50'
+											className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 flex flex-col gap-1 animate-fadeIn z-50'
 											onClick={e => e.stopPropagation()}
 										>
 											<button

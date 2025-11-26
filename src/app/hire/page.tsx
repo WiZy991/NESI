@@ -171,10 +171,10 @@ export default function HirePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4 text-white">
+    <div className="max-w-4xl mx-auto py-4 md:py-6 px-3 sm:px-4 text-white overflow-x-hidden w-full">
       {/* Компактный заголовок */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-emerald-400">Запросы найма</h1>
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-emerald-400">Запросы найма</h1>
         <button
           onClick={refreshData}
           className="p-2 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
@@ -187,29 +187,29 @@ export default function HirePage() {
       </div>
 
       {/* Компактная статистика и фильтры */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="flex items-center gap-4 text-sm">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-4 md:mb-6">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm">
           <button
             onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1 rounded ${statusFilter === 'all' ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-400 hover:text-emerald-400'}`}
+            className={`px-2 md:px-3 py-1 rounded ${statusFilter === 'all' ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-400 hover:text-emerald-400'}`}
           >
             Все ({stats.all})
           </button>
           <button
             onClick={() => setStatusFilter('pending')}
-            className={`px-3 py-1 rounded ${statusFilter === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}
+            className={`px-2 md:px-3 py-1 rounded ${statusFilter === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}
           >
             В ожидании ({stats.pending})
           </button>
           <button
             onClick={() => setStatusFilter('accepted')}
-            className={`px-3 py-1 rounded ${statusFilter === 'accepted' ? 'bg-green-500/20 text-green-400' : 'text-gray-400 hover:text-green-400'}`}
+            className={`px-2 md:px-3 py-1 rounded ${statusFilter === 'accepted' ? 'bg-green-500/20 text-green-400' : 'text-gray-400 hover:text-green-400'}`}
           >
             Принято ({stats.accepted})
           </button>
           <button
             onClick={() => setStatusFilter('rejected')}
-            className={`px-3 py-1 rounded ${statusFilter === 'rejected' ? 'bg-red-500/20 text-red-400' : 'text-gray-400 hover:text-red-400'}`}
+            className={`px-2 md:px-3 py-1 rounded ${statusFilter === 'rejected' ? 'bg-red-500/20 text-red-400' : 'text-gray-400 hover:text-red-400'}`}
           >
             Отклонено ({stats.rejected})
           </button>
@@ -241,52 +241,52 @@ export default function HirePage() {
               return (
                 <div
                   key={i.id}
-                  className="bg-black/30 border border-emerald-500/20 rounded-lg p-4 hover:border-emerald-500/40 transition-colors"
+                  className="bg-black/30 border border-emerald-500/20 rounded-lg p-4 hover:border-emerald-500/40 transition-colors w-full overflow-hidden"
                 >
-                  <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {resolveAvatarUrl(i.customer.avatarUrl) ? (
-                        <div className="w-10 h-10 rounded-full border border-emerald-500/30 overflow-hidden flex-shrink-0">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-emerald-500/30 overflow-hidden flex-shrink-0">
                           <Image
                             src={resolveAvatarUrl(i.customer.avatarUrl)!}
                             alt={i.customer.fullName || i.customer.email}
-                            width={40}
-                            height={40}
+                            width={48}
+                            height={48}
                             className="w-full h-full object-cover"
                           />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm md:text-base flex-shrink-0">
                           {(i.customer.fullName || i.customer.email).charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <Link
                           href={`/users/${i.customer.id}`}
-                          className="text-emerald-400 hover:text-emerald-300 font-medium truncate block"
+                          className="text-emerald-400 hover:text-emerald-300 font-medium truncate block text-sm md:text-base"
                         >
                           {i.customer.fullName || i.customer.email}
                         </Link>
-                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs text-gray-500 mt-1">
                           <span>{new Date(i.createdAt).toLocaleDateString('ru-RU')}</span>
                           {i.amount && <span>{Number(i.amount).toFixed(0)} ₽</span>}
                           {i.paid && <span className="text-green-400">✓ Оплачен</span>}
                         </div>
                       </div>
                     </div>
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 self-start sm:self-auto">
                       {i.status === 'pending' && (
-                        <span className="px-2 py-1 rounded text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                        <span className="px-2 py-1 rounded text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 whitespace-nowrap">
                           В ожидании
                         </span>
                       )}
                       {i.status === 'accepted' && (
-                        <span className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400 border border-green-500/30">
+                        <span className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400 border border-green-500/30 whitespace-nowrap">
                           Принято
                         </span>
                       )}
                       {i.status === 'rejected' && (
-                        <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400 border border-red-500/30">
+                        <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400 border border-red-500/30 whitespace-nowrap">
                           Отклонено
                         </span>
                       )}
@@ -318,19 +318,21 @@ export default function HirePage() {
                   )}
 
                   {i.status === 'pending' && (
-                    <div className="flex gap-2 pt-3 border-t border-gray-700/30">
-                      <button
-                        className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-medium text-sm transition-colors"
-                        onClick={() => handleAction(i.id, 'accept')}
-                      >
-                        Принять
-                      </button>
-                      <button
-                        className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-medium text-sm transition-colors"
-                        onClick={() => handleAction(i.id, 'reject')}
-                      >
-                        Отклонить
-                      </button>
+                    <div className="pt-3 border-t border-gray-700/30 mt-3 -mx-4 px-4 sm:mx-0 sm:px-0">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
+                        <button
+                          className="w-full sm:flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-500 rounded-lg text-white font-medium text-sm transition-colors text-center"
+                          onClick={() => handleAction(i.id, 'accept')}
+                        >
+                          Принять
+                        </button>
+                        <button
+                          className="w-full sm:flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-500 rounded-lg text-white font-medium text-sm transition-colors text-center"
+                          onClick={() => handleAction(i.id, 'reject')}
+                        >
+                          Отклонить
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -338,7 +340,7 @@ export default function HirePage() {
                     <div className="pt-3 border-t border-gray-700/30">
                       <Link
                         href={`/chats?open=${i.customer.id}`}
-                        className="block text-center px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm font-medium transition-colors"
+                        className="block text-center px-3 md:px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm font-medium transition-colors"
                       >
                         Перейти в чат
                       </Link>

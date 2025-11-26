@@ -808,8 +808,8 @@ export default function AnalyticsPage() {
 
 	return (
 		<ProtectedPage>
-			<div className="min-h-screen bg-gradient-to-b from-black via-[#001a12] to-black p-4 md:p-8 analytics-container">
-				<div className="max-w-7xl mx-auto">
+			<div className="min-h-screen bg-gradient-to-b from-black via-[#001a12] to-black p-3 sm:p-4 md:p-8 analytics-container overflow-x-hidden">
+				<div className="max-w-7xl mx-auto w-full">
 					{/* Заголовок и фильтры */}
 					<div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
 						<div>
@@ -1147,41 +1147,41 @@ export default function AnalyticsPage() {
 							📑 Аналитика по категориям
 						</h2>
 						<div className="overflow-x-auto -mx-4 md:mx-0">
-							<table className="w-full min-w-[600px]">
+							<table className="w-full min-w-[600px] text-sm md:text-base">
 								<thead>
 									<tr className="border-b border-emerald-500/30">
 										<th
-											className="text-left py-3 px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition"
+											className="text-left py-2 md:py-3 px-2 md:px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition text-xs md:text-sm"
 											onClick={() => handleSort('categoryName')}
 										>
 											Категория {sortField === 'categoryName' && (sortDirection === 'asc' ? '↑' : '↓')}
 										</th>
 										<th
-											className="text-left py-3 px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition"
+											className="text-left py-2 md:py-3 px-2 md:px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition text-xs md:text-sm"
 											onClick={() => handleSort('taskCount')}
 										>
 											Кол-во задач {sortField === 'taskCount' && (sortDirection === 'asc' ? '↑' : '↓')}
 										</th>
 										<th
-											className="text-left py-3 px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition"
+											className="text-left py-2 md:py-3 px-2 md:px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition text-xs md:text-sm"
 											onClick={() => handleSort('avgPrice')}
 										>
 											Средняя цена {sortField === 'avgPrice' && (sortDirection === 'asc' ? '↑' : '↓')}
 										</th>
 										<th
-											className="text-left py-3 px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition"
+											className="text-left py-2 md:py-3 px-2 md:px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition text-xs md:text-sm hidden md:table-cell"
 											onClick={() => handleSort('avgCompletionTime')}
 										>
 											Средний срок {sortField === 'avgCompletionTime' && (sortDirection === 'asc' ? '↑' : '↓')}
 										</th>
 										<th
-											className="text-left py-3 px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition"
+											className="text-left py-2 md:py-3 px-2 md:px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition text-xs md:text-sm"
 											onClick={() => handleSort('responsesCount')}
 										>
 											Откликов {sortField === 'responsesCount' && (sortDirection === 'asc' ? '↑' : '↓')}
 										</th>
 										<th
-											className="text-left py-3 px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition"
+											className="text-left py-2 md:py-3 px-2 md:px-4 text-emerald-300 cursor-pointer hover:text-emerald-200 transition text-xs md:text-sm"
 											onClick={() => handleSort('successRate')}
 										>
 											Успешность {sortField === 'successRate' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1194,25 +1194,25 @@ export default function AnalyticsPage() {
 											key={stat.subcategoryId}
 											className="border-b border-emerald-500/10 hover:bg-emerald-500/5 transition"
 										>
-											<td className="py-3 px-4">
-												<div className="font-medium text-white">{stat.categoryName}</div>
-												<div className="text-sm text-gray-400">{stat.subcategoryName}</div>
+											<td className="py-2 md:py-3 px-2 md:px-4">
+												<div className="font-medium text-white text-xs md:text-sm">{stat.categoryName}</div>
+												<div className="text-xs md:text-sm text-gray-400">{stat.subcategoryName}</div>
 											</td>
-											<td className="py-3 px-4 text-emerald-300 font-semibold">{stat.taskCount}</td>
-											<td className="py-3 px-4 text-blue-300">
+											<td className="py-2 md:py-3 px-2 md:px-4 text-emerald-300 font-semibold text-xs md:text-sm">{stat.taskCount}</td>
+											<td className="py-2 md:py-3 px-2 md:px-4 text-blue-300 text-xs md:text-sm">
 												{Math.round(stat.avgPrice).toLocaleString('ru-RU')} ₽
 											</td>
-											<td className="py-3 px-4 text-purple-300">{stat.avgCompletionTime} дн.</td>
-											<td className="py-3 px-4 text-yellow-300">{stat.responsesCount}</td>
-											<td className="py-3 px-4">
+											<td className="py-2 md:py-3 px-2 md:px-4 text-purple-300 text-xs md:text-sm hidden md:table-cell">{stat.avgCompletionTime} дн.</td>
+											<td className="py-2 md:py-3 px-2 md:px-4 text-yellow-300 text-xs md:text-sm">{stat.responsesCount}</td>
+											<td className="py-2 md:py-3 px-2 md:px-4">
 												<div className="flex items-center gap-2">
-													<div className="flex-1 bg-gray-700 rounded-full h-2">
+													<div className="flex-1 bg-gray-700 rounded-full h-2 min-w-[40px]">
 														<div
 															className="bg-emerald-500 h-2 rounded-full"
 															style={{ width: `${stat.successRate}%` }}
 														/>
 													</div>
-													<span className="text-emerald-300 text-sm w-12">{stat.successRate.toFixed(1)}%</span>
+													<span className="text-emerald-300 text-xs md:text-sm w-10 md:w-12">{stat.successRate.toFixed(1)}%</span>
 												</div>
 											</td>
 										</tr>

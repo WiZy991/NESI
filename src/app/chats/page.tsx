@@ -2444,7 +2444,7 @@ function ChatsPageContent() {
 
 	return (
 		<div
-			className='fixed inset-x-0 px-2 sm:px-3 md:px-6'
+			className='fixed inset-x-0 px-2 sm:px-3 md:px-6 overflow-x-hidden max-w-full'
 			style={{
 				top: isMobile
 					? '80px' // Отступ для мобильных (хедер ~64px + небольшой отступ)
@@ -2455,21 +2455,22 @@ function ChatsPageContent() {
 				paddingTop: 0,
 				paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 0px)' : '0',
 				overflow: 'hidden',
+				maxWidth: '100vw',
 			}}
 		>
 			<div
-				className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden'
-				style={{ overflow: 'hidden' }}
+				className='w-full h-full flex flex-col bg-slate-900/35 md:rounded-3xl border border-emerald-300/25 overflow-hidden max-w-full'
+				style={{ overflow: 'hidden', maxWidth: '100%' }}
 			>
 				<div
-					className='flex flex-1 overflow-hidden min-h-0'
-					style={{ touchAction: 'pan-y', overflow: 'hidden' }}
+					className='flex flex-1 overflow-hidden min-h-0 max-w-full'
+					style={{ touchAction: 'pan-y', overflow: 'hidden', maxWidth: '100%' }}
 				>
 					{/* Левая колонка - список чатов */}
 					<div
 						className={`${
 							selectedChat ? 'hidden md:flex' : 'flex'
-						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30 overflow-hidden`}
+						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30 overflow-hidden max-w-full`}
 						style={{ overflow: 'hidden' }}
 					>
 						{/* Заголовок и поиск */}
@@ -2590,8 +2591,8 @@ function ChatsPageContent() {
 					<div
 						className={`${
 							selectedChat ? 'flex' : 'hidden md:flex'
-						} flex-1 flex-col bg-gradient-to-br from-slate-900/35 via-slate-900/20 to-slate-900/8 min-h-0 h-full overflow-hidden backdrop-blur-lg`}
-						style={{ overflow: 'hidden' }}
+						} flex-1 flex-col bg-gradient-to-br from-slate-900/35 via-slate-900/20 to-slate-900/8 min-h-0 h-full overflow-hidden backdrop-blur-lg max-w-full`}
+						style={{ overflow: 'hidden', maxWidth: '100%' }}
 					>
 						{selectedChat ? (
 							<>
@@ -2794,7 +2795,7 @@ function ChatsPageContent() {
 											description='Отправьте первое сообщение!'
 										/>
 									) : (
-										<div className='max-w-4xl w-full mx-auto space-y-2 sm:space-y-3 md:space-y-4'>
+										<div className='max-w-4xl w-full mx-auto space-y-2 sm:space-y-3 md:space-y-4 px-2 sm:px-4 overflow-x-hidden'>
 											{messages
 												.map((msg, index) => {
 													// Проверяем, что sender существует

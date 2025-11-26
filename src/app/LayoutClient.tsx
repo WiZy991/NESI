@@ -147,7 +147,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         {/* Хедер показываем только там, где нужно (не на главной и авторизации) */}
         {!isHome && !isAuthPage && <Header />}
 
-        <main className={`relative w-full text-white ${isChatPage ? 'h-full overflow-hidden' : 'min-h-screen'}`} role="main">
+        <main className={`relative w-full text-white overflow-x-hidden ${isChatPage ? 'h-full overflow-hidden' : 'min-h-screen'}`} role="main">
         {/* Градиент — везде кроме главной (включая авторизацию) */}
         {!isHome && (
           <>
@@ -161,12 +161,12 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
         {/* Контент */}
         <div
-          className={`relative z-10 ios-transition ${
+          className={`relative z-10 ios-transition overflow-x-hidden ${
             isHome || isAuthPage
               ? 'flex items-center justify-center w-full px-0 py-0 h-full'
               : isChatPage
-              ? 'flex items-stretch w-full px-0 py-0 h-full'
-              : 'max-w-screen-xl mx-auto px-4 py-10 md:px-8 min-h-[calc(100vh-200px)]'
+              ? 'flex items-stretch w-full px-0 py-0 h-full pt-16 md:pt-0'
+              : 'max-w-screen-xl mx-auto px-3 sm:px-4 md:px-8 pt-[64px] md:pt-10 pb-6 md:pb-10 min-h-[calc(100vh-200px)] w-full'
           } ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
           }`}

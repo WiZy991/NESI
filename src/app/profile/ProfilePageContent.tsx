@@ -889,10 +889,10 @@ export default function ProfilePageContent() {
 	const decorativeClass = background?.id ? `${background.id}-background` : ''
 
 	return (
-		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
+		<div className='max-w-7xl mx-auto p-3 sm:p-4 md:p-6 overflow-x-hidden w-full'>
 			{/* Компактный Header профиля */}
 			<div
-				className={`rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden ${backgroundClass} ${decorativeClass}`}
+				className={`rounded-xl md:rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-4 md:p-6 mb-4 md:mb-6 relative overflow-hidden ${backgroundClass} ${decorativeClass}`}
 				style={backgroundStyle}
 			>
 				{/* Overlay для читаемости текста (более прозрачный для премиум фонов) */}
@@ -949,23 +949,23 @@ export default function ProfilePageContent() {
 										</p>
 									)}
 								</div>
-								<div className='flex gap-2'>
+								<div className='flex flex-wrap gap-2'>
 									{/* Кнопка изменения фона только для исполнителей */}
 									{user.role === 'executor' && (
 										<button
 											onClick={() => setBackgroundSelectorOpen(true)}
-											className='flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+											className='flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black transition font-semibold text-xs md:text-sm whitespace-nowrap'
 											title='Выбрать фон профиля'
 										>
-											🎨 Фон
+											🎨 <span className="hidden sm:inline">Фон</span>
 										</button>
 									)}
 									<button
 										onClick={() => setIsEditModalOpen(true)}
-										className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+										className='flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-xs md:text-sm whitespace-nowrap'
 									>
 										<FaEdit />
-										Редактировать
+										<span className="hidden sm:inline">Редактировать</span>
 									</button>
 								</div>
 							</div>
@@ -1038,21 +1038,21 @@ export default function ProfilePageContent() {
 			</div>
 
 			{/* Табы */}
-			<div className='flex gap-2 mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+			<div className='flex gap-2 mb-4 md:mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
 				{tabs.map(tab => (
 					<button
 						key={tab.id}
 						onClick={() => setActiveTab(tab.id)}
-						className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${
+						className={`flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium text-xs md:text-sm whitespace-nowrap transition-all ${
 							activeTab === tab.id
 								? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
 								: 'bg-black/40 border border-gray-700/50 text-gray-400 hover:border-emerald-500/30 hover:text-emerald-400'
 						}`}
 					>
-						{tab.icon}
-						{tab.label}
+						<span className="text-sm md:text-base">{tab.icon}</span>
+						<span className="hidden sm:inline">{tab.label}</span>
 						{tab.count !== undefined && tab.count > 0 && (
-							<span className='bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-xs font-semibold'>
+							<span className='bg-emerald-500/20 text-emerald-300 px-1.5 md:px-2 py-0.5 rounded-full text-xs font-semibold'>
 								{tab.count}
 							</span>
 						)}
