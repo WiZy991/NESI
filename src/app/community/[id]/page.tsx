@@ -1170,11 +1170,18 @@ function CommentNode({
 						toast.success('Комментарий удалён')
 						fetchPost()
 					} else {
-						const errorMessage = typeof responseData === 'object' && responseData !== null && 'error' in responseData
-							? String(responseData.error)
-							: typeof responseData === 'string'
-							? responseData
-							: `Ошибка ${res.status}: ${res.statusText}`
+						let errorMessage = `Ошибка ${res.status}: ${res.statusText}`
+						if (responseData && typeof responseData === 'object') {
+							if (typeof responseData.error === 'string') {
+								errorMessage = responseData.error
+							} else if (responseData.error && typeof responseData.error === 'object') {
+								errorMessage = JSON.stringify(responseData.error)
+							} else if (Array.isArray(responseData.errors)) {
+								errorMessage = responseData.errors.join(', ')
+							}
+						} else if (typeof responseData === 'string') {
+							errorMessage = responseData
+						}
 						toast.error(errorMessage)
 						console.error('Ошибка удаления комментария:', { status: res.status, responseData, type: typeof responseData })
 					}

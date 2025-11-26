@@ -64,17 +64,31 @@ export async function DELETE(
     const resolvedParams = 'then' in params ? await params : params
     const { id: postId, commentId } = resolvedParams
 
+    logger.debug('Удаление комментария', {
+      commentId,
+      postId,
+      userId: me.id,
+      userRole: me.role,
+    })
+
     const root = await prisma.communityComment.findUnique({
       where: { id: commentId },
       select: { id: true, authorId: true, postId: true },
     })
     if (!root) {
+      logger.warn('Комментарий не найден', { commentId, postId })
       return NextResponse.json({ error: 'Комментарий не найден' }, { status: 404 })
     }
     if (root.postId !== postId) {
+      logger.warn('Несоответствие поста', { commentPostId: root.postId, requestedPostId: postId })
       return NextResponse.json({ error: 'Несоответствие поста' }, { status: 400 })
     }
     if (root.authorId !== me.id && me.role !== 'admin') {
+      logger.warn('Нет прав для удаления', {
+        commentAuthorId: root.authorId,
+        userId: me.id,
+        userRole: me.role,
+      })
       return NextResponse.json({ error: 'Нет прав для удаления' }, { status: 403 })
     }
 

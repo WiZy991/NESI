@@ -17,15 +17,16 @@ const createCommentSchema = z.object({
 		.transform(val => val === null || val === undefined || val === '' ? undefined : val),
 	imageUrl: imageUrlSchema,
 	parentId: z
-		.union([
-			z.string().uuid('Некорректный ID родительского комментария'),
-			z.literal(''),
-			z.null(),
-			z.undefined()
-		])
-		.optional()
-		.nullable()
-		.transform(val => val === null || val === undefined || val === '' ? undefined : val),
+		.preprocess(
+			(val) => {
+				// Нормализуем пустые значения в undefined
+				if (val === null || val === undefined || val === '') {
+					return undefined
+				}
+				return val
+			},
+			z.string().uuid('Некорректный ID родительского комментария').optional()
+		),
 	mediaType: z.enum(['image', 'video']).optional().nullable(),
 })
 
