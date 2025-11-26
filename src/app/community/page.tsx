@@ -57,7 +57,6 @@ export default function CommunityPage() {
 	const [editPostTitle, setEditPostTitle] = useState('')
 	const [savingPost, setSavingPost] = useState(false)
 	const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set())
-	const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null)
 
 	// загрузка фильтра из URL
 	useEffect(() => {
@@ -89,7 +88,6 @@ export default function CommunityPage() {
 		const handleClickOutside = (e: MouseEvent) => {
 			if (openMenu && !(e.target as Element).closest('[data-menu-container]')) {
 				setOpenMenu(null)
-				setMenuPosition(null)
 			}
 		}
 		if (openMenu) {
@@ -222,7 +220,6 @@ export default function CommunityPage() {
 		setEditPostTitle(post.title || '')
 		setEditingPostId(post.id)
 		setOpenMenu(null)
-		setMenuPosition(null)
 	}
 
 	// сохранение редактирования поста
@@ -425,6 +422,7 @@ export default function CommunityPage() {
 								<div
 									key={post.id}
 									className='group border border-gray-800 rounded-xl p-3 sm:p-4 lg:p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative'
+									style={{ zIndex: openMenu === post.id ? 50 : 'auto' }}
 								>
 									{/* Автор */}
 									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative z-0'>
@@ -468,46 +466,30 @@ export default function CommunityPage() {
 											<button
 												onClick={(e) => {
 													e.stopPropagation()
-													if (openMenu === post.id) {
-														setOpenMenu(null)
-														setMenuPosition(null)
-													} else {
-														const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-														setMenuPosition({
-															top: rect.bottom + 8,
-															right: window.innerWidth - rect.right
-														})
-														setOpenMenu(post.id)
-													}
+													setOpenMenu(openMenu === post.id ? null : post.id)
 												}}
 												className='p-1 hover:text-emerald-400 transition relative z-50'
 											>
 												<MoreHorizontal className='w-4 h-4 sm:w-5 sm:h-5' />
 											</button>
 
-											{openMenu === post.id && menuPosition && (
+											{openMenu === post.id && (
 												<>
 													{/* Overlay для закрытия меню */}
 													<div 
 														className='fixed inset-0 z-[9999]'
-														onClick={() => {
-															setOpenMenu(null)
-															setMenuPosition(null)
-														}}
+														style={{ zIndex: 9999 }}
+														onClick={() => setOpenMenu(null)}
 													/>
 													<div 
-														className='fixed w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-[10000]'
-														style={{ 
-															top: `${menuPosition.top}px`,
-															right: `${menuPosition.right}px`
-														}}
+														className='absolute right-0 top-full mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl'
+														style={{ zIndex: 10000 }}
 														onClick={(e) => e.stopPropagation()}
 													>
 														<button
 															onClick={() => {
 																copyLink(post.id)
 																setOpenMenu(null)
-																setMenuPosition(null)
 															}}
 															className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 transition'
 														>
@@ -518,7 +500,6 @@ export default function CommunityPage() {
 															onClick={() => {
 																setReportTarget({ type: 'post', id: post.id })
 																setOpenMenu(null)
-																setMenuPosition(null)
 															}}
 															className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-red-400 transition'
 														>
@@ -531,7 +512,6 @@ export default function CommunityPage() {
 																	onClick={() => {
 																		startEditingPost(post)
 																		setOpenMenu(null)
-																		setMenuPosition(null)
 																	}}
 																	className='flex items-center gap-2 px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-emerald-400 transition w-full'
 																>
@@ -541,7 +521,6 @@ export default function CommunityPage() {
 																	onClick={() => {
 																		deletePost(post.id)
 																		setOpenMenu(null)
-																		setMenuPosition(null)
 																	}}
 																	className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-pink-500 transition'
 																>
