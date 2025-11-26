@@ -84,7 +84,7 @@ model User {
 
   // Изменения статусов откликов
   responseStatusChanges TaskResponseStatusHistory[] @relation("StatusChangedBy")
-  
+
   // Сделки Мультирасчетов
   tBankDeals TBankDeal[]
 }
@@ -156,12 +156,12 @@ model Task {
   updatedAt               DateTime           @updatedAt
   completedAt             DateTime?
   subcategoryId           String?
-  skillsRequired          String[]            @default([])
+  skillsRequired          String[]           @default([])
   escrowAmount            Decimal            @default(0.00) @db.Decimal(15, 2)
   customerLastReadAt      DateTime?
   executorLastReadAt      DateTime?
-  cancellationRequestedAt DateTime?         // Время запроса на отмену от заказчика
-  cancellationReason      String?           // Причина отмены от заказчика
+  cancellationRequestedAt DateTime? // Время запроса на отмену от заказчика
+  cancellationReason      String? // Причина отмены от заказчика
   Dispute                 Dispute[]
   files                   File[]             @relation("TaskFiles")
   messages                Message[]
@@ -472,25 +472,28 @@ model AdminInvite {
 }
 
 model Transaction {
-  id         String   @id @default(cuid())
-  userId     String
-  amount     Decimal  @db.Decimal(15, 2)
-  type       String
-  reason     String
-  createdAt  DateTime @default(now())
-  reviewedBy String?
-  status     String   @default("pending")
-  taskId     String?
-  dealId     String?  // ID сделки Т-Банк для Мультирасчетов
-  paymentId  String?  // ID платежа Т-Банк
-  Task       Task?    @relation(fields: [taskId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Decimal  @db.Decimal(15, 2)
+  type        String
+  reason      String
+  createdAt   DateTime @default(now())
+  reviewedBy  String?
+  status      String   @default("pending")
+  taskId      String?
+  dealId      String? // ID сделки Т-Банк для Мультирасчетов
+  paymentId   String? // ID платежа Т-Банк
+  receiptId   String? // ID чека CloudKassir
+  receiptData Json? // Данные чека (фискальные реквизиты)
+  Task        Task?    @relation(fields: [taskId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
   @@index([status])
   @@index([dealId])
   @@index([paymentId])
+  @@index([receiptId])
 }
 
 model File {
@@ -802,23 +805,23 @@ enum Role {
 
 // Сделка (Deal) для системы Мультирасчетов
 model TBankDeal {
-  id                String   @id @default(cuid())
-  spAccumulationId  String   @unique // ID сделки от Т-Банка
-  userId            String? // Пользователь, создавший сделку (опционально)
-  dealType          String   @default("NN") // Тип сделки (NN для N:N)
-  status            DealStatus @default(OPEN)
-  totalAmount       Decimal  @default(0.00) @db.Decimal(15, 2) // Общая сумма поступлений
-  paidAmount        Decimal  @default(0.00) @db.Decimal(15, 2) // Сумма выплат
-  remainingBalance  Decimal  @default(0.00) @db.Decimal(15, 2) // Остаток на балансе сделки
-  createdAt         DateTime @default(now())
-  closedAt          DateTime?
-  
+  id               String     @id @default(cuid())
+  spAccumulationId String     @unique // ID сделки от Т-Банка
+  userId           String? // Пользователь, создавший сделку (опционально)
+  dealType         String     @default("NN") // Тип сделки (NN для N:N)
+  status           DealStatus @default(OPEN)
+  totalAmount      Decimal    @default(0.00) @db.Decimal(15, 2) // Общая сумма поступлений
+  paidAmount       Decimal    @default(0.00) @db.Decimal(15, 2) // Сумма выплат
+  remainingBalance Decimal    @default(0.00) @db.Decimal(15, 2) // Остаток на балансе сделки
+  createdAt        DateTime   @default(now())
+  closedAt         DateTime?
+
   // Связанные платежи и выплаты
-  payments  TBankPayment[]
-  payouts   TBankPayout[]
-  
+  payments TBankPayment[]
+  payouts  TBankPayout[]
+
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
+
   @@index([spAccumulationId])
   @@index([userId])
   @@index([status])
@@ -827,19 +830,19 @@ model TBankDeal {
 
 // Платеж (покупка) в рамках сделки
 model TBankPayment {
-  id               String   @id @default(cuid())
-  dealId           String // Ссылка на сделку
-  paymentId        String   @unique // PaymentId от Т-Банка
-  orderId          String   @unique // OrderId в нашей системе
-  amount           Decimal  @db.Decimal(15, 2)
-  status           String // NEW, CONFIRMED, AUTHORIZED, etc.
-  customerId       String? // ID покупателя (если есть)
-  terminalKey      String
-  createdAt        DateTime @default(now())
-  confirmedAt      DateTime?
-  
+  id          String    @id @default(cuid())
+  dealId      String // Ссылка на сделку
+  paymentId   String    @unique // PaymentId от Т-Банка
+  orderId     String    @unique // OrderId в нашей системе
+  amount      Decimal   @db.Decimal(15, 2)
+  status      String // NEW, CONFIRMED, AUTHORIZED, etc.
+  customerId  String? // ID покупателя (если есть)
+  terminalKey String
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
   deal TBankDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  
+
   @@index([dealId])
   @@index([paymentId])
   @@index([orderId])
@@ -848,21 +851,21 @@ model TBankPayment {
 
 // Выплата в рамках сделки
 model TBankPayout {
-  id                String   @id @default(cuid())
-  dealId            String
-  paymentId         String   @unique // PaymentId от Т-Банка (для выплаты)
-  orderId           String   @unique // OrderId в нашей системе
-  recipientId       String // ID получателя (userId или номер телефона)
-  recipientType     String // "user", "phone", "card", "partner"
-  amount            Decimal  @db.Decimal(15, 2)
-  status            String // NEW, CHECKED, COMPLETED, REJECTED, etc.
-  isFinal           Boolean  @default(false) // Финальная выплата?
-  terminalKey       String
-  createdAt         DateTime @default(now())
-  completedAt       DateTime?
-  
+  id            String    @id @default(cuid())
+  dealId        String
+  paymentId     String    @unique // PaymentId от Т-Банка (для выплаты)
+  orderId       String    @unique // OrderId в нашей системе
+  recipientId   String // ID получателя (userId или номер телефона)
+  recipientType String // "user", "phone", "card", "partner"
+  amount        Decimal   @db.Decimal(15, 2)
+  status        String // NEW, CHECKED, COMPLETED, REJECTED, etc.
+  isFinal       Boolean   @default(false) // Финальная выплата?
+  terminalKey   String
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
   deal TBankDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  
+
   @@index([dealId])
   @@index([paymentId])
   @@index([orderId])
@@ -872,7 +875,7 @@ model TBankPayout {
 
 // Статус сделки
 enum DealStatus {
-  OPEN              // Открыта (есть подтвержденные платежи)
-  PARTIAL_CANCELED  // Частично отменена
-  CLOSED            // Закрыта (финальная выплата или closeSpDeal)
+  OPEN // Открыта (есть подтвержденные платежи)
+  PARTIAL_CANCELED // Частично отменена
+  CLOSED // Закрыта (финальная выплата или closeSpDeal)
 }

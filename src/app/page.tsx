@@ -1,6 +1,28 @@
-'use client'
+import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
+
+export const metadata: Metadata = {
+	title: 'Главная — Фриланс платформа NESI для заказчиков и исполнителей',
+	description: 'NESI — современная фриланс платформа для поиска удаленной работы и найма специалистов. Создавайте задачи, находите исполнителей, работайте удаленно. Безопасные платежи, система эскроу.',
+	keywords: [
+		'фриланс',
+		'удаленная работа',
+		'работа на дому',
+		'фрилансеры',
+		'заказчики',
+		'исполнители',
+		'удаленная работа вакансии',
+		'фриланс биржа',
+		'найти исполнителя',
+		'найти работу',
+	],
+	openGraph: {
+		title: 'NESI — Фриланс платформа для заказчиков и исполнителей',
+		description: 'Современная фриланс платформа для поиска удаленной работы и найма специалистов. Безопасные платежи, система эскроу.',
+		type: 'website',
+	},
+}
 
 export default function Home() {
 	return (
@@ -8,63 +30,15 @@ export default function Home() {
 			className='w-full min-h-screen relative overflow-x-hidden'
 			style={{
 				fontFamily: "'Inter', 'Poppins', system-ui, -apple-system, sans-serif",
-				background:
-					'radial-gradient(80% 100% at 100% 50%, rgba(0, 255, 205, 0.15) 0%, rgba(58, 57, 57, 0) 100%), linear-gradient(0deg, rgb(10, 20, 15) 0%, rgb(5, 15, 10) 100%)',
 			}}
 		>
-			{/* TOP HEADER */}
-			<div className='w-full h-auto flex flex-col md:flex-row items-center justify-between px-3 sm:px-6 py-4 md:py-0 md:h-30 relative z-50 mx-auto gap-4 md:gap-0'>
-				{/* Logo */}
-				<div
-					className='text-4xl sm:text-5xl md:text-7xl font-bold tracking-[5px] md:tracking-[10px]'
-					style={{
-						color: '#00ffcd',
-						textShadow: '0px 0px 10px #00ffcd',
-					}}
-				>
-					NESI
-				</div>
-
-				{/* Center subtitle with auth button inside */}
-				<div
-					className='flex-1 w-full md:w-auto md:mx-8 h-auto md:h-25 flex flex-col md:flex-row items-center justify-between px-3 sm:px-6 py-3 md:py-0 rounded-md relative gap-3 md:gap-0'
-					style={{
-						background:
-							'linear-gradient(270deg, rgba(4, 255, 205, 0.3) 0%, rgba(5, 15, 10, 0.2) 60%)',
-					}}
-				>
-					<span
-						className='text-xs sm:text-sm md:text-m w-full md:w-2/3 h-auto md:h-15 px-3 sm:px-4 py-2 md:py-0 flex items-center justify-center rounded-lg font-bold text-center'
-						style={{
-							color: '#ffffff',
-							letterSpacing: '1px',
-							border: '1px solid rgba(0, 255, 205, 0.5)',
-							boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
-						}}
-					>
-						Платформа для заказчиков и исполнителей
-					</span>
-
-					{/* Auth button */}
-					<div
-						className='w-full md:w-auto h-auto md:h-15 px-3 sm:px-4 py-2 md:py-0 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
-						style={{
-							background:
-								'linear-gradient(0deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), linear-gradient(0deg, rgba(0, 255, 205, 0.3), rgba(0, 255, 205, 0.3))',
-							border: '1px solid rgba(0, 255, 205, 0.5)',
-							boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
-						}}
-					>
-						<span
-							className='text-xs sm:text-sm md:text-m whitespace-nowrap'
-							style={{
-								color: '#ffffff',
-								letterSpacing: '1px',
-							}}
-						>
-							<a href='/login'>Вход</a> или <a href='/register'>Регистрация</a>
-						</span>
-					</div>
+			{/* Background Effects */}
+			<div className='fixed inset-0 -z-10'>
+				<div className='absolute inset-0 bg-gradient-to-b from-black via-gray-950 to-black'></div>
+				<div className='absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,255,205,0.1),transparent_50%)]'></div>
+				<div className='absolute inset-0'>
+					<div className='absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl'></div>
+					<div className='absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl'></div>
 				</div>
 			</div>
 
@@ -121,127 +95,78 @@ export default function Home() {
 					</h1>
 				</div>
 
-				{/* Content Grid */}
-				<div className='grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10 w-full lg:w-[90%] mx-auto relative z-10 items-start'>
-					{/* Left Column */}
-					<div className='space-y-4 sm:space-y-6'>
-						<div
-							className='p-4 sm:p-6 rounded-xl'
-							style={{
-								backgroundColor: 'transparent',
-								border: '1px solid rgba(0, 255, 205, 0.3)',
-								boxShadow: '0 0 25px rgba(0, 255, 205, 0.5)',
-							}}
-						>
-							<p
-								className='text-sm sm:text-base md:text-lg lg:text-xl text-center leading-relaxed'
-								style={{
-									color: '#00ffcd',
-									letterSpacing: '1px',
-								}}
+				{/* Content Sections */}
+				<div className='max-w-6xl mx-auto space-y-8 sm:space-y-12 relative z-10'>
+					{/* Business Section */}
+					<section className='bg-black/40 backdrop-blur-sm border border-emerald-500/30 rounded-2xl p-6 sm:p-8 md:p-10 shadow-[0_0_30px_rgba(0,255,205,0.2)]'>
+						<h2 className='text-xl sm:text-2xl md:text-3xl font-bold text-emerald-400 mb-4 sm:mb-6'>
+							Для Бизнеса
+						</h2>
+						<p className='text-gray-300 text-sm sm:text-base md:text-lg leading-relaxed mb-4 sm:mb-6'>
+							Найдите профессиональных исполнителей для ваших задач. Размещайте проекты, получайте отклики от проверенных специалистов и работайте с гарантией качества.
+						</p>
+						<div className='flex flex-wrap gap-3 sm:gap-4'>
+							<Link
+								href='/business'
+								className='px-4 sm:px-6 py-2 sm:py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-emerald-500/50 text-sm sm:text-base'
 							>
-								Мы новая цифровая экосистема, где бизнес
-								встречает настоящие таланты.
-								<br />
-								<br />
-								Каждый исполнитель проходит сертификацию, а заказчик получает
-								гарантированный результат.
-							</p>
-						</div>
-					</div>
-
-					{/* Right Column */}
-					<div className='space-y-4 sm:space-y-6 md:space-y-8 transform translate-x-0 md:translate-x-10 translate-y-0 md:-translate-y-6 scale-100 md:scale-[1.22] origin-top-right'>
-						<div className='grid grid-cols-1 gap-4'>
-							<div className='aspect-[5/4] rounded-xl overflow-hidden relative'>
-								<Image
-									src='/anime_images.svg'
-									alt='Иллюстрация платформы NESI для бизнеса и талантов'
-									fill
-									className='object-contain'
-									priority={false}
-									loading='lazy'
-								/>
-							</div>
-						</div>
-
-						<div
-							className='p-4 sm:p-6 md:p-8 rounded-xl'
-							style={{
-								backgroundColor: 'transparent',
-								border: '1px solid rgba(0, 255, 205, 0.4)',
-								boxShadow: '0 0 40px rgba(0, 255, 205, 0.7)',
-							}}
-						>
-							<p
-								className='text-sm sm:text-base md:text-lg lg:text-xl text-center leading-relaxed'
-								style={{
-									color: '#00ffcd',
-									letterSpacing: '1px',
-								}}
+								Создать задачу
+							</Link>
+							<Link
+								href='/specialists'
+								className='px-4 sm:px-6 py-2 sm:py-3 border border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 rounded-lg font-semibold transition-all text-sm sm:text-base'
 							>
-								Мы создаём пространство, где технологии соединяют людей и
-								возможности.
-								<br />
-								<br />
-								Здесь ценится результат — точный, быстрый,
-								проверенный.
-								<br />
-								<br />
-								Каждый проект становится частью цифрового потока, управляемого
-								интеллектом и доверием.
-								<br />
-								<br />
-								Это не просто обмен задачами — это новая форма взаимодействия в
-								IT-мире.
-							</p>
+								Найти специалиста
+							</Link>
 						</div>
-					</div>
+					</section>
+
+					{/* Talents Section */}
+					<section className='bg-black/40 backdrop-blur-sm border border-emerald-500/30 rounded-2xl p-6 sm:p-8 md:p-10 shadow-[0_0_30px_rgba(0,255,205,0.2)]'>
+						<h2 className='text-xl sm:text-2xl md:text-3xl font-bold text-emerald-400 mb-4 sm:mb-6'>
+							Для Исполнителей
+						</h2>
+						<p className='text-gray-300 text-sm sm:text-base md:text-lg leading-relaxed mb-4 sm:mb-6'>
+							Найдите удаленную работу и проекты, которые вам интересны. Получайте оплату безопасно, развивайте навыки через сертификацию и стройте карьеру фрилансера.
+						</p>
+						<div className='flex flex-wrap gap-3 sm:gap-4'>
+							<Link
+								href='/tasks'
+								className='px-4 sm:px-6 py-2 sm:py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-emerald-500/50 text-sm sm:text-base'
+							>
+								Найти работу
+							</Link>
+							<Link
+								href='/cert'
+								className='px-4 sm:px-6 py-2 sm:py-3 border border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 rounded-lg font-semibold transition-all text-sm sm:text-base'
+							>
+								Пройти сертификацию
+							</Link>
+						</div>
+					</section>
 				</div>
 
-				{/* FOOTER */}
-				<div className='w-full h-auto flex flex-col md:flex-row items-center justify-between px-3 sm:px-6 relative z-50 mx-auto mt-12 sm:mt-20 md:mt-40 lg:mt-80 mb-8 sm:mb-12 md:mb-20 gap-6 md:gap-0'>
-					<div
-						className='text-4xl sm:text-5xl md:text-7xl font-bold tracking-[5px] md:tracking-[10px]'
-						style={{
-							color: '#00ffcd',
-							textShadow: '0px 0px 10px #00ffcd',
-						}}
-					>
-						NESI
-					</div>
-					<div
-						className='flex-1 w-full md:w-auto md:mx-8 h-auto md:h-60 flex items-center justify-center md:justify-end px-3 sm:px-6 py-4 md:py-0 rounded-md relative gap-4 md:gap-10'
-						style={{
-							background:
-								'linear-gradient(270deg, rgba(4, 255, 205, 0.3) 0%, rgba(5, 15, 10, 0.2) 60%)',
-						}}
-					>
-						<div className='grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 w-full md:w-7/8'>
-							{[
-								{ text: 'О проекте', href: '/about' },
-								{ text: 'Политика конфиденциальности', href: '/privacy' },
-								{ text: 'Пользовательское соглашение', href: '/terms' },
-								{ text: 'Публичная оферта', href: '/offer' },
-								{ text: 'Служба поддержки', href: 'mailto:info.nesi@bk.ru' },
-							].map(({ text, href }) => (
-								<Link
-									key={text}
-									href={href}
-									className='h-auto md:h-15 px-2 sm:px-3 py-2 md:py-0 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-300 hover:translate-y-[-1px] font-bold'
-									style={{
-										border: '1px solid rgba(0, 255, 205, 0.5)',
-										boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
-									}}
-								>
-									<span className='text-xs sm:text-sm md:text-m text-white tracking-[1px] md:tracking-[3px] text-center'>
-										{text}
-									</span>
-								</Link>
-							))}
-						</div>
-					</div>
-				</div>
+				{/* Structured Data */}
+				<script
+					type='application/ld+json'
+					dangerouslySetInnerHTML={{
+						__html: JSON.stringify({
+							'@context': 'https://schema.org',
+							'@type': 'WebSite',
+							name: 'NESI',
+							description: 'Фриланс платформа для заказчиков и исполнителей',
+							url: process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su',
+							potentialAction: {
+								'@type': 'SearchAction',
+								target: {
+									'@type': 'EntryPoint',
+									urlTemplate: `${process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su'}/tasks?search={search_term_string}`,
+								},
+								'query-input': 'required name=search_term_string',
+							},
+						}),
+					}}
+				/>
 			</div>
 		</div>
 	)

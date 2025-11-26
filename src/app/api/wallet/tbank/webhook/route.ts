@@ -1,6 +1,7 @@
 import { logger } from '@/lib/logger'
 import prisma from '@/lib/prisma'
 import { kopecksToRubles, verifyWebhookSignature } from '@/lib/tbank'
+import { createReceiptForDeposit } from '@/lib/cloudkassir-helper'
 import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -265,6 +266,27 @@ export async function POST(req: NextRequest) {
 					savedDealId: finalDealId || 'NULL',
 					transactionUpdated: true,
 				})
+
+				// Автоматически создаем чек CloudKassir для пополнения
+				if (needsBalanceIncrement) {
+					try {
+						const receiptResult = await createReceiptForDeposit(existingTx.id)
+						if (receiptResult.success) {
+							console.log('✅ [WEBHOOK] Чек CloudKassir создан автоматически:', {
+								receiptId: receiptResult.receiptId,
+								transactionId: existingTx.id,
+							})
+						} else {
+							console.log('⚠️ [WEBHOOK] Не удалось создать чек CloudKassir:', {
+								error: receiptResult.error,
+								transactionId: existingTx.id,
+							})
+						}
+					} catch (receiptError: any) {
+						console.error('❌ [WEBHOOK] Ошибка создания чека CloudKassir:', receiptError)
+						// Не прерываем выполнение, так как платеж уже обработан
+					}
+				}
 			} else {
 				// Если транзакции нет (старый код), создаем новую
 				const updated = await prisma.user.update({
@@ -297,6 +319,37 @@ export async function POST(req: NextRequest) {
 					savedDealId: finalDealId || 'NULL',
 					transactionCreated: true,
 				})
+
+				// Автоматически создаем чек CloudKassir для пополнения
+				// Находим созданную транзакцию
+				const createdTransaction = await prisma.transaction.findFirst({
+					where: {
+						userId,
+						paymentId: paymentIdString,
+						type: 'deposit',
+					},
+					orderBy: { createdAt: 'desc' },
+				})
+
+				if (createdTransaction) {
+					try {
+						const receiptResult = await createReceiptForDeposit(createdTransaction.id)
+						if (receiptResult.success) {
+							console.log('✅ [WEBHOOK] Чек CloudKassir создан автоматически:', {
+								receiptId: receiptResult.receiptId,
+								transactionId: createdTransaction.id,
+							})
+						} else {
+							console.log('⚠️ [WEBHOOK] Не удалось создать чек CloudKassir:', {
+								error: receiptResult.error,
+								transactionId: createdTransaction.id,
+							})
+						}
+					} catch (receiptError: any) {
+						console.error('❌ [WEBHOOK] Ошибка создания чека CloudKassir:', receiptError)
+						// Не прерываем выполнение, так как платеж уже обработан
+					}
+				}
 			}
 
 			// КРИТИЧЕСКИ ВАЖНО: Если DealId все еще NULL, это проблема!

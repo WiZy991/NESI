@@ -23,14 +23,80 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-	title: 'NESI',
-	description: 'Платформа NESI — задачи, специалисты и сертификация',
+	metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su'),
+	title: {
+		default: 'NESI — Фриланс платформа для заказчиков и исполнителей | Удаленная работа',
+		template: '%s | NESI',
+	},
+	description: 'NESI — современная фриланс платформа для поиска удаленной работы и найма специалистов. Создавайте задачи, находите исполнителей, работайте удаленно. Безопасные платежи, система эскроу, сертификация специалистов.',
+	keywords: [
+		'фриланс',
+		'удаленная работа',
+		'работа на дому',
+		'фрилансеры',
+		'заказчики',
+		'исполнители',
+		'удаленная работа вакансии',
+		'фриланс биржа',
+		'найти исполнителя',
+		'найти работу',
+		'удаленная работа онлайн',
+		'фриланс проекты',
+		'заказать работу',
+		'найти специалиста',
+		'работа фрилансером',
+		'удаленная работа для специалистов',
+	],
+	authors: [{ name: 'NESI' }],
+	creator: 'NESI',
+	publisher: 'NESI',
+	formatDetection: {
+		email: false,
+		address: false,
+		telephone: false,
+	},
+	openGraph: {
+		type: 'website',
+		locale: 'ru_RU',
+		url: process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su',
+		siteName: 'NESI',
+		title: 'NESI — Фриланс платформа для заказчиков и исполнителей',
+		description: 'Современная фриланс платформа для поиска удаленной работы и найма специалистов. Безопасные платежи, система эскроу, сертификация.',
+		images: [
+			{
+				url: '/og-image.png',
+				width: 1200,
+				height: 630,
+				alt: 'NESI — Фриланс платформа',
+			},
+		],
+	},
+	twitter: {
+		card: 'summary_large_image',
+		title: 'NESI — Фриланс платформа для заказчиков и исполнителей',
+		description: 'Современная фриланс платформа для поиска удаленной работы и найма специалистов.',
+		images: ['/og-image.png'],
+	},
+	robots: {
+		index: true,
+		follow: true,
+		googleBot: {
+			index: true,
+			follow: true,
+			'max-video-preview': -1,
+			'max-image-preview': 'large',
+			'max-snippet': -1,
+		},
+	},
 	icons: {
 		icon: '/favicon.ico',
 		shortcut: '/favicon-32x32.png',
 		apple: '/apple-touch-icon.png',
 	},
 	manifest: '/site.webmanifest',
+	alternates: {
+		canonical: process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su',
+	},
 }
 
 export const viewport: Viewport = {
