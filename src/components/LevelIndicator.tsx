@@ -11,7 +11,7 @@ interface LevelData {
   progressPercent: number
 }
 
-export default function LevelIndicator() {
+export default function LevelIndicator({ onNavigate }: { onNavigate?: () => void }) {
   const { user, token } = useUser()
   const [levelData, setLevelData] = useState<LevelData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,9 +55,16 @@ export default function LevelIndicator() {
     return null
   }
 
+  const handleClick = () => {
+    if (onNavigate) {
+      onNavigate()
+    }
+  }
+
   return (
     <Link
       href="/level"
+      onClick={handleClick}
       className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all group"
       title={`Уровень ${levelData.level}${levelData.levelName ? ` (${levelData.levelName})` : ''} | ${levelData.xp} XP`}
       data-onboarding-target="nav-level"

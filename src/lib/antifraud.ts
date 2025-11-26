@@ -153,6 +153,11 @@ export async function validateWithdrawal(
 		where: { id: userId },
 		select: {
 			createdAt: true,
+			role: true,
+			executedTasks: {
+				where: { status: 'completed' },
+				select: { id: true },
+			},
 		},
 	})
 
@@ -160,7 +165,19 @@ export async function validateWithdrawal(
 		return { allowed: false, error: 'Пользователь не найден' }
 	}
 
-	// Проверка 1: Лимиты для новых аккаунтов (младше 7 дней)
+	// Проверка 1: Хотя бы одна выполненная задача (только для исполнителей)
+	// Для заказчиков проверка не требуется
+	if (user.role === 'executor') {
+		const completedTasksCount = user.executedTasks.length
+		if (completedTasksCount === 0) {
+			return {
+				allowed: false,
+				error: 'Вывод доступен только после выполнения хотя бы одной задачи',
+			}
+		}
+	}
+
+	// Проверка 2: Лимиты для новых аккаунтов (младше 7 дней)
 	const accountAge = Date.now() - user.createdAt.getTime()
 	const isNewAccount = accountAge < 7 * 24 * 60 * 60 * 1000 // 7 дней
 
@@ -172,7 +189,7 @@ export async function validateWithdrawal(
 		}
 	}
 
-	// Проверка 2: Активные споры
+	// Проверка 3: Активные споры
 	// Получаем все активные споры, где пользователь является заказчиком или исполнителем задачи
 	const disputesAsCustomer = await prisma.dispute.count({
 		where: {

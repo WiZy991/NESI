@@ -22,12 +22,24 @@ export default function ConfirmDialog({
   onClose,
   onConfirm,
   title = 'Подтвердите действие',
-  message,
+  message: messageProp,
   confirmText = 'Подтвердить',
   cancelText = 'Отмена',
   type = 'danger',
   isLoading = false,
 }: ConfirmDialogProps) {
+  // Гарантируем, что message всегда строка
+  const message = typeof messageProp === 'string' 
+    ? messageProp 
+    : messageProp == null 
+      ? '' 
+      : typeof messageProp === 'object'
+        ? (('message' in messageProp && typeof messageProp.message === 'string')
+            ? messageProp.message
+            : ('error' in messageProp && typeof messageProp.error === 'string')
+              ? messageProp.error
+              : 'Произошла ошибка')
+        : String(messageProp)
   // Закрытие по Escape
   useEffect(() => {
     if (!isOpen) return
@@ -100,7 +112,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[9999]"
+      className="fixed inset-0 z-[9998]"
       style={{ 
         position: 'fixed', 
         top: 0, 
@@ -161,7 +173,9 @@ export default function ConfirmDialog({
 
         {/* Content */}
         <div className="p-6">
-          <p className="text-gray-300 leading-relaxed">{message}</p>
+          <p className="text-gray-300 leading-relaxed">
+            {message}
+          </p>
         </div>
 
         {/* Actions */}

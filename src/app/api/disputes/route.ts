@@ -107,16 +107,29 @@ export async function POST(req: Request) {
 		return NextResponse.json({ error: 'Спор уже создан' }, { status: 400 })
 	}
 
-	// Создаём новый спор
-	const dispute = await (prisma as any).dispute.create({
-		data: {
-			id: `dispute_${taskId}_${Date.now()}`,
-			taskId,
-			userId: user.id,
-			reason,
-			details,
-			status: 'open',
-		},
+	// Создаём новый спор и сбрасываем запрос на отмену (если был)
+	const dispute = await prisma.$transaction(async (tx) => {
+		const newDispute = await (tx as any).dispute.create({
+			data: {
+				id: `dispute_${taskId}_${Date.now()}`,
+				taskId,
+				userId: user.id,
+				reason,
+				details,
+				status: 'open',
+			},
+		})
+
+		// Сбрасываем запрос на отмену, так как создан спор
+		await tx.task.update({
+			where: { id: taskId },
+			data: {
+				cancellationRequestedAt: null,
+				cancellationReason: null,
+			},
+		})
+
+		return newDispute
 	})
 
 	return NextResponse.json({ dispute })

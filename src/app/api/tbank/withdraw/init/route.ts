@@ -42,14 +42,14 @@ export async function POST(req: NextRequest) {
 
 		// Минимальная сумма 100 рублей для E2C выплат
 		// Используем строгое сравнение с учетом возможных проблем округления
-		if (isNaN(amountNumber) || amountNumber < 100) {
+		if (isNaN(amountNumber) || amountNumber < 1) {
 			logger.warn('Попытка вывода суммы меньше минимума', {
 				amount,
 				parsedAmount: parsedAmount.toString(),
 				amountNumber,
 			})
 			return NextResponse.json(
-				{ error: 'Минимальная сумма вывода: 100 ₽' },
+				{ error: 'Минимальная сумма вывода: 1 ₽' },
 				{ status: 400 }
 			)
 		}
@@ -264,8 +264,8 @@ export async function POST(req: NextRequest) {
 
 			// Если ошибка связана с суммой - показываем более точное сообщение
 			if (result.Details && result.Details.includes('wrong.payout.amount')) {
-				if (amountNumber < 100) {
-					errorMessage = 'Неверная сумма выплаты. Минимальная сумма: 100 ₽'
+				if (amountNumber < 1) {
+					errorMessage = 'Неверная сумма выплаты. Минимальная сумма: 1 ₽'
 				} else {
 					// Сумма больше 1000, но все равно ошибка - возможно, проблема с балансом сделки
 					const dealBalance = toNumber(deal.remainingBalance || 0)

@@ -5,7 +5,7 @@ import { createNotificationWithSettings } from '@/lib/notify'
 import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { logger } from '@/lib/logger'
 
-export async function POST(req: Request, context: { params: { id: string } }) {
+export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const user = await getUserFromRequest(req)
     if (!user) {
@@ -15,7 +15,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       return NextResponse.json({ error: 'Только исполнители могут откликаться' }, { status: 403 })
     }
 
-    const taskId = context.params.id
+    const { id: taskId } = await context.params
     const { message, price } = await req.json()
 
     const task = await prisma.task.findUnique({
@@ -122,8 +122,9 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 
     return NextResponse.json({ ok: true, response })
   } catch (e) {
+    const { id: taskId } = await context.params
     logger.error('POST /api/tasks/[id]/respond error', e, {
-      taskId: context.params.id,
+      taskId,
       userId: user?.id,
     })
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })

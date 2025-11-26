@@ -91,6 +91,11 @@ export default function Header() {
 	const router = useRouter()
 	const pathname = usePathname()
 	const [menuOpen, setMenuOpen] = useState(false)
+	
+	// Закрываем мобильное меню при изменении пути
+	useEffect(() => {
+		setMobileMenuOpen(false)
+	}, [pathname])
 	const [achievementBadge, setAchievementBadge] = useState<{
 		id: string
 		name: string
@@ -225,6 +230,11 @@ export default function Header() {
 			document.body.style.width = ''
 		}
 	}, [mobileMenuOpen])
+
+	// Закрываем мобильное меню при изменении пути
+	useEffect(() => {
+		setMobileMenuOpen(false)
+	}, [pathname])
 
 	// Слушатель для автоматического открытия меню из онбординга
 	useEffect(() => {
@@ -1081,7 +1091,7 @@ export default function Header() {
 				</Link>
 
 				{/* Мобильная кнопка и уведомления */}
-				<div className='flex items-center gap-3 md:hidden'>
+				<div className='flex items-center gap-3 lg:hidden'>
 					{user && (
 						<div className='relative' ref={notifRef}>
 							<button
@@ -1305,7 +1315,7 @@ export default function Header() {
 				{mobileMenuOpen && (
 					<div
 						ref={mobileMenuRef}
-						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-xl border-b border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.3)] md:hidden z-40 animate-slideInDown max-h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar'
+						className='absolute top-full left-0 w-full bg-black/95 backdrop-blur-xl border-b border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.3)] lg:hidden z-40 animate-slideInDown max-h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar'
 					>
 						<nav className='flex flex-col p-5 space-y-1.5 text-gray-200'>
 							{/* Навигация для страниц /business, /talents, /tasks, /specialists (только для неавторизованных пользователей) */}
@@ -1464,7 +1474,7 @@ export default function Header() {
 											{/* Индикатор уровня для исполнителей в мобильном меню */}
 											{user.role === 'executor' && (
 												<div className='px-4 py-2'>
-													<LevelIndicator />
+													<LevelIndicator onNavigate={() => setMobileMenuOpen(false)} />
 												</div>
 											)}
 
@@ -1640,7 +1650,7 @@ export default function Header() {
 				)}
 
 				{/* Десктопная навигация */}
-				<nav className='hidden md:flex gap-7 items-center text-gray-200 font-poppins'>
+				<nav className='hidden lg:flex gap-7 items-center text-gray-200 font-poppins'>
 					{/* Навигация для страниц /business, /talents, /tasks, /specialists (только для неавторизованных пользователей) */}
 					{!user &&
 						(pathname === '/business' ||

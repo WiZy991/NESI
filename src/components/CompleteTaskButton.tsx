@@ -59,12 +59,14 @@ export default function CompleteTaskButton({
 				if (data.awardedBadges?.customer && data.awardedBadges.customer.length > 0) {
 					setBadgeQueue(data.awardedBadges.customer)
 					showNextBadge()
-				}
-				
-				// Перезагружаем страницу после показа всех достижений
-				setTimeout(() => {
+					// Перезагружаем страницу после показа всех достижений
+					setTimeout(() => {
+						window.location.reload()
+					}, 6000) // Даем время на показ всех достижений
+				} else {
+					// Если нет достижений - обновляем страницу сразу
 					window.location.reload()
-				}, 6000) // Даем время на показ всех достижений
+				}
 			}
 		} catch {
 			toast.error('Ошибка сети')

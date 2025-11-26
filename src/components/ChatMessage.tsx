@@ -1714,15 +1714,36 @@ export default function ChatMessage({
 									}`}
 									onClick={e => {
 										e.stopPropagation()
-										// Прокрутка к исходному сообщению
+										// Прокрутка к исходному сообщению через контейнер (чтобы избежать подпрыгивания)
 										const originalMessage = document.querySelector(
 											`[data-message-id="${message.replyTo?.id}"]`
-										)
+										) as HTMLElement
+										
 										if (originalMessage) {
-											originalMessage.scrollIntoView({
-												behavior: 'smooth',
-												block: 'center',
-											})
+											// Находим контейнер сообщений (родительский элемент с overflow)
+											let container = originalMessage.parentElement
+											while (container && !container.classList.contains('overflow-y-auto') && !container.classList.contains('overflow-auto')) {
+												container = container.parentElement
+											}
+											
+											if (container) {
+												const elementRect = originalMessage.getBoundingClientRect()
+												const containerRect = container.getBoundingClientRect()
+												const offsetTop = elementRect.top - containerRect.top + container.scrollTop
+												const targetScroll = offsetTop - container.clientHeight / 2 + elementRect.height / 2
+												
+												container.scrollTo({
+													top: Math.max(0, targetScroll),
+													behavior: 'smooth',
+												})
+											} else {
+												// Fallback на scrollIntoView, если контейнер не найден
+												originalMessage.scrollIntoView({
+													behavior: 'smooth',
+													block: 'center',
+												})
+											}
+											
 											// Визуальное выделение на 2 секунды
 											originalMessage.classList.add(
 												'ring-2',
@@ -1890,10 +1911,20 @@ export default function ChatMessage({
 										return null
 									}
 
+									// Улучшенная проверка типа изображения - более надежная проверка
+									const isImageFile = isImage || 
+										(message.fileName && /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(message.fileName)) ||
+										(message.fileMimetype && message.fileMimetype.startsWith('image/'))
+									
+									// Также проверяем видео
+									const isVideoFile = isVideo ||
+										(message.fileName && /\.(mp4|webm|mov|avi|mkv|wmv|m4v|flv)$/i.test(message.fileName)) ||
+										(message.fileMimetype && message.fileMimetype.startsWith('video/'))
+
 									// Показываем файл только если это точно НЕ голосовое сообщение
 									return (
 										<div className={message.content ? 'mb-2' : ''}>
-											{isImage ? (
+											{isImageFile ? (
 												<>
 													<div
 														className='relative block rounded-lg overflow-hidden group cursor-pointer'
@@ -1906,12 +1937,18 @@ export default function ChatMessage({
 															src={fileUrl}
 															alt={message.fileName || 'Изображение'}
 															className='max-w-full max-h-64 sm:max-h-80 rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02]'
+															loading='lazy'
 															onError={e => {
 																// Если изображение не загружается, показываем как файл
 																console.error(
 																	'Ошибка загрузки изображения:',
-																	fileUrl
+																	fileUrl,
+																	message.fileName,
+																	message.fileMimetype
 																)
+																// Не заменяем на файл, чтобы пользователь видел, что изображение не загрузилось
+																const target = e.target as HTMLImageElement
+																target.style.display = 'none'
 															}}
 														/>
 														{/* Кнопка скачивания - появляется при наведении */}
@@ -1982,7 +2019,7 @@ export default function ChatMessage({
 															document.body
 														)}
 												</>
-											) : isVideo ? (
+											) : isVideoFile ? (
 												<>
 													<div
 														className='max-w-full rounded-lg overflow-hidden relative group bg-black/20 cursor-pointer'

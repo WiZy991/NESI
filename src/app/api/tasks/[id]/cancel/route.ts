@@ -42,34 +42,28 @@ export async function POST(
 			)
 		}
 
-		const escrowNum = toNumber(task.escrowAmount)
-		if (escrowNum > 0) {
-			const escrowDecimal = new Prisma.Decimal(escrowNum)
+		// Проверяем, есть ли уже запрос на отмену
+		const existingTask = await prisma.task.findUnique({
+			where: { id: taskId },
+			select: { cancellationRequestedAt: true },
+		})
 
-			await prisma.$transaction([
-				prisma.user.update({
-					where: { id: task.customerId },
-					data: {
-						frozenBalance: { decrement: escrowDecimal },
-					},
-				}),
-				prisma.transaction.create({
-					data: {
-						userId: task.customerId,
-						amount: new Prisma.Decimal(0),
-						type: 'refund',
-						reason: `Разморозка средств за отмену задачи "${task.title}"`,
-					},
-				}),
-			])
+		if (existingTask?.cancellationRequestedAt) {
+			// Запрос уже существует - возвращаем ошибку
+			return NextResponse.json(
+				{ error: 'Запрос на отмену уже отправлен. Ожидайте ответа исполнителя.' },
+				{ status: 400 }
+			)
 		}
 
+		// Создаем запрос на отмену (НЕ отменяем сразу!)
+		const { reason } = await req.json().catch(() => ({}))
+		
 		await prisma.task.update({
 			where: { id: taskId },
 			data: {
-				executorId: null,
-				status: 'open',
-				escrowAmount: new Prisma.Decimal(0),
+				cancellationRequestedAt: new Date(),
+				cancellationReason: reason || null,
 			},
 		})
 
@@ -78,7 +72,7 @@ export async function POST(
 				data: {
 					userId: task.executorId,
 					type: 'task_cancelled',
-					message: `Заказчик отменил задачу: ${task.title}`,
+					message: `Заказчик запросил отмену задачи: ${task.title}`,
 					link: `/tasks/${task.id}`,
 				},
 			})

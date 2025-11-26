@@ -12,10 +12,22 @@ const createCommentSchema = z.object({
 		.string()
 		.max(2000, 'Комментарий слишком длинный (максимум 2000 символов)')
 		.trim()
-		.optional(),
+		.optional()
+		.nullable()
+		.transform(val => val === null || val === undefined || val === '' ? undefined : val),
 	imageUrl: imageUrlSchema,
-	parentId: z.string().uuid('Некорректный ID родительского комментария').optional(),
-	mediaType: z.enum(['image', 'video']).optional(),
+	parentId: z
+		.preprocess(
+			(val) => {
+				// Нормализуем пустые значения в undefined
+				if (val === null || val === undefined || val === '') {
+					return undefined
+				}
+				return val
+			},
+			z.string().min(1, 'Некорректный ID родительского комментария').optional()
+		),
+	mediaType: z.enum(['image', 'video']).optional().nullable(),
 })
 
 // 📌 Оптимизированная функция для построения дерева комментариев
@@ -101,15 +113,44 @@ export async function POST(
     }
 
     // Валидация данных
+    logger.debug('Создание комментария', {
+      postId: id,
+      hasContent: !!body.content,
+      hasParentId: !!body.parentId,
+      parentId: body.parentId,
+      bodyKeys: Object.keys(body),
+      bodyContent: typeof body.content === 'string' ? body.content.substring(0, 50) : body.content,
+    })
+    
     const validation = validateWithZod(createCommentSchema, body)
     if (!validation.success) {
+      const errorMessages = validation.errors || []
+      const errorText = errorMessages.length > 0 
+        ? errorMessages.join(', ') 
+        : 'Некорректные данные'
+      
+      logger.warn('Ошибка валидации комментария', {
+        errors: errorMessages,
+        body: JSON.stringify(body),
+        rawBody: body,
+        parentId: body.parentId,
+        parentIdType: typeof body.parentId,
+      })
+      
       return NextResponse.json(
-        { error: validation.errors.join(', ') },
+        { error: errorText },
         { status: 400 }
       )
     }
 
     const { content, parentId, imageUrl, mediaType } = validation.data
+    
+    logger.debug('Валидация прошла успешно', {
+      hasContent: !!content,
+      hasParentId: !!parentId,
+      parentId: parentId,
+      contentLength: content?.length || 0,
+    })
 
     // Разрешаем пустой контент если есть файл
     if ((!content || !content.trim()) && !imageUrl) {
@@ -142,6 +183,31 @@ export async function POST(
       } else {
         detectedMediaType = 'image'
       }
+    }
+
+    // Если это ответ на комментарий, проверяем что родительский комментарий существует и принадлежит к этому посту
+    let parentCommentAuthorId: string | null = null
+    if (parentId) {
+      const parentComment = await prisma.communityComment.findUnique({
+        where: { id: parentId },
+        select: { id: true, postId: true, authorId: true },
+      })
+
+      if (!parentComment) {
+        return NextResponse.json(
+          { error: 'Родительский комментарий не найден' },
+          { status: 404 }
+        )
+      }
+
+      if (parentComment.postId !== id) {
+        return NextResponse.json(
+          { error: 'Родительский комментарий не принадлежит к этому посту' },
+          { status: 400 }
+        )
+      }
+
+      parentCommentAuthorId = parentComment.authorId
     }
 
     const data: any = {
@@ -266,6 +332,52 @@ export async function POST(
           ? `/api/files/${comment.author.avatarFileId}`
           : null,
       },
+    }
+
+    // Отправка уведомлений о комментарии
+    try {
+      if (parentId && parentCommentAuthorId) {
+        // Это ответ на комментарий - отправляем уведомление автору родительского комментария
+        if (parentCommentAuthorId !== me.id) {
+          // Не отправляем уведомление самому себе
+          const commentAuthorName = comment.author.fullName || comment.author.email || 'Пользователь'
+          await prisma.notification.create({
+            data: {
+              userId: parentCommentAuthorId,
+              type: 'community_comment_reply',
+              message: `${commentAuthorName} ответил на ваш комментарий`,
+              link: `/community/${id}#comment-${comment.id}`,
+            },
+          })
+        }
+      } else {
+        // Это комментарий к посту - отправляем уведомление автору поста
+        const post = await prisma.communityPost.findUnique({
+          where: { id },
+          select: { authorId: true, title: true },
+        })
+
+        if (post && post.authorId !== me.id) {
+          // Не отправляем уведомление самому себе
+          const commentAuthorName = comment.author.fullName || comment.author.email || 'Пользователь'
+          const postTitle = post.title.length > 50 ? post.title.substring(0, 50) + '...' : post.title
+          await prisma.notification.create({
+            data: {
+              userId: post.authorId,
+              type: 'community_comment',
+              message: `${commentAuthorName} оставил комментарий к вашему посту "${postTitle}"`,
+              link: `/community/${id}#comment-${comment.id}`,
+            },
+          })
+        }
+      }
+    } catch (notificationError: any) {
+      // Логируем ошибку, но не прерываем создание комментария
+      logger.error('Ошибка отправки уведомления о комментарии', notificationError, {
+        commentId: comment.id,
+        postId: id,
+        parentId,
+      })
     }
 
     return NextResponse.json({ ok: true, comment: formattedComment }, { status: 201 })

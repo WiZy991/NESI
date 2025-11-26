@@ -26,7 +26,7 @@ async function safeSendNotification(userId: string, notification: any) {
 	}
 }
 
-const HIRE_COST = 1990
+const HIRE_COST = 390
 
 export async function GET(req: NextRequest) {
 	try {
@@ -414,7 +414,7 @@ export async function POST(req: NextRequest) {
 						userId: platformOwner.id,
 						amount: hireCost,
 						type: 'commission',
-						reason: `Оплата найма исполнителя (1990₽)`,
+						reason: `Оплата найма исполнителя (390₽)`,
 						status: 'completed',
 					},
 				})

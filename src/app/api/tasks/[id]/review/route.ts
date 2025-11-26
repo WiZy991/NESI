@@ -22,7 +22,7 @@ const createReviewSchema = z.object({
 
 export async function POST(
   req: Request,
-  { params }: { params: { taskId?: string; id?: string } }
+  { params }: { params: Promise<{ taskId?: string; id?: string }> }
 ) {
   try {
     const user = await getUserFromRequest(req)
@@ -31,7 +31,8 @@ export async function POST(
     }
 
     // ✅ Берём и taskId, и id, чтобы работало в любом случае
-    const taskId = params.taskId || params.id
+    const resolvedParams = await params
+    const taskId = resolvedParams.taskId || resolvedParams.id
     logger.debug('POST review for taskId', { taskId, userId: user.id })
 
     if (!taskId) {
@@ -166,7 +167,7 @@ export async function POST(
     return NextResponse.json({ review })
   } catch (e) {
     logger.error('Ошибка при создании отзыва', e, {
-      taskId: params.taskId || params.id,
+      taskId: resolvedParams.taskId || resolvedParams.id,
       userId: user?.id,
     })
     return NextResponse.json({ error: 'Ошибка при создании отзыва' }, { status: 500 })

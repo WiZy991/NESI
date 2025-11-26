@@ -421,10 +421,11 @@ export default function CommunityPage() {
 							{filtered.map(post => (
 								<div
 									key={post.id}
-									className='group border border-gray-800 rounded-xl p-3 sm:p-4 lg:p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative overflow-visible'
+									className='group border border-gray-800 rounded-xl p-3 sm:p-4 lg:p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative'
+									style={{ zIndex: openMenu === post.id ? 100 : 1 }}
 								>
 									{/* Автор */}
-									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative z-0'>
+									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative'>
 										<Link
 											href={`/users/${post.author.id}`}
 											className='group flex items-center gap-2 sm:gap-3 hover:bg-emerald-900/10 p-1.5 sm:p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition'
@@ -433,7 +434,7 @@ export default function CommunityPage() {
 												<img
 													src={resolveAvatarUrl(
 														post.author.avatarFileId || post.author.avatarUrl
-													)}
+													) || ''}
 													alt='avatar'
 													className='w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-emerald-700/40'
 												/>
@@ -463,9 +464,10 @@ export default function CommunityPage() {
 										{/* Меню */}
 										<div className='relative z-[200]' data-menu-container>
 											<button
-												onClick={() =>
+												onClick={(e) => {
+													e.stopPropagation()
 													setOpenMenu(openMenu === post.id ? null : post.id)
-												}
+												}}
 												className='p-1 hover:text-emerald-400 transition relative z-[200]'
 											>
 												<MoreHorizontal className='w-4 h-4 sm:w-5 sm:h-5' />
@@ -475,55 +477,57 @@ export default function CommunityPage() {
 												<>
 													{/* Overlay для закрытия меню */}
 													<div 
-														className='fixed inset-0 z-[9997]'
+														className='fixed inset-0 z-[9999]'
+														style={{ zIndex: 9999 }}
 														onClick={() => setOpenMenu(null)}
 													/>
 													<div 
-														className='absolute right-0 top-full mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-[9998]'
+														className='absolute right-0 top-full mt-2 w-40 sm:w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl'
+														style={{ zIndex: 10000 }}
 														onClick={(e) => e.stopPropagation()}
 													>
-													<button
-														onClick={() => {
-															copyLink(post.id)
-															setOpenMenu(null)
-														}}
-														className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 transition'
-													>
-														📋 Ссылка
-													</button>
+														<button
+															onClick={() => {
+																copyLink(post.id)
+																setOpenMenu(null)
+															}}
+															className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 transition'
+														>
+															📋 Ссылка
+														</button>
 
-													<button
-														onClick={() => {
-															setReportTarget({ type: 'post', id: post.id })
-															setOpenMenu(null)
-														}}
-														className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-red-400 transition'
-													>
-														🚨 Пожаловаться
-													</button>
+														<button
+															onClick={() => {
+																setReportTarget({ type: 'post', id: post.id })
+																setOpenMenu(null)
+															}}
+															className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-red-400 transition'
+														>
+															🚨 Пожаловаться
+														</button>
 
-													{user?.id === post.author.id && (
-														<>
-															<button
-																onClick={() => {
-																	startEditingPost(post)
-																	setOpenMenu(null)
-																}}
-																className='flex items-center gap-2 px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-emerald-400 transition w-full'
-															>
-																<Edit3 className='w-4 h-4' /> Редактировать
-															</button>
-															<button
-																onClick={() => {
-																	deletePost(post.id)
-																	setOpenMenu(null)
-																}}
-																className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-pink-500 transition'
-															>
-																🗑 Удалить
-															</button>
-														</>
-													)}
+														{user?.id === post.author.id && (
+															<>
+																<button
+																	onClick={() => {
+																		startEditingPost(post)
+																		setOpenMenu(null)
+																	}}
+																	className='flex items-center gap-2 px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-emerald-400 transition w-full'
+																>
+																	<Edit3 className='w-4 h-4' /> Редактировать
+																</button>
+																<button
+																	onClick={() => {
+																		deletePost(post.id)
+																		setOpenMenu(null)
+																	}}
+																	className='block w-full text-left px-3 sm:px-4 py-2 text-sm hover:bg-gray-800 text-pink-500 transition'
+																>
+																	🗑 Удалить
+																</button>
+															</>
+														)}
 													</div>
 												</>
 											)}

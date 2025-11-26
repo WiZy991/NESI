@@ -321,17 +321,22 @@ export default function CommunityPostPage() {
 				mediaType = isVideo ? 'video' : 'image'
 			}
 
+			const body: any = {}
+			if (commentText.trim()) {
+				body.content = commentText.trim()
+			}
+			if (imageUrl) {
+				body.imageUrl = imageUrl
+				body.mediaType = mediaType
+			}
+
 			const res = await fetch(`/api/community/${id}/comment`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({
-					content: commentText.trim() || '',
-					imageUrl,
-					mediaType,
-				}),
+				body: JSON.stringify(body),
 			})
 
 			if (res.ok) {
@@ -364,20 +369,71 @@ export default function CommunityPostPage() {
 
 	const sendReply = async (parentId: string) => {
 		const text = replyText[parentId]?.trim()
-		if (!text) return
-		setReplyText(s => ({ ...s, [parentId]: '' }))
+		if (!text) {
+			toast.error('Введите текст ответа')
+			return
+		}
+		
+		if (!token) {
+			toast.error('Необходимо авторизоваться')
+			return
+		}
+		
 		try {
+			console.log('Отправка ответа на комментарий:', { parentId, text: text.substring(0, 50), postId: id })
+			
+			const requestBody = { content: text, parentId }
+			console.log('Тело запроса:', requestBody)
+			
 			const res = await fetch(`/api/community/${id}/comment`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({ content: text, parentId }),
+				body: JSON.stringify(requestBody),
 			})
-			if (res.ok) fetchPost()
-		} catch (e) {
+			
+			const responseData = await res.json().catch(() => ({}))
+			console.log('Ответ сервера:', { status: res.status, ok: res.ok, data: responseData })
+			
+			if (res.ok) {
+				// Очищаем поле только после успешной отправки
+				setReplyText(s => ({ ...s, [parentId]: '' }))
+				setReplyOpen(s => ({ ...s, [parentId]: false }))
+				fetchPost()
+				toast.success('Ответ отправлен')
+			} else {
+				let errorMessage = `Ошибка ${res.status}: ${res.statusText}`
+				if (responseData && typeof responseData === 'object') {
+					if (typeof responseData.error === 'string') {
+						errorMessage = responseData.error
+					} else if (responseData.error && typeof responseData.error === 'object') {
+						errorMessage = JSON.stringify(responseData.error)
+					} else if (Array.isArray(responseData.errors)) {
+						errorMessage = responseData.errors.join(', ')
+					}
+				} else if (typeof responseData === 'string') {
+					errorMessage = responseData
+				}
+				toast.error(errorMessage)
+				console.error('Ошибка отправки ответа:', { status: res.status, responseData, error: responseData?.error })
+			}
+		} catch (e: any) {
 			console.error('Ошибка ответа на комментарий:', e)
+			let errorMsg = 'Ошибка сети при отправке ответа'
+			if (e?.message) {
+				errorMsg = e.message
+			} else if (typeof e === 'string') {
+				errorMsg = e
+			} else if (e && typeof e === 'object') {
+				if (e.error) {
+					errorMsg = typeof e.error === 'string' ? e.error : JSON.stringify(e.error)
+				} else {
+					errorMsg = JSON.stringify(e)
+				}
+			}
+			toast.error(errorMsg)
 		}
 	}
 
@@ -907,6 +963,7 @@ export default function CommunityPostPage() {
 										sendReply={sendReply}
 										postId={id}
 										onReport={setReportTarget}
+										confirm={confirm}
 									/>
 								))}
 							</div>
@@ -1039,6 +1096,7 @@ function CommentNode({
 	sendReply,
 	postId,
 	onReport,
+	confirm,
 }: any) {
 	const [openMenu, setOpenMenu] = useState(false)
 	const [editing, setEditing] = useState(false)
@@ -1084,29 +1142,60 @@ function CommentNode({
 	}
 
 	const deleteComment = async () => {
-		await confirm({
-			title: 'Удаление комментария',
-			message: 'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.',
-			type: 'danger',
-			confirmText: 'Удалить',
-			cancelText: 'Отмена',
-			onConfirm: async () => {
-				try {
-					const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
-						method: 'DELETE',
-						headers: { Authorization: `Bearer ${token}` },
-					})
-					if (res.ok) {
+		if (!token) {
+			toast.error('Необходимо авторизоваться')
+			return
+		}
+		
+		if (!confirm) {
+			console.error('confirm function not available in CommentNode')
+			toast.error('Ошибка: функция подтверждения недоступна')
+			return
+		}
+		
+		try {
+			const confirmed = await confirm({
+				title: 'Удаление комментария',
+				message: 'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.',
+				type: 'danger',
+				confirmText: 'Удалить',
+				cancelText: 'Отмена',
+				onConfirm: async () => {
+					try {
+						const res = await fetch(`/api/community/${postId}/comment/${node.id}`, {
+							method: 'DELETE',
+							headers: { 
+								Authorization: `Bearer ${token}`,
+								'Content-Type': 'application/json',
+							},
+						})
+						
+						if (!res.ok) {
+							const responseData = await res.json().catch(() => ({}))
+							const errorMessage = typeof responseData?.error === 'string' 
+								? responseData.error 
+								: 'Ошибка при удалении комментария'
+							toast.error(errorMessage)
+							throw new Error(errorMessage)
+						}
+						
 						toast.success('Комментарий удалён')
 						fetchPost()
-					} else {
-						toast.error('Ошибка удаления комментария')
+					} catch (err: any) {
+						console.error('Ошибка при удалении комментария:', err)
+						const errorMsg = err?.message || 'Ошибка сети при удалении комментария'
+						toast.error(errorMsg)
+						throw err
 					}
-				} catch {
-					toast.error('Ошибка сети при удалении комментария')
-				}
-			},
-		})
+				},
+			})
+			
+			// Если пользователь отменил, ничего не делаем
+			if (!confirmed) return
+		} catch (err: any) {
+			console.error('Ошибка в confirm dialog:', err)
+			toast.error(err?.message || 'Ошибка при открытии диалога подтверждения')
+		}
 	}
 
 	return (
@@ -1321,8 +1410,14 @@ function CommentNode({
 						/>
 						<div className='mt-2'>
 							<button
-								onClick={() => sendReply(node.id)}
-								className='flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold'
+								type='button'
+								onClick={(e) => {
+									e.preventDefault()
+									e.stopPropagation()
+									sendReply(node.id)
+								}}
+								disabled={!replyText[node.id]?.trim()}
+								className='flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all'
 							>
 								<Send className='w-4 h-4' /> Отправить ответ
 							</button>
@@ -1347,6 +1442,7 @@ function CommentNode({
 						sendReply={sendReply}
 						postId={postId}
 						onReport={onReport}
+						confirm={confirm}
 					/>
 				))}
 		</div>

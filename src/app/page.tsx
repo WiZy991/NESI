@@ -1,6 +1,31 @@
 'use client'
+import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
+
+export const metadata: Metadata = {
+	title: 'Главная — Фриланс платформа NESI для заказчиков и исполнителей',
+	description:
+		'NESI — современная фриланс платформа для поиска удаленной работы и найма специалистов. Создавайте задачи, находите исполнителей, работайте удаленно. Безопасные платежи, система эскроу.',
+	keywords: [
+		'фриланс',
+		'удаленная работа',
+		'работа на дому',
+		'фрилансеры',
+		'заказчики',
+		'исполнители',
+		'удаленная работа вакансии',
+		'фриланс биржа',
+		'найти исполнителя',
+		'найти работу',
+	],
+	openGraph: {
+		title: 'NESI — Фриланс платформа для заказчиков и исполнителей',
+		description:
+			'Современная фриланс платформа для поиска удаленной работы и найма специалистов. Безопасные платежи, система эскроу.',
+		type: 'website',
+	},
+}
 
 export default function Home() {
 	return (
@@ -140,8 +165,8 @@ export default function Home() {
 									letterSpacing: '1px',
 								}}
 							>
-								Мы новая цифровая экосистема, где бизнес
-								встречает настоящие таланты.
+								Мы новая цифровая экосистема, где бизнес встречает настоящие
+								таланты.
 								<br />
 								<br />
 								Каждый исполнитель проходит сертификацию, а заказчик получает
@@ -184,8 +209,7 @@ export default function Home() {
 								возможности.
 								<br />
 								<br />
-								Здесь ценится результат — точный, быстрый,
-								проверенный.
+								Здесь ценится результат — точный, быстрый, проверенный.
 								<br />
 								<br />
 								Каждый проект становится частью цифрового потока, управляемого
@@ -242,6 +266,28 @@ export default function Home() {
 						</div>
 					</div>
 				</div>
+				<script
+					type='application/ld+json'
+					dangerouslySetInnerHTML={{
+						__html: JSON.stringify({
+							'@context': 'https://schema.org',
+							'@type': 'WebSite',
+							name: 'NESI',
+							description: 'Фриланс платформа для заказчиков и исполнителей',
+							url: process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su',
+							potentialAction: {
+								'@type': 'SearchAction',
+								target: {
+									'@type': 'EntryPoint',
+									urlTemplate: `${
+										process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su'
+									}/tasks?search={search_term_string}`,
+								},
+								'query-input': 'required name=search_term_string',
+							},
+						}),
+					}}
+				/>
 			</div>
 		</div>
 	)

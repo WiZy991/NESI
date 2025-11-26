@@ -4,14 +4,16 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getUserFromRequest(req)
   if (!user) return NextResponse.json({ responded: false }, { status: 401 })
 
+  const { id: taskId } = await params
+
   const existing = await prisma.taskResponse.findFirst({
     where: {
-      taskId: params.id,
+      taskId,
       userId: user.id,
     },
   })

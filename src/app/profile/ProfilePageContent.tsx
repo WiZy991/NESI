@@ -11,7 +11,8 @@ import { getLevelVisuals } from '@/lib/level/rewards'
 import '@/styles/level-animations.css'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { toast } from 'sonner'
 import {
 	FaArrowDown,
 	FaArrowUp,
@@ -231,16 +232,114 @@ export default function ProfilePageContent() {
 
 	const [transactions, setTransactions] = useState<any[]>([])
 	const [transactionsLoaded, setTransactionsLoaded] = useState(false)
-	const [amount, setAmount] = useState(100)
-	const [depositAmount, setDepositAmount] = useState(100)
-	const [withdrawPhone, setWithdrawPhone] = useState('')
+	const [amount, setAmount] = useState(1)
 	const [depositPhone, setDepositPhone] = useState('')
 	const [useTBank, setUseTBank] = useState(true) // Использовать Т-Банк по умолчанию
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
-	const [depositError, setDepositError] = useState<string | null>(null)
+	const [withdrawPhone, setWithdrawPhone] = useState('')
+	const [withdrawMethod] = useState<'sbp'>('sbp')
+	const [sbpBanks, setSbpBanks] = useState<Array<{MemberId: string; MemberName: string; MemberNameRus: string}>>([])
+	const [selectedBankId, setSelectedBankId] = useState<string>('')
+	const [loadingBanks, setLoadingBanks] = useState(false)
+	const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false)
+	// Состояния для данных карты
+	const [cardNumber, setCardNumber] = useState('')
+	const [cardExpDate, setCardExpDate] = useState('')
+	const [cardHolder, setCardHolder] = useState('')
+	const [cardCvv, setCardCvv] = useState('')
+	const amountInputRef = useRef<HTMLInputElement>(null)
+	const previousAmountRef = useRef<number>(0)
+	const depositAmountInputRef = useRef<HTMLInputElement>(null)
+	const previousDepositAmountRef = useRef<number>(0)
+
+	// Функция форматирования телефона в маску +7 (XXX) XXX-XX-XX
+	const formatPhoneNumber = (value: string): string => {
+		// Убираем все нецифровые символы кроме +
+		const digitsOnly = value.replace(/[^\d+]/g, '')
+		
+		// Если начинается не с +7, добавляем +7
+		if (!digitsOnly.startsWith('+7') && !digitsOnly.startsWith('7')) {
+			const cleanDigits = digitsOnly.replace(/\+/g, '')
+			if (cleanDigits.length === 0) return '+7'
+			if (cleanDigits.startsWith('7')) {
+				return `+7${cleanDigits.slice(1)}`
+			}
+			return `+7${cleanDigits}`
+		}
+		
+		// Убираем + если есть, оставляем только цифры
+		let phone = digitsOnly.replace(/\+/g, '')
+		
+		// Если начинается с 7, убираем её (будет добавлена +7)
+		if (phone.startsWith('7')) {
+			phone = phone.slice(1)
+		}
+		
+		// Ограничиваем до 10 цифр (после +7)
+		phone = phone.slice(0, 10)
+		
+		// Форматируем: +7 (XXX) XXX-XX-XX
+		if (phone.length === 0) return '+7'
+		if (phone.length <= 3) return `+7 (${phone}`
+		if (phone.length <= 6) return `+7 (${phone.slice(0, 3)}) ${phone.slice(3)}`
+		if (phone.length <= 8) return `+7 (${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`
+		return `+7 (${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6, 8)}-${phone.slice(8, 10)}`
+	}
+
+	// Функция для получения только цифр из отформатированного телефона
+	const getPhoneDigits = (formattedPhone: string): string => {
+		const digits = formattedPhone.replace(/\D/g, '')
+		// Если начинается с 7, оставляем как есть, иначе добавляем 7
+		if (digits.startsWith('7')) {
+			return digits.slice(0, 11) // +7 и 10 цифр
+		}
+		return `7${digits.slice(0, 10)}` // Добавляем 7 и ограничиваем 10 цифрами
+	}
+
+	// Функция форматирования номера карты (добавляет пробелы каждые 4 цифры)
+	const formatCardNumber = (value: string): string => {
+		const digitsOnly = value.replace(/\D/g, '').slice(0, 16)
+		return digitsOnly.replace(/(.{4})/g, '$1 ').trim()
+	}
+
+	// Функция форматирования срока действия карты (MM/YY)
+	const formatCardExpDate = (value: string): string => {
+		const digitsOnly = value.replace(/\D/g, '').slice(0, 4)
+		if (digitsOnly.length <= 2) return digitsOnly
+		return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}`
+	}
+
+	// Функция форматирования CVV (только 3 цифры)
+	const formatCardCvv = (value: string): string => {
+		return value.replace(/\D/g, '').slice(0, 3)
+	}
+
+	// Функция создания CardData строки для отправки в Т-Банк
+	const createCardDataString = (): string => {
+		const pan = cardNumber.replace(/\D/g, '')
+		const expDate = cardExpDate.replace(/\D/g, '')
+		const cardHolderName = cardHolder.trim().toUpperCase()
+		const cvv = cardCvv.replace(/\D/g, '')
+
+		const parts: string[] = []
+		if (pan) parts.push(`PAN=${pan}`)
+		if (expDate.length === 4) parts.push(`ExpDate=${expDate}`)
+		if (cardHolderName) parts.push(`CardHolder=${cardHolderName}`)
+		if (cvv) parts.push(`CVV=${cvv}`)
+
+		return parts.join(';')
+	}
+
+	// Состояния для пополнения баланса
+	const [depositAmount, setDepositAmount] = useState(1000)
 	const [depositLoading, setDepositLoading] = useState(false)
+	const [depositError, setDepositError] = useState<string | null>(null)
+	const [lastPaymentId, setLastPaymentId] = useState<string | null>(null)
+	const [checkingPayment, setCheckingPayment] = useState(false)
+	const [manualPaymentId, setManualPaymentId] = useState('')
+	const [showManualCheck, setShowManualCheck] = useState(false)
 	const [checkingBadges, setCheckingBadges] = useState(false)
 	const [badgesModalOpen, setBadgesModalOpen] = useState(false)
 	const [lockedBadges, setLockedBadges] = useState<any[]>([])
@@ -295,26 +394,138 @@ export default function ProfilePageContent() {
 	// Ленивая загрузка транзакций только при открытии вкладки wallet
 	useEffect(() => {
 		const fetchTransactions = async () => {
-			if (!token || activeTab !== 'wallet' || transactionsLoaded) return
+			if (!token || activeTab !== 'wallet') return
 			try {
 				const txRes = await fetch('/api/wallet/transactions', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
 				if (txRes.ok) {
 					const txData = await txRes.json()
+					console.log('📊 Загружены транзакции:', txData.transactions?.length || 0)
 					setTransactions(txData.transactions || [])
 					setTransactionsLoaded(true)
+				} else {
+					console.error('Ошибка загрузки транзакций:', txRes.status)
 				}
 			} catch (txErr) {
 				console.error('Ошибка загрузки транзакций:', txErr)
 			}
 		}
-		fetchTransactions()
+		// Загружаем транзакции каждый раз при открытии вкладки wallet
+		if (activeTab === 'wallet' && !transactionsLoaded) {
+			fetchTransactions()
+		}
 	}, [token, activeTab, transactionsLoaded])
 
 	useEffect(() => {
 		fetchProfile()
+		// Восстанавливаем последний PaymentId из localStorage
+		const savedPaymentId = localStorage.getItem('lastTBankPaymentId')
+		if (savedPaymentId) {
+			setLastPaymentId(savedPaymentId)
+		}
 	}, [token])
+
+	// Загрузка списка банков для СБП
+	useEffect(() => {
+		const loadBanks = async () => {
+			if (!token || activeTab !== 'wallet') return
+			setLoadingBanks(true)
+			try {
+				const res = await fetch('/api/wallet/tbank/get-sbp-banks', {
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				const data = await res.json()
+				if (data.success && data.banks && data.banks.length > 0) {
+					setSbpBanks(data.banks)
+					if (!selectedBankId && data.banks.length > 0) {
+						setSelectedBankId(data.banks[0].MemberId)
+					}
+				} else {
+					// Fallback банки
+					const fallbackBanks = [
+						{ MemberId: '100000000004', MemberName: 'Tinkoff', MemberNameRus: 'Т-Банк' },
+						{ MemberId: '100000000111', MemberName: 'Sberbank', MemberNameRus: 'Сбербанк' },
+						{ MemberId: '100000000005', MemberName: 'VTB', MemberNameRus: 'ВТБ' },
+						{ MemberId: '100000000008', MemberName: 'Alfa-Bank', MemberNameRus: 'Альфа-Банк' },
+					]
+					setSbpBanks(fallbackBanks)
+					if (!selectedBankId) {
+						setSelectedBankId(fallbackBanks[0].MemberId)
+					}
+				}
+			} catch (err) {
+				console.error('Ошибка загрузки банков:', err)
+				// Fallback банки при ошибке
+				const fallbackBanks = [
+					{ MemberId: '100000000004', MemberName: 'Tinkoff', MemberNameRus: 'Т-Банк' },
+					{ MemberId: '100000000111', MemberName: 'Sberbank', MemberNameRus: 'Сбербанк' },
+					{ MemberId: '100000000005', MemberName: 'VTB', MemberNameRus: 'ВТБ' },
+					{ MemberId: '100000000008', MemberName: 'Alfa-Bank', MemberNameRus: 'Альфа-Банк' },
+				]
+				setSbpBanks(fallbackBanks)
+				if (!selectedBankId) {
+					setSelectedBankId(fallbackBanks[0].MemberId)
+				}
+			} finally {
+				setLoadingBanks(false)
+			}
+		}
+		loadBanks()
+	}, [token, activeTab])
+
+	// Телефон будет вводиться пользователем вручную
+
+	// Функция для ручной проверки платежа
+	const handleCheckPayment = async (paymentIdToCheck?: string) => {
+		const paymentId =
+			paymentIdToCheck || lastPaymentId || manualPaymentId.trim()
+
+		if (!paymentId) {
+			alert('Введите PaymentId для проверки')
+			return
+		}
+
+		setCheckingPayment(true)
+		try {
+			const res = await fetch('/api/wallet/tbank/check-payment', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ paymentId }),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				setWithdrawError(
+					data.error || data.details || 'Ошибка при проверке платежа'
+				)
+				return
+			}
+
+			if (data.alreadyProcessed) {
+				alert('Платеж уже обработан ранее')
+				setManualPaymentId('')
+				setShowManualCheck(false)
+			} else if (data.success) {
+				alert(`✅ Средства начислены! Новый баланс: ${data.newBalance} ₽`)
+				await fetchProfile()
+				localStorage.removeItem('lastTBankPaymentId')
+				setLastPaymentId(null)
+				setManualPaymentId('')
+				setShowManualCheck(false)
+			} else {
+				alert(`Платеж в статусе: ${data.status || 'неизвестно'}`)
+			}
+		} catch (err: any) {
+			setWithdrawError('Ошибка при проверке платежа: ' + err.message)
+		} finally {
+			setCheckingPayment(false)
+		}
+	}
 
 	// Загружаем отзывы только когда открыта вкладка reviews (ленивая загрузка)
 	useEffect(() => {
@@ -413,13 +624,13 @@ export default function ProfilePageContent() {
 	}, [activeTab, token])
 
 	const handleDeposit = async () => {
-		if (!depositAmount || depositAmount <= 0) {
-			setDepositError('Укажите сумму для пополнения')
+		if (!depositAmount || depositAmount < 100) {
+			setDepositError('Минимальная сумма пополнения: 100 ₽')
 			return
 		}
 
-		if (depositAmount < 100) {
-			setDepositError('Минимальная сумма пополнения: 100 ₽')
+		if (depositAmount > 300000) {
+			setDepositError('Максимальная сумма пополнения: 300,000 ₽')
 			return
 		}
 
@@ -427,107 +638,37 @@ export default function ProfilePageContent() {
 		setDepositLoading(true)
 
 		try {
-			// Используем Т-Банк Мультирасчеты
-			if (useTBank) {
-				console.log('💳 Инициализация пополнения баланса:', {
-					amount: depositAmount,
-					phone: depositPhone,
-				})
+			const res = await fetch('/api/wallet/tbank/create-payment', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ amount: depositAmount }),
+			})
 
-				const res = await fetch('/api/tbank/deposit/init', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({
-						amount: depositAmount,
-						phone: depositPhone || undefined,
-					}),
-				})
+			const data = await res.json()
 
-				const data = await res.json()
+			if (!res.ok) {
+				setDepositError(data.error || 'Не удалось создать платеж')
+				return
+			}
 
-				console.log('📥 Ответ от сервера:', {
-					ok: res.ok,
-					paymentId: data.paymentId,
-					hasPaymentURL: !!data.paymentURL,
-					error: data.error,
-				})
+			// Сохраняем PaymentId для возможной ручной проверки
+			if (data.paymentId) {
+				setLastPaymentId(data.paymentId)
+				// Сохраняем в localStorage на случай перезагрузки страницы
+				localStorage.setItem('lastTBankPaymentId', data.paymentId)
+			}
 
-				if (!res.ok) {
-					console.error('❌ Ошибка инициализации:', data.error)
-					setDepositError(data.error || 'Не удалось инициировать пополнение')
-					return
-				}
-
-				// Перенаправляем на форму оплаты Т-Банка
-				if (data.paymentURL) {
-					// Сохраняем paymentId и orderId в localStorage для использования при возврате
-					if (data.paymentId) {
-						try {
-							localStorage.setItem('lastPaymentId', data.paymentId)
-							console.log(
-								'💾 PaymentId сохранен в localStorage:',
-								data.paymentId
-							)
-
-							// Проверяем, что сохранение прошло успешно
-							const saved = localStorage.getItem('lastPaymentId')
-							if (saved !== data.paymentId) {
-								console.error(
-									'❌ Ошибка: PaymentId не сохранился в localStorage'
-								)
-							}
-						} catch (error) {
-							console.error('❌ Ошибка сохранения в localStorage:', error)
-						}
-					}
-
-					// Также сохраняем orderId (он будет в URL при возврате)
-					if (data.orderId) {
-						try {
-							localStorage.setItem('lastOrderId', data.orderId)
-							console.log('💾 OrderId сохранен в localStorage:', data.orderId)
-						} catch (error) {
-							console.error(
-								'❌ Ошибка сохранения OrderId в localStorage:',
-								error
-							)
-						}
-					}
-
-					console.log('🔗 Перенаправление на страницу оплаты:', data.paymentURL)
-					window.location.href = data.paymentURL
-					return
-				} else {
-					console.error('❌ PaymentURL не получен в ответе')
-					setDepositError('Не получена ссылка для оплаты')
-				}
+			// Перенаправляем на страницу оплаты Т-Банка
+			if (data.paymentUrl) {
+				window.location.href = data.paymentUrl
 			} else {
-				// Старый метод (прямое пополнение)
-				const res = await fetch('/api/wallet/deposit', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({ amount: depositAmount }),
-				})
-
-				const data = await res.json()
-
-				if (!res.ok) {
-					setDepositError(data.error || 'Не удалось пополнить баланс')
-					return
-				}
-
-				await fetchProfile()
-				setDepositAmount(100)
-				setDepositError(null)
+				setDepositError('Не получена ссылка на оплату')
 			}
 		} catch (err: any) {
-			setDepositError(err.message || 'Ошибка при пополнении баланса')
+			setDepositError(err.message || 'Ошибка при создании платежа')
 		} finally {
 			setDepositLoading(false)
 		}
@@ -539,23 +680,23 @@ export default function ProfilePageContent() {
 			return
 		}
 
-		// Проверка минимальной суммы для Т-Банк (100 рублей)
-		if (useTBank) {
-			const amountNum = typeof amount === 'string' ? parseFloat(amount) : amount
-			if (isNaN(amountNum) || amountNum < 100) {
-				setWithdrawError('Минимальная сумма вывода: 100 ₽')
-				return
-			}
-		}
-
-		// Проверяем телефон если используем Т-Банк
-		if (useTBank && !withdrawPhone) {
-			setWithdrawError('Укажите номер телефона для вывода средств')
+		if (amount < 1) {
+			setWithdrawError('Минимальная сумма вывода: 1 ₽')
 			return
 		}
 
-		if (useTBank && !withdrawPhone.match(/^\+?[7-8]\d{10}$/)) {
-			setWithdrawError('Неверный формат телефона (пример: +79001234567)')
+		// Проверяем способ выплаты
+		if (!withdrawPhone.trim()) {
+			setWithdrawError('Укажите номер телефона для выплаты через СБП')
+			return
+		}
+
+		// Проверяем формат телефона используя функцию getPhoneDigits
+		const phoneDigits = getPhoneDigits(withdrawPhone)
+		if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
+			setWithdrawError(
+				'Номер телефона должен быть в формате +7 (XXX) XXX-XX-XX'
+			)
 			return
 		}
 
@@ -563,76 +704,57 @@ export default function ProfilePageContent() {
 		setWithdrawLoading(true)
 
 		try {
-			// Используем Т-Банк Мультирасчеты
-			if (useTBank) {
-				// Шаг 1: Инициируем выплату
-				const initRes = await fetch('/api/tbank/withdraw/init', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({
-						amount,
-						phone: withdrawPhone,
-					}),
-				})
-
-				const initData = await initRes.json()
-
-				if (!initRes.ok) {
-					setWithdrawError(initData.error || 'Не удалось инициировать вывод')
-					return
-				}
-
-				// Шаг 2: Выполняем выплату
-				const execRes = await fetch('/api/tbank/withdraw/execute', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({
-						paymentId: initData.paymentId,
-					}),
-				})
-
-				const execData = await execRes.json()
-
-				if (!execRes.ok) {
-					setWithdrawError(execData.error || 'Не удалось выполнить вывод')
-					return
-				}
-
-				await fetchProfile()
-				setAmount(100)
-				setWithdrawError(null)
-				// Показываем сообщение об успехе
-				alert(
-					'Выплата успешно отправлена! Средства поступят в течение нескольких минут.'
-				)
-			} else {
-				// Старый метод
-				const res = await fetch('/api/wallet/withdraw', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({ amount }),
-				})
-
-				const data = await res.json()
-
-				if (!res.ok) {
-					setWithdrawError(data.error || 'Не удалось вывести средства')
-					return
-				}
-
-				await fetchProfile()
-				setAmount(100)
-				setWithdrawError(null)
+			// Формируем данные для выплаты
+			const withdrawalData: any = {
+				amount,
 			}
+
+			// Получаем только цифры из отформатированного телефона
+			const phoneDigitsForRequest = getPhoneDigits(withdrawPhone)
+			
+			// Проверяем, что номер полный (11 цифр: 7 + 10)
+			if (phoneDigitsForRequest.length !== 11 || !phoneDigitsForRequest.startsWith('7')) {
+				setWithdrawError('Введите полный номер телефона в формате +7 (XXX) XXX-XX-XX')
+				setWithdrawLoading(false)
+				return
+			}
+
+			withdrawalData.phone = phoneDigitsForRequest
+			// Используем выбранный банк из списка
+			if (selectedBankId) {
+				withdrawalData.sbpMemberId = selectedBankId
+			} else {
+				toast.error('Выберите банк для вывода средств')
+				setWithdrawLoading(false)
+				return
+			}
+
+			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify(withdrawalData),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				setWithdrawError(
+					data.error || data.details || 'Не удалось вывести средства'
+				)
+				return
+			}
+
+			await fetchProfile()
+			setAmount(1)
+			setWithdrawError(null)
+
+			// Показываем успешное сообщение
+			alert(
+				'Заявка на вывод средств создана. Средства поступят в течение нескольких минут.'
+			)
 		} catch (err: any) {
 			setWithdrawError(err.message || 'Ошибка при выводе средств')
 		} finally {
@@ -718,10 +840,10 @@ export default function ProfilePageContent() {
 	const decorativeClass = background?.id ? `${background.id}-background` : ''
 
 	return (
-		<div className='max-w-7xl mx-auto p-4 sm:p-6'>
+		<div className='max-w-7xl mx-auto p-3 sm:p-4 md:p-6 overflow-x-hidden w-full'>
 			{/* Компактный Header профиля */}
 			<div
-				className={`rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-6 mb-6 relative overflow-hidden ${backgroundClass} ${decorativeClass}`}
+				className={`rounded-xl md:rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] p-4 md:p-6 mb-4 md:mb-6 relative overflow-hidden ${backgroundClass} ${decorativeClass}`}
 				style={backgroundStyle}
 			>
 				{/* Overlay для читаемости текста (более прозрачный для премиум фонов) */}
@@ -778,23 +900,23 @@ export default function ProfilePageContent() {
 										</p>
 									)}
 								</div>
-								<div className='flex gap-2'>
+								<div className='flex flex-wrap gap-2'>
 									{/* Кнопка изменения фона только для исполнителей */}
 									{user.role === 'executor' && (
 										<button
 											onClick={() => setBackgroundSelectorOpen(true)}
-											className='flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+											className='flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black transition font-semibold text-xs md:text-sm whitespace-nowrap'
 											title='Выбрать фон профиля'
 										>
-											🎨 Фон
+											🎨 <span className="hidden sm:inline">Фон</span>
 										</button>
 									)}
 									<button
 										onClick={() => setIsEditModalOpen(true)}
-										className='flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-sm whitespace-nowrap'
+										className='flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition font-semibold text-xs md:text-sm whitespace-nowrap'
 									>
 										<FaEdit />
-										Редактировать
+										<span className="hidden sm:inline">Редактировать</span>
 									</button>
 								</div>
 							</div>
@@ -867,21 +989,21 @@ export default function ProfilePageContent() {
 			</div>
 
 			{/* Табы */}
-			<div className='flex gap-2 mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+			<div className='flex gap-2 mb-4 md:mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
 				{tabs.map(tab => (
 					<button
 						key={tab.id}
 						onClick={() => setActiveTab(tab.id)}
-						className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${
+						className={`flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium text-xs md:text-sm whitespace-nowrap transition-all ${
 							activeTab === tab.id
 								? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
 								: 'bg-black/40 border border-gray-700/50 text-gray-400 hover:border-emerald-500/30 hover:text-emerald-400'
 						}`}
 					>
-						{tab.icon}
-						{tab.label}
+						<span className="text-sm md:text-base">{tab.icon}</span>
+						<span className="hidden sm:inline">{tab.label}</span>
 						{tab.count !== undefined && tab.count > 0 && (
-							<span className='bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-xs font-semibold'>
+							<span className='bg-emerald-500/20 text-emerald-300 px-1.5 md:px-2 py-0.5 rounded-full text-xs font-semibold'>
 								{tab.count}
 							</span>
 						)}
@@ -1480,8 +1602,9 @@ export default function ProfilePageContent() {
 						</div>
 
 						{/* Операции с балансом */}
-						<div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-							{/* Пополнение */}
+						<div className={`grid gap-6 ${profile.role === 'executor' ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+							{/* Пополнение - только для заказчиков, не для исполнителей */}
+							{profile.role !== 'executor' && (
 							<div className='bg-black/40 backdrop-blur-sm p-6 rounded-2xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all'>
 								<div className='flex items-center gap-3 mb-5'>
 									<div className='bg-emerald-500/20 p-3 rounded-xl'>
@@ -1523,18 +1646,48 @@ export default function ProfilePageContent() {
 									</label>
 									<div className='relative'>
 										<input
-											type='number'
-											value={depositAmount}
+											type='text'
+											inputMode='numeric'
+											ref={depositAmountInputRef}
+											value={depositAmount === 0 ? '' : depositAmount.toString()}
 											onChange={e => {
-												setDepositAmount(parseInt(e.target.value) || 0)
+												const value = e.target.value
+												// Убираем все нецифровые символы
+												const digitsOnly = value.replace(/\D/g, '')
+												
+												// Если поле пустое
+												if (digitsOnly === '') {
+													setDepositAmount(0)
+													previousDepositAmountRef.current = 0
+												} else {
+													const numValue = parseInt(digitsOnly, 10)
+													const newAmount = isNaN(numValue) ? 0 : numValue
+													
+													// Если предыдущее значение было 0 или пустое, и пользователь вводит новую цифру
+													// то заменяем значение, а не добавляем к 0
+													if (previousDepositAmountRef.current === 0 && digitsOnly.length === 1 && newAmount > 0) {
+														setDepositAmount(newAmount)
+													} else {
+														// Иначе просто парсим (автоматически убирает ведущие нули)
+														setDepositAmount(newAmount)
+													}
+													previousDepositAmountRef.current = newAmount
+												}
 												if (depositError) setDepositError(null)
 											}}
-											className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all text-lg font-semibold'
+											onBlur={e => {
+												// Если поле пустое при потере фокуса, ставим 0
+												const currentValue = e.target.value.trim()
+												if (currentValue === '' || currentValue === '0' || parseInt(currentValue, 10) === 0) {
+													setDepositAmount(0)
+													previousDepositAmountRef.current = 0
+												}
+											}}
+											className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 											placeholder='Введите сумму'
 											disabled={depositLoading}
-											min='100'
 										/>
-										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg'>
+										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg pointer-events-none'>
 											₽
 										</span>
 									</div>
@@ -1575,7 +1728,9 @@ export default function ProfilePageContent() {
 										</div>
 									</div>
 								)}
+
 							</div>
+							)}
 
 							{/* Вывод средств */}
 							<div className='bg-black/40 backdrop-blur-sm p-6 rounded-2xl border border-red-500/30 hover:border-red-500/50 transition-all'>
@@ -1598,6 +1753,7 @@ export default function ProfilePageContent() {
 									</div>
 								</div>
 
+
 								{/* Предустановленные суммы */}
 								<div className='grid grid-cols-4 gap-2 mb-4'>
 									{[100, 500, 1000, 5000].map(preset => (
@@ -1619,27 +1775,129 @@ export default function ProfilePageContent() {
 									))}
 								</div>
 
-								{/* Поле ввода телефона */}
-								{useTBank && (
-									<div className='mb-4'>
-										<label className='block text-sm text-gray-400 mb-2 font-medium'>
-											Номер телефона для вывода (СБП)
-										</label>
-										<input
-											type='tel'
-											value={withdrawPhone}
-											onChange={e => {
-												setWithdrawPhone(e.target.value)
-												if (withdrawError) setWithdrawError(null)
-											}}
-											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all'
-											placeholder='+79001234567'
-											disabled={withdrawLoading}
-										/>
-										<p className='text-xs text-gray-500 mt-1'>
-											Вывод будет выполнен через СБП на указанный номер
-										</p>
-									</div>
+								{/* Поля для СБП */}
+								{(
+									<>
+										{/* Выбор банка */}
+										<div className='mb-4'>
+											<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+												<span className='text-base'></span>
+												<span>Банк получателя</span>
+												{loadingBanks && (
+													<span className='ml-auto text-xs text-red-400/60 flex items-center gap-1'>
+														<span className='w-3 h-3 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
+														загрузка...
+													</span>
+												)}
+											</label>
+											{loadingBanks ? (
+												<div className='text-center py-6 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 border border-red-500/30 rounded-xl'>
+													<span className='w-6 h-6 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin inline-block mb-2' />
+													<p className='text-sm text-red-300/80 mt-2'>Загрузка списка банков...</p>
+												</div>
+											) : sbpBanks.length > 0 ? (
+												<div className='relative bank-dropdown-container'>
+													{/* Кастомный dropdown */}
+													<button
+														type='button'
+														onClick={(e) => {
+															e.stopPropagation()
+															setIsBankDropdownOpen(!isBankDropdownOpen)
+														}}
+														disabled={withdrawLoading}
+														className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between'
+													>
+														<span className='truncate'>
+															{sbpBanks.find(b => b.MemberId === selectedBankId)?.MemberNameRus || 
+															 sbpBanks.find(b => b.MemberId === selectedBankId)?.MemberName || 
+															 'Выберите банк'}
+														</span>
+														<svg
+															className={`w-5 h-5 text-red-400 transition-transform duration-300 flex-shrink-0 ml-2 ${isBankDropdownOpen ? 'rotate-180' : ''}`}
+															fill='none'
+															stroke='currentColor'
+															viewBox='0 0 24 24'
+															xmlns='http://www.w3.org/2000/svg'
+														>
+															<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2.5} d='M19 9l-7 7-7-7' />
+														</svg>
+													</button>
+													
+													{/* Выпадающий список */}
+													{isBankDropdownOpen && (
+														<div 
+															className='absolute z-50 w-full mt-2 bg-gradient-to-br from-red-900/30 via-black/80 to-black/80 border-2 border-red-500/40 rounded-xl shadow-[0_0_30px_rgba(239,68,68,0.3)] backdrop-blur-md overflow-hidden'
+															style={{
+																animation: 'slideDown 0.2s ease-out forwards'
+															}}
+														>
+															<div className='max-h-60 overflow-y-auto custom-scrollbar'>
+																{sbpBanks.map(bank => (
+																	<button
+																		key={bank.MemberId}
+																		type='button'
+																		onClick={(e) => {
+																			e.stopPropagation()
+																			setSelectedBankId(bank.MemberId)
+																			setIsBankDropdownOpen(false)
+																			if (withdrawError) setWithdrawError(null)
+																		}}
+																		className={`w-full text-left px-4 py-3 transition-all duration-200 ${
+																			selectedBankId === bank.MemberId
+																				? 'bg-red-500/30 text-white border-l-4 border-red-400 font-semibold'
+																				: 'text-gray-300 hover:bg-red-500/20 hover:text-white'
+																		}`}
+																	>
+																		{bank.MemberNameRus || bank.MemberName}
+																	</button>
+																))}
+															</div>
+														</div>
+													)}
+												</div>
+											) : (
+												<div className='text-sm text-red-300/70 p-4 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 rounded-xl border border-red-500/30 flex items-center gap-2'>
+													<span className='text-lg'>⚠️</span>
+													<span>Не удалось загрузить список банков. Попробуйте позже.</span>
+												</div>
+											)}
+											<p className='text-xs text-red-300/60 mt-2 flex items-center gap-1'>
+												<span>💡</span>
+												<span>Выберите банк, в который нужно вывести средства через СБП</span>
+											</p>
+										</div>
+										{/* Номер телефона */}
+										<div className='mb-4'>
+											<label className='block text-sm text-red-300 mb-2 font-semibold flex items-center gap-2'>
+												<span className='text-base'></span>
+												<span>Номер телефона для вывода (СБП)</span>
+											</label>
+											<input
+												type='tel'
+												value={withdrawPhone}
+												onChange={e => {
+													const formatted = formatPhoneNumber(e.target.value)
+													setWithdrawPhone(formatted)
+													if (withdrawError) setWithdrawError(null)
+												}}
+												onBlur={e => {
+													// При потере фокуса проверяем, что номер полный
+													const digits = getPhoneDigits(e.target.value)
+													if (digits.length < 11) {
+														// Если номер неполный, оставляем как есть (пользователь может еще вводить)
+													}
+												}}
+												className='w-full bg-gradient-to-br from-red-900/20 via-black/60 to-black/60 border-2 border-red-500/40 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/50 focus:border-red-400 transition-all duration-300 hover:border-red-400/60 hover:bg-red-900/30 placeholder:text-gray-500'
+												placeholder='+7 (999) 123-45-67'
+												disabled={withdrawLoading}
+												maxLength={18} // +7 (999) 123-45-67 = 18 символов
+											/>
+											<p className='text-xs text-red-300/60 mt-2 flex items-center gap-1'>
+												<span>💡</span>
+												<span>Вывод будет выполнен через СБП на указанный номер</span>
+											</p>
+										</div>
+									</>
 								)}
 
 								{/* Поле ввода суммы */}
@@ -1649,18 +1907,48 @@ export default function ProfilePageContent() {
 									</label>
 									<div className='relative'>
 										<input
-											type='number'
-											value={amount}
+											type='text'
+											inputMode='numeric'
+											ref={amountInputRef}
+											value={amount === 0 ? '' : amount.toString()}
 											onChange={e => {
-												setAmount(parseInt(e.target.value) || 0)
+												const value = e.target.value
+												// Убираем все нецифровые символы
+												const digitsOnly = value.replace(/\D/g, '')
+												
+												// Если поле пустое
+												if (digitsOnly === '') {
+													setAmount(0)
+													previousAmountRef.current = 0
+												} else {
+													const numValue = parseInt(digitsOnly, 10)
+													const newAmount = isNaN(numValue) ? 0 : numValue
+													
+													// Если предыдущее значение было 0 или пустое, и пользователь вводит новую цифру
+													// то заменяем значение, а не добавляем к 0
+													if (previousAmountRef.current === 0 && digitsOnly.length === 1 && newAmount > 0) {
+														setAmount(newAmount)
+													} else {
+														// Иначе просто парсим (автоматически убирает ведущие нули)
+														setAmount(newAmount)
+													}
+													previousAmountRef.current = newAmount
+												}
 												if (withdrawError) setWithdrawError(null)
 											}}
-											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-lg font-semibold'
+											onBlur={e => {
+												// Если поле пустое при потере фокуса, ставим 0
+												const currentValue = e.target.value.trim()
+												if (currentValue === '' || currentValue === '0' || parseInt(currentValue, 10) === 0) {
+													setAmount(0)
+													previousAmountRef.current = 0
+												}
+											}}
+											className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 											placeholder='Введите сумму'
 											disabled={withdrawLoading}
-											min='0'
 										/>
-										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400 font-bold text-lg'>
+										<span className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400 font-bold text-lg pointer-events-none'>
 											₽
 										</span>
 									</div>
@@ -1829,11 +2117,12 @@ export default function ProfilePageContent() {
 							name: ub.badge.name,
 							description: ub.badge.description,
 							icon: ub.badge.icon,
-							earnedAt: ub.earnedAt,
+							earned: true,
 						})) || []
 					}
 				/>
 			)}
+
 		</div>
 	)
 }

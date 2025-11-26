@@ -16,6 +16,7 @@ import { ChatLinkButton } from './TaskDetailPageContent/ChatLinkButton'
 import type { Task, DisputeInfo } from './TaskDetailPageContent/types'
 import { TaskCardSkeleton, InfoPanelSkeleton } from './SkeletonLoader'
 import ExecutorActivityWidget from './ExecutorActivityWidget'
+import CancellationBanner from './CancellationBanner'
 
 export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	const { token, user } = useUser()
@@ -43,6 +44,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 	// ✅ Спор
 	const [hasDispute, setHasDispute] = useState(false)
 	const [disputeInfo, setDisputeInfo] = useState<DisputeInfo | null>(null)
+	const [showDisputeForm, setShowDisputeForm] = useState(false)
 
 	const loadDispute = async () => {
 		if (!token) return
@@ -171,6 +173,42 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 			{/* Главная карточка задачи */}
 			<TaskHeader task={taskData} currentUserId={user?.id} />
 
+			{/* Плашка для исполнителя при запросе на отмену */}
+			{isExecutor &&
+				task.cancellationRequestedAt &&
+				!hasDispute && (
+					<CancellationBanner
+						taskId={task.id}
+						taskTitle={task.title}
+						cancellationRequestedAt={task.cancellationRequestedAt}
+						cancellationReason={task.cancellationReason}
+						onResponse={() => {
+							// Обновляем задачу после ответа
+							const fetchTask = async () => {
+								try {
+									const { fetchWithRetry } = await import('@/lib/retry')
+									const res = await fetchWithRetry(`/api/tasks/${taskId}`, {
+										headers: { Authorization: `Bearer ${token}` },
+									}, {
+										maxRetries: 2,
+										retryDelay: 1000,
+									})
+									const data = await res.json()
+									setTask(data.task)
+									loadDispute()
+								} catch (err) {
+									console.error('Ошибка загрузки задачи:', err)
+								}
+							}
+							fetchTask()
+						}}
+						onDisputeClick={() => {
+							// Открываем форму спора
+							setShowDisputeForm(true)
+						}}
+					/>
+				)}
+
 			{/* Информационная панель */}
 			<TaskInfoPanel task={taskData} />
 
@@ -245,8 +283,13 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 				</p>
 				<DisputeForm
 					taskId={task.id}
-					onSuccess={loadDispute}
+					onSuccess={() => {
+						loadDispute()
+						setShowDisputeForm(false)
+					}}
 					token={token!}
+					forceOpen={showDisputeForm}
+					onClose={() => setShowDisputeForm(false)}
 				/>
 			</div>
 		)}

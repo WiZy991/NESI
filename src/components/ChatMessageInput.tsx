@@ -1083,50 +1083,49 @@ export default function MessageInput({
 								const updatedAttachment = updated.find(att => att.id === attachmentId)
 								if (updatedAttachment && (kind === 'image' || kind === 'video')) {
 									setTimeout(() => {
-										// Если это первое изображение, открываем модальное окно
-										// Если уже есть другие изображения, добавляем к списку
-										const currentImages = updated.filter(
-											att => att.kind === 'image' && att.previewUrl
+										// Фильтруем все медиа файлы (изображения И видео)
+										const currentMedia = updated.filter(
+											att => (att.kind === 'image' || att.kind === 'video') && att.previewUrl
 										)
 										
 										// Всегда обновляем список вложений в модальном окне
-										setPreviewModalAttachments(currentImages)
+										setPreviewModalAttachments(currentMedia)
 										
 										// Если модальное окно уже открыто
 										if (previewModalAttachment) {
-											// Проверяем, является ли добавленное изображение новым (не текущим)
-											const isNewImage = updatedAttachment.id !== previewModalAttachment.id
+											// Проверяем, является ли добавленное медиа новым (не текущим)
+											const isNewMedia = updatedAttachment.id !== previewModalAttachment.id
 											
-											if (isNewImage) {
-												// Это новое изображение - переходим на него
-												const newIndex = currentImages.findIndex(att => att.id === updatedAttachment.id)
+											if (isNewMedia) {
+												// Это новое медиа - переходим на него
+												const newIndex = currentMedia.findIndex(att => att.id === updatedAttachment.id)
 												if (newIndex >= 0) {
 													setPreviewModalCurrentIndex(newIndex)
-													setPreviewModalAttachment(currentImages[newIndex])
-													setPreviewModalCaption(currentImages[newIndex].caption || '')
+													setPreviewModalAttachment(currentMedia[newIndex])
+													setPreviewModalCaption(currentMedia[newIndex].caption || '')
 												}
 											} else {
-												// Это обновление текущего изображения - остаемся на нем, но обновляем данные
-												const currentIndex = currentImages.findIndex(att => att.id === previewModalAttachment.id)
+												// Это обновление текущего медиа - остаемся на нем, но обновляем данные
+												const currentIndex = currentMedia.findIndex(att => att.id === previewModalAttachment.id)
 												if (currentIndex >= 0) {
 													setPreviewModalCurrentIndex(currentIndex)
-													setPreviewModalAttachment(currentImages[currentIndex])
+													setPreviewModalAttachment(currentMedia[currentIndex])
 												}
 											}
 										} else {
 											// Если модальное окно не открыто, открываем его
-											if (currentImages.length === 1) {
-												// Первое изображение
+											if (currentMedia.length === 1) {
+												// Первое медиа (изображение или видео)
 												setPreviewModalCurrentIndex(0)
 												setPreviewModalAttachment(updatedAttachment)
 												setPreviewModalCaption(updatedAttachment.caption || '')
 												setPreviewModalCompress(updatedAttachment.compress !== false)
 											} else {
-												// Несколько изображений - открываем с последним добавленным
-												const lastIndex = currentImages.length - 1
+												// Несколько медиа - открываем с последним добавленным
+												const lastIndex = currentMedia.length - 1
 												setPreviewModalCurrentIndex(lastIndex)
-												setPreviewModalAttachment(currentImages[lastIndex])
-												setPreviewModalCaption(currentImages[lastIndex].caption || '')
+												setPreviewModalAttachment(currentMedia[lastIndex])
+												setPreviewModalCaption(currentMedia[lastIndex].caption || '')
 											}
 										}
 									}, 100)
@@ -2055,7 +2054,7 @@ export default function MessageInput({
 							onPaste={handlePaste}
 							placeholder='Напишите сообщение...'
 							rows={1}
-							className='w-full px-3 py-2.5 bg-slate-700/55 backdrop-blur-sm border border-slate-600/50 rounded-xl text-white text-sm sm:text-base placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-700/75 focus-visible:outline-none focus-visible:ring-0 resize-none custom-scrollbar shadow-md hover:border-slate-500/70 transition-all duration-200 ease-out'
+							className='w-full px-3 py-2.5 bg-slate-700/55 backdrop-blur-sm border border-slate-600/50 rounded-xl text-white text-sm sm:text-base placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-700/75 focus-visible:outline-none focus-visible:ring-0 resize-none shadow-md hover:border-slate-500/70 transition-all duration-200 ease-out'
 							disabled={sending}
 							style={
 								{
@@ -2064,6 +2063,8 @@ export default function MessageInput({
 									maxHeight: '140px',
 									lineHeight: '1.5',
 									overflow: 'auto',
+									scrollbarWidth: 'none',
+									msOverflowStyle: 'none',
 									transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 									outline: 'none',
 									outlineOffset: '0',
@@ -2252,39 +2253,39 @@ export default function MessageInput({
 									}`}
 								/>
 							</button>
-							{showSendMenu && (
-								<div
-									ref={sendMenuRef}
-									className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 space-y-1 animate-fadeIn z-50'
-									onClick={e => e.stopPropagation()}
-								>
-									<button
-										type='button'
-										onClick={() => {
-											startRecording().catch(err =>
-												console.error('Ошибка запуска записи:', err)
-											)
-											setShowSendMenu(false)
-										}}
-										className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
-									>
-										<Mic className='w-5 h-5 text-emerald-400' />
-									</button>
-									<button
-										type='button'
-										onClick={() => {
-											setPreferSendMode(true)
-											setShowSendMenu(false)
-											if (textareaRef.current) {
-												textareaRef.current.focus()
-											}
-										}}
-										className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
-									>
-										<Send className='w-5 h-5 text-emerald-400' />
-									</button>
-								</div>
-							)}
+									{showSendMenu && (
+										<div
+											ref={sendMenuRef}
+											className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 flex flex-col gap-1 animate-fadeIn z-50'
+											onClick={e => e.stopPropagation()}
+										>
+											<button
+												type='button'
+												onClick={() => {
+													startRecording().catch(err =>
+														console.error('Ошибка запуска записи:', err)
+													)
+													setShowSendMenu(false)
+												}}
+												className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+											>
+												<Mic className='w-5 h-5 text-emerald-400' />
+											</button>
+											<button
+												type='button'
+												onClick={() => {
+													setPreferSendMode(true)
+													setShowSendMenu(false)
+													if (textareaRef.current) {
+														textareaRef.current.focus()
+													}
+												}}
+												className='w-full flex items-center justify-center px-3 py-2.5 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
+											>
+												<Send className='w-5 h-5 text-emerald-400' />
+											</button>
+										</div>
+									)}
 						</div>
 					) : (
 						// Кнопка отправки (с меню, если preferSendMode и поле пустое)
@@ -2366,7 +2367,7 @@ export default function MessageInput({
 									{showSendMenu && (
 										<div
 											ref={sendMenuRef}
-											className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 space-y-1 animate-fadeIn z-50'
+											className='absolute bottom-[calc(100%+0.5rem)] right-0 w-auto bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl p-2 flex flex-col gap-1 animate-fadeIn z-50'
 											onClick={e => e.stopPropagation()}
 										>
 											<button

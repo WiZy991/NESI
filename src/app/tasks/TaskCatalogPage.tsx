@@ -86,6 +86,7 @@ export default function TaskCatalogPage() {
 	const [recommendedLoading, setRecommendedLoading] = useState(true)
 	const [recommendedError, setRecommendedError] = useState<string | null>(null)
 	const [activeReasonId, setActiveReasonId] = useState<string | null>(null)
+	const recommendationContainerRef = useRef<HTMLDivElement>(null)
 
 	const searchParams = useSearchParams()
 	const router = useRouter()
@@ -399,10 +400,10 @@ export default function TaskCatalogPage() {
 	)
 
 	return (
-		<div className='max-w-6xl mx-auto px-3 sm:px-4 lg:px-6 space-y-4 sm:space-y-6 md:space-y-8'>
+		<div className='max-w-6xl mx-auto px-3 sm:px-4 lg:px-6 space-y-4 sm:space-y-6 md:space-y-8 overflow-x-hidden w-full pt-2 md:pt-0'>
 			{/* Заголовок */}
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
-				<h1 className='text-2xl sm:text-3xl md:text-4xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]'>
+				<h1 className='text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.6)]'>
 					Каталог задач
 				</h1>
 
@@ -677,7 +678,7 @@ export default function TaskCatalogPage() {
 				</div>
 
 				{/* Задачи */}
-				<div className='flex-1 space-y-4 sm:space-y-6'>
+				<div className='flex-1 min-w-0 space-y-4 sm:space-y-6'>
 					{loading || userLoading ? (
 						<div className='space-y-4'>
 							{[...Array(6)].map((_, i) => (
@@ -728,27 +729,78 @@ export default function TaskCatalogPage() {
 										{recommendedError}
 									</div>
 								) : recommendedTasks.length > 0 ? (
-									<section className='p-4 sm:p-5 lg:p-6 bg-gradient-to-br from-emerald-900/20 via-slate-900/40 to-black/40 border border-emerald-500/30 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.18)] space-y-4'>
-										<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+									<section className='p-3 sm:p-4 md:p-5 lg:p-6 bg-gradient-to-br from-emerald-900/20 via-slate-900/40 to-black/40 border border-emerald-500/30 rounded-xl md:rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.18)] space-y-3 sm:space-y-4 overflow-visible pl-8 sm:pl-12 md:pl-14 pr-8 sm:pr-12 md:pr-14'>
+										<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3'>
 											<div>
-												<h2 className='text-lg sm:text-xl font-semibold text-emerald-300'>
+												<h2 className='text-base sm:text-lg md:text-xl font-semibold text-emerald-300'>
 													Рекомендуем для вас
 												</h2>
-												<p className='text-sm text-slate-300/80'>
+												<p className='text-xs sm:text-sm text-slate-300/80'>
 													Подбор на основе ваших навыков, избранного и истории
 													откликов
 												</p>
 											</div>
 											<button
 												onClick={() => fetchRecommendations()}
-												className='self-start sm:self-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 transition-colors text-xs'
+												className='self-start sm:self-auto inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 transition-colors text-xs'
 											>
-												Обновить рекомендации
+												<span className="hidden sm:inline">Обновить рекомендации</span>
+												<span className="sm:hidden">Обновить</span>
 											</button>
 										</div>
 
-										<div className='grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-											{recommendedTasks.map(recommendation => {
+										{/* Слайдер рекомендаций */}
+										<div className='relative overflow-visible'>
+											{/* Кнопки навигации */}
+											{recommendedTasks.length > 1 && (
+												<>
+													<button
+														onClick={() => {
+															if (recommendationContainerRef.current) {
+																const container = recommendationContainerRef.current
+																// Прокручиваем на ширину одной карточки + gap
+																const cardWidth = window.innerWidth >= 640 ? 320 : 260 // sm:w-[320px]
+																const gap = window.innerWidth >= 640 ? 16 : 12 // gap-3 или gap-4
+																const scrollAmount = cardWidth + gap
+																container.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
+															}
+														}}
+														className='absolute -left-6 sm:-left-8 md:-left-10 top-1/2 -translate-y-1/2 z-30 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-1.5 sm:p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg backdrop-blur-sm'
+														aria-label='Предыдущие рекомендации'
+													>
+														<ChevronDown className='w-3 h-3 sm:w-4 sm:h-4 rotate-90' />
+													</button>
+													<button
+														onClick={() => {
+															if (recommendationContainerRef.current) {
+																const container = recommendationContainerRef.current
+																// Прокручиваем на ширину одной карточки + gap
+																const cardWidth = window.innerWidth >= 640 ? 320 : 260 // sm:w-[320px]
+																const gap = window.innerWidth >= 640 ? 16 : 12 // gap-3 или gap-4
+																const scrollAmount = cardWidth + gap
+																container.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+															}
+														}}
+														className='absolute -right-6 sm:-right-8 md:-right-10 top-1/2 -translate-y-1/2 z-30 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-full p-1.5 sm:p-2 text-emerald-300 hover:text-emerald-200 transition-all shadow-lg backdrop-blur-sm'
+														aria-label='Следующие рекомендации'
+													>
+														<ChevronDown className='w-3 h-3 sm:w-4 sm:h-4 -rotate-90' />
+													</button>
+												</>
+											)}
+											
+											{/* Контейнер слайдера - ограничен по ширине для показа 3 карточек */}
+											<div
+												ref={recommendationContainerRef}
+												className='flex gap-2 sm:gap-3 md:gap-4 overflow-x-auto pt-2 pb-2 snap-x snap-mandatory scroll-smooth'
+												style={{
+													scrollbarWidth: 'none',
+													msOverflowStyle: 'none',
+													// Ограничиваем видимую область: 3 карточки по 320px + 2 gap по 16px = 992px
+													// На мобильных: 3 карточки по 260px + 2 gap по 8px = 796px
+												}}
+											>
+												{recommendedTasks.map(recommendation => {
 												const task = recommendation.task
 												const reasonsKey = `recommended-${task.id}`
 												const showReasons = activeReasonId === reasonsKey
@@ -778,15 +830,15 @@ export default function TaskCatalogPage() {
 													<Link
 														key={task.id}
 														href={`/tasks/${task.id}`}
-														className='group relative block p-4 border border-emerald-500/30 rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-3 cursor-pointer overflow-hidden'
+														className='group relative block p-3 sm:p-4 border border-emerald-500/30 rounded-xl sm:rounded-2xl bg-slate-900/50 backdrop-blur-sm hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-[2px] space-y-2 sm:space-y-3 cursor-pointer overflow-visible flex-shrink-0 w-[260px] sm:w-[280px] md:w-[320px] snap-start'
 													>
-														<div className='space-y-3'>
+														<div className='space-y-2 sm:space-y-3'>
 															<div className='flex-1 min-w-0'>
-																<h3 className='text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors whitespace-normal break-normal'>
+																<h3 className='text-sm sm:text-base font-semibold text-emerald-200 group-hover:text-emerald-100 transition-colors whitespace-normal break-normal line-clamp-2'>
 																	{task.title}
 																</h3>
 																{task.createdAt && (
-																<p className='text-xs text-slate-400 mt-1'>
+																<p className='text-[10px] sm:text-xs text-slate-400 mt-1'>
 																	{new Date(task.createdAt).toLocaleDateString(
 																		'ru-RU',
 																		{
@@ -799,22 +851,22 @@ export default function TaskCatalogPage() {
 															</div>
 
 															<div className='flex-1 min-w-0'>
-																<div className='flex flex-col items-end text-right gap-1'>
-																<span className='block text-[9px] uppercase tracking-[0.18em] text-emerald-300/60 whitespace-nowrap'>
+																<div className='flex flex-col items-end text-right gap-0.5 sm:gap-1'>
+																<span className='block text-[8px] sm:text-[9px] uppercase tracking-[0.15em] sm:tracking-[0.18em] text-emerald-300/60 whitespace-nowrap'>
 																	Рейтинг релевантности
 																</span>
-																<div className='flex items-baseline gap-1 justify-end'>
+																<div className='flex items-baseline gap-0.5 sm:gap-1 justify-end'>
 																	<span
-																		className={scoreClass}
+																		className='text-lg sm:text-xl font-semibold text-emerald-100 leading-none'
 																		title={scoreTitle}
 																	>
 																		{displayScore}
 																	</span>
-																	<span className='text-[10px] text-emerald-300/60'>
+																	<span className='text-[9px] sm:text-[10px] text-emerald-300/60'>
 																		/ 100
 																	</span>
 																</div>
-																<div className='relative w-full max-w-[72px] self-end h-[3px] rounded-full bg-emerald-500/15 border border-emerald-500/30 overflow-hidden shadow-[0_0_5px_rgba(16,185,129,0.25)]'>
+																<div className='relative w-full max-w-[60px] sm:max-w-[72px] self-end h-[2px] sm:h-[3px] rounded-full bg-emerald-500/15 border border-emerald-500/30 overflow-hidden shadow-[0_0_5px_rgba(16,185,129,0.25)]'>
 																	<div
 																		className='absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-500'
 																		style={{
@@ -828,7 +880,7 @@ export default function TaskCatalogPage() {
 																<div className='w-full'>
 																	<button
 																		type='button'
-																		className='inline-block text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none text-left'
+																		className='inline-block text-[10px] sm:text-[11px] font-medium text-emerald-200/80 underline decoration-dotted hover:text-emerald-100 transition focus:outline-none text-left'
 																		onMouseEnter={() =>
 																			setActiveReasonId(reasonsKey)
 																		}
@@ -841,27 +893,30 @@ export default function TaskCatalogPage() {
 																		onBlur={() => {
 																			setActiveReasonId(null)
 																		}}
+																		onTouchStart={() =>
+																			setActiveReasonId(reasonsKey)
+																		}
 																	>
 																		Почему подобрали
 																	</button>
 																	{showReasons && (
-																		<div className='mt-2 w-full rounded-lg border border-emerald-500/30 bg-slate-950/98 backdrop-blur-md px-3 py-2.5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)]'>
-																			<div className='text-[10px] uppercase tracking-wider text-emerald-400/80 mb-2 font-semibold'>
+																		<div className='mt-1.5 sm:mt-2 w-full rounded-lg border border-emerald-500/30 bg-slate-950/98 backdrop-blur-md px-2.5 sm:px-3 py-2 sm:py-2.5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)]'>
+																			<div className='text-[9px] sm:text-[10px] uppercase tracking-wider text-emerald-400/80 mb-1.5 sm:mb-2 font-semibold'>
 																				Почему подобрали
 																			</div>
-																			<div className='space-y-1.5'>
+																			<div className='space-y-1 sm:space-y-1.5'>
 																			{recommendation.reasons
 																				.slice(0, 3)
 																					.map((reason, idx) => (
 																					<div
 																							key={`${task.id}-popover-${idx}-${reason}`}
-																							className='text-[11px] text-emerald-100/95 leading-relaxed break-words'
+																							className='text-[10px] sm:text-[11px] text-emerald-100/95 leading-relaxed break-words'
 																					>
 																							{reason}
 																					</div>
 																				))}
 																				{recommendation.reasons.length > 3 && (
-																					<div className='text-[10px] text-emerald-300/60 mt-2 pt-2 border-t border-emerald-500/20'>
+																					<div className='text-[9px] sm:text-[10px] text-emerald-300/60 mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-emerald-500/20'>
 																						И ещё {recommendation.reasons.length - 3}{' '}
 																						{recommendation.reasons.length - 3 === 1
 																							? 'фактор'
@@ -882,7 +937,7 @@ export default function TaskCatalogPage() {
 
 
 														{task.price && (
-															<p className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm font-semibold'>
+															<p className='inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-xs sm:text-sm font-semibold'>
 																<span>💰</span>
 																<span>
 																	{typeof task.price === 'number'
@@ -899,11 +954,11 @@ export default function TaskCatalogPage() {
 															</p>
 														)}
 
-														<div className='flex flex-wrap gap-2'>
+														<div className='flex flex-wrap gap-1.5 sm:gap-2'>
 															{recommendation.tags.slice(0, 3).map(tag => (
 																<span
 																	key={`${task.id}-${tag}`}
-																	className='inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 border border-emerald-500/30 text-[11px] text-emerald-200'
+																	className='inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-black/40 border border-emerald-500/30 text-[10px] sm:text-[11px] text-emerald-200'
 																>
 																	<span>
 																		{recommendationTagLabels[tag].emoji}
@@ -914,17 +969,17 @@ export default function TaskCatalogPage() {
 														</div>
 
 														<div
-															className='flex items-center justify-between gap-2 pt-2 border-t border-slate-700/50'
+															className='flex items-center justify-between gap-1.5 sm:gap-2 pt-1.5 sm:pt-2 border-t border-slate-700/50'
 															onClick={e => e.stopPropagation()}
 														>
-															<span className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm'>
+															<span className='inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-xs sm:text-sm'>
 																Подробнее
 															</span>
 															{isExecutor && (
 																<FavoriteTaskButton
 																	taskId={task.id}
 																	size='sm'
-																	className='p-2 hover:bg-emerald-500/20 rounded-lg'
+																	className='p-1.5 sm:p-2 hover:bg-emerald-500/20 rounded-lg'
 																/>
 															)}
 														</div>
@@ -932,8 +987,9 @@ export default function TaskCatalogPage() {
 												)
 											})}
 										</div>
-									</section>
-								) : (
+									</div>
+								</section>
+							) : (
 									<section className='p-4 sm:p-5 lg:p-6 bg-black/35 border border-emerald-500/20 rounded-2xl text-sm text-emerald-200/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
 										<div>
 											<h3 className='text-base font-semibold text-emerald-200'>
