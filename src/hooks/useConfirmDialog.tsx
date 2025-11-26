@@ -50,8 +50,10 @@ export function useConfirmDialog() {
             }
             setDialogState((prev) => ({ ...prev, isOpen: false }))
             resolve(true)
-          } catch (error) {
+          } catch (error: any) {
             console.error('Ошибка в подтверждении:', error)
+            // Ошибка уже обработана в onConfirm, просто закрываем диалог
+            setDialogState((prev) => ({ ...prev, isOpen: false }))
             resolve(false)
           } finally {
             setIsLoading(false)

@@ -1171,11 +1171,11 @@ function CommentNode({
 						fetchPost()
 					} else {
 						let errorMessage = `Ошибка ${res.status}: ${res.statusText}`
-						if (responseData && typeof responseData === 'object') {
+						if (responseData && typeof responseData === 'object' && responseData !== null) {
 							if (typeof responseData.error === 'string') {
 								errorMessage = responseData.error
 							} else if (responseData.error && typeof responseData.error === 'object') {
-								errorMessage = JSON.stringify(responseData.error)
+								errorMessage = 'Ошибка при удалении комментария'
 							} else if (Array.isArray(responseData.errors)) {
 								errorMessage = responseData.errors.join(', ')
 							}
@@ -1184,23 +1184,27 @@ function CommentNode({
 						}
 						toast.error(errorMessage)
 						console.error('Ошибка удаления комментария:', { status: res.status, responseData, type: typeof responseData })
+						// Выбрасываем ошибку, чтобы диалог закрылся
+						throw new Error(errorMessage)
 					}
 				} catch (err: any) {
 					console.error('Ошибка удаления комментария:', err)
 					let errorMsg = 'Ошибка сети при удалении комментария'
-					if (err?.message) {
+					if (err?.message && typeof err.message === 'string') {
 						errorMsg = err.message
 					} else if (typeof err === 'string') {
 						errorMsg = err
 					} else if (err && typeof err === 'object') {
 						// Пытаемся извлечь читаемое сообщение из объекта
-						if (err.error) {
-							errorMsg = typeof err.error === 'string' ? err.error : JSON.stringify(err.error)
+						if (err.error && typeof err.error === 'string') {
+							errorMsg = err.error
 						} else {
-							errorMsg = JSON.stringify(err)
+							errorMsg = 'Ошибка при удалении комментария'
 						}
 					}
 					toast.error(errorMsg)
+					// Выбрасываем ошибку, чтобы диалог закрылся
+					throw new Error(errorMsg)
 				}
 			},
 		})

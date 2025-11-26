@@ -162,7 +162,13 @@ export default function ConfirmDialog({
         {/* Content */}
         <div className="p-6">
           <p className="text-gray-300 leading-relaxed">
-            {typeof message === 'string' ? message : JSON.stringify(message)}
+            {typeof message === 'string' 
+              ? message 
+              : message && typeof message === 'object' 
+                ? (message.toString && message.toString() !== '[object Object]' 
+                    ? message.toString() 
+                    : JSON.stringify(message, null, 2))
+                : String(message)}
           </p>
         </div>
 
