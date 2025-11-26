@@ -22,12 +22,24 @@ export default function ConfirmDialog({
   onClose,
   onConfirm,
   title = 'Подтвердите действие',
-  message,
+  message: messageProp,
   confirmText = 'Подтвердить',
   cancelText = 'Отмена',
   type = 'danger',
   isLoading = false,
 }: ConfirmDialogProps) {
+  // Гарантируем, что message всегда строка
+  const message = typeof messageProp === 'string' 
+    ? messageProp 
+    : messageProp == null 
+      ? '' 
+      : typeof messageProp === 'object'
+        ? (('message' in messageProp && typeof messageProp.message === 'string')
+            ? messageProp.message
+            : ('error' in messageProp && typeof messageProp.error === 'string')
+              ? messageProp.error
+              : 'Произошла ошибка')
+        : String(messageProp)
   // Закрытие по Escape
   useEffect(() => {
     if (!isOpen) return
@@ -162,35 +174,7 @@ export default function ConfirmDialog({
         {/* Content */}
         <div className="p-6">
           <p className="text-gray-300 leading-relaxed">
-            {(() => {
-              // Гарантируем, что всегда отображается строка
-              if (typeof message === 'string') {
-                return message
-              }
-              if (message == null) {
-                return ''
-              }
-              if (typeof message === 'object') {
-                // Пытаемся извлечь читаемое сообщение
-                if ('message' in message && typeof message.message === 'string') {
-                  return message.message
-                }
-                if ('error' in message && typeof message.error === 'string') {
-                  return message.error
-                }
-                try {
-                  const stringified = JSON.stringify(message, null, 2)
-                  // Если получилось "[object Object]", возвращаем пустую строку
-                  if (stringified === '{}' || stringified.includes('[object Object]')) {
-                    return 'Произошла ошибка'
-                  }
-                  return stringified
-                } catch {
-                  return 'Произошла ошибка'
-                }
-              }
-              return String(message || '')
-            })()}
+            {message}
           </p>
         </div>
 

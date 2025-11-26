@@ -73,12 +73,16 @@ export function useConfirmDialog() {
           try {
             if (options.onConfirm) {
               await options.onConfirm()
+              // Если успешно, закрываем диалог
+              setDialogState((prev) => ({ ...prev, isOpen: false }))
+              resolve(true)
+            } else {
+              setDialogState((prev) => ({ ...prev, isOpen: false }))
+              resolve(true)
             }
-            setDialogState((prev) => ({ ...prev, isOpen: false }))
-            resolve(true)
           } catch (error: any) {
             console.error('Ошибка в подтверждении:', error)
-            // Ошибка уже обработана в onConfirm, просто закрываем диалог
+            // Ошибка уже обработана в onConfirm через toast, просто закрываем диалог
             setDialogState((prev) => ({ ...prev, isOpen: false }))
             resolve(false)
           } finally {
