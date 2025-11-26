@@ -279,6 +279,57 @@ export async function POST(
       },
     }
 
+    // Отправка уведомлений о комментарии
+    try {
+      if (parentId) {
+        // Это ответ на комментарий - отправляем уведомление автору родительского комментария
+        const parentComment = await prisma.communityComment.findUnique({
+          where: { id: parentId },
+          select: { authorId: true },
+        })
+
+        if (parentComment && parentComment.authorId !== me.id) {
+          // Не отправляем уведомление самому себе
+          const commentAuthorName = comment.author.fullName || comment.author.email || 'Пользователь'
+          await prisma.notification.create({
+            data: {
+              userId: parentComment.authorId,
+              type: 'community_comment_reply',
+              message: `${commentAuthorName} ответил на ваш комментарий`,
+              link: `/community/${id}#comment-${comment.id}`,
+            },
+          })
+        }
+      } else {
+        // Это комментарий к посту - отправляем уведомление автору поста
+        const post = await prisma.communityPost.findUnique({
+          where: { id },
+          select: { authorId: true, title: true },
+        })
+
+        if (post && post.authorId !== me.id) {
+          // Не отправляем уведомление самому себе
+          const commentAuthorName = comment.author.fullName || comment.author.email || 'Пользователь'
+          const postTitle = post.title.length > 50 ? post.title.substring(0, 50) + '...' : post.title
+          await prisma.notification.create({
+            data: {
+              userId: post.authorId,
+              type: 'community_comment',
+              message: `${commentAuthorName} оставил комментарий к вашему посту "${postTitle}"`,
+              link: `/community/${id}#comment-${comment.id}`,
+            },
+          })
+        }
+      }
+    } catch (notificationError: any) {
+      // Логируем ошибку, но не прерываем создание комментария
+      logger.error('Ошибка отправки уведомления о комментарии', notificationError, {
+        commentId: comment.id,
+        postId: id,
+        parentId,
+      })
+    }
+
     return NextResponse.json({ ok: true, comment: formattedComment }, { status: 201 })
   } catch (err: any) {
     logger.error('Ошибка создания комментария', err, {
