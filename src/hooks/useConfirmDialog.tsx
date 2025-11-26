@@ -35,10 +35,36 @@ export function useConfirmDialog() {
 
   const confirm = useCallback((options: ConfirmOptions): Promise<boolean> => {
     return new Promise((resolve) => {
+      // Гарантируем, что message всегда строка
+      let messageStr = options.message
+      if (typeof messageStr !== 'string') {
+        if (messageStr == null) {
+          messageStr = ''
+        } else if (typeof messageStr === 'object') {
+          // Пытаемся извлечь читаемое сообщение из объекта
+          if ('message' in messageStr && typeof messageStr.message === 'string') {
+            messageStr = messageStr.message
+          } else if ('error' in messageStr && typeof messageStr.error === 'string') {
+            messageStr = messageStr.error
+          } else {
+            try {
+              const stringified = JSON.stringify(messageStr)
+              messageStr = stringified === '{}' || stringified.includes('[object Object]') 
+                ? 'Произошла ошибка' 
+                : stringified
+            } catch {
+              messageStr = 'Произошла ошибка'
+            }
+          }
+        } else {
+          messageStr = String(messageStr)
+        }
+      }
+      
       setDialogState({
         isOpen: true,
         title: options.title || 'Подтверждение',
-        message: options.message,
+        message: messageStr,
         confirmText: options.confirmText || 'Подтвердить',
         cancelText: options.cancelText || 'Отмена',
         type: options.type || 'danger',

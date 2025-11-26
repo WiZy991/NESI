@@ -162,13 +162,35 @@ export default function ConfirmDialog({
         {/* Content */}
         <div className="p-6">
           <p className="text-gray-300 leading-relaxed">
-            {typeof message === 'string' 
-              ? message 
-              : message && typeof message === 'object' 
-                ? (message.toString && message.toString() !== '[object Object]' 
-                    ? message.toString() 
-                    : JSON.stringify(message, null, 2))
-                : String(message)}
+            {(() => {
+              // Гарантируем, что всегда отображается строка
+              if (typeof message === 'string') {
+                return message
+              }
+              if (message == null) {
+                return ''
+              }
+              if (typeof message === 'object') {
+                // Пытаемся извлечь читаемое сообщение
+                if ('message' in message && typeof message.message === 'string') {
+                  return message.message
+                }
+                if ('error' in message && typeof message.error === 'string') {
+                  return message.error
+                }
+                try {
+                  const stringified = JSON.stringify(message, null, 2)
+                  // Если получилось "[object Object]", возвращаем пустую строку
+                  if (stringified === '{}' || stringified.includes('[object Object]')) {
+                    return 'Произошла ошибка'
+                  }
+                  return stringified
+                } catch {
+                  return 'Произошла ошибка'
+                }
+              }
+              return String(message || '')
+            })()}
           </p>
         </div>
 
