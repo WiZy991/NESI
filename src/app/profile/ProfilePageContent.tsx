@@ -1729,56 +1729,6 @@ export default function ProfilePageContent() {
 									</div>
 								)}
 
-								{/* Кнопка проверки платежа */}
-								{lastPaymentId && (
-									<div className='mt-4 space-y-2'>
-										<button
-											onClick={() => handleCheckPayment()}
-											disabled={checkingPayment}
-											className='w-full px-4 py-2 rounded border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
-										>
-											{checkingPayment ? (
-												<span className='flex items-center justify-center gap-2'>
-													<span className='w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin' />
-													Проверка...
-												</span>
-											) : (
-												'🔍 Проверить платеж (если деньги не поступили)'
-											)}
-										</button>
-
-										{/* Кнопка для ручного ввода PaymentId */}
-										<button
-											onClick={() => setShowManualCheck(!showManualCheck)}
-											className='w-full px-4 py-2 rounded border border-gray-500 text-gray-400 hover:bg-gray-800 transition text-xs'
-										>
-											{showManualCheck
-												? '✕ Скрыть'
-												: '🔑 Ввести PaymentId вручную'}
-										</button>
-
-										{showManualCheck && (
-											<div className='space-y-2 p-3 bg-black/60 rounded border border-gray-600'>
-												<input
-													type='text'
-													value={manualPaymentId}
-													onChange={e => setManualPaymentId(e.target.value)}
-													placeholder='Введите PaymentId из Т-Банка'
-													className='w-full bg-black/60 border border-gray-500 text-white p-2 rounded text-sm'
-												/>
-												<button
-													onClick={() =>
-														handleCheckPayment(manualPaymentId.trim())
-													}
-													disabled={!manualPaymentId.trim() || checkingPayment}
-													className='w-full px-4 py-2 rounded bg-yellow-600 hover:bg-yellow-500 text-black transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
-												>
-													Проверить
-												</button>
-											</div>
-										)}
-									</div>
-								)}
 							</div>
 							)}
 
