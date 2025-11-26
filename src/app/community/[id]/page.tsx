@@ -1105,10 +1105,13 @@ function CommentNode({
 						toast.success('Комментарий удалён')
 						fetchPost()
 					} else {
-						toast.error('Ошибка удаления комментария')
+						const errorData = await res.json().catch(() => ({}))
+						const errorMessage = errorData.error || 'Ошибка удаления комментария'
+						toast.error(errorMessage)
 					}
-				} catch {
-					toast.error('Ошибка сети при удалении комментария')
+				} catch (err: any) {
+					console.error('Ошибка удаления комментария:', err)
+					toast.error(err?.message || 'Ошибка сети при удалении комментария')
 				}
 			},
 		})

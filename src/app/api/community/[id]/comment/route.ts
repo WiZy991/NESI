@@ -155,6 +155,31 @@ export async function POST(
       }
     }
 
+    // Если это ответ на комментарий, проверяем что родительский комментарий существует и принадлежит к этому посту
+    let parentCommentAuthorId: string | null = null
+    if (parentId) {
+      const parentComment = await prisma.communityComment.findUnique({
+        where: { id: parentId },
+        select: { id: true, postId: true, authorId: true },
+      })
+
+      if (!parentComment) {
+        return NextResponse.json(
+          { error: 'Родительский комментарий не найден' },
+          { status: 404 }
+        )
+      }
+
+      if (parentComment.postId !== id) {
+        return NextResponse.json(
+          { error: 'Родительский комментарий не принадлежит к этому посту' },
+          { status: 400 }
+        )
+      }
+
+      parentCommentAuthorId = parentComment.authorId
+    }
+
     const data: any = {
       content: (content && content.trim()) ? content.trim() : '',
       parentId: parentId || null,
@@ -281,19 +306,14 @@ export async function POST(
 
     // Отправка уведомлений о комментарии
     try {
-      if (parentId) {
+      if (parentId && parentCommentAuthorId) {
         // Это ответ на комментарий - отправляем уведомление автору родительского комментария
-        const parentComment = await prisma.communityComment.findUnique({
-          where: { id: parentId },
-          select: { authorId: true },
-        })
-
-        if (parentComment && parentComment.authorId !== me.id) {
+        if (parentCommentAuthorId !== me.id) {
           // Не отправляем уведомление самому себе
           const commentAuthorName = comment.author.fullName || comment.author.email || 'Пользователь'
           await prisma.notification.create({
             data: {
-              userId: parentComment.authorId,
+              userId: parentCommentAuthorId,
               type: 'community_comment_reply',
               message: `${commentAuthorName} ответил на ваш комментарий`,
               link: `/community/${id}#comment-${comment.id}`,

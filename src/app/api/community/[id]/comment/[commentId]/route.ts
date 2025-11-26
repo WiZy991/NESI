@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 /** PATCH: редактирование комментария */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; commentId: string } }
+  { params }: { params: Promise<{ id: string; commentId: string }> | { id: string; commentId: string } }
 ) {
   try {
     const me = await getUserFromRequest(req).catch(() => null)
     if (!me) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+
+    // Обрабатываем params как Promise или обычный объект
+    const resolvedParams = 'then' in params ? await params : params
+    const { id: postId, commentId } = resolvedParams
 
     const body = await req.json().catch(() => ({}))
     const { content } = body || {}
@@ -21,13 +26,13 @@ export async function PATCH(
     }
 
     const existing = await prisma.communityComment.findUnique({
-      where: { id: params.commentId },
+      where: { id: commentId },
       select: { id: true, authorId: true, postId: true },
     })
     if (!existing) {
       return NextResponse.json({ error: 'Комментарий не найден' }, { status: 404 })
     }
-    if (existing.postId !== params.id) {
+    if (existing.postId !== postId) {
       return NextResponse.json({ error: 'Несоответствие поста' }, { status: 400 })
     }
     if (existing.authorId !== me.id) {
@@ -35,7 +40,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.communityComment.update({
-      where: { id: params.commentId },
+      where: { id: commentId },
       data: { content: content.trim() },
     })
 
@@ -49,20 +54,24 @@ export async function PATCH(
 /** DELETE: удаление комментария + всех потомков (BFS) */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string; commentId: string } }
+  { params }: { params: Promise<{ id: string; commentId: string }> | { id: string; commentId: string } }
 ) {
   try {
     const me = await getUserFromRequest(req).catch(() => null)
     if (!me) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
+    // Обрабатываем params как Promise или обычный объект
+    const resolvedParams = 'then' in params ? await params : params
+    const { id: postId, commentId } = resolvedParams
+
     const root = await prisma.communityComment.findUnique({
-      where: { id: params.commentId },
+      where: { id: commentId },
       select: { id: true, authorId: true, postId: true },
     })
     if (!root) {
       return NextResponse.json({ error: 'Комментарий не найден' }, { status: 404 })
     }
-    if (root.postId !== params.id) {
+    if (root.postId !== postId) {
       return NextResponse.json({ error: 'Несоответствие поста' }, { status: 400 })
     }
     if (root.authorId !== me.id && me.role !== 'admin') {
@@ -91,8 +100,15 @@ export async function DELETE(
     ])
 
     return NextResponse.json({ ok: true, deleted: toDelete.length })
-  } catch (err) {
-    console.error('🔥 DELETE comment error:', err)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  } catch (err: any) {
+    const resolvedParams = 'then' in params ? await params : params
+    logger.error('Ошибка удаления комментария', err, {
+      commentId: resolvedParams?.commentId,
+      postId: resolvedParams?.postId,
+    })
+    return NextResponse.json({ 
+      error: err?.message || 'Ошибка сервера',
+      details: process.env.NODE_ENV === 'development' ? err?.message : undefined
+    }, { status: 500 })
   }
 }
