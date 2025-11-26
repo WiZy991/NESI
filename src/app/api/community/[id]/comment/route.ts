@@ -17,8 +17,12 @@ const createCommentSchema = z.object({
 		.transform(val => val === null || val === undefined || val === '' ? undefined : val),
 	imageUrl: imageUrlSchema,
 	parentId: z
-		.string()
-		.uuid('Некорректный ID родительского комментария')
+		.union([
+			z.string().uuid('Некорректный ID родительского комментария'),
+			z.literal(''),
+			z.null(),
+			z.undefined()
+		])
 		.optional()
 		.nullable()
 		.transform(val => val === null || val === undefined || val === '' ? undefined : val),
@@ -119,13 +123,21 @@ export async function POST(
     
     const validation = validateWithZod(createCommentSchema, body)
     if (!validation.success) {
+      const errorMessages = validation.errors || []
+      const errorText = errorMessages.length > 0 
+        ? errorMessages.join(', ') 
+        : 'Некорректные данные'
+      
       logger.warn('Ошибка валидации комментария', {
-        errors: validation.errors,
+        errors: errorMessages,
         body: JSON.stringify(body),
         rawBody: body,
+        parentId: body.parentId,
+        parentIdType: typeof body.parentId,
       })
+      
       return NextResponse.json(
-        { error: validation.errors.join(', ') || 'Invalid input' },
+        { error: errorText },
         { status: 400 }
       )
     }

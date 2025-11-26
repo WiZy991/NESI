@@ -404,13 +404,36 @@ export default function CommunityPostPage() {
 				fetchPost()
 				toast.success('Ответ отправлен')
 			} else {
-				const errorMessage = responseData.error || `Ошибка ${res.status}: ${res.statusText}`
+				let errorMessage = `Ошибка ${res.status}: ${res.statusText}`
+				if (responseData && typeof responseData === 'object') {
+					if (typeof responseData.error === 'string') {
+						errorMessage = responseData.error
+					} else if (responseData.error && typeof responseData.error === 'object') {
+						errorMessage = JSON.stringify(responseData.error)
+					} else if (Array.isArray(responseData.errors)) {
+						errorMessage = responseData.errors.join(', ')
+					}
+				} else if (typeof responseData === 'string') {
+					errorMessage = responseData
+				}
 				toast.error(errorMessage)
-				console.error('Ошибка отправки ответа:', { status: res.status, error: responseData })
+				console.error('Ошибка отправки ответа:', { status: res.status, responseData, error: responseData?.error })
 			}
 		} catch (e: any) {
 			console.error('Ошибка ответа на комментарий:', e)
-			toast.error(e?.message || 'Ошибка сети при отправке ответа')
+			let errorMsg = 'Ошибка сети при отправке ответа'
+			if (e?.message) {
+				errorMsg = e.message
+			} else if (typeof e === 'string') {
+				errorMsg = e
+			} else if (e && typeof e === 'object') {
+				if (e.error) {
+					errorMsg = typeof e.error === 'string' ? e.error : JSON.stringify(e.error)
+				} else {
+					errorMsg = JSON.stringify(e)
+				}
+			}
+			toast.error(errorMsg)
 		}
 	}
 
@@ -1157,7 +1180,19 @@ function CommentNode({
 					}
 				} catch (err: any) {
 					console.error('Ошибка удаления комментария:', err)
-					const errorMsg = err?.message || String(err) || 'Ошибка сети при удалении комментария'
+					let errorMsg = 'Ошибка сети при удалении комментария'
+					if (err?.message) {
+						errorMsg = err.message
+					} else if (typeof err === 'string') {
+						errorMsg = err
+					} else if (err && typeof err === 'object') {
+						// Пытаемся извлечь читаемое сообщение из объекта
+						if (err.error) {
+							errorMsg = typeof err.error === 'string' ? err.error : JSON.stringify(err.error)
+						} else {
+							errorMsg = JSON.stringify(err)
+						}
+					}
 					toast.error(errorMsg)
 				}
 			},
