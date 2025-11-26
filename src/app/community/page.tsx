@@ -422,10 +422,10 @@ export default function CommunityPage() {
 								<div
 									key={post.id}
 									className='group border border-gray-800 rounded-xl p-3 sm:p-4 lg:p-4 hover:border-emerald-500/40 transition-all bg-transparent backdrop-blur-sm relative'
-									style={{ zIndex: openMenu === post.id ? 50 : 'auto' }}
+									style={{ zIndex: openMenu === post.id ? 100 : 1 }}
 								>
 									{/* Автор */}
-									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative z-0'>
+									<div className='flex items-start justify-between text-xs sm:text-sm text-gray-400 relative'>
 										<Link
 											href={`/users/${post.author.id}`}
 											className='group flex items-center gap-2 sm:gap-3 hover:bg-emerald-900/10 p-1.5 sm:p-2 rounded-lg border border-transparent hover:border-emerald-500/30 transition'
@@ -462,13 +462,13 @@ export default function CommunityPage() {
 										</Link>
 
 										{/* Меню */}
-										<div className='relative' data-menu-container>
+										<div className='relative z-[200]' data-menu-container>
 											<button
 												onClick={(e) => {
 													e.stopPropagation()
 													setOpenMenu(openMenu === post.id ? null : post.id)
 												}}
-												className='p-1 hover:text-emerald-400 transition relative z-50'
+												className='p-1 hover:text-emerald-400 transition relative z-[200]'
 											>
 												<MoreHorizontal className='w-4 h-4 sm:w-5 sm:h-5' />
 											</button>
