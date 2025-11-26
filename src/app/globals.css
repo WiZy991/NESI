@@ -98,6 +98,13 @@ body {
 	background: rgba(16, 185, 129, 0.5);
 }
 
+/* Скрытие скроллбара в textarea поля ввода сообщения */
+textarea::-webkit-scrollbar {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+}
+
 /* 🌈 Анимации и эффекты NESI UI */
 @keyframes fadeIn {
 	from {

@@ -2055,7 +2055,7 @@ export default function MessageInput({
 							onPaste={handlePaste}
 							placeholder='Напишите сообщение...'
 							rows={1}
-							className='w-full px-3 py-2.5 bg-slate-700/55 backdrop-blur-sm border border-slate-600/50 rounded-xl text-white text-sm sm:text-base placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-700/75 focus-visible:outline-none focus-visible:ring-0 resize-none custom-scrollbar shadow-md hover:border-slate-500/70 transition-all duration-200 ease-out'
+							className='w-full px-3 py-2.5 bg-slate-700/55 backdrop-blur-sm border border-slate-600/50 rounded-xl text-white text-sm sm:text-base placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-700/75 focus-visible:outline-none focus-visible:ring-0 resize-none shadow-md hover:border-slate-500/70 transition-all duration-200 ease-out'
 							disabled={sending}
 							style={
 								{
@@ -2064,6 +2064,8 @@ export default function MessageInput({
 									maxHeight: '140px',
 									lineHeight: '1.5',
 									overflow: 'auto',
+									scrollbarWidth: 'none',
+									msOverflowStyle: 'none',
 									transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 									outline: 'none',
 									outlineOffset: '0',
