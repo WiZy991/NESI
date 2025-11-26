@@ -405,7 +405,7 @@ model HireRequest {
   customerId String
   executorId String
   message    String?  @db.Text
-  amount     Decimal  @default(1990.00) @db.Decimal(15, 2)
+  amount     Decimal  @default(390.00) @db.Decimal(15, 2)
   createdAt  DateTime @default(now())
   paid       Boolean  @default(false)
   status     String   @default("pending")
