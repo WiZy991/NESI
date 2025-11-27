@@ -81,6 +81,14 @@ export default function Footer() {
 						<ul className='space-y-2'>
 							<li>
 								<Link
+									href='/faq'
+									className='text-gray-400 hover:text-emerald-400 transition-colors text-sm'
+								>
+									Часто задаваемые вопросы
+								</Link>
+							</li>
+							<li>
+								<Link
 									href='/privacy'
 									className='text-gray-400 hover:text-emerald-400 transition-colors text-sm'
 								>
