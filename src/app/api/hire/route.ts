@@ -362,6 +362,37 @@ export async function POST(req: NextRequest) {
 
 		// Транзакция: создаём запрос, списываем средства, отправляем владельцу
 		logger.debug('Начало транзакции найма', { customerId: me.id, executorId })
+		
+		// КРИТИЧНО: Находим DealId из последней транзакции пополнения заказчика через Т-Банк
+		// Это нужно для того, чтобы владелец платформы мог вывести комиссию через Т-Банк
+		let customerDealId: string | null = null
+		try {
+			const customerDepositTx = await prisma.transaction.findFirst({
+				where: {
+					userId: me.id,
+					type: 'deposit',
+					dealId: { not: null },
+					paymentId: { not: null }, // Только транзакции Т-Банка
+				},
+				orderBy: { createdAt: 'desc' },
+				select: { dealId: true },
+			})
+			
+			if (customerDepositTx?.dealId) {
+				customerDealId = String(customerDepositTx.dealId)
+				logger.debug('Найден DealId заказчика для комиссии', { 
+					customerId: me.id, 
+					dealId: customerDealId 
+				})
+			} else {
+				logger.warn('DealId заказчика не найден - комиссия не будет привязана к сделке', {
+					customerId: me.id,
+				})
+			}
+		} catch (dealError) {
+			logger.warn('Ошибка при поиске DealId заказчика', { error: dealError })
+		}
+		
 		let hire
 		try {
 			hire = await prisma.$transaction(async tx => {
@@ -397,7 +428,7 @@ export async function POST(req: NextRequest) {
 					},
 				})
 
-				// 4. Создаём транзакцию
+				// 4. Создаём транзакцию для заказчика
 				await tx.transaction.create({
 					data: {
 						userId: me.id,
@@ -405,10 +436,13 @@ export async function POST(req: NextRequest) {
 						type: 'expense',
 						reason: `Оплата запроса найма исполнителя`,
 						status: 'completed',
+						// Сохраняем DealId для отслеживания
+						...(customerDealId ? { dealId: customerDealId } : {}),
 					},
 				})
 
 				// 5. Создаём транзакцию для владельца платформы (тип commission для отображения в админ панели)
+				// КРИТИЧНО: Сохраняем DealId заказчика, чтобы владелец платформы мог вывести комиссию через Т-Банк
 				await tx.transaction.create({
 					data: {
 						userId: platformOwner.id,
@@ -416,6 +450,8 @@ export async function POST(req: NextRequest) {
 						type: 'commission',
 						reason: `Оплата найма исполнителя (390₽)`,
 						status: 'completed',
+						// DealId заказчика - позволяет выводить комиссию через ту же сделку Т-Банка
+						...(customerDealId ? { dealId: customerDealId } : {}),
 					},
 				})
 
