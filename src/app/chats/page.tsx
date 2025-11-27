@@ -1534,9 +1534,27 @@ function ChatsPageContent() {
 						clientLogger.debug('Создан временный чат задачи', {
 							chat: tempTaskChat,
 						})
-						setChats(prev => [tempTaskChat, ...prev])
-						setSelectedChat(tempTaskChat)
-						setMessages([])
+						// Добавляем чат только если такого еще нет (защита от дубликатов)
+						setChats(prev => {
+							// Проверяем, нет ли уже чата с таким task.id
+							const existingChat = prev.find(
+								chat => chat.type === 'task' && chat.task?.id === task.id
+							)
+							if (existingChat) {
+								clientLogger.debug('Чат задачи уже существует, используем его', {
+									taskId: task.id,
+									existingChatId: existingChat.id,
+								})
+								// Выбираем существующий чат
+								setSelectedChat(existingChat)
+								setMessages([])
+								return prev
+							}
+							// Добавляем новый чат и выбираем его
+							setSelectedChat(tempTaskChat)
+							setMessages([])
+							return [tempTaskChat, ...prev]
+						})
 						setShouldAutoOpen(false)
 						window.history.replaceState({}, '', '/chats')
 					} catch (error) {
@@ -1616,9 +1634,27 @@ function ChatsPageContent() {
 					}
 
 					clientLogger.debug('Создан временный чат', { chat: tempChat })
-					setChats(prev => [tempChat, ...prev])
-					setSelectedChat(tempChat)
-					setMessages([])
+					// Добавляем чат только если такого еще нет (защита от дубликатов)
+					setChats(prev => {
+						// Проверяем, нет ли уже чата с этим пользователем
+						const existingChat = prev.find(
+							chat => chat.type === 'private' && chat.otherUser?.id === otherUser.id
+						)
+						if (existingChat) {
+							clientLogger.debug('Приватный чат уже существует, используем его', {
+								otherUserId: otherUser.id,
+								existingChatId: existingChat.id,
+							})
+							// Выбираем существующий чат
+							setSelectedChat(existingChat)
+							setMessages([])
+							return prev
+						}
+						// Добавляем новый чат и выбираем его
+						setSelectedChat(tempChat)
+						setMessages([])
+						return [tempChat, ...prev]
+					})
 					setShouldAutoOpen(false)
 					window.history.replaceState({}, '', '/chats')
 				} catch (error) {
