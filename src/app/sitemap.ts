@@ -24,12 +24,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 			priority: 0.9,
 		},
 		{
-			url: `${baseUrl}/tasks/new`,
-			lastModified: new Date(),
-			changeFrequency: 'weekly',
-			priority: 0.8,
-		},
-		{
 			url: `${baseUrl}/specialists`,
 			lastModified: new Date(),
 			changeFrequency: 'daily',
@@ -41,12 +35,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 			lastModified: new Date(),
 			changeFrequency: 'daily',
 			priority: 0.9,
-		},
-		{
-			url: `${baseUrl}/cert`,
-			lastModified: new Date(),
-			changeFrequency: 'weekly',
-			priority: 0.8,
 		},
 		// Общие страницы
 		{
