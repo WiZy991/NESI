@@ -101,12 +101,19 @@ export function middleware(req: NextRequest) {
 		}
 
 		// /tasks/[id] → /task/[id]/[slug]
-		const taskMatch = pathname.match(/^\/tasks\/([^/]+)$/)
-		if (taskMatch && !pathname.startsWith('/tasks/edit')) {
-			const taskId = taskMatch[1]
-			const { redirectTask } = await import('@/lib/seo/redirects')
-			const redirectResponse = await redirectTask(taskId, req)
-			if (redirectResponse) return redirectResponse
+		// Исключаем /tasks, /tasks/new, /tasks/my, /tasks/favorites и другие служебные пути
+		if (pathname.startsWith('/tasks/') && 
+		    pathname !== '/tasks/new' && 
+		    !pathname.startsWith('/tasks/edit') &&
+		    !pathname.startsWith('/tasks/my') &&
+		    !pathname.startsWith('/tasks/favorites')) {
+			const taskMatch = pathname.match(/^\/tasks\/([^/]+)$/)
+			if (taskMatch) {
+				const taskId = taskMatch[1]
+				const { redirectTask } = await import('@/lib/seo/redirects')
+				const redirectResponse = await redirectTask(taskId, req)
+				if (redirectResponse) return redirectResponse
+			}
 		}
 
 		// Любые вложенные пути (детали задач/профили спецов) — нельзя

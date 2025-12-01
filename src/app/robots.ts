@@ -14,7 +14,9 @@ export default function robots(): MetadataRoute.Robots {
 					'/profile/edit',
 					'/settings',
 					'/balance',
-					'/*?*', // Блокируем все GET-параметры
+					'/tasks/new',
+					'/cert',
+					'/*?*',
 					'/api/',
 					'/chats/',
 					'/messages/',
