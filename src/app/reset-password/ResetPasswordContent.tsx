@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 
-export default function ResetPasswordPage() {
+export default function ResetPasswordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')

@@ -1,11 +1,19 @@
 'use client'
 
 import { Suspense } from 'react'
-import ResetPasswordContent from './ResetPasswordContent'
+import dynamic from 'next/dynamic'
+
+const ResetPasswordContent = dynamic(() => import('./ResetPasswordContent'), {
+  ssr: false,
+})
 
 export default function Page() {
   return (
-    <Suspense fallback={<p className="text-center mt-16">Загрузка...</p>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-emerald-300 text-lg animate-pulse">Загрузка...</div>
+      </div>
+    }>
       <ResetPasswordContent />
     </Suspense>
   )
