@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Plus, Edit2, Trash2, X, ExternalLink, ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import { useUser } from '@/context/UserContext'
@@ -24,7 +24,7 @@ type PortfolioItem = {
   }
 }
 
-export default function PortfolioPage() {
+function PortfolioPageContent() {
   const router = useRouter()
   const { user, loading: userLoading } = useUser()
   const { confirm, Dialog } = useConfirm()
@@ -411,6 +411,18 @@ export default function PortfolioPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function PortfolioPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-emerald-300 text-lg animate-pulse">Загрузка...</div>
+      </div>
+    }>
+      <PortfolioPageContent />
+    </Suspense>
   )
 }
 
