@@ -230,9 +230,20 @@ export async function PATCH(
       )
     }
 
+    // Генерируем SEO slug при обновлении заголовка
+    let updateData: { title: string; description: string; seoSlug?: string } = { title, description }
+    if (title && title !== task.title) {
+      const { slugify, createUniqueSlug } = await import('@/lib/seo/slugify')
+      const existingTaskSlugs = await prisma.task.findMany({
+        where: { seoSlug: { not: null } },
+        select: { seoSlug: true },
+      }).then(tasks => tasks.map(t => t.seoSlug!).filter(Boolean))
+      updateData.seoSlug = createUniqueSlug(title.trim(), existingTaskSlugs)
+    }
+
     const updated = await prisma.task.update({
       where: { id },
-      data: { title, description },
+      data: updateData,
     })
 
     return NextResponse.json({ task: updated })

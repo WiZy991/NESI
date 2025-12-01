@@ -423,11 +423,20 @@ export async function POST(req: Request) {
 			// Продолжаем с todoCount = 0
 		}
 
+		// Генерируем SEO slug для задачи
+		const { slugify, createUniqueSlug } = await import('@/lib/seo/slugify')
+		const existingTaskSlugs = await prisma.task.findMany({
+			where: { seoSlug: { not: null } },
+			select: { seoSlug: true },
+		}).then(tasks => tasks.map(t => t.seoSlug!).filter(Boolean))
+		const taskSlug = createUniqueSlug(sanitizedTitle, existingTaskSlugs)
+
 		let task
 		try {
 			task = await prisma.task.create({
 				data: {
 					title: sanitizedTitle,
+					seoSlug: taskSlug,
 					description: sanitizedDescription,
 					price,
 					deadline,

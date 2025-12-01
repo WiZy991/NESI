@@ -18,6 +18,7 @@ model User {
   blockedUntil             DateTime?
   blockedReason            String?
   fullName                 String?
+  seoSlug                  String?                @unique
   createdAt                DateTime               @default(now())
   description              String?
   avatarUrl                String?
@@ -138,6 +139,7 @@ model MessageTemplate {
 model Task {
   id                      String             @id @default(uuid())
   title                   String
+  seoSlug                 String?
   description             String
   price                   Decimal?           @db.Decimal(15, 2)
   deadline                DateTime?
@@ -290,6 +292,7 @@ model PasswordResetToken {
 model Category {
   id            String        @id @default(uuid())
   name          String        @unique
+  slug          String?       @unique
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   subcategories Subcategory[]
@@ -298,6 +301,7 @@ model Category {
 model Subcategory {
   id                 String              @id @default(uuid())
   name               String              @unique
+  slug               String?             @unique
   categoryId         String
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt

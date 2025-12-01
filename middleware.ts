@@ -90,6 +90,25 @@ export function middleware(req: NextRequest) {
 			// Все остальные пути сообщества (new, edit и т.д.) требуют авторизации
 		}
 
+			// Редиректы со старых URL на новые SEO-friendly URL
+		// /users/[id] → /freelancer/[id]/[slug] или /customer/[id]/[slug]
+		const userProfileMatch = pathname.match(/^\/users\/([^/]+)$/)
+		if (userProfileMatch) {
+			const userId = userProfileMatch[1]
+			const { redirectUserProfile } = await import('@/lib/seo/redirects')
+			const redirectResponse = await redirectUserProfile(userId, req)
+			if (redirectResponse) return redirectResponse
+		}
+
+		// /tasks/[id] → /task/[id]/[slug]
+		const taskMatch = pathname.match(/^\/tasks\/([^/]+)$/)
+		if (taskMatch && !pathname.startsWith('/tasks/edit')) {
+			const taskId = taskMatch[1]
+			const { redirectTask } = await import('@/lib/seo/redirects')
+			const redirectResponse = await redirectTask(taskId, req)
+			if (redirectResponse) return redirectResponse
+		}
+
 		// Любые вложенные пути (детали задач/профили спецов) — нельзя
 		if (
 			pathname.startsWith('/tasks/') ||

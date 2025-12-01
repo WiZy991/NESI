@@ -9,10 +9,13 @@ export default function robots(): MetadataRoute.Robots {
 				userAgent: '*',
 				allow: '/',
 				disallow: [
+					'/admin',
+					'/chat',
+					'/profile/edit',
+					'/settings',
+					'/balance',
+					'/*?*', // Блокируем все GET-параметры
 					'/api/',
-					'/admin/',
-					'/profile/',
-					'/settings/',
 					'/chats/',
 					'/messages/',
 					'/notifications/',
@@ -25,7 +28,7 @@ export default function robots(): MetadataRoute.Robots {
 				],
 			},
 		],
-		sitemap: `${baseUrl}/sitemap.xml`,
+		sitemap: `${baseUrl}/sitemap-index.xml`,
 	}
 }
 

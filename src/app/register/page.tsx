@@ -495,7 +495,6 @@ function RegisterContent() {
                 <div className="space-y-1 text-gray-300 text-sm">
                   <p><strong>ООО «НЭСИ»</strong></p>
                   <p>ИНН: 2205021414</p>
-                  <p>Юридический адрес: Алтайский край, г. Заринск, ул. Центральная 22, кв 1</p>
                   <p>Email: <EmailLink email="info.nesi@bk.ru" className="text-emerald-400 hover:underline" /></p>
                   <p>Сайт: <a href="https://nesi.ru" className="text-emerald-400 hover:underline">nesi.ru</a></p>
                 </div>

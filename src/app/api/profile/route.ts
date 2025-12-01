@@ -405,8 +405,17 @@ export async function PATCH(req: Request) {
 				}
 			}
 
+			// Генерируем SEO slug для пользователя при изменении имени
+			const { slugify, createUniqueSlug } = await import('@/lib/seo/slugify')
+			const existingUserSlugs = await prisma.user.findMany({
+				where: { seoSlug: { not: null } },
+				select: { seoSlug: true },
+			}).then(users => users.map(u => u.seoSlug!).filter(Boolean))
+			const userSlug = createUniqueSlug(fullName.trim(), existingUserSlugs)
+
 			dataToUpdate = {
 				fullName: sanitizeText(fullName.trim()),
+				seoSlug: userSlug,
 				role,
 				description: description ? sanitizeText(description.trim()) : null,
 				location: location ? sanitizeText(location.trim()) : null,

@@ -16,6 +16,7 @@ import { initErrorMonitoring, trackWebVitals } from '@/lib/errorMonitoring'
 import WelcomeOnboarding from '@/components/WelcomeOnboarding'
 import CommandPalette from '@/components/CommandPalette'
 import { initOfflineDB, onOnlineStatusChange } from '@/lib/offlineStorage'
+import { Analytics } from '@/components/seo/Analytics'
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -195,6 +196,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       
       {/* Компонент быстрых действий (Cmd+K) */}
       <CommandPalette />
+      
+      {/* Аналитика */}
+      <Analytics />
       </UserProvider>
     </ErrorBoundary>
   )
