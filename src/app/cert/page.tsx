@@ -1,8 +1,12 @@
 'use client'
 
 import { Suspense } from 'react'
-import CertPageContent from './CertPageContent'
+import dynamic from 'next/dynamic'
 import { SkeletonLoader } from '@/components/SkeletonLoader'
+
+const CertPageContent = dynamic(() => import('./CertPageContent'), {
+  ssr: false,
+})
 
 function CertPageSkeleton() {
   return (
