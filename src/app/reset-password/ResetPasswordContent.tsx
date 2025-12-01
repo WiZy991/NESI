@@ -1,17 +1,23 @@
 'use client'
 
-import { useSearchParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
 export default function ResetPasswordContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const token = searchParams.get('token')
-
+  const [token, setToken] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+
+  // Получаем токен из URL только на клиенте
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      setToken(params.get('token'))
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,7 +35,7 @@ export default function ResetPasswordContent() {
       })
 
       const data = await res.json()
-      setMessage(data.message)
+      setMessage(data.message || data.error || '')
 
       if (res.ok) {
         setTimeout(() => router.push('/login'), 3000)
@@ -53,26 +59,34 @@ export default function ResetPasswordContent() {
           🔐 Сброс пароля
         </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <input
-            type="password"
-            placeholder="Введите новый пароль"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 rounded-lg bg-emerald-950/30 border border-emerald-600/40 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-400"
-          />
+        {!token ? (
+          <div className="text-center text-red-400">
+            <p>Токен не найден. Пожалуйста, используйте ссылку из письма.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <input
+              type="password"
+              placeholder="Введите новый пароль"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 rounded-lg bg-emerald-950/30 border border-emerald-600/40 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-400"
+            />
 
-          <button
-            type="submit"
-            disabled={loading || !password}
-            className="w-full px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-black font-semibold shadow-md disabled:opacity-50"
-          >
-            {loading ? 'Сохраняем...' : 'Сохранить пароль'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading || !password}
+              className="w-full px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-black font-semibold shadow-md disabled:opacity-50"
+            >
+              {loading ? 'Сохраняем...' : 'Сохранить пароль'}
+            </button>
+          </form>
+        )}
 
         {message && (
-          <p className="mt-4 text-sm text-emerald-300">{message}</p>
+          <p className={`mt-4 text-sm ${message.includes('успешно') || message.includes('изменен') ? 'text-emerald-300' : 'text-red-400'}`}>
+            {message}
+          </p>
         )}
       </motion.div>
     </div>
