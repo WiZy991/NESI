@@ -35,6 +35,18 @@ export default function FeedbackWidget() {
 		}
 	})
 
+	// Блокировка прокрутки фона при открытом модальном окне
+	useEffect(() => {
+		if (isOpen) {
+			document.body.style.overflow = 'hidden'
+		} else {
+			document.body.style.overflow = 'unset'
+		}
+		return () => {
+			document.body.style.overflow = 'unset'
+		}
+	}, [isOpen])
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
 		setIsSubmitting(true)
@@ -83,8 +95,16 @@ export default function FeedbackWidget() {
 
 			{/* Модальное окно */}
 			{isOpen && (
-				<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm' data-nextjs-scroll-focus-boundary={false}>
-					<div className='bg-gray-900 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-md mx-4 p-6 md:p-8 animate-fadeIn relative'>
+				<div 
+					className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm' 
+					data-nextjs-scroll-focus-boundary={false}
+					onClick={(e) => {
+						if (e.target === e.currentTarget) {
+							setIsOpen(false)
+						}
+					}}
+				>
+					<div className='bg-gray-900 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-md mx-4 p-6 md:p-8 animate-fadeIn relative max-h-[90vh] overflow-y-auto'>
 						{/* Кнопка закрытия */}
 						<button
 							onClick={() => setIsOpen(false)}

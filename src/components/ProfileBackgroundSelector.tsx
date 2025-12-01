@@ -42,6 +42,14 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
     setAvailableBackgrounds(getAvailableBackgrounds(currentLevel))
   }, [token, currentLevel])
 
+  // Блокировка прокрутки фона при открытом модальном окне
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
+
   const handleSelectBackground = async (backgroundId: string) => {
     if (!token || saving) return
 
@@ -80,7 +88,14 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
   }
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
+    <div 
+      className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
         {/* Backdrop */}
         <div 
           className="absolute inset-0 bg-black/80 backdrop-blur-sm"

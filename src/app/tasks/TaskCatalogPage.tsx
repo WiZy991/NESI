@@ -1120,32 +1120,34 @@ export default function TaskCatalogPage() {
 							))}
 
 							{/* Пагинация */}
-							<div className='flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 mt-6 sm:mt-8'>
-								<nav aria-label='Пагинация задач'>
-									<button
-										onClick={() => setPage(p => Math.max(p - 1, 1))}
-										disabled={page === 1}
-										className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
-										aria-label='Предыдущая страница'
-									>
-										← Назад
-									</button>
-									<span
-										className='text-gray-400 text-sm sm:text-base'
-										aria-label={`Страница ${page} из ${totalPages}`}
-									>
-										Страница {page} из {totalPages}
-									</span>
-									<button
-										onClick={() => setPage(p => Math.min(p + 1, totalPages))}
-										disabled={page === totalPages}
-										className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
-										aria-label='Следующая страница'
-									>
-										Далее →
-									</button>
-								</nav>
-							</div>
+							{totalPages > 1 && (
+								<div className='flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 mt-6 sm:mt-8'>
+									<nav aria-label='Пагинация задач' className='flex items-center gap-4'>
+										<button
+											onClick={() => setPage(p => Math.max(p - 1, 1))}
+											disabled={page === 1}
+											className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
+											aria-label='Предыдущая страница'
+										>
+											← Назад
+										</button>
+										<span
+											className='text-gray-400 text-sm sm:text-base'
+											aria-label={`Страница ${page} из ${totalPages}`}
+										>
+											Страница {page} из {totalPages}
+										</span>
+										<button
+											onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+											disabled={page >= totalPages || (page === 1 && tasks.length < 20)}
+											className='w-full sm:w-auto px-4 py-2 rounded-lg border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all font-semibold'
+											aria-label='Следующая страница'
+										>
+											Далее →
+										</button>
+									</nav>
+								</div>
+							)}
 						</>
 					)}
 				</div>

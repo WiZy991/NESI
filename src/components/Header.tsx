@@ -1600,35 +1600,6 @@ export default function Header() {
 								</>
 							) : (
 								<>
-									{/* Навигация для страниц /business, /talents, /tasks, /specialists (для всех пользователей) */}
-									{(pathname === '/business' ||
-										pathname === '/talents' ||
-										pathname === '/tasks' ||
-										pathname === '/specialists') && (
-										<>
-											<Link
-												href='/tasks'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												📋 Каталог задач
-											</Link>
-											<Link
-												href='/specialists'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												⚡ Подиум исполнителей
-											</Link>
-											<Link
-												href='/community'
-												className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-												onClick={() => setMobileMenuOpen(false)}
-											>
-												💬 Сообщества
-											</Link>
-										</>
-									)}
 									<Link
 										href='/login'
 										className='py-3 px-4 text-center border-2 border-emerald-400 text-emerald-400 rounded-lg ios-button hover:bg-emerald-400 hover:text-black'
