@@ -104,7 +104,7 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
 
   return (
     <div 
-      className="fixed inset-0 z-[9998] flex items-center justify-center p-4 overflow-hidden"
+      className="fixed inset-0 z-[9998] flex items-start sm:items-center justify-center p-0 sm:p-4 pt-2 sm:pt-4 overflow-hidden"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose()
@@ -121,7 +121,7 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
 
       {/* Modal */}
       <div 
-        className="relative bg-gray-900 rounded-2xl border-2 border-emerald-500/30 shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="relative bg-gray-900 rounded-t-3xl sm:rounded-2xl border-2 border-emerald-500/30 shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-5xl w-full h-[calc(100vh-8px)] sm:max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
         style={{ touchAction: 'auto' }}
       >
