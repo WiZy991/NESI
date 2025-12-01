@@ -60,47 +60,197 @@ const FILE_SIGNATURES: Record<string, number[][]> = {
 const normalizeMimeType = (value: string): string =>
   value.split(';')[0]?.trim().toLowerCase() || value.toLowerCase()
 
-// Разрешенные MIME типы
+// Разрешенные MIME типы (расширенный список для всех подкатегорий)
 const ALLOWED_MIME_TYPES = new Set([
+  // Изображения
   'image/png',
   'image/jpeg',
   'image/jpg',
   'image/gif',
   'image/webp',
+  'image/svg+xml',
+  'image/bmp',
+  'image/tiff',
+  'image/x-icon',
+  'image/vnd.adobe.photoshop',
+  // Видео
   'video/mp4',
   'video/webm',
   'video/quicktime',
   'video/x-msvideo',
+  'video/x-ms-wmv',
+  'video/x-flv',
+  'video/mpeg',
+  // Аудио
   'audio/webm',
   'audio/ogg',
   'audio/mpeg',
   'audio/wav',
+  'audio/x-wav',
+  'audio/flac',
+  'audio/aac',
+  'audio/x-m4a',
+  // Документы
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.oasis.opendocument.presentation',
+  // Архивы
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+  'application/x-rar',
+  'application/x-7z-compressed',
+  'application/x-tar',
+  'application/gzip',
+  'application/x-gzip',
+  // Текстовые файлы
+  'text/plain',
+  'text/markdown',
+  'text/html',
+  'text/css',
+  'text/javascript',
+  'text/xml',
+  'application/json',
+  'application/xml',
+  'text/csv',
+  'text/yaml',
+  'application/x-yaml',
+  // Код
+  'text/x-python',
+  'text/x-java',
+  'text/x-c++',
+  'text/x-c',
+  'text/x-php',
+  'text/x-ruby',
+  'text/x-go',
+  'application/javascript',
+  'application/typescript',
+  'application/x-sh',
+  // Дизайн-файлы
+  'application/postscript',
+  'application/x-illustrator',
+  'application/vnd.adobe.illustrator',
+  // Другие (разрешаем для файлов без специфического MIME типа, но с известным расширением)
+  'application/octet-stream',
 ])
 
-// Разрешенные расширения
+// Разрешенные расширения (расширенный список для всех подкатегорий)
 const ALLOWED_EXTENSIONS = new Set([
+  // Изображения
   'png',
   'jpg',
   'jpeg',
   'gif',
   'webp',
+  'svg',
+  'bmp',
+  'tiff',
+  'ico',
+  'psd',
+  'ai',
+  'eps',
+  // Видео
   'mp4',
   'webm',
   'mov',
   'avi',
+  'wmv',
+  'flv',
+  'mpeg',
+  'mpg',
+  // Аудио
   'ogg',
   'mp3',
   'wav',
+  'flac',
+  'aac',
+  'm4a',
+  // Документы
   'pdf',
   'doc',
   'docx',
   'xls',
   'xlsx',
+  'ppt',
+  'pptx',
+  'odt',
+  'ods',
+  'odp',
+  // Архивы
+  'zip',
+  'rar',
+  '7z',
+  'tar',
+  'gz',
+  'bz2',
+  // Текстовые файлы
+  'txt',
+  'md',
+  'html',
+  'htm',
+  'css',
+  'js',
+  'xml',
+  'json',
+  'csv',
+  'yaml',
+  'yml',
+  'ini',
+  'log',
+  // Код
+  'py',
+  'java',
+  'cpp',
+  'c',
+  'cc',
+  'cxx',
+  'h',
+  'hpp',
+  'php',
+  'rb',
+  'go',
+  'rs',
+  'swift',
+  'kt',
+  'ts',
+  'tsx',
+  'jsx',
+  'vue',
+  'svelte',
+  'scss',
+  'sass',
+  'less',
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'ps1',
+  'bat',
+  'cmd',
+  // Дизайн-файлы
+  'fig',
+  'sketch',
+  'xd',
+  // 3D модели
+  'obj',
+  'fbx',
+  '3ds',
+  'blend',
+  'stl',
+  'dae',
+  // Другие
+  'lock',
+  'env',
+  'gitignore',
+  'dockerfile',
+  'makefile',
 ])
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB (для видео)
@@ -199,10 +349,14 @@ export async function validateFile(
   const rawMimeType = file.type || 'application/octet-stream'
   const mimeType = normalizeMimeType(rawMimeType)
 
-  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+  // Разрешаем файлы с известным расширением, даже если MIME тип application/octet-stream
+  const isKnownExtension = ext && ALLOWED_EXTENSIONS.has(ext)
+  const isAllowedMimeType = ALLOWED_MIME_TYPES.has(mimeType)
+  
+  if (!isAllowedMimeType && !(isKnownExtension && mimeType === 'application/octet-stream')) {
     return {
       valid: false,
-      error: `Недопустимый тип файла: ${rawMimeType}`,
+      error: `Недопустимый тип файла: ${rawMimeType}. Разрешенные типы: изображения, видео, аудио, документы, архивы, код, дизайн-файлы`,
     }
   }
 
@@ -279,7 +433,11 @@ export function validateFileBuffer(
   // Проверка MIME типа
   const normalizedMimeType = normalizeMimeType(declaredMimeType)
 
-  if (!ALLOWED_MIME_TYPES.has(normalizedMimeType)) {
+  // Разрешаем файлы с известным расширением, даже если MIME тип application/octet-stream
+  const isKnownExtension = ext && ALLOWED_EXTENSIONS.has(ext)
+  const isAllowedMimeType = ALLOWED_MIME_TYPES.has(normalizedMimeType)
+  
+  if (!isAllowedMimeType && !(isKnownExtension && normalizedMimeType === 'application/octet-stream')) {
     return {
       valid: false,
       error: `Недопустимый тип файла: ${declaredMimeType}`,
