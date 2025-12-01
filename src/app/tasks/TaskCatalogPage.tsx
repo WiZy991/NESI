@@ -21,7 +21,7 @@ import {
 	X,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -88,14 +88,22 @@ export default function TaskCatalogPage() {
 	const [activeReasonId, setActiveReasonId] = useState<string | null>(null)
 	const recommendationContainerRef = useRef<HTMLDivElement>(null)
 
-	const searchParams = useSearchParams()
 	const router = useRouter()
 
-	const [search, setSearch] = useState(searchParams.get('search') || '')
-	const [sort, setSort] = useState(searchParams.get('sort') || 'new')
-	const [subcategory, setSubcategory] = useState(
-		searchParams.get('subcategory') || ''
-	)
+	// Инициализация из URL параметров только на клиенте
+	const [search, setSearch] = useState('')
+	const [sort, setSort] = useState('new')
+	const [subcategory, setSubcategory] = useState('')
+	
+	// Загружаем параметры из URL только на клиенте
+	useEffect(() => {
+		if (typeof window !== 'undefined') {
+			const params = new URLSearchParams(window.location.search)
+			setSearch(params.get('search') || '')
+			setSort(params.get('sort') || 'new')
+			setSubcategory(params.get('subcategory') || '')
+		}
+	}, [])
 	const [page, setPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
 	const [isSortOpen, setIsSortOpen] = useState(false)
@@ -392,11 +400,13 @@ export default function TaskCatalogPage() {
 	const handleSubcategorySelect = useCallback(
 		(id: string) => {
 			setSubcategory(id)
-			const query = new URLSearchParams(searchParams.toString())
-			query.set('subcategory', id)
-			router.push(`/tasks?${query.toString()}`)
+			if (typeof window !== 'undefined') {
+				const query = new URLSearchParams(window.location.search)
+				query.set('subcategory', id)
+				router.push(`/tasks?${query.toString()}`)
+			}
 		},
-		[searchParams, router]
+		[router]
 	)
 
 	return (

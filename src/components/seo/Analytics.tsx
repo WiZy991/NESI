@@ -5,7 +5,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 
 declare global {
   interface Window {
@@ -17,7 +17,6 @@ declare global {
 
 export function Analytics() {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
   useEffect(() => {
     const ga4Id = process.env.NEXT_PUBLIC_GA4_ID
@@ -84,7 +83,7 @@ export function Analytics() {
       // Отслеживание изменения страницы
       window.ym(parseInt(yandexMetrikaId), 'hit', pathname)
     }
-  }, [pathname, searchParams])
+  }, [pathname])
 
   return null
 }

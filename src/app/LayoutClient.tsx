@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { usePathname } from 'next/navigation'
 import { UserProvider } from '@/context/UserContext'
 import Header from '@/components/Header'
@@ -198,7 +198,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       <CommandPalette />
       
       {/* Аналитика */}
-      <Analytics />
+      <Suspense fallback={null}>
+        <Analytics />
+      </Suspense>
       </UserProvider>
     </ErrorBoundary>
   )
