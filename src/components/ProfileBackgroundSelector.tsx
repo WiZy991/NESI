@@ -42,14 +42,6 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
     setAvailableBackgrounds(getAvailableBackgrounds(currentLevel))
   }, [token, currentLevel])
 
-  // Блокировка прокрутки фона при открытом модальном окне
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [])
-
   const handleSelectBackground = async (backgroundId: string) => {
     if (!token || saving) return
 
@@ -79,9 +71,32 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
     }
   }
 
+  // Блокировка прокрутки фона при открытом модальном окне (включая состояние загрузки)
+  useEffect(() => {
+    // Сохраняем текущие значения
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+    
+    // Блокируем прокрутку
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    // Предотвращаем сдвиг контента при скрытии скроллбара
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`
+    }
+    
+    return () => {
+      // Восстанавливаем исходные значения
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
+      document.body.style.paddingRight = ''
+    }
+  }, [])
+
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9998] overflow-hidden">
         <div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
       </div>
     )
@@ -89,23 +104,26 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
 
   return (
     <div 
-      className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9998] flex items-center justify-center p-4 overflow-hidden"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose()
         }
       }}
+      style={{ touchAction: 'none' }}
     >
         {/* Backdrop */}
         <div 
           className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           onClick={onClose}
+          style={{ touchAction: 'none' }}
         />
 
       {/* Modal */}
       <div 
         className="relative bg-gray-900 rounded-2xl border-2 border-emerald-500/30 shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        style={{ touchAction: 'auto' }}
       >
         {/* Header */}
         <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-emerald-500/20 p-6 flex items-center justify-between z-10">
