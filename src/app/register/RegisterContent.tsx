@@ -323,14 +323,32 @@ export default function RegisterContent() {
               <input
                 type="checkbox"
                 checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-1 w-5 h-5 rounded border-emerald-400/50 bg-transparent text-emerald-500 focus:ring-2 focus:ring-emerald-400 cursor-pointer"
+                onChange={(e) => {
+                  e.stopPropagation()
+                  setAgreedToTerms(e.target.checked)
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                }}
+                className="mt-1 w-5 h-5 rounded border-emerald-400/50 bg-transparent text-emerald-500 focus:ring-2 focus:ring-emerald-400 cursor-pointer appearance-none checked:bg-emerald-500 checked:border-emerald-500 relative"
+                style={{
+                  backgroundImage: agreedToTerms 
+                    ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E")`
+                    : 'none',
+                  backgroundSize: 'contain',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                }}
               />
-              <span className="text-sm text-gray-300 leading-relaxed">
+              <span className="text-sm text-gray-300 leading-relaxed flex-1">
                 Я принимаю{' '}
                 <button
                   type="button"
-                  onClick={() => setShowTermsModal(true)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    setShowTermsModal(true)
+                  }}
                   className="text-emerald-400 hover:text-emerald-300 underline font-medium"
                 >
                   пользовательское соглашение
