@@ -174,6 +174,8 @@ export default function MessageInput({
 	const [isTyping, setIsTyping] = useState(false)
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 	const [showTemplatesModal, setShowTemplatesModal] = useState(false)
+	const [isChatDisabled, setIsChatDisabled] = useState(false)
+	const [disputeMessage, setDisputeMessage] = useState<string | null>(null)
 	const [voiceMetadata, setVoiceMetadata] = useState<VoiceMetadata | null>(null)
 	const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null)
 	const [isRecording, setIsRecording] = useState(false)
@@ -661,6 +663,11 @@ export default function MessageInput({
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
+
+		if (isChatDisabled) {
+			alert(disputeMessage || 'Чат закрыт. Отправка сообщений недоступна.')
+			return
+		}
 
 		const trimmedContent = message.trim()
 		const readyAttachments = attachments.filter(att => att.status === 'ready')
@@ -1697,6 +1704,13 @@ export default function MessageInput({
 					WebkitTouchCallout: 'none',
 				} as React.CSSProperties}
 			>
+				{/* Сообщение о закрытом чате */}
+				{isChatDisabled && disputeMessage && (
+					<div className='mb-3 px-4 py-2.5 bg-yellow-900/30 backdrop-blur-sm border border-yellow-500/50 rounded-xl text-xs sm:text-sm text-yellow-300 flex items-center gap-2'>
+						<span>⚠️</span>
+						<span>{disputeMessage}</span>
+					</div>
+				)}
 				{/* Информация об ответе на сообщение */}
 				{replyTo && (
 					<div className='mb-3 px-4 py-2.5 bg-slate-700/40 backdrop-blur-sm border border-slate-600/50 rounded-xl flex items-start gap-3 text-xs sm:text-sm transition-all duration-200 ease-out animate-in fade-in-0 slide-in-from-top-2 shadow-lg'>
@@ -2055,7 +2069,7 @@ export default function MessageInput({
 							placeholder='Напишите сообщение...'
 							rows={1}
 							className='w-full px-3 py-2.5 bg-slate-700/55 backdrop-blur-sm border border-slate-600/50 rounded-xl text-white text-sm sm:text-base placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none focus:bg-slate-700/75 focus-visible:outline-none focus-visible:ring-0 resize-none shadow-md hover:border-slate-500/70 transition-all duration-200 ease-out'
-							disabled={sending}
+							disabled={sending || isChatDisabled}
 							style={
 								{
 									height: '44px',

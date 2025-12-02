@@ -179,6 +179,29 @@ export async function POST(
 		}
 
 		const { id: taskId } = await params
+		
+		// Проверяем, есть ли решенный спор по этой задаче
+		const resolvedDispute = await prisma.dispute.findFirst({
+			where: {
+				taskId: taskId,
+				status: 'resolved',
+			},
+			select: {
+				adminDecision: true,
+			},
+		})
+
+		if (resolvedDispute) {
+			return NextResponse.json(
+				{ 
+					error: resolvedDispute.adminDecision === 'executor' 
+						? 'Спор решен в пользу исполнителя. Чат закрыт.' 
+						: 'Спор решен в пользу заказчика. Чат закрыт.' 
+				},
+				{ status: 403 }
+			)
+		}
+		
 		const contentType = req.headers.get('content-type') || ''
 		
 		let content = ''
