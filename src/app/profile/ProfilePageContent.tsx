@@ -1000,12 +1000,12 @@ export default function ProfilePageContent() {
 			</div>
 
 			{/* Табы */}
-			<div className='flex gap-2 mb-4 md:mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+			<div className='flex gap-2 mb-4 md:mb-6 overflow-x-auto overflow-y-visible pt-2 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
 				{tabs.map(tab => (
 					<button
 						key={tab.id}
 						onClick={() => setActiveTab(tab.id)}
-						className={`flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium text-xs md:text-sm whitespace-nowrap transition-all ${
+						className={`flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium text-xs md:text-sm whitespace-nowrap transition-all hover:-translate-y-1 ${
 							activeTab === tab.id
 								? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
 								: 'bg-black/40 border border-gray-700/50 text-gray-400 hover:border-emerald-500/30 hover:text-emerald-400'
