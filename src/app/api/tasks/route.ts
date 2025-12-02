@@ -169,71 +169,95 @@ export async function GET(req: Request) {
 				? [{ kanbanColumn: 'asc' }, { kanbanOrder: 'asc' }, orderBy]
 				: [orderBy]
 
-		const [tasks, total] = await Promise.all([
-			prisma.task.findMany({
-				where,
-				orderBy: orderByClauses,
-				skip,
-				take: limit,
+		// Если используется фильтр по количеству откликов, нужно получить все задачи для корректной фильтрации
+		const needsFullFetch = minResponses !== undefined || sortParam === 'responses'
+		
+		const selectFields = {
+			id: true,
+			title: true,
+			description: true,
+			price: true,
+			escrowAmount: true,
+			deadline: true,
+			status: true,
+			createdAt: true,
+			kanbanColumn: true,
+			kanbanOrder: true,
+			customer: {
 				select: {
 					id: true,
-					title: true,
-					description: true,
-					price: true,
-					escrowAmount: true,
-					deadline: true,
-					status: true,
-					createdAt: true,
-					kanbanColumn: true,
-					kanbanOrder: true,
-					customer: {
-						select: {
-							id: true,
-							fullName: true,
-							avgRating: true,
-						},
-					},
-					executor: {
-						select: {
-							id: true,
-							fullName: true,
-							email: true,
-						},
-					},
-					subcategory: {
-						select: {
-							id: true,
-							name: true,
-							category: { select: { id: true, name: true } },
-						},
-					},
-					files: {
-						select: { id: true, filename: true, mimetype: true, size: true },
-					},
-					_count: { select: { responses: true } },
+					fullName: true,
+					avgRating: true,
 				},
-			}),
-			prisma.task.count({ where }),
-		])
-
-		// Фильтруем по количеству откликов (после получения данных, так как Prisma не поддерживает фильтрацию по _count)
-		let filteredTasks = tasks
-		if (minResponses !== undefined) {
-			filteredTasks = tasks.filter(
-				task => task._count.responses >= minResponses
-			)
+			},
+			executor: {
+				select: {
+					id: true,
+					fullName: true,
+					email: true,
+				},
+			},
+			subcategory: {
+				select: {
+					id: true,
+					name: true,
+					category: { select: { id: true, name: true } },
+				},
+			},
+			files: {
+				select: { id: true, filename: true, mimetype: true, size: true },
+			},
+			_count: { select: { responses: true } },
 		}
 
-		// Если нужна сортировка по откликам, делаем это на стороне сервера
-		let sortedTasks = filteredTasks
-		if (sortParam === 'responses') {
-			sortedTasks = [...filteredTasks].sort(
-				(a, b) => b._count.responses - a._count.responses
-			)
+		let tasks: any[]
+		let total: number
+
+		if (needsFullFetch) {
+			// Получаем все задачи для корректной фильтрации и сортировки
+			const allTasks = await prisma.task.findMany({
+				where,
+				orderBy: orderByClauses,
+				select: selectFields,
+			})
+
+			// Фильтруем по количеству откликов
+			let filteredTasks = allTasks
+			if (minResponses !== undefined) {
+				filteredTasks = allTasks.filter(
+					task => task._count.responses >= minResponses
+				)
+			}
+
+			// Сортируем по откликам если нужно
+			let sortedTasks = filteredTasks
+			if (sortParam === 'responses') {
+				sortedTasks = [...filteredTasks].sort(
+					(a, b) => b._count.responses - a._count.responses
+				)
+			}
+
+			// Применяем пагинацию к отфильтрованным и отсортированным задачам
+			total = sortedTasks.length
+			tasks = sortedTasks.slice(skip, skip + limit)
+		} else {
+			// Обычный случай - получаем задачи с пагинацией
+			const [fetchedTasks, fetchedTotal] = await Promise.all([
+				prisma.task.findMany({
+					where,
+					orderBy: orderByClauses,
+					skip,
+					take: limit,
+					select: selectFields,
+				}),
+				prisma.task.count({ where }),
+			])
+			tasks = fetchedTasks
+			total = fetchedTotal
 		}
 
 		const response = NextResponse.json({
-			tasks: sortedTasks,
+			tasks,
 			pagination: {
 				page,
 				limit,
