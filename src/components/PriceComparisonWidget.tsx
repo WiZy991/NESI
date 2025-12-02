@@ -9,6 +9,7 @@ interface ExternalPriceData {
 	minPrice: number
 	maxPrice: number
 	sampleSize: number
+	isAdapted?: boolean // Флаг, что данные адаптированы под задачу
 }
 
 interface PriceComparisonWidgetProps {
@@ -27,9 +28,13 @@ export default function PriceComparisonWidget({
 	const { token } = useUser()
 	const [priceData, setPriceData] = useState<{
 		internal: {
-			averagePrice: number
-			minPrice: number
-			maxPrice: number
+			overall?: {
+				averagePrice: number
+				minPrice: number
+				maxPrice: number
+				taskCount: number
+			}
+			bySubcategory?: any[]
 		}
 		external: ExternalPriceData[]
 		comparison: {
@@ -54,7 +59,9 @@ export default function PriceComparisonWidget({
 		similarTasksCount?: number
 		isAdaptive?: boolean
 		priceMultiplier?: number
-		source?: 'similar_tasks' | 'knowledge_base' | 'category_average'
+		source?: 'similar_tasks' | 'knowledge_base' | 'category_average' | 'category_average_adjusted' | 'completed_tasks_average'
+		confidence?: number
+		sampleSize?: number
 	} | null>(null)
 	const [loading, setLoading] = useState(true)
 
@@ -96,13 +103,14 @@ export default function PriceComparisonWidget({
 	}
 
 	const externalAverage = priceData.comparison.externalAverage
-	const internalAverage = priceData.comparison.internalAverage
+	// Получаем внутреннюю среднюю из правильной структуры
+	const internalAverage = priceData.internal?.overall?.averagePrice || priceData.comparison.internalAverage || 0
 	
-	// Приоритет: база знаний > внутренняя средняя > внешняя средняя
-	const marketAverage = priceData.taskType 
-		? priceData.taskType.typicalPrice
-		: internalAverage > 0 
+	// ПРАВИЛЬНЫЙ ПРИОРИТЕТ: Внутренняя средняя (реальные данные) > База знаний > Внешняя средняя
+	const marketAverage = internalAverage > 0 
 		? internalAverage 
+		: priceData.taskType 
+		? priceData.taskType.typicalPrice
 		: externalAverage
 
 	// Вычисляем разницу между ценой отклика и рыночной средней
@@ -130,12 +138,55 @@ export default function PriceComparisonWidget({
 	}
 
 	const status = getPriceStatus()
+	
+	// Получаем confidence и sampleSize из данных
+	const confidence = priceData.confidence || 0.5
+	const sampleSize = priceData.sampleSize || 0
+	const source = priceData.source || 'unknown'
+	
+	// Определяем уровень уверенности для отображения
+	const getConfidenceLevel = () => {
+		if (confidence >= 0.8) return { text: 'Высокая', color: 'text-green-400', bg: 'bg-green-500/10' }
+		if (confidence >= 0.6) return { text: 'Средняя', color: 'text-yellow-400', bg: 'bg-yellow-500/10' }
+		return { text: 'Низкая', color: 'text-orange-400', bg: 'bg-orange-500/10' }
+	}
+	
+	const confidenceLevel = getConfidenceLevel()
+	
+	// Определяем название источника
+	const getSourceName = () => {
+		switch (source) {
+			case 'similar_tasks': return 'Похожие задачи'
+			case 'completed_tasks_average': return 'Завершенные задачи'
+			case 'knowledge_base': return 'База знаний'
+			case 'category_average_adjusted': return 'Средняя по категории (скорректировано)'
+			case 'category_average': return 'Средняя по категории'
+			default: return 'Общая статистика'
+		}
+	}
 
 	return (
 		<div className={`mt-3 p-3 rounded-lg border ${status.border} ${status.bg}`}>
 			<div className="flex items-center justify-between mb-2">
 				<span className="text-xs font-medium text-gray-400">Сравнение с рынком</span>
 				<span className={`text-xs font-semibold ${status.color}`}>{status.text}</span>
+			</div>
+			
+			{/* Индикатор уверенности и источника */}
+			<div className="mb-2 flex items-center justify-between">
+				<div className={`text-[10px] px-1.5 py-0.5 rounded ${confidenceLevel.bg} ${confidenceLevel.color}`}>
+					Уверенность: {confidenceLevel.text} ({Math.round(confidence * 100)}%)
+				</div>
+				{sampleSize > 0 && (
+					<div className="text-[10px] text-gray-500">
+						На основе {sampleSize} {sampleSize === 1 ? 'задачи' : sampleSize < 5 ? 'задач' : 'задач'}
+					</div>
+				)}
+			</div>
+			
+			{/* Источник данных */}
+			<div className="mb-2 text-[10px] text-gray-500">
+				Источник: {getSourceName()}
 			</div>
 			
 			<div className="space-y-1.5">
@@ -165,21 +216,21 @@ export default function PriceComparisonWidget({
 				</div>
 			)}
 
-			{/* Индикатор источника статистики - показываем только если адаптивная статистика используется */}
+			{/* Дополнительная информация об адаптации */}
 			{priceData.isAdaptive && priceData.source !== 'category_average' && (
 				<div className="mt-2 pt-1.5 border-t border-emerald-700/20">
 					<div className="text-[10px] text-emerald-400/80 flex items-center gap-1">
 						<span>✨</span>
 						<span>
-							{priceData.source === 'knowledge_base' && priceData.taskType
+							{priceData.source === 'similar_tasks' && priceData.similarTasksCount
+								? `Найдено ${priceData.similarTasksCount} похожих задач`
+								: priceData.source === 'knowledge_base' && priceData.taskType
 								? `База знаний: ${priceData.taskType.name}`
-								: priceData.similarTasksCount && priceData.similarTasksCount > 0
-								? `Адаптировано (${priceData.similarTasksCount} похожих)`
 								: priceData.priceMultiplier && priceData.priceMultiplier < 1
 								? `Учтена простота (${(priceData.priceMultiplier * 100).toFixed(0)}%)`
 								: priceData.priceMultiplier && priceData.priceMultiplier > 1
 								? `Учтена сложность (×${priceData.priceMultiplier.toFixed(1)})`
-								: 'Адаптировано'}
+								: 'Адаптировано под задачу'}
 						</span>
 					</div>
 				</div>
@@ -262,11 +313,23 @@ export default function PriceComparisonWidget({
 			{/* Данные из внешних источников */}
 			{priceData.external.length > 0 && (
 				<div className="mt-3 pt-2 border-t border-gray-700/50">
-					<div className="text-xs text-gray-400 mb-1.5">Данные с других площадок:</div>
+					<div className="text-xs text-gray-400 mb-1.5 flex items-center gap-1">
+						<span>Данные с других площадок:</span>
+						{priceData.external.some(s => s.isAdapted) && (
+							<span className="text-emerald-400 text-[10px]">✨ Адаптировано</span>
+						)}
+					</div>
 					<div className="space-y-1">
 						{priceData.external.slice(0, 3).map((source, idx) => (
 							<div key={idx} className="flex justify-between items-center text-xs">
-								<span className="text-gray-500">{source.source}:</span>
+								<span className="text-gray-500 flex items-center gap-1">
+									{source.source}
+									{source.isAdapted && (
+										<span className="text-emerald-400 text-[10px]" title="Цена адаптирована под вашу задачу">
+											✨
+										</span>
+									)}
+								</span>
 								<span className="text-gray-300">
 									{Math.round(source.averagePrice).toLocaleString('ru-RU')} ₽
 									<span className="text-gray-500 ml-1">({source.sampleSize} задач)</span>
