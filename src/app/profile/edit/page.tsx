@@ -433,6 +433,9 @@ export default function EditProfilePage() {
   }, [user])
 
   const handleSave = async () => {
+    // Защита от повторных вызовов
+    if (saving) return
+    
     if (!token) return toast.error('Нет токена авторизации')
     if (!fullName.trim()) return toast.error('Имя не может быть пустым')
 
@@ -544,7 +547,16 @@ export default function EditProfilePage() {
           </div>
 
           <div className="text-center">
-            <button onClick={handleSave} disabled={saving} className="save-btn">
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleSave()
+              }} 
+              disabled={saving} 
+              className="save-btn"
+            >
               {saving ? '💾 Сохраняем...' : '✅ Сохранить изменения'}
             </button>
           </div>
