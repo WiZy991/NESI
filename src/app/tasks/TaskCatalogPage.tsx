@@ -215,12 +215,32 @@ export default function TaskCatalogPage() {
 					throw { message: data.error || 'Ошибка загрузки', status: res.status }
 				}
 
+				// API уже возвращает только открытые задачи для каталога
+				// Оставляем дополнительную фильтрацию как защиту на случай, если API вернет другие статусы
 				const visibleTasks = (data.tasks || []).filter(
 					(task: Task) => task.status === 'open' || !task.status
 				)
 
 				setTasks(visibleTasks)
-				setTotalPages(data.pagination?.totalPages || 1)
+				
+				// Используем totalPages от API, так как API теперь фильтрует только открытые задачи
+				// Но если на текущей странице задач меньше, чем ожидалось, корректируем totalPages
+				const apiTotalPages = data.pagination?.totalPages || 1
+				const actualTasksOnPage = visibleTasks.length
+				const expectedLimit = 20 // Лимит задач на странице
+				
+				// Если на первой странице меньше задач, чем limit, значит всего 1 страница
+				if (actualTasksOnPage < expectedLimit && page === 1) {
+					setTotalPages(1)
+				} 
+				// Если на текущей странице задач меньше limit и это не первая страница - это последняя страница
+				else if (actualTasksOnPage < expectedLimit && page > 1) {
+					setTotalPages(page)
+				} 
+				// Иначе используем totalPages от API
+				else {
+					setTotalPages(apiTotalPages)
+				}
 				setRetryCount(0) // Сбрасываем счетчик при успехе
 			} catch (err: unknown) {
 				const errorMessage = getErrorMessage(err)

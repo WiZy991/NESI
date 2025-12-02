@@ -43,6 +43,12 @@ export async function GET(req: Request) {
 			...(mine && user ? { customerId: user.id } : {}),
 		}
 
+		// Для каталога задач по умолчанию показываем только открытые задачи
+		// (если не указан явный фильтр по статусу)
+		if (!status && !mine) {
+			where.status = 'open'
+		}
+
 		if (search) {
 			where.OR = [
 				{ title: { contains: search, mode: 'insensitive' } },
