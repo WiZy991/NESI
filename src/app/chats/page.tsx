@@ -207,6 +207,7 @@ function ChatsPageContent() {
 	const [typingUser, setTypingUser] = useState<string | null>(null)
 	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
 	const [isMobile, setIsMobile] = useState(false)
+	const [hiddenChats, setHiddenChats] = useState<Set<string>>(new Set())
 
 	// Отслеживание размера окна для адаптивности
 	useEffect(() => {
@@ -1904,8 +1905,47 @@ function ChatsPageContent() {
 		}
 	}
 
-	// Фильтрация чатов по поиску
+	// Загружаем скрытые чаты из localStorage
+	useEffect(() => {
+		if (typeof window === 'undefined' || !user) return
+		try {
+			const stored = localStorage.getItem(`hiddenChats_${user.id}`)
+			if (stored) {
+				const hidden = JSON.parse(stored) as string[]
+				setHiddenChats(new Set(hidden))
+			}
+		} catch (err) {
+			console.error('Ошибка загрузки скрытых чатов:', err)
+		}
+	}, [user])
+
+	// Функция для удаления чата
+	const handleDeleteChat = useCallback((chatId: string, e: React.MouseEvent) => {
+		e.stopPropagation()
+		if (!user) return
+
+		const newHiddenChats = new Set(hiddenChats)
+		newHiddenChats.add(chatId)
+		setHiddenChats(newHiddenChats)
+
+		// Сохраняем в localStorage
+		try {
+			localStorage.setItem(`hiddenChats_${user.id}`, JSON.stringify(Array.from(newHiddenChats)))
+		} catch (err) {
+			console.error('Ошибка сохранения скрытых чатов:', err)
+		}
+
+		// Если удаляемый чат был выбран, закрываем его
+		if (selectedChat?.id === chatId) {
+			setSelectedChat(null)
+		}
+	}, [hiddenChats, user, selectedChat])
+
+	// Фильтрация чатов по поиску и скрытым чатам
 	const filteredChats = chats.filter(chat => {
+		// Исключаем скрытые чаты
+		if (hiddenChats.has(chat.id)) return false
+
 		if (!searchQuery) return true
 
 		const searchLower = searchQuery.toLowerCase()
@@ -2560,12 +2600,23 @@ function ChatsPageContent() {
 									<div
 										key={chat.id}
 										onClick={() => handleSelectChat(chat)}
-										className={`p-4 sm:p-5 mx-3 sm:mx-4 my-2 sm:my-2.5 rounded-3xl cursor-pointer ios-transition hover-lift touch-manipulation ${
+										className={`group relative p-4 sm:p-5 mx-3 sm:mx-4 my-2 sm:my-2.5 rounded-3xl cursor-pointer ios-transition hover-lift touch-manipulation ${
 											selectedChat?.id === chat.id
 												? 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/15 border-2 border-emerald-300/40 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
 												: 'bg-gradient-to-br from-slate-800/25 to-slate-900/35 border border-slate-700/30 hover:border-emerald-300/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.18)]'
 										}`}
 									>
+										{/* Кнопка удаления */}
+										<button
+											onClick={(e) => handleDeleteChat(chat.id, e)}
+											className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 z-10'
+											title='Удалить чат'
+											aria-label='Удалить чат'
+										>
+											<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+												<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
+											</svg>
+										</button>
 										<div className='flex items-center space-x-2 sm:space-x-3'>
 											{/* Аватар */}
 											{chat.type === 'private' ? (

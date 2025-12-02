@@ -10,8 +10,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
+    // Для обычных пользователей исключаем транзакции типа "commission"
+    // Для админов показываем все транзакции
+    const whereClause: any = { userId: user.id }
+    if (user.role !== 'admin') {
+      whereClause.type = { not: 'commission' }
+    }
+
     const tx = await prisma.transaction.findMany({
-      where: { userId: user.id },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       take: 20,
       select: {

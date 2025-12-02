@@ -180,6 +180,21 @@ export async function POST(
 
 		const { id: taskId } = await params
 		
+		// Получаем информацию о задаче
+		const task = await prisma.task.findUnique({
+			where: { id: taskId },
+			select: {
+				status: true,
+			},
+		})
+
+		if (!task) {
+			return NextResponse.json(
+				{ error: 'Задача не найдена' },
+				{ status: 404 }
+			)
+		}
+
 		// Проверяем, есть ли решенный спор по этой задаче
 		const resolvedDispute = await prisma.dispute.findFirst({
 			where: {
@@ -198,6 +213,14 @@ export async function POST(
 						? 'Спор решен в пользу исполнителя. Чат закрыт.' 
 						: 'Спор решен в пользу заказчика. Чат закрыт.' 
 				},
+				{ status: 403 }
+			)
+		}
+
+		// Если задача завершена без спора, блокируем отправку сообщений
+		if (task.status === 'completed') {
+			return NextResponse.json(
+				{ error: 'Задача завершена. Чат закрыт.' },
 				{ status: 403 }
 			)
 		}

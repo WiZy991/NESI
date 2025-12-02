@@ -495,6 +495,88 @@ export default function MessageInput({
 		}
 	}, [selectedMicrophoneId])
 
+	// Проверяем статус задачи и наличие решенного спора
+	useEffect(() => {
+		if (chatType !== 'task' || !taskId || !token) {
+			setIsChatDisabled(false)
+			setDisputeMessage(null)
+			return
+		}
+
+		const checkTaskStatus = async () => {
+			try {
+				// Получаем информацию о задаче и споре
+				const [taskRes, disputeRes] = await Promise.all([
+					fetch(`/api/tasks/${taskId}`, {
+						headers: { Authorization: `Bearer ${token}` },
+					}),
+					fetch(`/api/disputes?taskId=${taskId}`, {
+						headers: { Authorization: `Bearer ${token}` },
+					}),
+				])
+
+				if (taskRes.ok) {
+					const taskData = await taskRes.json()
+					const task = taskData?.task
+
+					// Проверяем статус задачи
+					if (task?.status === 'completed') {
+						// Проверяем, есть ли решенный спор
+						if (disputeRes.ok) {
+							const disputeData = await disputeRes.json()
+							const dispute = disputeData?.dispute
+							
+							if (dispute?.status === 'resolved') {
+								setIsChatDisabled(true)
+								if (dispute.adminDecision === 'executor') {
+									setDisputeMessage('Спор решен в пользу исполнителя. Чат закрыт.')
+								} else if (dispute.adminDecision === 'customer') {
+									setDisputeMessage('Спор решен в пользу заказчика. Чат закрыт.')
+								} else {
+									setDisputeMessage('Спор решен. Чат закрыт.')
+								}
+							} else {
+								// Задача завершена без спора
+								setIsChatDisabled(true)
+								setDisputeMessage('Задача завершена. Чат закрыт.')
+							}
+						} else {
+							// Задача завершена, спора нет
+							setIsChatDisabled(true)
+							setDisputeMessage('Задача завершена. Чат закрыт.')
+						}
+					} else {
+						// Проверяем только спор, если задача не завершена
+						if (disputeRes.ok) {
+							const disputeData = await disputeRes.json()
+							const dispute = disputeData?.dispute
+							if (dispute?.status === 'resolved') {
+								setIsChatDisabled(true)
+								if (dispute.adminDecision === 'executor') {
+									setDisputeMessage('Спор решен в пользу исполнителя. Чат закрыт.')
+								} else if (dispute.adminDecision === 'customer') {
+									setDisputeMessage('Спор решен в пользу заказчика. Чат закрыт.')
+								} else {
+									setDisputeMessage('Спор решен. Чат закрыт.')
+								}
+							} else {
+								setIsChatDisabled(false)
+								setDisputeMessage(null)
+							}
+						} else {
+							setIsChatDisabled(false)
+							setDisputeMessage(null)
+						}
+					}
+				}
+			} catch (err) {
+				console.error('Ошибка проверки статуса задачи:', err)
+			}
+		}
+
+		checkTaskStatus()
+	}, [chatType, taskId, token])
+
 	useEffect(() => {
 		refreshMicrophones()
 	}, [refreshMicrophones])
