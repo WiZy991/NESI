@@ -34,6 +34,22 @@ export async function POST(
 			return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 		}
 
+		// Проверяем, есть ли решенный спор в пользу исполнителя
+		const resolvedDispute = await prisma.dispute.findFirst({
+			where: {
+				taskId: taskId,
+				status: 'resolved',
+				adminDecision: 'executor',
+			},
+		})
+
+		if (resolvedDispute) {
+			return NextResponse.json(
+				{ error: 'Спор по этой задаче решен в пользу исполнителя. Действия недоступны.' },
+				{ status: 400 }
+			)
+		}
+
 		const validStatuses = ['in_progress', 'in progress', 'in-progress']
 		if (!task.executorId || !validStatuses.includes(task.status)) {
 			return NextResponse.json(

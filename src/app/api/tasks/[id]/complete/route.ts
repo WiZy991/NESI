@@ -33,6 +33,23 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
 		if (task.customerId !== user.id)
 			return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
+		
+		// Проверяем, есть ли решенный спор в пользу исполнителя
+		const resolvedDispute = await prisma.dispute.findFirst({
+			where: {
+				taskId: id,
+				status: 'resolved',
+				adminDecision: 'executor',
+			},
+		})
+
+		if (resolvedDispute) {
+			return NextResponse.json(
+				{ error: 'Спор по этой задаче решен в пользу исполнителя. Завершение задачи недоступно.' },
+				{ status: 400 }
+			)
+		}
+
 		if (task.status !== 'in_progress')
 			return NextResponse.json(
 				{ error: 'Можно завершить только задачу в работе' },

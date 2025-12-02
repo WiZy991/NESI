@@ -218,7 +218,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 			)}
 
 			{/* Действия - только для создателя задачи */}
-			<TaskActionsSection task={taskData} isCustomer={isCustomer} />
+			<TaskActionsSection task={taskData} isCustomer={isCustomer} disputeInfo={disputeInfo} />
 
 			{/* Активность исполнителя - только для заказчика */}
 			{isCustomer && task.executorId && (
