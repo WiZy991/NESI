@@ -81,6 +81,24 @@ export async function POST(
       return NextResponse.json({ error: 'Нельзя оставить отзыв до завершения задачи' }, { status: 400 })
     }
 
+    // Проверяем, есть ли решенный спор по этой задаче
+    const resolvedDispute = await prisma.dispute.findFirst({
+      where: {
+        taskId: taskId,
+        status: 'resolved',
+      },
+      select: {
+        adminDecision: true,
+      },
+    })
+
+    if (resolvedDispute) {
+      return NextResponse.json(
+        { error: 'Нельзя оставить отзыв по задаче, по которой был решен спор' },
+        { status: 400 }
+      )
+    }
+
     const isCustomer = user.id === task.customerId
     const isExecutor = user.id === task.executorId
 

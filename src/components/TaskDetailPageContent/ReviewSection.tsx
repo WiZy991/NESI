@@ -8,6 +8,11 @@ type ReviewSectionProps = {
 	currentUserId?: string
 	isCustomer: boolean
 	isExecutor: boolean
+	disputeInfo?: {
+		status: 'open' | 'resolved' | 'rejected'
+		adminDecision?: 'customer' | 'executor'
+		resolution?: string | null
+	} | null
 }
 
 export function ReviewSection({
@@ -15,10 +20,14 @@ export function ReviewSection({
 	currentUserId,
 	isCustomer,
 	isExecutor,
+	disputeInfo,
 }: ReviewSectionProps) {
 	if (task.status !== 'completed') {
 		return null
 	}
+
+	// Проверяем, есть ли решенный спор
+	const hasResolvedDispute = disputeInfo?.status === 'resolved'
 
 	return (
 		<div className='space-y-6'>
@@ -70,7 +79,8 @@ export function ReviewSection({
 
 			{/* ==== Форма: заказчик -> отзыв исполнителю ==== */}
 			{isCustomer &&
-				!task.review?.some((r) => r.fromUserId === currentUserId) && (
+				!task.review?.some((r) => r.fromUserId === currentUserId) &&
+				!hasResolvedDispute && (
 					<div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
 						<div className='flex items-center gap-3 mb-4'>
 							<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
@@ -87,7 +97,8 @@ export function ReviewSection({
 			{/* ==== Форма: исполнитель -> отзыв заказчику ==== */}
 			{isExecutor &&
 				!isCustomer &&
-				!task.review?.some((r) => r.fromUserId === currentUserId) && (
+				!task.review?.some((r) => r.fromUserId === currentUserId) &&
+				!hasResolvedDispute && (
 					<div className='bg-gradient-to-br from-black/50 to-zinc-900/30 rounded-xl p-4 md:p-6 border border-yellow-400/25 hover:border-yellow-400/40 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-all duration-300'>
 						<div className='flex items-center gap-3 mb-4'>
 							<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500/80 to-yellow-600/80 flex items-center justify-center'>
@@ -98,6 +109,24 @@ export function ReviewSection({
 							</h3>
 						</div>
 						<ReviewForm taskId={task.id} />
+					</div>
+				)}
+
+			{/* ==== Сообщение о недоступности отзыва из-за спора ==== */}
+			{hasResolvedDispute &&
+				!task.review?.some((r) => r.fromUserId === currentUserId) && (
+					<div className='bg-gradient-to-br from-red-900/20 to-black/40 rounded-xl p-4 md:p-6 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]'>
+						<div className='flex items-center gap-3 mb-2'>
+							<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-red-500/80 to-red-600/80 flex items-center justify-center'>
+								<span className='text-sm'>⚠️</span>
+							</div>
+							<h3 className='text-lg font-semibold text-red-300'>
+								Отзыв недоступен
+							</h3>
+						</div>
+						<p className='text-red-200 text-sm'>
+							По задачам, по которым был решен спор, нельзя оставлять отзывы.
+						</p>
 					</div>
 				)}
 		</div>

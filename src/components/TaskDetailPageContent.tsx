@@ -235,6 +235,7 @@ export default function TaskDetailPageContent({ taskId }: { taskId: string }) {
 				currentUserId={user?.id}
 				isCustomer={isCustomer}
 				isExecutor={isExecutor}
+				disputeInfo={disputeInfo}
 			/>
 
 			{/* Форма отклика */}
