@@ -10,6 +10,7 @@ import { MessageSkeleton } from '@/components/SkeletonLoader'
 import { useUser } from '@/context/UserContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { clientLogger } from '@/lib/clientLogger'
+import { useConfirm } from '@/lib/confirm'
 import { MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -186,6 +187,7 @@ type PresenceDisplay = {
 
 function ChatsPageContent() {
 	const { user, token, setUnreadCount } = useUser()
+	const { confirm, Dialog } = useConfirm()
 	const searchParams = useSearchParams()
 	const openUserId = searchParams?.get('open')
 	const openTaskId = searchParams?.get('taskId')
@@ -1929,36 +1931,40 @@ function ChatsPageContent() {
 	}, [user])
 
 	// Функция для удаления чата
-	const handleDeleteChat = useCallback((chatId: string) => {
+	const handleDeleteChat = useCallback(async (chatId: string) => {
 		if (!user) return
 
-		// Подтверждение удаления
-		if (!confirm('Вы уверены, что хотите удалить этот чат?')) {
-			setContextMenu(null)
-			return
-		}
-
-		const newHiddenChats = new Set(hiddenChats)
-		newHiddenChats.add(chatId)
-		setHiddenChats(newHiddenChats)
-
-		// Сохраняем в localStorage
-		try {
-			localStorage.setItem(`hiddenChats_${user.id}`, JSON.stringify(Array.from(newHiddenChats)))
-		} catch (err) {
-			console.error('Ошибка сохранения скрытых чатов:', err)
-		}
-
-		// Если удаляемый чат был выбран, закрываем его
-		if (selectedChat?.id === chatId) {
-			setSelectedChat(null)
-		}
-
-		// Закрываем контекстное меню
+		// Закрываем контекстное меню перед показом диалога
 		setContextMenu(null)
-		
-		toast.success('Чат удален из списка.')
-	}, [hiddenChats, user, selectedChat])
+
+		// Используем кастомное подтверждение
+		await confirm({
+			title: 'Удаление чата',
+			message: 'Вы уверены, что хотите удалить этот чат? Это действие нельзя отменить.',
+			type: 'danger',
+			confirmText: 'Удалить',
+			cancelText: 'Отмена',
+			onConfirm: () => {
+				const newHiddenChats = new Set(hiddenChats)
+				newHiddenChats.add(chatId)
+				setHiddenChats(newHiddenChats)
+
+				// Сохраняем в localStorage
+				try {
+					localStorage.setItem(`hiddenChats_${user.id}`, JSON.stringify(Array.from(newHiddenChats)))
+				} catch (err) {
+					console.error('Ошибка сохранения скрытых чатов:', err)
+				}
+
+				// Если удаляемый чат был выбран, закрываем его
+				if (selectedChat?.id === chatId) {
+					setSelectedChat(null)
+				}
+
+				toast.success('Чат удален из списка.')
+			},
+		})
+	}, [hiddenChats, user, selectedChat, confirm])
 
 	// Обработчик контекстного меню (ПКМ на ПК)
 	const handleContextMenu = useCallback((e: React.MouseEvent, chatId: string) => {
@@ -3240,6 +3246,9 @@ function ChatsPageContent() {
 				</>,
 				document.body
 			)}
+
+			{/* Диалог подтверждения */}
+			{Dialog}
 		</div>
 	)
 }
