@@ -48,40 +48,14 @@ export function Analytics() {
       }
     }
 
-    // Yandex Metrika
-    if (yandexMetrikaId && typeof window !== 'undefined') {
-      // Инициализация Yandex Metrika (если еще не инициализирован)
-      if (!window.ym) {
-        ;(function (m, e, t, r, i, k, a) {
-          m[i] =
-            m[i] ||
-            function () {
-              ;(m[i].a = m[i].a || []).push(arguments)
-            }
-          m[i].l = 1 * (new Date() as any)
-          ;(k as any) = e.createElement(t),
-            (a as any) = e.getElementsByTagName(t)[0],
-            (k as any).async = 1,
-            (k as any).src = r,
-            (a as any).parentNode.insertBefore((k as any), a)
-        })(
-          window,
-          document,
-          'script',
-          'https://mc.yandex.ru/metrika/tag.js',
-          'ym'
-        )
-
-        window.ym(parseInt(yandexMetrikaId), 'init', {
-          clickmap: true,
-          trackLinks: true,
-          accurateTrackBounce: true,
-          webvisor: true,
-        })
+    // Yandex Metrika - используем фиксированный ID 105621885
+    const yandexMetrikaId = 105621885
+    if (typeof window !== 'undefined') {
+      // Если счетчик уже инициализирован через layout, просто отслеживаем навигацию
+      if (window.ym) {
+        // Отслеживание изменения страницы
+        window.ym(yandexMetrikaId, 'hit', pathname)
       }
-
-      // Отслеживание изменения страницы
-      window.ym(parseInt(yandexMetrikaId), 'hit', pathname)
     }
   }, [pathname])
 
@@ -101,10 +75,10 @@ export function trackEvent(
     window.gtag('event', eventName, eventParams)
   }
 
-  // Yandex Metrika
-  const yandexMetrikaId = process.env.NEXT_PUBLIC_YANDEX_METRIKA_ID
-  if (yandexMetrikaId && typeof window !== 'undefined' && window.ym) {
-    window.ym(parseInt(yandexMetrikaId), 'reachGoal', eventName, eventParams)
+  // Yandex Metrika - используем фиксированный ID 105621885
+  const yandexMetrikaId = 105621885
+  if (typeof window !== 'undefined' && window.ym) {
+    window.ym(yandexMetrikaId, 'reachGoal', eventName, eventParams)
   }
 }
 
