@@ -2606,14 +2606,18 @@ function ChatsPageContent() {
 												: 'bg-gradient-to-br from-slate-800/25 to-slate-900/35 border border-slate-700/30 hover:border-emerald-300/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.18)]'
 										}`}
 									>
-										{/* Кнопка удаления */}
+										{/* Кнопка удаления - всегда видна на мобильных, при hover на десктопе */}
 										<button
 											onClick={(e) => handleDeleteChat(chat.id, e)}
-											className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 z-10'
+											className={`absolute top-2 right-2 transition-opacity p-1.5 sm:p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 active:bg-red-500/40 text-red-400 hover:text-red-300 active:text-red-200 z-10 touch-manipulation ${
+												isMobile 
+													? 'opacity-100' 
+													: 'opacity-0 group-hover:opacity-100'
+											}`}
 											title='Удалить чат'
 											aria-label='Удалить чат'
 										>
-											<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+											<svg className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} fill='none' stroke='currentColor' viewBox='0 0 24 24'>
 												<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
 											</svg>
 										</button>
