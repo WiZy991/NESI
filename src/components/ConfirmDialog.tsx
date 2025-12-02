@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, AlertTriangle, Info, CheckCircle } from 'lucide-react'
 
 export type ConfirmDialogType = 'danger' | 'warning' | 'info' | 'success'
@@ -68,6 +69,8 @@ export default function ConfirmDialog({
 
   if (!isOpen) return null
 
+  const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640
+
   const typeStyles = {
     danger: {
       icon: AlertTriangle,
@@ -110,20 +113,11 @@ export default function ConfirmDialog({
     await onConfirm()
   }
 
-  return (
+  if (typeof window === 'undefined') return null
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[9998]"
-      style={{ 
-        position: 'fixed', 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        bottom: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem'
-      }}
+      className={`fixed inset-0 z-[9998] flex ${isMobileView ? 'items-end' : 'items-center justify-center'} p-4`}
       onClick={(e) => {
         if (e.target === e.currentTarget && !isLoading) {
           onClose()
@@ -133,23 +127,19 @@ export default function ConfirmDialog({
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        style={{ 
-          position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0
-        }}
       />
 
       {/* Dialog - центрируем по viewport */}
       <div
-        className={`relative bg-gray-900 rounded-2xl border-2 ${style.borderColor} shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-md w-full overflow-hidden`}
+        className={`relative bg-gray-900 ${isMobileView ? 'w-full max-w-full rounded-t-3xl' : 'rounded-2xl'} border-2 ${style.borderColor} shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-md w-full overflow-hidden`}
         style={{ 
           position: 'relative',
-          maxHeight: '90vh',
+          maxHeight: isMobileView ? '90vh' : '90vh',
           overflowY: 'auto',
-          zIndex: 1
+          zIndex: 1,
+          boxShadow: isMobileView
+            ? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(239, 68, 68, 0.1)'
+            : '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(239, 68, 68, 0.1), 0 0 30px rgba(239, 68, 68, 0.15)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -203,7 +193,8 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useTaskTemplates, type TaskTemplate } from '@/hooks/useTaskTemplates'
 import { useConfirm } from '@/lib/confirm'
 import { Trash2, FileText, X } from 'lucide-react'
@@ -22,25 +23,135 @@ export default function TaskTemplates({
   const { templates, deleteTemplate } = useTaskTemplates()
   const { confirm, Dialog } = useConfirm()
   const [isOpen, setIsOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [isMounted, setIsMounted] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number; openUp: boolean } | null>(null)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Вычисляем позицию меню при открытии
+  const handleToggleMenu = () => {
+    if (!isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const menuHeight = 305 // Высота меню (3 элемента + заголовок)
+      const spaceBelow = viewportHeight - rect.bottom
+      const spaceAbove = rect.top
+      
+      // Если места внизу недостаточно для меню, открываем вверх
+      // Иначе открываем вниз
+      const openUp = spaceBelow < menuHeight
+      
+      setMenuPosition({
+        top: openUp ? rect.top - menuHeight - 8 : rect.bottom + 8,
+        left: rect.left,
+        openUp,
+      })
+    }
+    setIsOpen(!isOpen)
+  }
+
+  // Обновляем позицию при скролле/ресайзе
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const updatePosition = () => {
+        if (buttonRef.current) {
+          const rect = buttonRef.current.getBoundingClientRect()
+          const viewportHeight = window.innerHeight
+          const menuHeight = 305 // Высота меню (3 элемента + заголовок)
+          const spaceBelow = viewportHeight - rect.bottom
+          
+          // Если места внизу недостаточно для меню, открываем вверх
+          // Иначе открываем вниз
+          const openUp = spaceBelow < menuHeight
+          
+          setMenuPosition({
+            top: openUp ? rect.top - menuHeight - 8 : rect.bottom + 8,
+            left: rect.left,
+            openUp,
+          })
+        }
+      }
+
+      // Начальное обновление
+      updatePosition()
+
+      // Обновление при скролле и ресайзе
+      window.addEventListener('scroll', updatePosition, true)
+      window.addEventListener('resize', updatePosition)
+
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true)
+        window.removeEventListener('resize', updatePosition)
+      }
+    } else if (!isOpen) {
+      setMenuPosition(null)
+    }
+  }, [isOpen])
 
   if (templates.length === 0 && !isOpen) {
     return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="text-sm text-emerald-400 hover:text-emerald-300 transition flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 rounded"
-        type="button"
-        aria-label="Открыть шаблоны задач"
-      >
-        <FileText className="w-4 h-4" aria-hidden="true" />
-        <span>Шаблоны</span>
-      </button>
+      <div className="relative">
+        <button
+          ref={buttonRef}
+          onClick={handleToggleMenu}
+          className="text-sm text-emerald-400 hover:text-emerald-300 transition flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 rounded"
+          type="button"
+          aria-label="Открыть шаблоны задач"
+        >
+          <FileText className="w-4 h-4" aria-hidden="true" />
+          <span>Шаблоны</span>
+        </button>
+        {isOpen && menuPosition && isMounted && typeof document !== 'undefined' && document.body && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9997]"
+              onClick={() => setIsOpen(false)}
+            />
+            <div 
+              className="fixed w-80 bg-[#001a12]/95 border border-emerald-700 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] backdrop-blur-md z-[9998] animate-fade-in flex flex-col"
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby="templates-title-empty"
+              style={{
+                top: `${menuPosition.top}px`,
+                left: `${menuPosition.left}px`,
+                maxHeight: menuPosition.openUp 
+                  ? `${menuPosition.top + 20}px`
+                  : `calc(100vh - ${menuPosition.top + 20}px)`,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-3 border-b border-emerald-700/50 flex items-center justify-between">
+                <h3 id="templates-title-empty" className="text-emerald-400 font-medium text-sm">Шаблоны задач</h3>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="text-gray-400 hover:text-white transition p-1 hover:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+                  type="button"
+                  aria-label="Закрыть список шаблонов"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="p-4 text-sm text-gray-400 text-center">
+                Нет сохраненных шаблонов
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+        {Dialog}
+      </div>
     )
   }
 
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        onClick={handleToggleMenu}
         className="text-sm text-emerald-400 hover:text-emerald-300 transition flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 rounded"
         type="button"
         aria-label={`Открыть шаблоны задач (${templates.length} сохранено)`}
@@ -50,79 +161,94 @@ export default function TaskTemplates({
         <span>Шаблоны ({templates.length})</span>
       </button>
 
-      {isOpen && (
-        <div 
-          className="absolute top-full left-0 mt-2 w-80 bg-[#001a12]/95 border border-emerald-700 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] backdrop-blur-md z-50 animate-fade-in"
-          role="dialog"
-          aria-modal="false"
-          aria-labelledby="templates-title"
-        >
-          <div className="p-3 border-b border-emerald-700/50 flex items-center justify-between">
-            <h3 id="templates-title" className="text-emerald-400 font-medium text-sm">Шаблоны задач</h3>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-white transition p-1 hover:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
-              type="button"
-              aria-label="Закрыть список шаблонов"
-            >
-              <X className="w-4 h-4" aria-hidden="true" />
-            </button>
-          </div>
+      {isOpen && menuPosition && isMounted && typeof document !== 'undefined' && document.body && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9997]"
+            onClick={() => setIsOpen(false)}
+          />
+          <div 
+            className="fixed w-80 bg-[#001a12]/95 border border-emerald-700 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] backdrop-blur-md z-[9998] animate-fade-in flex flex-col"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="templates-title"
+            style={{
+              top: `${menuPosition.top}px`,
+              left: `${menuPosition.left}px`,
+              maxHeight: menuPosition.openUp 
+                ? `${menuPosition.top + 20}px`
+                : `calc(100vh - ${menuPosition.top + 20}px)`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 border-b border-emerald-700/50 flex items-center justify-between">
+              <h3 id="templates-title" className="text-emerald-400 font-medium text-sm">Шаблоны задач</h3>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-gray-400 hover:text-white transition p-1 hover:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+                type="button"
+                aria-label="Закрыть список шаблонов"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
 
-          <div className="max-h-64 overflow-y-auto custom-scrollbar">
-            {templates.length === 0 ? (
-              <p className="p-4 text-sm text-gray-400 text-center">
-                Нет сохраненных шаблонов
-              </p>
-            ) : (
-              templates.map((template) => (
-                <div
-                  key={template.id}
-                  className="p-3 border-b border-emerald-700/30 hover:bg-emerald-700/10 transition group"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <button
-                      onClick={() => {
-                        onSelectTemplate(template)
-                        setIsOpen(false)
-                      }}
-                      className="flex-1 text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/50 rounded p-1"
-                      type="button"
-                      aria-label={`Использовать шаблон: ${template.name}`}
-                    >
-                      <p className="text-white font-medium text-sm mb-1">
-                        {template.name}
-                      </p>
-                      <p className="text-xs text-gray-400 line-clamp-2">
-                        {template.title}
-                      </p>
-                    </button>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        await confirm({
-                          title: 'Удаление шаблона',
-                          message: 'Вы уверены, что хотите удалить этот шаблон? Это действие нельзя отменить.',
-                          type: 'danger',
-                          confirmText: 'Удалить',
-                          cancelText: 'Отмена',
-                          onConfirm: () => {
-                            deleteTemplate(template.id)
-                          },
-                        })
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition text-red-400 hover:text-red-300 p-1"
-                      type="button"
-                      aria-label="Удалить шаблон"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+            <div className="max-h-[255px] overflow-y-auto custom-scrollbar">
+              {templates.length === 0 ? (
+                <p className="p-4 text-sm text-gray-400 text-center">
+                  Нет сохраненных шаблонов
+                </p>
+              ) : (
+                templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="p-3 border-b border-emerald-700/30 hover:bg-emerald-700/10 transition group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        onClick={() => {
+                          onSelectTemplate(template)
+                          setIsOpen(false)
+                        }}
+                        className="flex-1 text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/50 rounded p-1"
+                        type="button"
+                        aria-label={`Использовать шаблон: ${template.name}`}
+                      >
+                        <p className="text-white font-medium text-sm mb-1">
+                          {template.name}
+                        </p>
+                        <p className="text-xs text-gray-400 line-clamp-2">
+                          {template.title}
+                        </p>
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          await confirm({
+                            title: 'Удаление шаблона',
+                            message: 'Вы уверены, что хотите удалить этот шаблон? Это действие нельзя отменить.',
+                            type: 'danger',
+                            confirmText: 'Удалить',
+                            cancelText: 'Отмена',
+                            onConfirm: () => {
+                              deleteTemplate(template.id)
+                            },
+                          })
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition text-red-400 hover:text-red-300 p-1"
+                        type="button"
+                        aria-label="Удалить шаблон"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
       {Dialog}
     </div>
