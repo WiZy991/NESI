@@ -252,6 +252,11 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 				message: notificationMessage,
 				link: `/tasks/${taskId}`,
 				type: 'assignment',
+				emailData: {
+					customerName: customerName,
+					taskTitle: task.title,
+					taskId: taskId,
+				},
 			})
 
 			// Если уведомление отключено в настройках, не отправляем SSE

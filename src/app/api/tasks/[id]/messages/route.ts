@@ -510,6 +510,11 @@ export async function POST(
 			message: notificationMessage,
 			link: `/tasks/${taskId}`,
 			type: 'message',
+			emailData: {
+				fromName: message.sender.fullName || message.sender.email,
+				taskTitle: message.task.title,
+				preview: formattedContent,
+			},
 		})
 		
 		// Если уведомление отключено в настройках, не отправляем SSE

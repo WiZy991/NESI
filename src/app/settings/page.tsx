@@ -10,7 +10,6 @@ import { toast } from 'sonner'
 
 const DEFAULT_SETTINGS = {
   emailNotifications: true,
-  pushNotifications: true,
   notifyOnMessages: true,
   notifyOnTasks: true,
   notifyOnReviews: true,
@@ -43,7 +42,6 @@ export default function SettingsPage() {
         if (res.ok) {
           setSettings({
             emailNotifications: data.emailNotifications ?? true,
-            pushNotifications: data.pushNotifications ?? true,
             notifyOnMessages: data.notifyOnMessages ?? true,
             notifyOnTasks: data.notifyOnTasks ?? true,
             notifyOnReviews: data.notifyOnReviews ?? true,
@@ -188,19 +186,6 @@ export default function SettingsPage() {
                 setSettings({
                   ...settings,
                   emailNotifications: checked,
-                })
-              }
-            />
-          </label>
-
-          <label className="flex justify-between items-center">
-            <span>Push-уведомления</span>
-            <AnimatedCheckbox
-              checked={settings.pushNotifications}
-              onChange={(checked) =>
-                setSettings({
-                  ...settings,
-                  pushNotifications: checked,
                 })
               }
             />

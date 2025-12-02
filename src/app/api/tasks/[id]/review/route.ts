@@ -137,6 +137,11 @@ export async function POST(
       message: notifyMsg,
       link: `/tasks/${taskId}`,
       type: 'review',
+      emailData: {
+        fromName: fromUser.fullName || fromUser.email,
+        rating: rating,
+        comment: comment || '',
+      },
     })
 
     // Если уведомление отключено в настройках, не отправляем SSE

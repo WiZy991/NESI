@@ -9,6 +9,7 @@ import { awardXP } from '@/lib/level/awardXP'
 import { checkAndAwardBadges } from '@/lib/badges/checkBadges'
 import { logger } from '@/lib/logger'
 import { calculateCommissionRate } from '@/lib/level/rewards'
+import { createNotificationWithSettings } from '@/lib/notify'
 
 export async function PATCH(req: NextRequest, { params }: any) {
 	try {
@@ -299,32 +300,39 @@ export async function PATCH(req: NextRequest, { params }: any) {
 
 			// 💰 Владельцу платформы: начисляем комиссию (20%)
 			...ownerTransactions,
-
-			// Создаём уведомление для исполнителя
-			prisma.notification.create({
-				data: {
-					userId: task.executorId,
-					type: 'payment',
-					message: `Задача "${
-						task.title
-					}" завершена! Вам начислено ${formatMoney(payout)}`,
-					link: `/tasks/${task.id}`,
-				},
-			}),
 		])
 
-		// Отправляем уведомление в реальном времени
-		sendNotificationToUser(task.executorId, {
-			type: 'payment',
-			title: 'Задача завершена',
-			message: `Задача "${task.title}" завершена! Вам начислено ${formatMoney(
-				payout
-			)}`,
+		// Создаём уведомление для исполнителя с email-уведомлением
+		const notificationMessage = `Задача "${
+			task.title
+		}" завершена! Вам начислено ${formatMoney(payout)}`
+		
+		const dbNotification = await createNotificationWithSettings({
+			userId: task.executorId,
+			message: notificationMessage,
 			link: `/tasks/${task.id}`,
-			taskTitle: task.title,
-			amount: payout,
-			playSound: true,
+			type: 'payment',
+			emailData: {
+				taskTitle: task.title,
+				taskId: task.id,
+				amount: payout,
+			},
 		})
+
+		// Отправляем уведомление в реальном времени (если уведомление не отключено)
+		if (dbNotification) {
+			sendNotificationToUser(task.executorId, {
+				type: 'payment',
+				title: 'Задача завершена',
+				message: `Задача "${task.title}" завершена! Вам начислено ${formatMoney(
+					payout
+				)}`,
+				link: `/tasks/${task.id}`,
+				taskTitle: task.title,
+				amount: payout,
+				playSound: true,
+			})
+		}
 
 		// ✅ Начисляем XP исполнителю за выполненную задачу
 		try {

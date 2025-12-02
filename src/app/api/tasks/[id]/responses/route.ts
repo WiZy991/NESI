@@ -130,6 +130,11 @@ export async function POST(req: NextRequest) {
 		}"`,
 		link: `/tasks/${task.id}`,
 		type: 'response',
+		emailData: {
+			executorName: user.fullName || user.email,
+			taskTitle: task.title,
+			taskId: task.id,
+		},
 	})
 
 	// Если уведомление отключено в настройках, не отправляем SSE

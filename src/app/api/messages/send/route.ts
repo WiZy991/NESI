@@ -496,6 +496,10 @@ export async function POST(req: NextRequest) {
 		message: notificationMessage,
 		link: `/chats?open=${me.id}`,
 		type: 'message',
+		emailData: {
+			fromName: msg.sender.fullName || msg.sender.email,
+			preview: formattedContent,
+		},
 	})
 	
 	// Если уведомление отключено в настройках, не отправляем SSE
