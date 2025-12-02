@@ -15,12 +15,14 @@ declare global {
   }
 }
 
+// Yandex Metrika ID
+const YANDEX_METRIKA_ID = 105621885
+
 export function Analytics() {
   const pathname = usePathname()
 
   useEffect(() => {
     const ga4Id = process.env.NEXT_PUBLIC_GA4_ID
-    const yandexMetrikaId = process.env.NEXT_PUBLIC_YANDEX_METRIKA_ID
 
     // Google Analytics 4
     if (ga4Id && typeof window !== 'undefined') {
@@ -49,12 +51,11 @@ export function Analytics() {
     }
 
     // Yandex Metrika - используем фиксированный ID 105621885
-    const yandexMetrikaId = 105621885
     if (typeof window !== 'undefined') {
       // Если счетчик уже инициализирован через layout, просто отслеживаем навигацию
       if (window.ym) {
         // Отслеживание изменения страницы
-        window.ym(yandexMetrikaId, 'hit', pathname)
+        window.ym(YANDEX_METRIKA_ID, 'hit', pathname)
       }
     }
   }, [pathname])
@@ -76,9 +77,8 @@ export function trackEvent(
   }
 
   // Yandex Metrika - используем фиксированный ID 105621885
-  const yandexMetrikaId = 105621885
   if (typeof window !== 'undefined' && window.ym) {
-    window.ym(yandexMetrikaId, 'reachGoal', eventName, eventParams)
+    window.ym(YANDEX_METRIKA_ID, 'reachGoal', eventName, eventParams)
   }
 }
 
