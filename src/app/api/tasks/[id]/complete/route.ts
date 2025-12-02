@@ -43,11 +43,56 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			},
 		})
 
+		// Если спор решен в пользу исполнителя, выполняем упрощенное завершение
+		// (только изменение статуса, без финансовых операций - деньги уже переведены)
 		if (resolvedDispute) {
-			return NextResponse.json(
-				{ error: 'Спор по этой задаче решен в пользу исполнителя. Завершение задачи недоступно.' },
-				{ status: 400 }
-			)
+			// Проверяем, что задача еще не завершена
+			if (task.status === 'completed') {
+				return NextResponse.json(
+					{ error: 'Задача уже завершена' },
+					{ status: 400 }
+				)
+			}
+
+			// Упрощенное завершение: только изменение статуса
+			await prisma.task.update({
+				where: { id: task.id },
+				data: {
+					status: 'completed',
+					completedAt: new Date(),
+					// escrowAmount уже обнулен при решении спора
+				},
+			})
+
+			// Отправляем уведомление исполнителю
+			if (task.executorId) {
+				const notification = await prisma.notification.create({
+					data: {
+						userId: task.executorId,
+						type: 'task_completed',
+						message: `Задача "${task.title}" завершена заказчиком после решения спора в вашу пользу.`,
+						link: `/tasks/${task.id}`,
+					},
+				})
+
+				sendNotificationToUser(task.executorId, {
+					type: 'task_completed',
+					title: 'Задача завершена',
+					message: `Задача "${task.title}" завершена заказчиком после решения спора в вашу пользу.`,
+					link: `/tasks/${task.id}`,
+					taskTitle: task.title,
+					playSound: true,
+				})
+			}
+
+			return NextResponse.json({ 
+				success: true,
+				task: {
+					...task,
+					status: 'completed'
+				},
+				note: 'Задача завершена после решения спора. Финансовые операции уже выполнены при решении спора.'
+			})
 		}
 
 		if (task.status !== 'in_progress')

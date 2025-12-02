@@ -40,17 +40,24 @@ export function TaskActionsSection({ task, isCustomer, disputeInfo }: TaskAction
 					status={task.status}
 				/>
 
-				{task.status === 'in_progress' && !isDisputeResolvedForExecutor && (
+				{task.status === 'in_progress' && (
 					<div className='flex flex-wrap gap-3'>
+						{/* Кнопка завершения доступна всегда, если задача в работе */}
 						<CompleteTaskButton taskId={task.id} authorId={task.customerId} />
-						<CancelExecutorButton taskId={task.id} />
+						{/* Кнопка отмены недоступна, если спор решен в пользу исполнителя */}
+						{!isDisputeResolvedForExecutor && (
+							<CancelExecutorButton taskId={task.id} />
+						)}
 					</div>
 				)}
 
-				{isDisputeResolvedForExecutor && (
-					<div className='bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4'>
-						<p className='text-yellow-400 text-sm'>
-							⚠️ Спор по этой задаче решен в пользу исполнителя. Действия недоступны.
+				{isDisputeResolvedForExecutor && task.status === 'in_progress' && (
+					<div className='bg-blue-900/20 border border-blue-500/30 rounded-lg p-4'>
+						<p className='text-blue-400 text-sm mb-2'>
+							ℹ️ Спор по этой задаче решен в пользу исполнителя. Деньги уже переведены исполнителю.
+						</p>
+						<p className='text-blue-300 text-xs'>
+							Вы можете завершить задачу, чтобы изменить её статус. Финансовые операции уже выполнены.
 						</p>
 					</div>
 				)}

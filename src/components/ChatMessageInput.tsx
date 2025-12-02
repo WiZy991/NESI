@@ -2244,66 +2244,66 @@ export default function MessageInput({
 								<Mic className='w-5 h-5' />
 							</button>
 							<div className='relative'>
-								<button
-									ref={sendMenuButtonRef}
-									type='button'
-									onClick={e => {
-										e.stopPropagation()
-										setShowSendMenu(prev => !prev)
-									}}
-									onTouchStart={e => {
-										e.stopPropagation()
-									}}
-									className='w-8 h-11 flex items-center justify-center rounded-xl border border-emerald-400/30 bg-slate-700/50 hover:bg-slate-700/70 text-emerald-300 transition-all duration-200 active:scale-95'
-									style={{
-										touchAction: 'manipulation',
-										WebkitTapHighlightColor: 'transparent',
-										position: 'relative',
-										zIndex: 21,
-									}}
-								>
-									<ChevronDown
-										className={`w-4 h-4 transition-transform duration-200 ${
-											showSendMenu ? 'rotate-180' : ''
-										}`}
-									/>
-								</button>
-								{showSendMenu && (
-									<div
-										ref={sendMenuRef}
+							<button
+								ref={sendMenuButtonRef}
+								type='button'
+								onClick={e => {
+									e.stopPropagation()
+									setShowSendMenu(prev => !prev)
+								}}
+								onTouchStart={e => {
+									e.stopPropagation()
+								}}
+								className='w-8 h-11 flex items-center justify-center rounded-xl border border-emerald-400/30 bg-slate-700/50 hover:bg-slate-700/70 text-emerald-300 transition-all duration-200 active:scale-95'
+								style={{
+									touchAction: 'manipulation',
+									WebkitTapHighlightColor: 'transparent',
+									position: 'relative',
+									zIndex: 21,
+								}}
+							>
+								<ChevronDown
+									className={`w-4 h-4 transition-transform duration-200 ${
+										showSendMenu ? 'rotate-180' : ''
+									}`}
+								/>
+							</button>
+									{showSendMenu && (
+										<div
+											ref={sendMenuRef}
 										className='absolute bottom-[calc(100%+0.5rem)] right-0 w-11 bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl flex flex-col gap-0.5 animate-fadeIn z-50 overflow-hidden'
 										style={{ padding: '2px' }}
-										onClick={e => e.stopPropagation()}
-									>
-										<button
-											type='button'
-											onClick={() => {
-												startRecording().catch(err =>
-													console.error('Ошибка запуска записи:', err)
-												)
-												setShowSendMenu(false)
-											}}
+											onClick={e => e.stopPropagation()}
+										>
+											<button
+												type='button'
+												onClick={() => {
+													startRecording().catch(err =>
+														console.error('Ошибка запуска записи:', err)
+													)
+													setShowSendMenu(false)
+												}}
 											className='w-full h-11 flex items-center justify-center rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
 											style={{ margin: 0, padding: 0, width: '100%', boxSizing: 'border-box' }}
-										>
-											<Mic className='w-5 h-5 text-emerald-400' />
-										</button>
-										<button
-											type='button'
-											onClick={() => {
-												setPreferSendMode(true)
-												setShowSendMenu(false)
-												if (textareaRef.current) {
-													textareaRef.current.focus()
-												}
-											}}
+											>
+												<Mic className='w-5 h-5 text-emerald-400' />
+											</button>
+											<button
+												type='button'
+												onClick={() => {
+													setPreferSendMode(true)
+													setShowSendMenu(false)
+													if (textareaRef.current) {
+														textareaRef.current.focus()
+													}
+												}}
 											className='w-full h-11 flex items-center justify-center rounded-lg bg-slate-800/70 hover:bg-slate-700/80 transition-colors'
 											style={{ margin: 0, padding: 0, width: '100%', boxSizing: 'border-box' }}
-										>
-											<Send className='w-5 h-5 text-emerald-400' />
-										</button>
-									</div>
-								)}
+											>
+												<Send className='w-5 h-5 text-emerald-400' />
+											</button>
+										</div>
+									)}
 							</div>
 						</div>
 					) : (
