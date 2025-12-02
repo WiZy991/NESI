@@ -2,6 +2,7 @@
 
 import { Mail } from 'lucide-react'
 import Link from 'next/link'
+import { FaTelegram } from 'react-icons/fa'
 import EmailLink from './EmailLink'
 
 export default function Footer() {
@@ -33,6 +34,15 @@ export default function Footer() {
 							>
 								<Mail className='w-5 h-5' />
 							</EmailLink>
+							<a
+								href='https://t.me/nesifreelance'
+								target='_blank'
+								rel='noopener noreferrer'
+								className='w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors'
+								aria-label='Наш Telegram канал'
+							>
+								<FaTelegram className='w-5 h-5' />
+							</a>
 						</div>
 					</div>
 
