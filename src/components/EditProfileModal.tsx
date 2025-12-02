@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
 	FaCheckCircle,
 	FaCity,
@@ -835,29 +836,26 @@ export default function EditProfileModal({
 		setAvatarPreview(URL.createObjectURL(file))
 	}, [])
 
-	if (!mounted || !isOpen) return null
+	if (!mounted || !isOpen || typeof window === 'undefined') return null
 
-	return (
+	const isMobileView = window.innerWidth < 640
+
+	return createPortal(
 		<div
-			className='fixed inset-0 z-[10003] bg-black/80 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6'
+			className={`fixed inset-0 z-[10003] bg-black/70 backdrop-blur-sm flex ${isMobileView ? 'items-end' : 'items-center justify-center'} p-4 sm:p-6`}
 			onClick={onClose}
 			data-profile-modal
-			style={{
-				top: 0,
-				left: 0,
-				right: 0,
-				bottom: 0,
-				paddingTop: '0rem',
-				paddingBottom: '0rem',
-			}}
 		>
 			<div
-				className='relative w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 rounded-lg sm:rounded-xl md:rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden'
+				className={`relative w-full ${isMobileView ? 'max-w-full h-[90vh] rounded-t-3xl' : 'max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl rounded-lg sm:rounded-xl md:rounded-2xl'} mx-auto bg-gradient-to-br from-black via-gray-900 to-black border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.2)] flex flex-col overflow-hidden`}
 				style={{
-					height: 'calc(100vh - 3.5rem - 1rem)',
-					maxHeight: 'calc(100vh - 3rem - 1rem)',
+					height: isMobileView ? '90vh' : 'calc(100vh - 3.5rem - 1rem)',
+					maxHeight: isMobileView ? '90vh' : 'calc(100vh - 3rem - 1rem)',
 					display: 'flex',
 					flexDirection: 'column',
+					boxShadow: isMobileView 
+						? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 50px rgba(16, 185, 129, 0.2)'
+						: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 50px rgba(16, 185, 129, 0.2)',
 				}}
 				onClick={e => e.stopPropagation()}
 			>
@@ -1161,6 +1159,7 @@ export default function EditProfileModal({
 					</button>
 				</div>
 			</div>
-		</div>
+		</div>,
+		document.body
 	)
 }

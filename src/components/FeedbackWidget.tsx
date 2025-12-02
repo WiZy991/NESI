@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { MessageSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
@@ -94,9 +95,9 @@ export default function FeedbackWidget() {
 			)}
 
 			{/* Модальное окно */}
-			{isOpen && (
+			{isOpen && typeof window !== 'undefined' && createPortal(
 				<div 
-					className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm' 
+					className={`fixed inset-0 z-50 flex ${typeof window !== 'undefined' && window.innerWidth < 640 ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm`} 
 					data-nextjs-scroll-focus-boundary={false}
 					onClick={(e) => {
 						if (e.target === e.currentTarget) {
@@ -104,7 +105,13 @@ export default function FeedbackWidget() {
 						}
 					}}
 				>
-					<div className='bg-gray-900 border border-emerald-500/30 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full max-w-md mx-4 p-6 md:p-8 animate-fadeIn relative max-h-[90vh] overflow-y-auto'>
+					<div className={`relative ${typeof window !== 'undefined' && window.innerWidth < 640 ? 'w-full max-w-full h-[90vh] rounded-t-3xl' : 'max-w-md rounded-2xl'} bg-gray-900 border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.3)] w-full mx-4 p-6 md:p-8 animate-fadeIn max-h-[90vh] overflow-y-auto`}
+						style={{
+							boxShadow: typeof window !== 'undefined' && window.innerWidth < 640
+								? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 40px rgba(16, 185, 129, 0.3)'
+								: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 40px rgba(16, 185, 129, 0.3)',
+						}}
+					>
 						{/* Кнопка закрытия */}
 						<button
 							onClick={() => setIsOpen(false)}
@@ -217,7 +224,8 @@ export default function FeedbackWidget() {
 							</div>
 						</form>
 					</div>
-				</div>
+				</div>,
+				document.body
 			)}
 		</>
 	)

@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ImageModalProps {
   imageUrl: string
@@ -28,9 +29,13 @@ export default function ImageModal({ imageUrl, alt = '', onClose }: ImageModalPr
     return () => window.removeEventListener('keydown', handleEscape)
   }, [onClose])
 
-  return (
+  if (typeof window === 'undefined') return null
+
+  const isMobileView = window.innerWidth < 640
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+      className={`fixed inset-0 z-50 flex ${isMobileView ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm`}
       onClick={onClose}
       data-nextjs-scroll-focus-boundary={false}
     >
@@ -45,17 +50,18 @@ export default function ImageModal({ imageUrl, alt = '', onClose }: ImageModalPr
 
       {/* Изображение */}
       <div
-        className="relative max-w-[95vw] max-h-[95vh] p-4"
+        className={`relative ${isMobileView ? 'w-full h-[90vh] p-2' : 'max-w-[95vw] max-h-[95vh] p-4'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <img
           src={imageUrl}
           alt={alt}
-          className="max-w-full max-h-[95vh] object-contain rounded-lg shadow-2xl"
+          className={`max-w-full ${isMobileView ? 'max-h-full' : 'max-h-[95vh]'} object-contain ${isMobileView ? 'rounded-t-lg' : 'rounded-lg'} shadow-2xl`}
           onClick={(e) => e.stopPropagation()}
         />
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

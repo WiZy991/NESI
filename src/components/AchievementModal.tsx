@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 type AchievementModalProps = {
   badge: {
@@ -15,6 +16,7 @@ type AchievementModalProps = {
 export default function AchievementModal({ badge, onClose }: AchievementModalProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [showConfetti, setShowConfetti] = useState(true)
+  const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640
 
   useEffect(() => {
     // Анимация появления
@@ -94,11 +96,13 @@ export default function AchievementModal({ badge, onClose }: AchievementModalPro
     setTimeout(onClose, 500) // Даем время на анимацию исчезновения
   }
 
-  return (
+  if (typeof window === 'undefined') return null
+
+  return createPortal(
     <>
       {/* Затемненный фон */}
       <div
-        className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] transition-opacity duration-500 ${
+        className={`fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] transition-opacity duration-500 ${
           isVisible ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={handleClose}
@@ -130,21 +134,23 @@ export default function AchievementModal({ badge, onClose }: AchievementModalPro
         </div>
       )}
 
-      {/* Модальное окно */}
+      {/* Модальное окно - как в чате */}
       <div
-        className={`fixed inset-0 z-[10002] flex items-center justify-center p-4 pointer-events-none ${
+        className={`fixed inset-0 flex ${isMobileView ? 'items-end' : 'items-center justify-center'} z-[10002] pointer-events-none p-4 ${
           isVisible ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <div
-          className={`bg-gradient-to-br from-yellow-900/95 via-emerald-900/95 to-yellow-900/95 border-4 border-yellow-500 rounded-3xl p-8 sm:p-12 max-w-lg w-full text-center shadow-2xl transform transition-all duration-700 pointer-events-auto ${
+          className={`relative ${isMobileView ? 'w-full max-w-full h-[90vh] rounded-t-3xl' : 'max-w-lg w-full rounded-3xl'} bg-gradient-to-br from-yellow-900/95 via-emerald-900/95 to-yellow-900/95 border-4 border-yellow-500 p-8 sm:p-12 text-center shadow-2xl transform transition-all duration-700 pointer-events-auto ${
             isVisible
               ? 'scale-100 rotate-0'
               : 'scale-50 rotate-12'
           }`}
           style={{
             boxShadow: isVisible
-              ? '0 0 80px rgba(234, 179, 8, 0.6), 0 0 120px rgba(16, 185, 129, 0.4), inset 0 0 60px rgba(234, 179, 8, 0.2)'
+              ? isMobileView
+                ? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(234, 179, 8, 0.1), 0 0 80px rgba(234, 179, 8, 0.6), 0 0 120px rgba(16, 185, 129, 0.4), inset 0 0 60px rgba(234, 179, 8, 0.2)'
+                : '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(234, 179, 8, 0.1), 0 0 80px rgba(234, 179, 8, 0.6), 0 0 120px rgba(16, 185, 129, 0.4), inset 0 0 60px rgba(234, 179, 8, 0.2)'
               : 'none',
           }}
         >
@@ -274,7 +280,8 @@ export default function AchievementModal({ badge, onClose }: AchievementModalPro
           background: radial-gradient(circle, var(--tw-gradient-stops));
         }
       `}</style>
-    </>
+    </>,
+    document.body
   )
 }
 

@@ -267,14 +267,21 @@ export default function AttachmentsModal({
 
 	if (!mounted || !isOpen) return null
 
+	const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640
+
 	return createPortal(
 		<div
-			className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4 sm:px-6 pt-24 sm:pt-28 pb-6 overflow-y-auto'
+			className={`fixed inset-0 z-50 flex ${isMobileView ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm px-4 sm:px-6 ${isMobileView ? 'pb-0' : 'pb-6'} overflow-y-auto`}
 			onClick={onClose}
 		>
 			<div
-				className='w-full max-w-5xl max-h-[92vh] bg-slate-950/95 backdrop-blur-xl border border-emerald-500/30 rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto'
+				className={`relative w-full ${isMobileView ? 'max-w-full h-[90vh] rounded-t-3xl' : 'max-w-5xl rounded-3xl'} bg-slate-950/95 backdrop-blur-xl border border-emerald-500/30 shadow-2xl ${isMobileView ? 'max-h-[90vh]' : 'max-h-[92vh]'} flex flex-col overflow-hidden mx-4`}
 				onClick={event => event.stopPropagation()}
+				style={{
+					boxShadow: isMobileView 
+						? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1)'
+						: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 30px rgba(16, 185, 129, 0.15)',
+				}}
 			>
 				<header className='px-6 py-5 border-b border-emerald-500/20 flex items-start justify-between gap-4'>
 					<div>

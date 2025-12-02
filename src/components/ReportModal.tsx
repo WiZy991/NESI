@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Send, ChevronDown, AlertTriangle } from 'lucide-react'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 
@@ -64,9 +65,19 @@ export default function ReportModal({
     }
   } // ✅ Закрыли sendReport
 
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" data-nextjs-scroll-focus-boundary={false}>
-      <div className="bg-[#001a12]/90 border border-emerald-600/40 shadow-[0_0_30px_rgba(0,255,180,0.25)] rounded-2xl p-6 w-full max-w-md relative animate-fadeIn">
+  if (typeof window === 'undefined') return null
+
+  const isMobileView = window.innerWidth < 640
+
+  return createPortal(
+    <div className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex ${isMobileView ? 'items-end' : 'items-center justify-center'} z-50`} data-nextjs-scroll-focus-boundary={false}>
+      <div className={`relative ${isMobileView ? 'w-full max-w-full h-[90vh] rounded-t-3xl' : 'max-w-md rounded-2xl'} bg-[#001a12]/90 border border-emerald-600/40 shadow-[0_0_30px_rgba(0,255,180,0.25)] p-6 w-full mx-4 animate-fadeIn`}
+        style={{
+          boxShadow: isMobileView 
+            ? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(0, 255, 180, 0.1), 0 0 30px rgba(0, 255, 180, 0.25)'
+            : '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 255, 180, 0.1), 0 0 30px rgba(0, 255, 180, 0.25)',
+        }}
+      >
         {/* Закрытие */}
         <button
           onClick={onClose}
@@ -156,6 +167,7 @@ export default function ReportModal({
           )}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

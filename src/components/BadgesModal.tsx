@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import BadgeIcon from './BadgeIcon'
 import { useUser } from '@/context/UserContext'
@@ -23,6 +24,7 @@ export default function BadgesModal({ isOpen, onClose, earnedBadges }: BadgesMod
   const { token } = useUser()
   const [allBadges, setAllBadges] = useState<Badge[]>([])
   const [loading, setLoading] = useState(true)
+  const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640
 
   useEffect(() => {
     if (!isOpen || !token) return
@@ -56,35 +58,29 @@ export default function BadgesModal({ isOpen, onClose, earnedBadges }: BadgesMod
   // Используем данные из API для определения earned, а не из пропса
   // earnedBadges из пропса используются только как fallback
 
-  return (
+  if (!isOpen || typeof window === 'undefined') return null
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Overlay - фиксирован относительно viewport */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10003] flex items-center justify-center"
+          className={`fixed inset-0 flex ${isMobileView ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm z-[10003]`}
+        >
+          {/* Modal - как в чате */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: isMobileView ? 100 : -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: isMobileView ? 100 : -20 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`relative w-full ${isMobileView ? 'max-w-full h-[90vh] rounded-t-3xl' : 'max-w-5xl rounded-3xl'} bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-emerald-500/40 shadow-2xl flex flex-col ${isMobileView ? 'max-h-[90vh]' : 'max-h-[85vh]'} overflow-hidden mx-4 backdrop-blur-xl`}
             style={{ 
-              top: 0, 
-              left: 0, 
-              right: 0, 
-              bottom: 0,
-              position: 'fixed'
-            }}
-          >
-            {/* Modal - центрирован с правильными размерами */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: -20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-emerald-500/40 rounded-3xl shadow-[0_0_60px_rgba(16,185,129,0.4)] w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col mx-4"
-              style={{
-                marginTop: '80px', // Отступ от хедера
-                marginBottom: '20px'
+              boxShadow: isMobileView 
+                ? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1)'
+                : '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 30px rgba(16, 185, 129, 0.15)',
               }}
             >
               {/* Header */}
@@ -207,9 +203,9 @@ export default function BadgesModal({ isOpen, onClose, earnedBadges }: BadgesMod
                 </div>
             </motion.div>
           </motion.div>
-        </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 

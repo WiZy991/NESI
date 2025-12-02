@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 interface EmailLinkProps {
 	email: string
@@ -46,24 +46,25 @@ export default function EmailLink({
 		setShowMenu(false)
 	}
 
-	// Определяем, показывать ли меню сверху или снизу
-	useEffect(() => {
-		if (showMenu && buttonRef.current) {
+	// Вычисляем позицию меню синхронно при клике, до показа меню
+	const handleToggleMenu = () => {
+		if (!showMenu && buttonRef.current) {
+			// Вычисляем позицию перед показом меню
 			const rect = buttonRef.current.getBoundingClientRect()
 			const viewportHeight = window.innerHeight
-			const menuHeight = 250 // примерная высота меню
-
+			
 			// Если кнопка находится в нижней половине экрана, показываем меню сверху
 			const shouldShowAbove = rect.bottom > viewportHeight / 2
 			setShowAbove(shouldShowAbove)
 		}
-	}, [showMenu])
+		setShowMenu(!showMenu)
+	}
 
 	return (
 		<span className='relative inline-block'>
 			<button
 				ref={buttonRef}
-				onClick={() => setShowMenu(!showMenu)}
+				onClick={handleToggleMenu}
 				className={`${className} cursor-pointer transition-colors`}
 			>
 				{children || email}

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useUser } from '@/context/UserContext'
 import { PROFILE_BACKGROUNDS, getAvailableBackgrounds, type ProfileBackground } from '@/lib/level/profileBackgrounds'
 import { getLevelFromXP } from '@/lib/level/calculate'
@@ -94,37 +96,61 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
     }
   }, [])
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9998] overflow-hidden">
-        <div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-      </div>
-    )
-  }
+  if (typeof window === 'undefined') return null
 
-  return (
-    <div 
-      className="fixed inset-0 z-[9998] flex items-start sm:items-center justify-center p-0 sm:p-4 pt-12 sm:pt-4 overflow-hidden"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose()
-        }
-      }}
-      style={{ touchAction: 'none' }}
-    >
-        {/* Backdrop */}
-        <div 
-          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          onClick={onClose}
+  const isMobileView = window.innerWidth < 640
+
+  return createPortal(
+    <AnimatePresence>
+      {loading ? (
+        <motion.div
+          key="loading"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex ${isMobileView ? 'items-end' : 'items-center justify-center'} z-[9998] overflow-hidden`}
+        >
+          <div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className={`fixed inset-0 z-[9998] flex ${isMobileView ? 'items-end' : 'items-center justify-center'} p-0 sm:p-4 overflow-hidden`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              onClose()
+            }
+          }}
           style={{ touchAction: 'none' }}
-        />
+        >
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={onClose}
+            style={{ touchAction: 'none' }}
+          />
 
-      {/* Modal */}
-      <div 
-        className="relative bg-gray-900 rounded-t-3xl sm:rounded-2xl border-2 border-emerald-500/30 shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-5xl w-full h-[calc(100vh-3rem)] sm:max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-        style={{ touchAction: 'auto' }}
-      >
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: isMobileView ? 100 : -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: isMobileView ? 100 : -20 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className={`relative ${isMobileView ? 'w-full max-w-full h-[90vh] rounded-t-3xl' : 'max-w-5xl rounded-2xl'} bg-gray-900 border-2 border-emerald-500/30 shadow-2xl w-full ${isMobileView ? 'max-h-[90vh]' : 'max-h-[90vh]'} overflow-hidden flex flex-col mx-4`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              touchAction: 'auto',
+              boxShadow: isMobileView 
+                ? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 20px 60px rgba(0,0,0,0.5)'
+                : '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 30px rgba(16, 185, 129, 0.15), 0 20px 60px rgba(0,0,0,0.5)',
+            }}
+          >
         {/* Header */}
         <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-emerald-500/20 p-6 flex items-center justify-between z-10">
           <div>
@@ -352,8 +378,11 @@ export function ProfileBackgroundSelector({ currentLevel, onClose }: ProfileBack
             })}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
   )
 }
 

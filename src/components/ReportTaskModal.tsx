@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
@@ -65,9 +66,19 @@ export default function ReportTaskModal({ taskId, taskTitle, onClose }: Props) {
 		}
 	}
 
-	return (
-		<div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-			<div className="bg-gray-900 border border-red-500/30 rounded-2xl shadow-[0_0_30px_rgba(239,68,68,0.3)] w-full max-w-lg max-h-[90vh] overflow-y-auto">
+	if (typeof window === 'undefined') return null
+
+	const isMobileView = window.innerWidth < 640
+
+	return createPortal(
+		<div className={`fixed inset-0 z-[1000] flex ${isMobileView ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm p-4`}>
+			<div className={`relative ${isMobileView ? 'w-full max-w-full h-[90vh] rounded-t-3xl' : 'max-w-lg rounded-2xl'} bg-gray-900 border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.3)] w-full ${isMobileView ? 'max-h-[90vh]' : 'max-h-[90vh]'} overflow-y-auto mx-4`}
+				style={{
+					boxShadow: isMobileView 
+						? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(239, 68, 68, 0.1), 0 0 30px rgba(239, 68, 68, 0.3)'
+						: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(239, 68, 68, 0.1), 0 0 30px rgba(239, 68, 68, 0.3)',
+				}}
+			>
 				{/* Header */}
 				<div className="flex items-center justify-between p-6 border-b border-gray-800">
 					<div className="flex items-center gap-3">
@@ -159,7 +170,8 @@ export default function ReportTaskModal({ taskId, taskTitle, onClose }: Props) {
 					</div>
 				</form>
 			</div>
-		</div>
+		</div>,
+		document.body
 	)
 }
 

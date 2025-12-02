@@ -143,16 +143,23 @@ export default function MessageTemplatesModal({
 		onClose()
 	}
 
-	if (!isOpen) return null
+	if (!isOpen || typeof window === 'undefined') return null
+
+	const isMobileView = window.innerWidth < 640
 
 	const modalContent = (
 		<div
-			className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4'
+			className={`fixed inset-0 z-50 flex ${isMobileView ? 'items-end' : 'items-center justify-center'} bg-black/70 backdrop-blur-sm p-4`}
 			onClick={onClose}
 		>
 			<div
-				className='bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col'
+				className={`relative w-full ${isMobileView ? 'max-w-full h-[90vh] rounded-t-3xl' : 'max-w-2xl rounded-2xl'} bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col mx-4`}
 				onClick={e => e.stopPropagation()}
+				style={{
+					boxShadow: isMobileView 
+						? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1)'
+						: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 30px rgba(16, 185, 129, 0.15)',
+				}}
 			>
 				{/* Header */}
 				<div className='flex items-center justify-between p-6 border-b border-emerald-500/20'>
@@ -289,11 +296,5 @@ export default function MessageTemplatesModal({
 		</div>
 	)
 
-	if (typeof document === 'undefined') {
-		return modalContent
-	}
-
-	const portalTarget = document.getElementById('modal-root') || document.body
-
-	return createPortal(modalContent, portalTarget)
+	return createPortal(modalContent, document.body)
 }

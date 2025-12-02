@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export type BadgeData = {
 	id: string
@@ -40,9 +41,11 @@ export function BadgeUnlockedModal({ badge, onClose }: BadgeUnlockedModalProps) 
 		setTimeout(onClose, 500) // Даем время на анимацию исчезновения
 	}
 
-	if (!badge) return null
+	if (!badge || typeof window === 'undefined') return null
 
-	return (
+	const isMobileView = window.innerWidth < 640
+
+	return createPortal(
 		<AnimatePresence>
 			{isVisible && (
 				<>
@@ -52,23 +55,28 @@ export function BadgeUnlockedModal({ badge, onClose }: BadgeUnlockedModalProps) 
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0 }}
 						transition={{ duration: 0.3 }}
-						className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center"
+						className={`fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex ${isMobileView ? 'items-end' : 'items-center justify-center'}`}
 						onClick={handleClose}
 						data-nextjs-scroll-focus-boundary={false}
 					>
 						{/* Модальное окно с достижением */}
 						<motion.div
-							initial={{ scale: 0.5, opacity: 0, y: 50 }}
+							initial={{ scale: 0.5, opacity: 0, y: isMobileView ? 100 : 50 }}
 							animate={{ scale: 1, opacity: 1, y: 0 }}
-							exit={{ scale: 0.5, opacity: 0, y: 50 }}
+							exit={{ scale: 0.5, opacity: 0, y: isMobileView ? 100 : 50 }}
 							transition={{
 								type: 'spring',
 								stiffness: 300,
 								damping: 25,
 								duration: 0.5,
 							}}
-							className="relative bg-gradient-to-br from-emerald-900/95 via-black/95 to-emerald-900/95 border-2 border-emerald-500/50 rounded-3xl p-8 sm:p-12 max-w-md w-full mx-4 shadow-2xl"
+							className={`relative ${isMobileView ? 'w-full max-w-full h-[90vh] rounded-t-3xl' : 'max-w-md rounded-3xl'} bg-gradient-to-br from-emerald-900/95 via-black/95 to-emerald-900/95 border-2 border-emerald-500/50 p-8 sm:p-12 w-full mx-4 shadow-2xl`}
 							onClick={(e) => e.stopPropagation()}
+							style={{
+								boxShadow: isMobileView 
+									? '0 -10px 40px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 80px rgba(16, 185, 129, 0.6)'
+									: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.1), 0 0 80px rgba(16, 185, 129, 0.6)',
+							}}
 						>
 							{/* Блестящие эффекты вокруг */}
 							{showSparkles && (
@@ -209,6 +217,7 @@ export function BadgeUnlockedModal({ badge, onClose }: BadgeUnlockedModalProps) 
 					</motion.div>
 				</>
 			)}
-		</AnimatePresence>
+		</AnimatePresence>,
+		document.body
 	)
 }

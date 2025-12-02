@@ -550,6 +550,15 @@ export default function ProfilePageContent() {
 		fetchReviews()
 	}, [user, token, activeTab])
 
+	// Закрываем модальное окно выбора фона при переключении вкладок
+	const prevActiveTabRef = useRef<Tab>(activeTab)
+	useEffect(() => {
+		if (prevActiveTabRef.current !== activeTab && backgroundSelectorOpen) {
+			setBackgroundSelectorOpen(false)
+		}
+		prevActiveTabRef.current = activeTab
+	}, [activeTab, backgroundSelectorOpen])
+
 	// Загружаем завершенные задачи для заказчика
 	useEffect(() => {
 		const fetchCustomerTasks = async () => {
