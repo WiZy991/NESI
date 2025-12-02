@@ -14,6 +14,7 @@ import TaskTemplates, { SaveTemplateButton } from '@/components/TaskTemplates'
 import type { TaskTemplate } from '@/hooks/useTaskTemplates'
 import { BadgeUnlockedModal, BadgeData } from '@/components/BadgeUnlockedModal'
 import { skillCategories } from '@/components/EditProfileModal'
+import { createPortal } from 'react-dom'
 
 type Category = {
   id: string
@@ -32,6 +33,12 @@ export default function CreateTaskPage() {
   const [subcategoryId, setSubcategoryId] = useState('')
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
   const [showSkillsSelector, setShowSkillsSelector] = useState(false)
+  const skillsButtonRef = useRef<HTMLButtonElement>(null)
+  const [skillsMenuPosition, setSkillsMenuPosition] = useState<{
+    top: number
+    left: number
+    width: number
+  } | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
@@ -226,25 +233,47 @@ export default function CreateTaskPage() {
   // Проверка, можно ли показать предпросмотр
   const canPreview = title.trim() && description.trim() && subcategoryId
 
+  // Обновление позиции меню навыков
+  const updateSkillsMenuPosition = useCallback(() => {
+    if (skillsButtonRef.current) {
+      const rect = skillsButtonRef.current.getBoundingClientRect()
+      setSkillsMenuPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+      })
+    }
+  }, [])
+
   // Закрытие селектора навыков при клике вне его
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (showSkillsSelector && !target.closest('.skills-selector-container')) {
-        setShowSkillsSelector(false)
-      }
-    }
     if (showSkillsSelector) {
+      updateSkillsMenuPosition()
+      window.addEventListener('scroll', updateSkillsMenuPosition, true)
+      window.addEventListener('resize', updateSkillsMenuPosition)
+      
+      const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as HTMLElement
+        if (!target.closest('.skills-selector-container') && !target.closest('.skills-menu-portal')) {
+          setShowSkillsSelector(false)
+        }
+      }
+      
       document.addEventListener('mousedown', handleClickOutside)
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+        window.removeEventListener('scroll', updateSkillsMenuPosition, true)
+        window.removeEventListener('resize', updateSkillsMenuPosition)
+      }
+    } else {
+      setSkillsMenuPosition(null)
     }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showSkillsSelector])
+  }, [showSkillsSelector, updateSkillsMenuPosition])
 
   return (
     <ProtectedPage>
-      <div className="relative flex justify-center items-center min-h-[80vh] overflow-hidden">
+      <div className="relative flex justify-center items-center min-h-[80vh]">
         {/* фоновая подсветка - убрана анимация pulse для устранения мерцания */}
         <div className="absolute w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full" />
         <div className="absolute w-[900px] h-[900px] bg-emerald-700/10 blur-[180px] rounded-full" />
@@ -359,8 +388,14 @@ export default function CreateTaskPage() {
             <label className="text-sm text-emerald-400 font-medium">Навыки (поможет вам быстрее находить отклики)</label>
             <div className="relative">
               <button
+                ref={skillsButtonRef}
                 type="button"
-                onClick={() => setShowSkillsSelector(!showSkillsSelector)}
+                onClick={() => {
+                  if (!showSkillsSelector) {
+                    updateSkillsMenuPosition()
+                  }
+                  setShowSkillsSelector(!showSkillsSelector)
+                }}
                 className="w-full text-left px-4 py-3 rounded-xl bg-black/60 border border-emerald-700 text-white focus:border-emerald-400 outline-none flex justify-between items-center shadow-[0_0_15px_rgba(16,185,129,0.15)]"
               >
                 {selectedSkills.length > 0 
@@ -369,62 +404,81 @@ export default function CreateTaskPage() {
                 <span className="text-emerald-400">▼</span>
               </button>
 
-              {showSkillsSelector && (
-                <div className="absolute z-50 mt-2 w-full bg-[#001a12]/95 border border-emerald-700 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] backdrop-blur-md animate-fade-in max-h-96 overflow-y-auto custom-scrollbar">
-                  <div className="p-4 space-y-4">
-                    {/* Выбранные навыки */}
-                    {selectedSkills.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pb-3 border-b border-emerald-500/20">
-                        {selectedSkills.map(skill => (
-                          <span
-                            key={skill}
-                            className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-sm rounded-full border border-emerald-500/40 flex items-center gap-2"
-                          >
-                            {skill}
-                            <button
-                              type="button"
-                              onClick={() => setSelectedSkills(prev => prev.filter(s => s !== skill))}
-                              className="text-red-400 hover:text-red-300 transition text-xs"
-                            >
-                              ✕
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
+              {showSkillsSelector && skillsMenuPosition && typeof window !== 'undefined' && document.body
+                ? createPortal(
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        className="fixed inset-0 z-[9997]"
+                        onClick={() => setShowSkillsSelector(false)}
+                      />
+                      {/* Меню навыков */}
+                      <div
+                        className="fixed z-[9998] skills-menu-portal bg-[#001a12]/95 border border-emerald-700 rounded-xl shadow-[0_0_25px_rgba(16,185,129,0.3)] backdrop-blur-md animate-fade-in max-h-[70vh] overflow-y-auto custom-scrollbar"
+                        style={{
+                          top: `${skillsMenuPosition.top}px`,
+                          left: `${skillsMenuPosition.left}px`,
+                          width: `${skillsMenuPosition.width}px`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="p-4 space-y-4">
+                          {/* Выбранные навыки */}
+                          {selectedSkills.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pb-3 border-b border-emerald-500/20">
+                              {selectedSkills.map(skill => (
+                                <span
+                                  key={skill}
+                                  className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-sm rounded-full border border-emerald-500/40 flex items-center gap-2"
+                                >
+                                  {skill}
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedSkills(prev => prev.filter(s => s !== skill))}
+                                    className="text-red-400 hover:text-red-300 transition text-xs"
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
 
-                    {/* Список категорий навыков */}
-                    <div className="space-y-3">
-                      {Object.entries(skillCategories).map(([category, skills]) => (
-                        <div key={category} className="space-y-2">
-                          <h4 className="text-emerald-300 font-medium text-sm">{category}</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {skills.map(skill => (
-                              <button
-                                key={skill}
-                                type="button"
-                                onClick={() => {
-                                  if (!selectedSkills.includes(skill)) {
-                                    setSelectedSkills(prev => [...prev, skill])
-                                  }
-                                }}
-                                disabled={selectedSkills.includes(skill)}
-                                className={`px-3 py-1.5 text-xs rounded-lg border transition ${
-                                  selectedSkills.includes(skill)
-                                    ? 'bg-emerald-500/30 text-emerald-200 border-emerald-500/50 cursor-not-allowed'
-                                    : 'bg-black/40 text-gray-300 border-emerald-700/50 hover:bg-emerald-700/30 hover:text-emerald-300 hover:border-emerald-500/50'
-                                }`}
-                              >
-                                {skill}
-                              </button>
+                          {/* Список категорий навыков */}
+                          <div className="space-y-3">
+                            {Object.entries(skillCategories).map(([category, skills]) => (
+                              <div key={category} className="space-y-2">
+                                <h4 className="text-emerald-300 font-medium text-sm">{category}</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {skills.map(skill => (
+                                    <button
+                                      key={skill}
+                                      type="button"
+                                      onClick={() => {
+                                        if (!selectedSkills.includes(skill)) {
+                                          setSelectedSkills(prev => [...prev, skill])
+                                        }
+                                      }}
+                                      disabled={selectedSkills.includes(skill)}
+                                      className={`px-3 py-1.5 text-xs rounded-lg border transition ${
+                                        selectedSkills.includes(skill)
+                                          ? 'bg-emerald-500/30 text-emerald-200 border-emerald-500/50 cursor-not-allowed'
+                                          : 'bg-black/40 text-gray-300 border-emerald-700/50 hover:bg-emerald-700/30 hover:text-emerald-300 hover:border-emerald-500/50'
+                                      }`}
+                                    >
+                                      {skill}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
                             ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+                      </div>
+                    </>,
+                    document.body
+                  )
+                : null}
             </div>
           </div>
 
