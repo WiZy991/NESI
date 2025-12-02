@@ -107,12 +107,30 @@ export async function resolveDisputeWithFinancials({
 				},
 			})
 		} else {
+			// КРИТИЧНО: Находим DealId заказчика для сохранения в транзакции исполнителя
+			// Это нужно для вывода средств исполнителем через Т-Банк
+			const customerDepositTx = await tx.transaction.findFirst({
+				where: {
+					userId: task.customerId,
+					type: 'deposit',
+					dealId: { not: null },
+					paymentId: { not: null },
+				},
+				orderBy: { createdAt: 'desc' },
+				select: { dealId: true },
+			})
+			
+			const customerDealId = customerDepositTx?.dealId
+				? String(customerDepositTx.dealId)
+				: null
+
+			// НЕ помечаем задачу как 'completed', чтобы сделка не закрывалась
+			// Только обнуляем escrowAmount
 			await tx.task.update({
 				where: { id: task.id },
 				data: {
-					status: 'completed',
-					completedAt: new Date(),
 					escrowAmount: new Prisma.Decimal(0),
+					// Статус остаётся 'in_progress', чтобы сделка оставалась открытой
 				},
 			})
 
@@ -153,6 +171,8 @@ export async function resolveDisputeWithFinancials({
 					},
 				})
 
+				// КРИТИЧНО: Сохраняем DealId заказчика в транзакции исполнителя
+				// Это нужно для вывода средств через Т-Банк
 				await tx.transaction.create({
 					data: {
 						userId: task.executorId,
@@ -160,6 +180,7 @@ export async function resolveDisputeWithFinancials({
 						type: 'earn',
 						reason: `Выплата за задачу "${task.title}" (по решению спора)`,
 						taskId: task.id,
+						dealId: customerDealId, // Сохраняем DealId для вывода через Т-Банк
 						status: 'completed',
 					},
 				})
@@ -180,6 +201,7 @@ export async function resolveDisputeWithFinancials({
 						type: 'commission',
 						reason: `Комиссия платформы 20% с задачи "${task.title}" (по решению спора)`,
 						taskId: task.id,
+						dealId: customerDealId, // Сохраняем DealId для вывода комиссии
 						status: 'completed',
 					},
 				})
