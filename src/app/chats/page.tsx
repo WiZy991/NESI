@@ -13,6 +13,7 @@ import { clientLogger } from '@/lib/clientLogger'
 import { MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
 import React, {
 	Suspense,
 	useCallback,
@@ -21,6 +22,7 @@ import React, {
 	useRef,
 	useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 type ChatPresence = {
 	lastReadAt: string | null
@@ -208,6 +210,13 @@ function ChatsPageContent() {
 	const [shouldAutoOpen, setShouldAutoOpen] = useState(false)
 	const [isMobile, setIsMobile] = useState(false)
 	const [hiddenChats, setHiddenChats] = useState<Set<string>>(new Set())
+	const [contextMenu, setContextMenu] = useState<{
+		chatId: string
+		x: number
+		y: number
+	} | null>(null)
+	const touchStartTimeRef = useRef<number | null>(null)
+	const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
 
 	// Отслеживание размера окна для адаптивности
 	useEffect(() => {
@@ -1920,9 +1929,14 @@ function ChatsPageContent() {
 	}, [user])
 
 	// Функция для удаления чата
-	const handleDeleteChat = useCallback((chatId: string, e: React.MouseEvent) => {
-		e.stopPropagation()
+	const handleDeleteChat = useCallback((chatId: string) => {
 		if (!user) return
+
+		// Подтверждение удаления
+		if (!confirm('Вы уверены, что хотите удалить этот чат?')) {
+			setContextMenu(null)
+			return
+		}
 
 		const newHiddenChats = new Set(hiddenChats)
 		newHiddenChats.add(chatId)
@@ -1939,7 +1953,75 @@ function ChatsPageContent() {
 		if (selectedChat?.id === chatId) {
 			setSelectedChat(null)
 		}
+
+		// Закрываем контекстное меню
+		setContextMenu(null)
+		
+		toast.success('Чат удален из списка.')
 	}, [hiddenChats, user, selectedChat])
+
+	// Обработчик контекстного меню (ПКМ на ПК)
+	const handleContextMenu = useCallback((e: React.MouseEvent, chatId: string) => {
+		e.preventDefault()
+		e.stopPropagation()
+		setContextMenu({
+			chatId,
+			x: e.clientX,
+			y: e.clientY,
+		})
+	}, [])
+
+	// Обработчики для долгого нажатия на мобильных
+	const handleTouchStart = useCallback((e: React.TouchEvent, chatId: string) => {
+		touchStartTimeRef.current = Date.now()
+		const touch = e.touches[0]
+		touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+	}, [])
+
+	const handleTouchEnd = useCallback((e: React.TouchEvent, chatId: string) => {
+		if (!touchStartTimeRef.current || !touchStartPosRef.current) return
+
+		const touchEndTime = Date.now()
+		const duration = touchEndTime - touchStartTimeRef.current
+		const touch = e.changedTouches[0]
+		const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x)
+		const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y)
+
+		// Если нажатие длилось больше 500мс и не было движения (не скролл)
+		if (duration > 500 && deltaX < 10 && deltaY < 10) {
+			e.preventDefault()
+			e.stopPropagation()
+			setContextMenu({
+				chatId,
+				x: touch.clientX,
+				y: touch.clientY,
+			})
+		}
+
+		touchStartTimeRef.current = null
+		touchStartPosRef.current = null
+	}, [])
+
+	// Закрытие контекстного меню при клике вне его
+	useEffect(() => {
+		if (!contextMenu) return
+
+		const handleClickOutside = () => {
+			setContextMenu(null)
+		}
+
+		// Небольшая задержка, чтобы не закрыть меню сразу при открытии
+		const timeout = setTimeout(() => {
+			document.addEventListener('click', handleClickOutside)
+			document.addEventListener('contextmenu', handleClickOutside)
+		}, 100)
+
+		return () => {
+			clearTimeout(timeout)
+			document.removeEventListener('click', handleClickOutside)
+			document.removeEventListener('contextmenu', handleClickOutside)
+		}
+	}, [contextMenu])
 
 	// Фильтрация чатов по поиску и скрытым чатам
 	const filteredChats = chats.filter(chat => {
@@ -2599,28 +2681,20 @@ function ChatsPageContent() {
 								filteredChats.map(chat => (
 									<div
 										key={chat.id}
-										onClick={() => handleSelectChat(chat)}
+										onClick={() => {
+											if (!contextMenu) {
+												handleSelectChat(chat)
+											}
+										}}
+										onContextMenu={(e) => handleContextMenu(e, chat.id)}
+										onTouchStart={(e) => handleTouchStart(e, chat.id)}
+										onTouchEnd={(e) => handleTouchEnd(e, chat.id)}
 										className={`group relative p-4 sm:p-5 mx-3 sm:mx-4 my-2 sm:my-2.5 rounded-3xl cursor-pointer ios-transition hover-lift touch-manipulation ${
 											selectedChat?.id === chat.id
 												? 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/15 border-2 border-emerald-300/40 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
 												: 'bg-gradient-to-br from-slate-800/25 to-slate-900/35 border border-slate-700/30 hover:border-emerald-300/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.18)]'
 										}`}
 									>
-										{/* Кнопка удаления - всегда видна на мобильных, при hover на десктопе */}
-										<button
-											onClick={(e) => handleDeleteChat(chat.id, e)}
-											className={`absolute top-2 right-2 transition-opacity p-1.5 sm:p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 active:bg-red-500/40 text-red-400 hover:text-red-300 active:text-red-200 z-10 touch-manipulation ${
-												isMobile 
-													? 'opacity-100' 
-													: 'opacity-0 group-hover:opacity-100'
-											}`}
-											title='Удалить чат'
-											aria-label='Удалить чат'
-										>
-											<svg className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-												<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
-											</svg>
-										</button>
 										<div className='flex items-center space-x-2 sm:space-x-3'>
 											{/* Аватар */}
 											{chat.type === 'private' ? (
@@ -3135,6 +3209,37 @@ function ChatsPageContent() {
 					</div>
 				</div>
 			</div>
+
+			{/* Контекстное меню для удаления чата */}
+			{contextMenu && typeof window !== 'undefined' && document.body && createPortal(
+				<>
+					{/* Backdrop */}
+					<div
+						className='fixed inset-0 z-[9997]'
+						onClick={() => setContextMenu(null)}
+					/>
+					{/* Меню */}
+					<div
+						className='fixed z-[9998] w-48 bg-slate-900/95 border border-red-500/40 rounded-xl shadow-[0_0_25px_rgba(239,68,68,0.3)] overflow-hidden animate-fade-in'
+						style={{
+							left: `${Math.min(contextMenu.x, window.innerWidth - 200)}px`,
+							top: `${Math.min(contextMenu.y, window.innerHeight - 100)}px`,
+						}}
+						onClick={(e) => e.stopPropagation()}
+					>
+						<button
+							onClick={() => handleDeleteChat(contextMenu.chatId)}
+							className='w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 transition text-red-400 hover:text-red-300'
+						>
+							<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+								<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
+							</svg>
+							<span>Удалить чат</span>
+						</button>
+					</div>
+				</>,
+				document.body
+			)}
 		</div>
 	)
 }
