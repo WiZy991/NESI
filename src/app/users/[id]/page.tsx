@@ -17,18 +17,29 @@ import { createPortal } from 'react-dom'
 import {
 	FaAward,
 	FaBriefcase,
+	FaCalculator,
+	FaCamera,
 	FaCertificate,
 	FaChartLine,
 	FaCode,
 	FaComments,
 	FaDatabase,
+	FaFileAlt,
 	FaGlobe,
+	FaImage,
 	FaJs,
+	FaMicrophone,
+	FaPalette,
+	FaPaintBrush,
+	FaPen,
 	FaPython,
+	FaShoppingCart,
 	FaStar,
+	FaStore,
 	FaToolbox,
 	FaTrophy,
 	FaUserCircle,
+	FaVideo,
 } from 'react-icons/fa'
 
 type Review = {
@@ -127,6 +138,10 @@ function getRoleName(role: string | undefined | null): string {
 const getSkillIcon = (skill: string) => {
 	const lower = skill.toLowerCase()
 
+	// 1С
+	if (lower.includes('1с') || lower.includes('1c'))
+		return <FaCalculator className='mr-1 text-blue-500' />
+
 	// Языки программирования
 	if (lower.includes('python'))
 		return <FaPython className='mr-1 text-emerald-400' />
@@ -189,6 +204,8 @@ const getSkillIcon = (skill: string) => {
 	if (lower.includes('rails')) return <FaCode className='mr-1 text-red-500' />
 	if (lower.includes('asp') || lower.includes('.net'))
 		return <FaCode className='mr-1 text-blue-500' />
+	if (lower.includes('wordpress') || lower.includes('drupal') || lower.includes('joomla') || lower.includes('bitrix'))
+		return <FaCode className='mr-1 text-blue-600' />
 
 	// Базы данных (проверяем специфичные БД перед общими)
 	if (lower.includes('postgresql') || lower.includes('postgres'))
@@ -213,7 +230,8 @@ const getSkillIcon = (skill: string) => {
 	if (
 		(lower.includes('sql') ||
 			lower.includes('db') ||
-			lower.includes('database')) &&
+			lower.includes('database') ||
+			lower.includes('базы данных')) &&
 		!lower.includes('postgresql') &&
 		!lower.includes('postgres') &&
 		!lower.includes('mysql') &&
@@ -264,21 +282,251 @@ const getSkillIcon = (skill: string) => {
 	if (
 		lower.includes('ci/cd') ||
 		lower.includes('jenkins') ||
-		lower.includes('travis')
+		lower.includes('travis') ||
+		lower.includes('devops')
 	)
 		return <FaGlobe className='mr-1 text-blue-400' />
+
+	// Дизайн
+	if (
+		lower.includes('figma') ||
+		lower.includes('adobe xd') ||
+		lower.includes('sketch') ||
+		lower.includes('ui/ux') ||
+		lower.includes('ui') ||
+		lower.includes('ux') ||
+		lower.includes('дизайн') ||
+		lower.includes('design') ||
+		lower.includes('адаптивный дизайн') ||
+		lower.includes('веб-дизайн') ||
+		lower.includes('мобильный дизайн') ||
+		lower.includes('интерактивный дизайн')
+	)
+		return <FaPalette className='mr-1 text-pink-400' />
+	if (
+		lower.includes('photoshop') ||
+		lower.includes('illustrator') ||
+		lower.includes('indesign') ||
+		lower.includes('adobe')
+	)
+		return <FaImage className='mr-1 text-purple-400' />
+	if (
+		lower.includes('after effects') ||
+		lower.includes('premiere') ||
+		lower.includes('анимация') ||
+		lower.includes('моушн') ||
+		lower.includes('моушн-дизайн') ||
+		lower.includes('видео')
+	)
+		return <FaVideo className='mr-1 text-red-400' />
+	if (
+		lower.includes('blender') ||
+		lower.includes('cinema 4d') ||
+		lower.includes('3d') ||
+		lower.includes('3d-графика')
+	)
+		return <FaImage className='mr-1 text-cyan-400' />
+	if (
+		lower.includes('логотип') ||
+		lower.includes('фирменный стиль') ||
+		lower.includes('презентация') ||
+		lower.includes('презентации') ||
+		lower.includes('инфографика') ||
+		lower.includes('полиграфия') ||
+		lower.includes('иллюстрации') ||
+		lower.includes('иконки')
+	)
+		return <FaPaintBrush className='mr-1 text-pink-500' />
+
+	// Контент и копирайтинг
+	if (
+		lower.includes('копирайтинг') ||
+		lower.includes('контент') ||
+		lower.includes('контент-маркетинг') ||
+		lower.includes('контент-план') ||
+		lower.includes('текст') ||
+		lower.includes('статья') ||
+		lower.includes('написание статей') ||
+		lower.includes('seo-тексты') ||
+		lower.includes('коммерческие тексты') ||
+		lower.includes('посты для соцсетей') ||
+		lower.includes('редактур') ||
+		lower.includes('корректур')
+	)
+		return <FaPen className='mr-1 text-yellow-500' />
+	if (
+		lower.includes('seo') ||
+		lower.includes('smm') ||
+		lower.includes('маркетинг') ||
+		lower.includes('реклам') ||
+		lower.includes('таргетированная реклама') ||
+		lower.includes('контекстная реклама') ||
+		lower.includes('email-маркетинг')
+	)
+		return <FaChartLine className='mr-1 text-green-500' />
+	if (
+		lower.includes('перевод') ||
+		lower.includes('нейминг') ||
+		lower.includes('слоган') ||
+		lower.includes('сценарий') ||
+		lower.includes('сценарии')
+	)
+		return <FaFileAlt className='mr-1 text-blue-400' />
+
+	// Бизнес и жизнь
+	if (
+		lower.includes('консалтинг') ||
+		lower.includes('бизнес') ||
+		lower.includes('бизнес-планы') ||
+		lower.includes('коучинг') ||
+		lower.includes('менторинг') ||
+		lower.includes('обучение')
+	)
+		return <FaBriefcase className='mr-1 text-indigo-400' />
+	if (
+		lower.includes('pm') ||
+		lower.includes('проект') ||
+		lower.includes('проектный менеджмент') ||
+		lower.includes('scrum') ||
+		lower.includes('agile') ||
+		lower.includes('kanban')
+	)
+		return <FaChartLine className='mr-1 text-blue-500' />
+	if (
+		lower.includes('hr') ||
+		lower.includes('персонал') ||
+		lower.includes('подбор персонала') ||
+		lower.includes('юридическ') ||
+		lower.includes('бухгалтер') ||
+		lower.includes('бухгалтерия') ||
+		lower.includes('документооборот') ||
+		lower.includes('продажи') ||
+		lower.includes('переговоры') ||
+		lower.includes('финансы')
+	)
+		return <FaBriefcase className='mr-1 text-gray-500' />
+
+	// Аудио, видео, съёмка
+	if (
+		lower.includes('видео') ||
+		lower.includes('видеомонтаж') ||
+		lower.includes('монтаж') ||
+		lower.includes('цветокоррекция') ||
+		lower.includes('видеосъёмка')
+	)
+		return <FaVideo className='mr-1 text-red-500' />
+	if (
+		lower.includes('фото') ||
+		lower.includes('фотосъёмка') ||
+		lower.includes('съёмка') ||
+		lower.includes('обработка фото')
+	)
+		return <FaCamera className='mr-1 text-purple-500' />
+	if (
+		lower.includes('звук') ||
+		lower.includes('звукорежиссура') ||
+		lower.includes('озвучка') ||
+		lower.includes('субтитр') ||
+		lower.includes('подкаст') ||
+		lower.includes('подкасты') ||
+		lower.includes('музыка') ||
+		lower.includes('аудио-постпродакшн')
+	)
+		return <FaMicrophone className='mr-1 text-blue-400' />
+	if (lower.includes('youtube') || lower.includes('стриминг'))
+		return <FaVideo className='mr-1 text-red-600' />
+
+	// Маркетплейсы
+	if (
+		lower.includes('wildberries') ||
+		lower.includes('ozon') ||
+		lower.includes('яндекс.маркет') ||
+		lower.includes('авито') ||
+		lower.includes('юла') ||
+		lower.includes('маркетплейс')
+	)
+		return <FaShoppingCart className='mr-1 text-orange-500' />
+	if (
+		lower.includes('карточк') ||
+		lower.includes('настройка карточек') ||
+		lower.includes('seo карточек') ||
+		lower.includes('продвижение') ||
+		lower.includes('работа с отзывами') ||
+		lower.includes('логистик') ||
+		lower.includes('фулфилмент')
+	)
+		return <FaStore className='mr-1 text-green-600' />
+
+	// Соцсети и мессенджеры
+	if (
+		lower.includes('вконтакте') ||
+		lower.includes('vk') ||
+		lower.includes('telegram') ||
+		lower.includes('whatsapp') ||
+		lower.includes('instagram') ||
+		lower.includes('facebook') ||
+		lower.includes('одноклассники') ||
+		lower.includes('tiktok') ||
+		lower.includes('соцсет') ||
+		lower.includes('мессенджер')
+	)
+		return <FaComments className='mr-1 text-blue-500' />
+	if (
+		lower.includes('сообществ') ||
+		lower.includes('модерация') ||
+		lower.includes('контент для соцсетей')
+	)
+		return <FaComments className='mr-1 text-purple-500' />
+
+	// Тестирование и QA
+	if (
+		lower.includes('тестирование') ||
+		lower.includes('qa') ||
+		lower.includes('selenium') ||
+		lower.includes('jest')
+	)
+		return <FaCode className='mr-1 text-green-400' />
+
+	// AI / ML
+	if (
+		lower.includes('ai') ||
+		lower.includes('ml') ||
+		lower.includes('нейросет') ||
+		lower.includes('tensorflow') ||
+		lower.includes('pytorch')
+	)
+		return <FaCode className='mr-1 text-purple-600' />
+
+	// Игровая разработка
+	if (
+		lower.includes('игр') ||
+		lower.includes('unity') ||
+		lower.includes('unreal')
+	)
+		return <FaCode className='mr-1 text-indigo-500' />
 
 	// Другие технологии
 	if (
 		lower.includes('html') ||
 		lower.includes('css') ||
 		lower.includes('sass') ||
-		lower.includes('less')
+		lower.includes('less') ||
+		lower.includes('scss') ||
+		lower.includes('tailwind') ||
+		lower.includes('bootstrap') ||
+		lower.includes('вёрстк') ||
+		lower.includes('адаптивная вёрстка')
 	)
 		return <FaCode className='mr-1 text-orange-400' />
 	if (lower.includes('graphql'))
 		return <FaCode className='mr-1 text-pink-500' />
-	if (lower.includes('rest') || lower.includes('api'))
+	if (
+		lower.includes('rest') ||
+		lower.includes('api') ||
+		lower.includes('rest api') ||
+		lower.includes('интеграции api') ||
+		lower.includes('websocket')
+	)
 		return <FaCode className='mr-1 text-green-400' />
 	if (
 		lower.includes('webpack') ||
@@ -288,6 +536,40 @@ const getSkillIcon = (skill: string) => {
 		return <FaCode className='mr-1 text-blue-400' />
 	if (lower.includes('typescript') || lower.includes('ts'))
 		return <FaJs className='mr-1 text-blue-500' />
+	if (
+		lower.includes('frontend') ||
+		lower.includes('backend') ||
+		lower.includes('fullstack')
+	)
+		return <FaCode className='mr-1 text-cyan-500' />
+	if (
+		lower.includes('телеграм-бот') ||
+		lower.includes('телеграм-боты') ||
+		lower.includes('скрипт') ||
+		lower.includes('скрипты') ||
+		lower.includes('автоматизац') ||
+		lower.includes('автоматизация') ||
+		lower.includes('автоматизация процессов')
+	)
+		return <FaCode className='mr-1 text-yellow-500' />
+	if (
+		lower.includes('аналитик') ||
+		lower.includes('аналитика') ||
+		lower.includes('google analytics') ||
+		lower.includes('метрика') ||
+		lower.includes('яндекс.метрика') ||
+		lower.includes('веб-аналитика')
+	)
+		return <FaChartLine className='mr-1 text-blue-600' />
+	if (
+		lower.includes('микроразметка') ||
+		lower.includes('pwa') ||
+		lower.includes('техническая поддержка') ||
+		lower.includes('администрирование') ||
+		lower.includes('безопасность') ||
+		lower.includes('парсинг данных')
+	)
+		return <FaCode className='mr-1 text-gray-500' />
 
 	// По умолчанию
 	return <FaToolbox className='mr-1 text-gray-400' />
