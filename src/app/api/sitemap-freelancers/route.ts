@@ -21,10 +21,10 @@ export async function GET() {
         id: true,
         seoSlug: true,
         fullName: true,
-        updatedAt: true,
+        lastActivityAt: true,
       },
       orderBy: {
-        updatedAt: 'desc',
+        lastActivityAt: 'desc',
       },
     })
 
@@ -34,7 +34,7 @@ export async function GET() {
         const slug = user.seoSlug || user.fullName?.toLowerCase().replace(/\s+/g, '-') || user.id
         return {
           loc: `${baseUrl}/freelancer/${user.id}/${slug}`,
-          lastmod: user.updatedAt.toISOString(),
+          lastmod: user.lastActivityAt?.toISOString() || new Date().toISOString(),
           changefreq: 'weekly' as const,
           priority: 0.8,
         }
