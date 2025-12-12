@@ -39,7 +39,6 @@ export default function ResponseForm({
 	const safeShow = (target: 'message' | 'price') => {
 		if (!isCertified) {
 			if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-			setHoverTarget(target)
 			
 			// Вычисляем позицию плашки относительно viewport
 			const element = target === 'message' ? messageRef.current : priceRef.current
@@ -50,9 +49,9 @@ export default function ResponseForm({
 					top: rect.top + rect.height / 2,
 					left: rect.right + 16, // 16px отступ справа от поля
 				})
+				setHoverTarget(target)
+				setShowTooltip(true)
 			}
-			
-			setShowTooltip(true)
 		}
 	}
 	const safeScheduleHide = () => {
@@ -213,7 +212,7 @@ export default function ResponseForm({
 			
 			return (
 				<div
-					className='fixed w-72 bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-[9999] transition-opacity duration-200 backdrop-blur-sm pointer-events-auto'
+					className='fixed w-72 bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-[9999] backdrop-blur-sm pointer-events-auto'
 					style={{
 						top: `${tooltipPosition.top}px`,
 						left: `${finalLeft}px`,
@@ -223,16 +222,17 @@ export default function ResponseForm({
 					onMouseLeave={tooltipLeave}
 				>
 					<p className='mb-2'>
-						Чтобы откликнуться на задачу, нужна сертификация по «{subcategoryName}
-						».
+						Чтобы откликнуться на задачу, нужна сертификация{subcategoryName ? ` по «${subcategoryName}»` : ''}.
 					</p>
-					<a
-						href={`/cert?subcategoryId=${subcategoryId}`}
-						className='inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium transition'
-					>
-						<span>Пройти тест</span>
-						<span>→</span>
-					</a>
+					{subcategoryId && (
+						<a
+							href={`/cert?subcategoryId=${subcategoryId}`}
+							className='inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium transition'
+						>
+							<span>Пройти тест</span>
+							<span>→</span>
+						</a>
+					)}
 				</div>
 			)
 		}
@@ -244,7 +244,11 @@ export default function ResponseForm({
 			{/* Комментарий */}
 			<div
 				className='relative'
-				onMouseEnter={() => safeShow('message')}
+				onMouseEnter={() => {
+					if (!isCertified) {
+						safeShow('message')
+					}
+				}}
 				onMouseLeave={safeScheduleHide}
 			>
 				<label className='block text-sm font-medium text-emerald-300 mb-2'>
@@ -271,7 +275,11 @@ export default function ResponseForm({
 			{/* Цена */}
 			<div
 				className='relative'
-				onMouseEnter={() => safeShow('price')}
+				onMouseEnter={() => {
+					if (!isCertified) {
+						safeShow('price')
+					}
+				}}
 				onMouseLeave={safeScheduleHide}
 			>
 				<label className='block text-sm font-medium text-emerald-300 mb-2'>
