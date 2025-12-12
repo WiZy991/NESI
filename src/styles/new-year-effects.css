@@ -45,35 +45,19 @@
 	}
 }
 
-/* Гирлянда - прикреплена к хедеру */
+/* Гирлянда - на самом верху страницы */
 .garland-container {
 	position: fixed;
-	top: 56px; /* Высота хедера */
-	left: 0;
-	width: 100%;
-	height: 20px;
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-start;
-	z-index: 50; /* Над контентом, но под модалками */
-	pointer-events: none;
-	padding: 0 10px;
-}
-
-/* Провод гирлянды */
-.garland-container::before {
-	content: '';
-	position: absolute;
 	top: 0;
 	left: 0;
-	right: 0;
-	height: 2px;
-	background: linear-gradient(90deg, 
-		transparent 0%, 
-		#2a2a2a 5%, 
-		#2a2a2a 95%, 
-		transparent 100%
-	);
+	width: 100%;
+	height: 24px;
+	display: flex;
+	justify-content: space-around;
+	align-items: flex-end;
+	z-index: 10001;
+	pointer-events: none;
+	padding: 0 15px;
 }
 
 /* Лампочка гирлянды */
@@ -81,22 +65,114 @@
 	width: 10px;
 	height: 14px;
 	border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%;
-	animation: garland-glow 2s ease-in-out infinite;
+	animation: garland-glow 1.5s ease-in-out infinite;
 	position: relative;
-	top: 2px;
+	box-shadow: 0 0 8px currentColor, 0 0 15px currentColor;
 }
 
 /* Держатель лампочки */
 .garland-light::before {
 	content: '';
 	position: absolute;
-	top: -4px;
+	top: -6px;
 	left: 50%;
 	transform: translateX(-50%);
 	width: 4px;
-	height: 6px;
-	background: #444;
+	height: 8px;
+	background: linear-gradient(to bottom, #444, #222);
 	border-radius: 2px 2px 0 0;
+}
+
+/* Новогодний баннер в фирменном стиле */
+.new-year-banner {
+	position: fixed;
+	top: 26px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: linear-gradient(135deg, 
+		rgba(16, 185, 129, 0.95) 0%, 
+		rgba(5, 150, 105, 0.95) 50%,
+		rgba(4, 120, 87, 0.95) 100%
+	);
+	border: 1px solid rgba(52, 211, 153, 0.5);
+	border-radius: 8px;
+	padding: 8px 20px;
+	z-index: 10000;
+	box-shadow: 
+		0 4px 20px rgba(16, 185, 129, 0.3),
+		0 0 40px rgba(16, 185, 129, 0.1),
+		inset 0 1px 0 rgba(255,255,255,0.1);
+	animation: banner-appear 0.6s ease-out;
+	backdrop-filter: blur(10px);
+}
+
+@keyframes banner-appear {
+	from {
+		opacity: 0;
+		transform: translateX(-50%) translateY(-15px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
+	}
+}
+
+.new-year-banner-content {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.new-year-emoji {
+	font-size: 18px;
+	animation: emoji-float 3s ease-in-out infinite;
+}
+
+.new-year-emoji:nth-child(1) {
+	animation-delay: 0s;
+}
+
+.new-year-emoji:nth-child(3) {
+	animation-delay: 1.5s;
+}
+
+@keyframes emoji-float {
+	0%, 100% {
+		transform: translateY(0) rotate(0deg);
+	}
+	50% {
+		transform: translateY(-3px) rotate(5deg);
+	}
+}
+
+.new-year-text {
+	color: #ffffff;
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.3px;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.new-year-close {
+	position: absolute;
+	top: 50%;
+	right: 6px;
+	transform: translateY(-50%);
+	background: rgba(255, 255, 255, 0.15);
+	border: none;
+	color: #fff;
+	font-size: 14px;
+	cursor: pointer;
+	opacity: 0.8;
+	transition: all 0.2s;
+	padding: 2px 6px;
+	border-radius: 4px;
+	line-height: 1;
+}
+
+.new-year-close:hover {
+	opacity: 1;
+	background: rgba(255, 255, 255, 0.25);
 }
 
 @keyframes garland-glow {
@@ -149,13 +225,36 @@
 /* Адаптив для мобильных */
 @media (max-width: 768px) {
 	.garland-container {
-		top: 56px;
-		padding: 0 5px;
+		top: 0;
+		padding: 0 8px;
+		height: 20px;
 	}
 	
 	.garland-light {
 		width: 8px;
 		height: 12px;
+	}
+	
+	.garland-light::before {
+		width: 3px;
+		height: 6px;
+		top: -5px;
+	}
+
+	.new-year-banner {
+		top: 22px;
+		left: 10px;
+		right: 10px;
+		transform: none;
+		padding: 6px 30px 6px 12px;
+	}
+
+	.new-year-text {
+		font-size: 11px;
+	}
+
+	.new-year-emoji {
+		font-size: 14px;
 	}
 
 	.new-year-toggle {

@@ -7,19 +7,14 @@ import '@/styles/new-year-effects.css'
 // 🎄 НОВОГОДНИЕ ЭФФЕКТЫ - ВРЕМЕННЫЙ КОМПОНЕНТ
 // ============================================================
 // 
-// Этот компонент добавляет праздничное оформление.
-// Он ПОЛНОСТЬЮ ИЗОЛИРОВАН и НЕ МЕНЯЕТ существующие стили.
-//
 // 📅 АВТОМАТИЧЕСКОЕ ОТКЛЮЧЕНИЕ: после 15 января 2026
 //
 // 🔧 РУЧНОЕ ОТКЛЮЧЕНИЕ:
-// 1. Установи NEW_YEAR_EFFECTS_ENABLED = false (ниже)
+// 1. Установи NEW_YEAR_EFFECTS_ENABLED = false
 // 2. Или удали <NewYearEffects /> из src/app/LayoutClient.tsx
-// 3. Или удали этот файл целиком
 //
 // ============================================================
 
-// ⚙️ НАСТРОЙКИ
 const NEW_YEAR_EFFECTS_ENABLED = true
 const AUTO_DISABLE_DATE = new Date('2026-01-15T23:59:59')
 
@@ -29,13 +24,13 @@ function isHolidaySeasonActive(): boolean {
 	return now < AUTO_DISABLE_DATE
 }
 
-// Компонент снежинки
+// Снежинка
 const Snowflake = memo(({ style }: { style: React.CSSProperties }) => (
 	<div className="snowflake" style={style}>❄</div>
 ))
 Snowflake.displayName = 'Snowflake'
 
-// Снегопад - лёгкий, не мешает контенту
+// Снегопад
 function SnowfallEffect() {
 	const [snowflakes, setSnowflakes] = useState<Array<{
 		id: number
@@ -47,14 +42,13 @@ function SnowfallEffect() {
 	}>>([])
 
 	useEffect(() => {
-		// Меньше снежинок, более мелкие
 		const flakes = Array.from({ length: 35 }, (_, i) => ({
 			id: i,
 			left: Math.random() * 100,
-			animationDuration: 15 + Math.random() * 25, // Медленнее падают
+			animationDuration: 15 + Math.random() * 25,
 			animationDelay: Math.random() * 15,
-			fontSize: 6 + Math.random() * 12, // Меньше размер
-			opacity: 0.2 + Math.random() * 0.4, // Более прозрачные
+			fontSize: 6 + Math.random() * 12,
+			opacity: 0.2 + Math.random() * 0.4,
 		}))
 		setSnowflakes(flakes)
 	}, [])
@@ -77,18 +71,10 @@ function SnowfallEffect() {
 	)
 }
 
-// Гирлянда - красивые лампочки под хедером
+// Гирлянда
 function GarlandEffect() {
-	const lights = Array.from({ length: 25 }, (_, i) => i)
-	// Праздничные цвета
-	const colors = [
-		'#ff4444', // красный
-		'#ffdd44', // жёлтый
-		'#44ff44', // зелёный
-		'#44ddff', // голубой
-		'#ff44ff', // розовый
-		'#ff8844', // оранжевый
-	]
+	const lights = Array.from({ length: 30 }, (_, i) => i)
+	const colors = ['#ff4444', '#ffdd44', '#44ff44', '#44ddff', '#ff44ff', '#ff8844']
 
 	return (
 		<div className="garland-container">
@@ -99,7 +85,7 @@ function GarlandEffect() {
 					style={{
 						backgroundColor: colors[i % colors.length],
 						color: colors[i % colors.length],
-						animationDelay: `${(i % 6) * 0.3}s`,
+						animationDelay: `${(i % 6) * 0.25}s`,
 					}}
 				/>
 			))}
@@ -107,9 +93,32 @@ function GarlandEffect() {
 	)
 }
 
+// Новогодний баннер
+function NewYearBanner({ onClose }: { onClose: () => void }) {
+	return (
+		<div className="new-year-banner">
+			<div className="new-year-banner-content">
+				<span className="new-year-emoji">🎄</span>
+				<span className="new-year-text">
+					С наступающим 2026 годом! Желаем успешных проектов!
+				</span>
+				<span className="new-year-emoji">🎅</span>
+			</div>
+			<button
+				onClick={onClose}
+				className="new-year-close"
+				aria-label="Закрыть"
+			>
+				✕
+			</button>
+		</div>
+	)
+}
+
 // Главный компонент
 export default function NewYearEffects() {
 	const [enabled, setEnabled] = useState(true)
+	const [showBanner, setShowBanner] = useState(true)
 	const [mounted, setMounted] = useState(false)
 	const [isHolidaySeason, setIsHolidaySeason] = useState(true)
 
@@ -122,8 +131,13 @@ export default function NewYearEffects() {
 		}
 		
 		const savedState = localStorage.getItem('newYearEffects')
+		const bannerClosed = localStorage.getItem('newYearBanner2026Closed')
+		
 		if (savedState === 'disabled') {
 			setEnabled(false)
+		}
+		if (bannerClosed === 'true') {
+			setShowBanner(false)
 		}
 	}, [])
 
@@ -133,6 +147,11 @@ export default function NewYearEffects() {
 			localStorage.setItem('newYearEffects', newState ? 'enabled' : 'disabled')
 			return newState
 		})
+	}, [])
+
+	const closeBanner = useCallback(() => {
+		setShowBanner(false)
+		localStorage.setItem('newYearBanner2026Closed', 'true')
 	}, [])
 
 	if (!mounted || !isHolidaySeason) return null
@@ -151,11 +170,9 @@ export default function NewYearEffects() {
 
 			{enabled && (
 				<>
-					{/* Снег на фоне */}
 					<SnowfallEffect />
-					
-					{/* Гирлянда под хедером */}
 					<GarlandEffect />
+					{showBanner && <NewYearBanner onClose={closeBanner} />}
 				</>
 			)}
 		</>

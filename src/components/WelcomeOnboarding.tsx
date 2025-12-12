@@ -67,6 +67,13 @@ export default function WelcomeOnboarding() {
       }
     }
     
+    // Не показываем на мобильных устройствах (экран меньше 768px)
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return () => {
+        window.removeEventListener('restart-onboarding', handleRestartOnboarding)
+      }
+    }
+    
     // Не показываем на страницах авторизации
     if (['/login', '/register', '/forgot-password'].includes(pathname)) {
       return () => {
