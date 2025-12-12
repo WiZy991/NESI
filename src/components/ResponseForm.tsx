@@ -45,10 +45,10 @@ export default function ResponseForm({
 			const element = target === 'message' ? messageRef.current : priceRef.current
 			if (element) {
 				const rect = element.getBoundingClientRect()
-				// Позиционируем справа от элемента
+				// Позиционируем справа от элемента с отступом
 				setTooltipPosition({
 					top: rect.top + rect.height / 2,
-					left: rect.right + 12, // 12px = ml-3
+					left: rect.right + 16, // 16px отступ справа от поля
 				})
 			}
 			
@@ -58,15 +58,19 @@ export default function ResponseForm({
 	const safeScheduleHide = () => {
 		if (!isCertified) {
 			if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-			hideTimerRef.current = setTimeout(() => setShowTooltip(false), 400)
+			// Увеличиваем задержку, чтобы пользователь успел переместить курсор на плашку
+			hideTimerRef.current = setTimeout(() => setShowTooltip(false), 600)
 		}
 	}
 	const tooltipEnter = () => {
+		// Отменяем скрытие, если курсор на плашке
 		if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
 		setShowTooltip(true)
 	}
 	const tooltipLeave = () => {
-		hideTimerRef.current = setTimeout(() => setShowTooltip(false), 300)
+		// Увеличиваем задержку при уходе с плашки
+		if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+		hideTimerRef.current = setTimeout(() => setShowTooltip(false), 500)
 	}
 
 	// Обновление позиции плашки при скролле и изменении размера окна
@@ -79,10 +83,13 @@ export default function ResponseForm({
 				const rect = element.getBoundingClientRect()
 				setTooltipPosition({
 					top: rect.top + rect.height / 2,
-					left: rect.right + 12,
+					left: rect.right + 16, // 16px отступ справа от поля
 				})
 			}
 		}
+		
+		// Обновляем позицию сразу при изменении
+		updatePosition()
 		
 		window.addEventListener('scroll', updatePosition, true)
 		window.addEventListener('resize', updatePosition)
@@ -191,7 +198,7 @@ export default function ResponseForm({
 
 	// компонент подсказки (fixed позиционирование, не обрезается)
 	const Tooltip = () => {
-		if (!isCertified && showTooltip) {
+		if (!isCertified && showTooltip && hoverTarget) {
 			// Проверяем, не выходит ли плашка за правый край экрана
 			const tooltipWidth = 288 // w-72 = 18rem = 288px
 			const rightEdge = tooltipPosition.left + tooltipWidth
@@ -206,7 +213,7 @@ export default function ResponseForm({
 			
 			return (
 				<div
-					className='fixed w-72 bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-[9999] transition-opacity duration-200 backdrop-blur-sm'
+					className='fixed w-72 bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-[9999] transition-opacity duration-200 backdrop-blur-sm pointer-events-auto'
 					style={{
 						top: `${tooltipPosition.top}px`,
 						left: `${finalLeft}px`,
@@ -259,7 +266,6 @@ export default function ResponseForm({
 							: 'border-emerald-700/50 focus:border-emerald-400 focus:ring-emerald-400/30 focus:scale-[1.01]'
 					}`}
 				/>
-				<Tooltip />
 			</div>
 
 			{/* Цена */}
@@ -287,7 +293,6 @@ export default function ResponseForm({
 							: 'border-emerald-700/50 focus:border-emerald-400 focus:ring-emerald-400/30 focus:scale-[1.01]'
 					}`}
 				/>
-				<Tooltip />
 				{minPrice > 0 && (
 					<p className='text-xs text-gray-400 mt-2 ml-1'>
 						💡 Минимальная цена по категории:{' '}
@@ -324,6 +329,9 @@ export default function ResponseForm({
 					</span>
 				)}
 			</button>
+
+			{/* Тултип о сертификации - рендерится один раз */}
+			<Tooltip />
 		</form>
 	)
 }
