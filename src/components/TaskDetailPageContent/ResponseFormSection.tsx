@@ -24,7 +24,7 @@ export function ResponseFormSection({
 	isCertChecking,
 }: ResponseFormSectionProps) {
 	return (
-		<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'>
+		<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] overflow-visible'>
 			<div className='flex items-center gap-3 mb-4'>
 				<div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center'>
 					<span className='text-sm'>✍️</span>

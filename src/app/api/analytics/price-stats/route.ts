@@ -133,15 +133,35 @@ export async function GET(req: Request) {
 			? canUseAdaptiveStats(taskTitle, taskDescription)
 			: false
 		
+		// Определяем тип задачи заранее, чтобы использовать для фильтрации цен
+		const taskType = taskTitle && taskDescription ? findTaskType(taskTitle, taskDescription) : null
+		
 		if (taskTitle && taskDescription && canUseAdaptive) {
 			taskAnalysis = analyzeTaskText(taskTitle, taskDescription)
 			
+			// Определяем минимальную разумную цену для похожих задач
+			let minReasonablePriceForSimilar = 1000
+			if (taskType) {
+				const { min } = getPriceRange(taskType)
+				minReasonablePriceForSimilar = Math.max(1000, Math.floor(min * 0.1))
+			} else if (taskTitle && taskDescription) {
+				const taskText = (taskTitle + ' ' + taskDescription).toLowerCase()
+				if (taskText.includes('создать сайт') || taskText.includes('сделать сайт') || 
+				    taskText.includes('разработка сайт') || taskText.includes('создание сайт')) {
+					minReasonablePriceForSimilar = 5000
+				}
+			}
+			
 			// Ищем похожие ЗАВЕРШЕННЫЕ задачи в базе данных (только актуальные данные)
+			// ИСКЛЮЧАЕМ нереалистично низкие цены
 			try {
 				const allTasks = await prisma.task.findMany({
 					where: {
 						status: 'completed', // Только завершенные задачи
-						price: { not: null },
+						price: { 
+							not: null,
+							gte: minReasonablePriceForSimilar // Исключаем нереалистично низкие цены
+						},
 						completedAt: { 
 							not: null,
 							gte: sixMonthsAgo // Только за последние 6 месяцев
@@ -187,14 +207,32 @@ export async function GET(req: Request) {
 			}
 		}
 		
-		// Проверяем, есть ли тип задачи в базе знаний
-		const taskType = taskTitle && taskDescription ? findTaskType(taskTitle, taskDescription) : null
+		// Определяем минимальную разумную цену на основе типа задачи или категории
+		// Для задач типа "создать сайт" минимальная цена должна быть выше
+		let minReasonablePrice = 1000 // Базовая минимальная цена для всех задач
+		
+		if (taskType) {
+			const { min } = getPriceRange(taskType)
+			// Используем 10% от минимальной цены из базы знаний как абсолютный минимум
+			minReasonablePrice = Math.max(1000, Math.floor(min * 0.1))
+		} else if (taskTitle && taskDescription) {
+			// Если есть ключевые слова о создании сайта, устанавливаем более высокий минимум
+			const taskText = (taskTitle + ' ' + taskDescription).toLowerCase()
+			if (taskText.includes('создать сайт') || taskText.includes('сделать сайт') || 
+			    taskText.includes('разработка сайт') || taskText.includes('создание сайт')) {
+				minReasonablePrice = 5000 // Минимум 5000 руб для создания сайта
+			}
+		}
 		
 		// Получаем базовую статистику по категории (ТОЛЬКО ЗАВЕРШЕННЫЕ задачи за последние 6 месяцев)
+		// ИСКЛЮЧАЕМ нереалистично низкие цены
 		const categoryStats = await prisma.task.aggregate({
 			where: {
 				status: 'completed', // Только завершенные задачи
-				price: { not: null },
+				price: { 
+					not: null,
+					gte: minReasonablePrice // Исключаем нереалистично низкие цены
+				},
 				completedAt: { 
 					not: null,
 					gte: sixMonthsAgo // Только за последние 6 месяцев
@@ -375,11 +413,15 @@ export async function GET(req: Request) {
 		}
 
 		// Получаем статистику по подкатегориям (только завершенные за последние 6 месяцев)
+		// ИСКЛЮЧАЕМ нереалистично низкие цены
 		const subcategoryStats = await prisma.task.groupBy({
 			by: ['subcategoryId'],
 			where: {
 				status: 'completed', // Только завершенные
-				price: { not: null },
+				price: { 
+					not: null,
+					gte: minReasonablePrice // Исключаем нереалистично низкие цены
+				},
 				completedAt: { 
 					not: null,
 					gte: sixMonthsAgo // Только за последние 6 месяцев

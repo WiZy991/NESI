@@ -150,14 +150,18 @@ export default function ResponseForm({
 			</div>
 		)
 
-	// компонент подсказки (позиция справа от активного поля)
+	// компонент подсказки (всегда справа, не обрезается)
 	const Tooltip = () =>
 		!isCertified &&
 		showTooltip && (
 			<div
-				className='absolute top-1/2 left-full ml-3 -translate-y-1/2 w-72 bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-20 transition-opacity duration-200 backdrop-blur-sm'
+				className='absolute top-1/2 left-full ml-3 -translate-y-1/2 w-72 max-w-[calc(100vw-1rem)] bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-50 transition-opacity duration-200 backdrop-blur-sm'
 				onMouseEnter={tooltipEnter}
 				onMouseLeave={tooltipLeave}
+				style={{
+					// На мобильных устройствах, если не хватает места справа, сдвигаем влево
+					maxWidth: 'min(18rem, calc(100vw - 1rem))',
+				}}
 			>
 				<p className='mb-2'>
 					Чтобы откликнуться на задачу, нужна сертификация по «{subcategoryName}
@@ -174,7 +178,7 @@ export default function ResponseForm({
 		)
 
 	return (
-		<form onSubmit={handleSubmit} className='space-y-5'>
+		<form onSubmit={handleSubmit} className='space-y-5 relative'>
 			{/* Комментарий */}
 			<div
 				className='relative'
