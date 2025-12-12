@@ -13,10 +13,12 @@ import ScrollToTop from '@/components/ScrollToTop'
 import AriaLiveRegion from '@/components/AriaLiveRegion'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { initErrorMonitoring, trackWebVitals } from '@/lib/errorMonitoring'
+import { clientLogger } from '@/lib/clientLogger'
 import WelcomeOnboarding from '@/components/WelcomeOnboarding'
 import CommandPalette from '@/components/CommandPalette'
 import { initOfflineDB, onOnlineStatusChange } from '@/lib/offlineStorage'
 import { Analytics } from '@/components/seo/Analytics'
+import NewYearEffects from '@/components/NewYearEffects'
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -201,6 +203,12 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       <Suspense fallback={null}>
         <Analytics />
       </Suspense>
+      
+      {/* 🎄 Новогодние эффекты (временно до 15.01.2025)
+          Автоматически отключатся после праздников.
+          Для ручного отключения: удали эту строку или установи 
+          NEW_YEAR_EFFECTS_ENABLED = false в src/components/NewYearEffects.tsx */}
+      <NewYearEffects />
       </UserProvider>
     </ErrorBoundary>
   )

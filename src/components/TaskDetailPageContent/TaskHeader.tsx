@@ -22,17 +22,16 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 
 			<div className='relative p-6 md:p-8 space-y-4 md:space-y-6'>
 				{/* Заголовок с иконкой */}
-				<div className='flex items-start gap-3 sm:gap-4'>
-					<div className='flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg'>
-						<span className='text-xl sm:text-2xl'>📋</span>
+				<div className='flex items-start gap-4'>
+					<div className='flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg'>
+						<span className='text-2xl'>📋</span>
 					</div>
-					<div className='flex-1 min-w-0'>
-						{/* Название задачи и кнопки в одной строке */}
-						<div className='flex items-start justify-between gap-3 mb-2'>
-							<h1 className='text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight break-words min-w-0 flex-1 pr-2'>
+					<div className='flex-1'>
+						<div className='flex items-start justify-between gap-4 mb-2'>
+							<h1 className='text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight flex-1'>
 								{task.title}
 							</h1>
-							{/* Кнопки действий - справа в углу */}
+							{/* Кнопки действий */}
 							<div className='flex items-center gap-2 flex-shrink-0'>
 								{currentUserId && (
 									<FavoriteTaskButton
@@ -51,7 +50,7 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 											toast.error('Не удалось скопировать ссылку')
 										}
 									}}
-									className='p-2 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-all flex-shrink-0'
+									className='p-2 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-all'
 									title='Копировать ссылку на задачу'
 									aria-label='Копировать ссылку'
 								>
@@ -59,14 +58,13 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 								</button>
 							</div>
 						</div>
-						{/* Автор и дата в одну строчку */}
-						<div className='flex items-center flex-wrap gap-2 sm:gap-4 text-sm text-gray-400'>
+						<div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-400'>
 							<div className='flex items-center gap-2'>
-								<span className='w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0'></span>
-								<span className='leading-normal'>Автор</span>
+								<span className='w-2 h-2 rounded-full bg-emerald-400'></span>
+								<span>Автор</span>
 								<Link
 									href={getUserProfileLink(currentUserId, task.customer.id)}
-									className='text-emerald-400 hover:text-emerald-300 font-medium transition-colors leading-normal'
+									className='text-emerald-400 hover:text-emerald-300 font-medium transition-colors'
 								>
 									{task.customer?.fullName || 'Без имени'}
 								</Link>
@@ -83,11 +81,11 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 
 				{/* Описание */}
 				<div className='bg-black/30 rounded-xl p-4 md:p-6 border border-gray-700/50'>
-					<h3 className='text-sm sm:text-base md:text-lg font-semibold text-emerald-300 mb-3 flex items-center gap-2'>
+					<h3 className='text-base md:text-lg font-semibold text-emerald-300 mb-3 flex items-center gap-2'>
 						<span>📝</span>
 						Описание задачи
 					</h3>
-					<p className='text-gray-200 text-sm sm:text-base md:text-lg leading-relaxed break-words whitespace-pre-wrap' style={{ wordBreak: 'break-word' }}>
+					<p className='text-gray-200 text-base md:text-lg leading-relaxed'>
 						{task.description}
 					</p>
 				</div>

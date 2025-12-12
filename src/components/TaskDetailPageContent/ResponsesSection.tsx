@@ -107,6 +107,7 @@ export function ResponsesSection({
 											<PriceComparisonWidget
 												subcategoryId={task.subcategoryId || task.subcategory?.id || null}
 												responsePrice={typeof response.price === 'number' ? response.price : parseFloat(String(response.price).replace(/\s/g, '')) || null}
+												taskId={task.id}
 												taskTitle={task.title || null}
 												taskDescription={task.description || null}
 											/>
