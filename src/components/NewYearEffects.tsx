@@ -6,14 +6,6 @@ import '@/styles/new-year-effects.css'
 // ============================================================
 // 🎄 НОВОГОДНИЕ ЭФФЕКТЫ - ВРЕМЕННЫЙ КОМПОНЕНТ
 // ============================================================
-// 
-// 📅 АВТОМАТИЧЕСКОЕ ОТКЛЮЧЕНИЕ: после 15 января 2026
-//
-// 🔧 РУЧНОЕ ОТКЛЮЧЕНИЕ:
-// 1. Установи NEW_YEAR_EFFECTS_ENABLED = false
-// 2. Или удали <NewYearEffects /> из src/app/LayoutClient.tsx
-//
-// ============================================================
 
 const NEW_YEAR_EFFECTS_ENABLED = true
 const AUTO_DISABLE_DATE = new Date('2026-01-15T23:59:59')
@@ -93,10 +85,16 @@ function GarlandEffect() {
 	)
 }
 
-// Новогодний баннер
-function NewYearBanner({ onClose }: { onClose: () => void }) {
+// Новогодний баннер с анимацией
+function NewYearBanner({ 
+	isClosing, 
+	onClose 
+}: { 
+	isClosing: boolean
+	onClose: () => void 
+}) {
 	return (
-		<div className="new-year-banner">
+		<div className={`new-year-banner ${isClosing ? 'closing' : ''}`}>
 			<div className="new-year-banner-content">
 				<span className="new-year-emoji">🎄</span>
 				<span className="new-year-text">
@@ -118,7 +116,8 @@ function NewYearBanner({ onClose }: { onClose: () => void }) {
 // Главный компонент
 export default function NewYearEffects() {
 	const [enabled, setEnabled] = useState(true)
-	const [showBanner, setShowBanner] = useState(true)
+	const [showBanner, setShowBanner] = useState(false)
+	const [isClosing, setIsClosing] = useState(false)
 	const [mounted, setMounted] = useState(false)
 	const [isHolidaySeason, setIsHolidaySeason] = useState(true)
 
@@ -131,13 +130,13 @@ export default function NewYearEffects() {
 		}
 		
 		const savedState = localStorage.getItem('newYearEffects')
-		const bannerClosed = localStorage.getItem('newYearBanner2026Closed')
-		
 		if (savedState === 'disabled') {
 			setEnabled(false)
-		}
-		if (bannerClosed === 'true') {
-			setShowBanner(false)
+		} else {
+			// Показываем баннер при каждом заходе (с небольшой задержкой)
+			setTimeout(() => {
+				setShowBanner(true)
+			}, 500)
 		}
 	}, [])
 
@@ -145,13 +144,27 @@ export default function NewYearEffects() {
 		setEnabled(prev => {
 			const newState = !prev
 			localStorage.setItem('newYearEffects', newState ? 'enabled' : 'disabled')
+			
+			// Если включаем эффекты - показываем баннер
+			if (newState) {
+				setTimeout(() => setShowBanner(true), 300)
+			} else {
+				setShowBanner(false)
+			}
+			
 			return newState
 		})
 	}, [])
 
 	const closeBanner = useCallback(() => {
-		setShowBanner(false)
-		localStorage.setItem('newYearBanner2026Closed', 'true')
+		// Запускаем анимацию закрытия
+		setIsClosing(true)
+		
+		// После анимации скрываем баннер
+		setTimeout(() => {
+			setShowBanner(false)
+			setIsClosing(false)
+		}, 400)
 	}, [])
 
 	if (!mounted || !isHolidaySeason) return null
@@ -172,7 +185,7 @@ export default function NewYearEffects() {
 				<>
 					<SnowfallEffect />
 					<GarlandEffect />
-					{showBanner && <NewYearBanner onClose={closeBanner} />}
+					{showBanner && <NewYearBanner isClosing={isClosing} onClose={closeBanner} />}
 				</>
 			)}
 		</>
