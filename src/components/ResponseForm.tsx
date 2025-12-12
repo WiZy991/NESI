@@ -2,6 +2,7 @@
 
 import { useUser } from '@/context/UserContext'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 
 export default function ResponseForm({
@@ -197,11 +198,11 @@ export default function ResponseForm({
 
 	// компонент подсказки (fixed позиционирование, не обрезается)
 	const Tooltip = () => {
-		if (!isCertified && showTooltip && hoverTarget) {
+		if (!isCertified && showTooltip && hoverTarget && typeof window !== 'undefined' && document.body) {
 			// Проверяем, не выходит ли плашка за правый край экрана
 			const tooltipWidth = 288 // w-72 = 18rem = 288px
 			const rightEdge = tooltipPosition.left + tooltipWidth
-			const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
+			const viewportWidth = window.innerWidth
 			const padding = 16 // отступ от края
 			
 			let finalLeft = tooltipPosition.left
@@ -210,7 +211,7 @@ export default function ResponseForm({
 				finalLeft = viewportWidth - tooltipWidth - padding
 			}
 			
-			return (
+			const tooltipContent = (
 				<div
 					className='fixed w-72 bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-[9999] backdrop-blur-sm pointer-events-auto'
 					style={{
@@ -235,6 +236,8 @@ export default function ResponseForm({
 					)}
 				</div>
 			)
+			
+			return createPortal(tooltipContent, document.body)
 		}
 		return null
 	}
@@ -244,11 +247,7 @@ export default function ResponseForm({
 			{/* Комментарий */}
 			<div
 				className='relative'
-				onMouseEnter={() => {
-					if (!isCertified) {
-						safeShow('message')
-					}
-				}}
+				onMouseEnter={() => safeShow('message')}
 				onMouseLeave={safeScheduleHide}
 			>
 				<label className='block text-sm font-medium text-emerald-300 mb-2'>
@@ -275,11 +274,7 @@ export default function ResponseForm({
 			{/* Цена */}
 			<div
 				className='relative'
-				onMouseEnter={() => {
-					if (!isCertified) {
-						safeShow('price')
-					}
-				}}
+				onMouseEnter={() => safeShow('price')}
 				onMouseLeave={safeScheduleHide}
 			>
 				<label className='block text-sm font-medium text-emerald-300 mb-2'>
