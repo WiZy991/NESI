@@ -31,12 +31,27 @@ export default function ResponseForm({
 	const [hoverTarget, setHoverTarget] = useState<'message' | 'price' | null>(
 		null
 	)
+	const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
+	const messageRef = useRef<HTMLTextAreaElement>(null)
+	const priceRef = useRef<HTMLInputElement>(null)
 	const hideTimerRef = useRef<NodeJS.Timeout | null>(null)
 
 	const safeShow = (target: 'message' | 'price') => {
 		if (!isCertified) {
 			if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
 			setHoverTarget(target)
+			
+			// Вычисляем позицию плашки относительно viewport
+			const element = target === 'message' ? messageRef.current : priceRef.current
+			if (element) {
+				const rect = element.getBoundingClientRect()
+				// Позиционируем справа от элемента
+				setTooltipPosition({
+					top: rect.top + rect.height / 2,
+					left: rect.right + 12, // 12px = ml-3
+				})
+			}
+			
 			setShowTooltip(true)
 		}
 	}
@@ -53,6 +68,30 @@ export default function ResponseForm({
 	const tooltipLeave = () => {
 		hideTimerRef.current = setTimeout(() => setShowTooltip(false), 300)
 	}
+
+	// Обновление позиции плашки при скролле и изменении размера окна
+	useEffect(() => {
+		if (!showTooltip || !hoverTarget) return
+		
+		const updatePosition = () => {
+			const element = hoverTarget === 'message' ? messageRef.current : priceRef.current
+			if (element) {
+				const rect = element.getBoundingClientRect()
+				setTooltipPosition({
+					top: rect.top + rect.height / 2,
+					left: rect.right + 12,
+				})
+			}
+		}
+		
+		window.addEventListener('scroll', updatePosition, true)
+		window.addEventListener('resize', updatePosition)
+		
+		return () => {
+			window.removeEventListener('scroll', updatePosition, true)
+			window.removeEventListener('resize', updatePosition)
+		}
+	}, [showTooltip, hoverTarget])
 
 	// ====== Проверка, есть ли уже отклик ======
 	useEffect(() => {
@@ -150,32 +189,48 @@ export default function ResponseForm({
 			</div>
 		)
 
-	// компонент подсказки (всегда справа, не обрезается)
-	const Tooltip = () =>
-		!isCertified &&
-		showTooltip && (
-			<div
-				className='absolute top-1/2 left-full ml-3 -translate-y-1/2 w-72 max-w-[calc(100vw-1rem)] bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-50 transition-opacity duration-200 backdrop-blur-sm'
-				onMouseEnter={tooltipEnter}
-				onMouseLeave={tooltipLeave}
-				style={{
-					// На мобильных устройствах, если не хватает места справа, сдвигаем влево
-					maxWidth: 'min(18rem, calc(100vw - 1rem))',
-				}}
-			>
-				<p className='mb-2'>
-					Чтобы откликнуться на задачу, нужна сертификация по «{subcategoryName}
-					».
-				</p>
-				<a
-					href={`/cert?subcategoryId=${subcategoryId}`}
-					className='inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium transition'
+	// компонент подсказки (fixed позиционирование, не обрезается)
+	const Tooltip = () => {
+		if (!isCertified && showTooltip) {
+			// Проверяем, не выходит ли плашка за правый край экрана
+			const tooltipWidth = 288 // w-72 = 18rem = 288px
+			const rightEdge = tooltipPosition.left + tooltipWidth
+			const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
+			const padding = 16 // отступ от края
+			
+			let finalLeft = tooltipPosition.left
+			// Если плашка выходит за правый край, сдвигаем её влево
+			if (rightEdge > viewportWidth - padding) {
+				finalLeft = viewportWidth - tooltipWidth - padding
+			}
+			
+			return (
+				<div
+					className='fixed w-72 bg-gradient-to-br from-gray-900 to-gray-800 border border-emerald-500/30 text-gray-200 text-xs px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] z-[9999] transition-opacity duration-200 backdrop-blur-sm'
+					style={{
+						top: `${tooltipPosition.top}px`,
+						left: `${finalLeft}px`,
+						transform: 'translateY(-50%)',
+					}}
+					onMouseEnter={tooltipEnter}
+					onMouseLeave={tooltipLeave}
 				>
-					<span>Пройти тест</span>
-					<span>→</span>
-				</a>
-			</div>
-		)
+					<p className='mb-2'>
+						Чтобы откликнуться на задачу, нужна сертификация по «{subcategoryName}
+						».
+					</p>
+					<a
+						href={`/cert?subcategoryId=${subcategoryId}`}
+						className='inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium transition'
+					>
+						<span>Пройти тест</span>
+						<span>→</span>
+					</a>
+				</div>
+			)
+		}
+		return null
+	}
 
 	return (
 		<form onSubmit={handleSubmit} className='space-y-5 relative'>
@@ -192,6 +247,7 @@ export default function ResponseForm({
 					</span>
 				</label>
 				<textarea
+					ref={messageRef}
 					value={message}
 					onChange={e => setMessage(e.target.value)}
 					placeholder='Расскажите, почему именно вы подходите для этой задачи...'
@@ -203,7 +259,7 @@ export default function ResponseForm({
 							: 'border-emerald-700/50 focus:border-emerald-400 focus:ring-emerald-400/30 focus:scale-[1.01]'
 					}`}
 				/>
-				{hoverTarget === 'message' && <Tooltip />}
+				<Tooltip />
 			</div>
 
 			{/* Цена */}
@@ -219,6 +275,7 @@ export default function ResponseForm({
 					</span>
 				</label>
 				<input
+					ref={priceRef}
 					type='number'
 					value={price}
 					onChange={e => setPrice(e.target.value)}
@@ -230,7 +287,7 @@ export default function ResponseForm({
 							: 'border-emerald-700/50 focus:border-emerald-400 focus:ring-emerald-400/30 focus:scale-[1.01]'
 					}`}
 				/>
-				{hoverTarget === 'price' && <Tooltip />}
+				<Tooltip />
 				{minPrice > 0 && (
 					<p className='text-xs text-gray-400 mt-2 ml-1'>
 						💡 Минимальная цена по категории:{' '}
