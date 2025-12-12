@@ -21,7 +21,7 @@ import '@/styles/new-year-effects.css'
 
 // ⚙️ НАСТРОЙКИ - измени здесь для управления эффектами
 const NEW_YEAR_EFFECTS_ENABLED = true // Установи false чтобы отключить
-const AUTO_DISABLE_DATE = new Date('2025-01-15T23:59:59') // Автоотключение после этой даты
+const AUTO_DISABLE_DATE = new Date('2026-01-15T23:59:59') // Автоотключение после этой даты
 
 // Проверка, активны ли праздники
 function isHolidaySeasonActive(): boolean {
