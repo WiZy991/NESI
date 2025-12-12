@@ -10,7 +10,7 @@ import '@/styles/new-year-effects.css'
 // Этот компонент добавляет праздничное оформление.
 // Он ПОЛНОСТЬЮ ИЗОЛИРОВАН и НЕ МЕНЯЕТ существующие стили.
 //
-// 📅 АВТОМАТИЧЕСКОЕ ОТКЛЮЧЕНИЕ: после 15 января 2025
+// 📅 АВТОМАТИЧЕСКОЕ ОТКЛЮЧЕНИЕ: после 15 января 2026
 //
 // 🔧 РУЧНОЕ ОТКЛЮЧЕНИЕ:
 // 1. Установи NEW_YEAR_EFFECTS_ENABLED = false (ниже)
@@ -19,27 +19,23 @@ import '@/styles/new-year-effects.css'
 //
 // ============================================================
 
-// ⚙️ НАСТРОЙКИ - измени здесь для управления эффектами
-const NEW_YEAR_EFFECTS_ENABLED = true // Установи false чтобы отключить
-const AUTO_DISABLE_DATE = new Date('2026-01-15T23:59:59') // Автоотключение после этой даты
+// ⚙️ НАСТРОЙКИ
+const NEW_YEAR_EFFECTS_ENABLED = true
+const AUTO_DISABLE_DATE = new Date('2026-01-15T23:59:59')
 
-// Проверка, активны ли праздники
 function isHolidaySeasonActive(): boolean {
 	if (!NEW_YEAR_EFFECTS_ENABLED) return false
-	
 	const now = new Date()
 	return now < AUTO_DISABLE_DATE
 }
 
 // Компонент снежинки
 const Snowflake = memo(({ style }: { style: React.CSSProperties }) => (
-	<div className="snowflake" style={style}>
-		❄
-	</div>
+	<div className="snowflake" style={style}>❄</div>
 ))
 Snowflake.displayName = 'Snowflake'
 
-// Основной компонент снегопада
+// Снегопад - лёгкий, не мешает контенту
 function SnowfallEffect() {
 	const [snowflakes, setSnowflakes] = useState<Array<{
 		id: number
@@ -51,14 +47,14 @@ function SnowfallEffect() {
 	}>>([])
 
 	useEffect(() => {
-		// Создаём снежинки
-		const flakes = Array.from({ length: 50 }, (_, i) => ({
+		// Меньше снежинок, более мелкие
+		const flakes = Array.from({ length: 35 }, (_, i) => ({
 			id: i,
 			left: Math.random() * 100,
-			animationDuration: 10 + Math.random() * 20,
-			animationDelay: Math.random() * 10,
-			fontSize: 8 + Math.random() * 16,
-			opacity: 0.3 + Math.random() * 0.5,
+			animationDuration: 15 + Math.random() * 25, // Медленнее падают
+			animationDelay: Math.random() * 15,
+			fontSize: 6 + Math.random() * 12, // Меньше размер
+			opacity: 0.2 + Math.random() * 0.4, // Более прозрачные
 		}))
 		setSnowflakes(flakes)
 	}, [])
@@ -81,10 +77,18 @@ function SnowfallEffect() {
 	)
 }
 
-// Гирлянда для хедера
+// Гирлянда - красивые лампочки под хедером
 function GarlandEffect() {
-	const lights = Array.from({ length: 20 }, (_, i) => i)
-	const colors = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#ff00ff', '#ff6600']
+	const lights = Array.from({ length: 25 }, (_, i) => i)
+	// Праздничные цвета
+	const colors = [
+		'#ff4444', // красный
+		'#ffdd44', // жёлтый
+		'#44ff44', // зелёный
+		'#44ddff', // голубой
+		'#ff44ff', // розовый
+		'#ff8844', // оранжевый
+	]
 
 	return (
 		<div className="garland-container">
@@ -94,7 +98,8 @@ function GarlandEffect() {
 					className="garland-light"
 					style={{
 						backgroundColor: colors[i % colors.length],
-						animationDelay: `${i * 0.15}s`,
+						color: colors[i % colors.length],
+						animationDelay: `${(i % 6) * 0.3}s`,
 					}}
 				/>
 			))}
@@ -102,53 +107,23 @@ function GarlandEffect() {
 	)
 }
 
-// Новогодний баннер
-function NewYearBanner({ onClose }: { onClose: () => void }) {
-	return (
-		<div className="new-year-banner">
-			<div className="new-year-banner-content">
-				<span className="new-year-emoji">🎄</span>
-				<span className="new-year-text">
-					С наступающим Новым Годом! Желаем успешных проектов в 2025! 
-				</span>
-				<span className="new-year-emoji">🎅</span>
-			</div>
-			<button
-				onClick={onClose}
-				className="new-year-close"
-				aria-label="Закрыть баннер"
-			>
-				✕
-			</button>
-		</div>
-	)
-}
-
-// Главный компонент новогодних эффектов
+// Главный компонент
 export default function NewYearEffects() {
 	const [enabled, setEnabled] = useState(true)
-	const [showBanner, setShowBanner] = useState(true)
 	const [mounted, setMounted] = useState(false)
 	const [isHolidaySeason, setIsHolidaySeason] = useState(true)
 
 	useEffect(() => {
 		setMounted(true)
 		
-		// Проверяем, активен ли праздничный сезон
 		if (!isHolidaySeasonActive()) {
 			setIsHolidaySeason(false)
 			return
 		}
 		
-		// Проверяем localStorage
 		const savedState = localStorage.getItem('newYearEffects')
-		const bannerClosed = localStorage.getItem('newYearBannerClosed')
-		
 		if (savedState === 'disabled') {
 			setEnabled(false)
-		}
-		if (bannerClosed === 'true') {
-			setShowBanner(false)
 		}
 	}, [])
 
@@ -160,19 +135,11 @@ export default function NewYearEffects() {
 		})
 	}, [])
 
-	const closeBanner = useCallback(() => {
-		setShowBanner(false)
-		localStorage.setItem('newYearBannerClosed', 'true')
-	}, [])
-
-	// Не рендерим ничего если:
-	// - Компонент ещё не смонтирован
-	// - Праздничный сезон закончился
 	if (!mounted || !isHolidaySeason) return null
 
 	return (
 		<>
-			{/* Кнопка переключения эффектов */}
+			{/* Кнопка переключения */}
 			<button
 				onClick={toggleEffects}
 				className="new-year-toggle"
@@ -184,14 +151,11 @@ export default function NewYearEffects() {
 
 			{enabled && (
 				<>
-					{/* Падающий снег */}
+					{/* Снег на фоне */}
 					<SnowfallEffect />
 					
-					{/* Гирлянда в хедере */}
+					{/* Гирлянда под хедером */}
 					<GarlandEffect />
-					
-					{/* Новогодний баннер */}
-					{showBanner && <NewYearBanner onClose={closeBanner} />}
 				</>
 			)}
 		</>
