@@ -116,7 +116,7 @@ export default function Home() {
 			{/* MAIN CONTENT */}
 			<div className='relative w-full px-3 sm:px-6 py-6 md:py-8'>
 				{/* Decorative Snake - left side (скрыта на мобильных) */}
-				<div className='hidden lg:block absolute left-0 top-2/4 -translate-y-1/2 w-2/4 h-auto opacity-75 pointer-events-none'>
+				<div className='hidden lg:block absolute left-0 top-[65%] -translate-y-1/2 w-2/4 h-auto opacity-75 pointer-events-none'>
 					<Image
 						src='/nesi_snake.svg'
 						alt='Декоративное изображение платформы NESI'
@@ -262,8 +262,8 @@ export default function Home() {
 
 				{/* Content Grid */}
 				<div className='grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10 w-full lg:w-[90%] mx-auto relative z-10 items-start'>
-					{/* Left Column - поднят выше чтобы не перекрывать змею */}
-					<div className='space-y-4 sm:space-y-6 lg:-translate-y-32'>
+					{/* Left Column */}
+					<div className='space-y-4 sm:space-y-6'>
 						<div
 							className='p-4 sm:p-6 rounded-xl'
 							style={{
