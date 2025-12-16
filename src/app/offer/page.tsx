@@ -97,8 +97,8 @@ export default function PublicOfferPage() {
 						<p>
 							<strong className='text-emerald-400'>Комиссия</strong> —
 							вознаграждение Компании за оказание посреднических услуг,
-							взимаемое в размере 20% от суммы вознаграждения Исполнителя за
-							выполненное Задание.
+							взимаемое в размере от 0% до 10% от суммы вознаграждения Исполнителя за
+							выполненное Задание (в зависимости от условий программы лояльности).
 						</p>
 						<p>
 							<strong className='text-emerald-400'>
@@ -223,18 +223,30 @@ export default function PublicOfferPage() {
 						<p>
 							<strong className='text-emerald-400'>4.1.</strong> За оказание
 							посреднических услуг Компания взимает с каждой завершённой Сделки
-							комиссию в размере{' '}
-							<strong className='text-emerald-400 text-lg'>20%</strong> от суммы
-							вознаграждения Исполнителя за выполненное Задание.
+							комиссию в размере от{' '}
+							<strong className='text-emerald-400 text-lg'>0% до 10%</strong> от суммы
+							вознаграждения Исполнителя за выполненное Задание, в зависимости от
+							условий программы лояльности.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>4.2.</strong> Комиссия
-							автоматически удерживается Компанией при переводе средств
-							Исполнителю после принятия Заказчиком выполненного Задания.
+							<strong className='text-emerald-400'>4.2.</strong> Для новых
+							Исполнителей первые 3 (три) завершённые задачи — без комиссии (0%).
 						</p>
 						<p>
-							<strong className='text-emerald-400'>4.3.</strong> Пример расчёта
-							комиссии:
+							<strong className='text-emerald-400'>4.3.</strong> После исчерпания
+							бесплатных задач комиссия составляет от 6% до 10% в зависимости от
+							уровня Исполнителя:
+						</p>
+						<div className='bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mt-3'>
+							<p className='text-gray-300 mb-1'>Уровень 1-2: <strong className='text-emerald-400'>10%</strong></p>
+							<p className='text-gray-300 mb-1'>Уровень 3: <strong className='text-emerald-400'>9%</strong></p>
+							<p className='text-gray-300 mb-1'>Уровень 4: <strong className='text-emerald-400'>8%</strong></p>
+							<p className='text-gray-300 mb-1'>Уровень 5: <strong className='text-emerald-400'>7%</strong></p>
+							<p className='text-gray-300'>Уровень 6 и выше: <strong className='text-yellow-400'>6%</strong></p>
+						</div>
+						<p className='mt-4'>
+							<strong className='text-emerald-400'>4.4.</strong> Пример расчёта
+							комиссии (уровень 1-2, после бесплатных задач):
 						</p>
 						<div className='bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mt-3'>
 							<p className='text-gray-300 mb-2'>
@@ -242,22 +254,27 @@ export default function PublicOfferPage() {
 								<strong className='text-emerald-400'>1000 ₽</strong>
 							</p>
 							<p className='text-gray-300 mb-2'>
-								Комиссия Компании (20%):{' '}
-								<strong className='text-emerald-400'>200 ₽</strong>
+								Комиссия Компании (10%):{' '}
+								<strong className='text-emerald-400'>100 ₽</strong>
 							</p>
 							<p className='text-gray-300'>
-								Вознаграждение Исполнителя (80%):{' '}
-								<strong className='text-emerald-400'>800 ₽</strong>
+								Вознаграждение Исполнителя (90%):{' '}
+								<strong className='text-emerald-400'>900 ₽</strong>
 							</p>
 						</div>
 						<p className='mt-4'>
-							<strong className='text-emerald-400'>4.4.</strong> Использование
+							<strong className='text-emerald-400'>4.5.</strong> Комиссия
+							автоматически удерживается Компанией при переводе средств
+							Исполнителю после принятия Заказчиком выполненного Задания.
+						</p>
+						<p>
+							<strong className='text-emerald-400'>4.6.</strong> Использование
 							Платформы для размещения Заданий и поиска Исполнителей является
 							бесплатным. Комиссия взимается исключительно при успешном
 							завершении Задания и переводе средств Исполнителю.
 						</p>
 						<p>
-							<strong className='text-emerald-400'>4.5.</strong> Компания
+							<strong className='text-emerald-400'>4.7.</strong> Компания
 							оставляет за собой право изменять размер комиссии с обязательным
 							уведомлением Пользователей через Платформу не менее чем за 30
 							календарных дней до вступления изменений в силу.
@@ -293,10 +310,10 @@ export default function PublicOfferPage() {
 								стоимости Задания
 							</li>
 							<li>
-								Комиссия Компании (20%) удерживается и перечисляется на счёт
+								Комиссия Компании (от 0% до 10% в зависимости от уровня исполнителя) удерживается и перечисляется на счёт
 								Компании
 							</li>
-							<li>Оставшаяся сумма (80%) зачисляется на баланс Исполнителя</li>
+							<li>Оставшаяся сумма (90-100%) зачисляется на баланс Исполнителя (в зависимости от комиссии)</li>
 						</ul>
 						<p className='mt-4'>
 							<strong className='text-emerald-400'>5.4.</strong> В случае отмены

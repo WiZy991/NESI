@@ -38,7 +38,7 @@ async function main() {
   for (const transaction of transactionsWithoutTaskId) {
     try {
       // Извлекаем название задачи из reason
-      // Формат: "Оплата за задачу \"Название задачи\"" или "Комиссия 20% с задачи \"Название задачи\""
+      // Формат: "Оплата за задачу \"Название задачи\"" или "Комиссия X% с задачи \"Название задачи\""
       const match = transaction.reason.match(/задачу\s+"([^"]+)"/)
       
       if (!match) {

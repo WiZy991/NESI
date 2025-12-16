@@ -166,6 +166,105 @@ export default function Home() {
 					</h1>
 				</div>
 
+				{/* Commission Info Banner */}
+				<div className='w-full max-w-4xl mx-auto mb-8 sm:mb-12 relative z-10'>
+					<div
+						className='p-4 sm:p-6 rounded-2xl relative overflow-hidden'
+						style={{
+							background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(16, 185, 129, 0.15) 100%)',
+							border: '2px solid rgba(0, 255, 205, 0.4)',
+							boxShadow: '0 0 40px rgba(0, 255, 205, 0.3), inset 0 0 60px rgba(0, 255, 205, 0.05)',
+						}}
+					>
+						{/* Decorative elements */}
+						<div className='absolute top-0 right-0 w-32 h-32 opacity-20 pointer-events-none'>
+							<div className='absolute inset-0 bg-gradient-to-br from-emerald-400 to-transparent rounded-full blur-2xl' />
+						</div>
+						
+						<div className='text-center mb-4'>
+							<span className='inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold'
+								style={{
+									background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.3) 0%, rgba(234, 179, 8, 0.1) 100%)',
+									border: '1px solid rgba(234, 179, 8, 0.5)',
+									color: '#fcd34d',
+								}}>
+								<span className='text-base sm:text-lg'>🎁</span>
+								БОНУС ДЛЯ НОВЫХ ИСПОЛНИТЕЛЕЙ
+							</span>
+						</div>
+
+						<div className='grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6'>
+							{/* First 3 tasks free */}
+							<div className='text-center p-4 rounded-xl'
+								style={{
+									background: 'linear-gradient(180deg, rgba(234, 179, 8, 0.2) 0%, rgba(234, 179, 8, 0.05) 100%)',
+									border: '1px solid rgba(234, 179, 8, 0.3)',
+								}}>
+								<div className='text-3xl sm:text-4xl font-bold mb-2' style={{ color: '#fcd34d' }}>
+									0%
+								</div>
+								<div className='text-sm sm:text-base font-semibold text-white mb-1'>
+									Первые 3 задачи
+								</div>
+								<div className='text-xs sm:text-sm text-gray-400'>
+									Без комиссии! Получайте 100% оплаты
+								</div>
+							</div>
+
+							{/* Standard commission */}
+							<div className='text-center p-4 rounded-xl'
+								style={{
+									background: 'linear-gradient(180deg, rgba(0, 255, 205, 0.15) 0%, rgba(0, 255, 205, 0.05) 100%)',
+									border: '1px solid rgba(0, 255, 205, 0.3)',
+								}}>
+								<div className='text-3xl sm:text-4xl font-bold mb-2' style={{ color: '#00ffcd' }}>
+									10%
+								</div>
+								<div className='text-sm sm:text-base font-semibold text-white mb-1'>
+									Базовая комиссия
+								</div>
+								<div className='text-xs sm:text-sm text-gray-400'>
+									После бесплатных задач
+								</div>
+							</div>
+
+							{/* Level discount */}
+							<div className='text-center p-4 rounded-xl'
+								style={{
+									background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.05) 100%)',
+									border: '1px solid rgba(139, 92, 246, 0.3)',
+								}}>
+								<div className='text-3xl sm:text-4xl font-bold mb-2' style={{ color: '#a78bfa' }}>
+									6%
+								</div>
+								<div className='text-sm sm:text-base font-semibold text-white mb-1'>
+									Минимальная
+								</div>
+								<div className='text-xs sm:text-sm text-gray-400'>
+									Для высоких уровней (6+)
+								</div>
+							</div>
+						</div>
+
+						<div className='mt-4 text-center space-y-3'>
+							<p className='text-xs sm:text-sm text-gray-400'>
+								💡 Повышайте уровень и снижайте комиссию до 6%!
+							</p>
+							<Link 
+								href='/register' 
+								className='inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm sm:text-base transition-all duration-300 hover:scale-105'
+								style={{
+									background: 'linear-gradient(135deg, rgba(0, 255, 205, 0.3) 0%, rgba(16, 185, 129, 0.2) 100%)',
+									border: '1px solid rgba(0, 255, 205, 0.5)',
+									color: '#00ffcd',
+									boxShadow: '0 0 20px rgba(0, 255, 205, 0.3)',
+								}}>
+								🚀 Начать зарабатывать
+							</Link>
+						</div>
+					</div>
+				</div>
+
 				{/* Content Grid */}
 				<div className='grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10 w-full lg:w-[90%] mx-auto relative z-10 items-start'>
 					{/* Left Column */}

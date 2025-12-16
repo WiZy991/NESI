@@ -457,26 +457,38 @@ export default function LevelPage() {
                   <p className="text-gray-300 text-sm mb-3">
                     Чем выше уровень, тем меньше комиссия платформы. Реальная экономия денег!
                   </p>
+                  
+                  {/* Бонус для новичков */}
+                  <div className="mb-4 p-3 bg-gradient-to-r from-yellow-500/20 to-yellow-600/10 border border-yellow-500/40 rounded-xl">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-yellow-400 text-lg">🎁</span>
+                      <span className="text-yellow-300 font-bold text-sm">Бонус для новичков!</span>
+                    </div>
+                    <p className="text-yellow-200/80 text-xs">
+                      Первые 3 задачи — <span className="font-bold text-yellow-300">0% комиссии</span>. Зарабатывай 100% от суммы!
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Уровень 1-2:</span>
-                      <span className="text-emerald-400 font-bold">20%</span>
+                      <span className="text-emerald-400 font-bold">10%</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Уровень 3:</span>
-                      <span className="text-emerald-400 font-bold">19% <span className="text-emerald-500">(-1%)</span></span>
+                      <span className="text-emerald-400 font-bold">9% <span className="text-emerald-500">(-1%)</span></span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Уровень 4:</span>
-                      <span className="text-emerald-400 font-bold">18% <span className="text-emerald-500">(-2%)</span></span>
+                      <span className="text-emerald-400 font-bold">8% <span className="text-emerald-500">(-2%)</span></span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Уровень 5:</span>
-                      <span className="text-emerald-400 font-bold">17% <span className="text-emerald-500">(-3%)</span></span>
+                      <span className="text-emerald-400 font-bold">7% <span className="text-emerald-500">(-3%)</span></span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Уровень 6:</span>
-                      <span className="text-yellow-400 font-bold">16% <span className="text-yellow-500">(-4%)</span></span>
+                      <span className="text-yellow-400 font-bold">6% <span className="text-yellow-500">(-4%)</span></span>
                     </div>
                   </div>
                 </div>

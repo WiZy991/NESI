@@ -2,6 +2,7 @@ import { sendNotificationToUser } from '@/app/api/notifications/stream/route'
 import { formatMoney, toNumber } from '@/lib/money'
 import prisma from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { calculateCommissionRate } from '@/lib/level/rewards'
 
 type DisputeDecision = 'customer' | 'executor'
 
@@ -58,7 +59,25 @@ export async function resolveDisputeWithFinancials({
 	const task = dispute.Task
 	const escrowNum = toNumber(task.escrowAmount || 0)
 
-	const commission = Math.floor(escrowNum * 100 * 0.2) / 100
+	// Получаем XP исполнителя для расчета комиссии
+	let commissionRate = 0.10 // По умолчанию 10%
+	if (task.executorId) {
+		const executor = await prisma.user.findUnique({
+			where: { id: task.executorId },
+			select: { xp: true },
+		})
+		
+		const baseXp = executor?.xp || 0
+		const passedTests = await prisma.certificationAttempt.count({
+			where: { userId: task.executorId, passed: true },
+		})
+		const executorXP = baseXp + passedTests * 10
+		
+		// Рассчитываем комиссию с учетом бесплатных первых 3 задач и уровня
+		commissionRate = await calculateCommissionRate(executorXP, task.executorId)
+	}
+
+	const commission = Math.floor(escrowNum * 100 * commissionRate) / 100
 	const payout = escrowNum - commission
 
 	const commissionDecimal = new Prisma.Decimal(commission)
@@ -156,7 +175,7 @@ export async function resolveDisputeWithFinancials({
 						userId: task.customerId,
 						amount: new Prisma.Decimal(-commission),
 						type: 'commission',
-						reason: `Комиссия 20% с задачи "${task.title}" (по решению спора)`,
+						reason: `Комиссия ${Math.round(commissionRate * 100)}% с задачи "${task.title}" (по решению спора)`,
 						taskId: task.id,
 						status: 'completed',
 					},
@@ -199,7 +218,7 @@ export async function resolveDisputeWithFinancials({
 						userId: platformOwnerId,
 						amount: commissionDecimal,
 						type: 'commission',
-						reason: `Комиссия платформы 20% с задачи "${task.title}" (по решению спора)`,
+						reason: `Комиссия платформы ${Math.round(commissionRate * 100)}% с задачи "${task.title}" (по решению спора)`,
 						taskId: task.id,
 						dealId: customerDealId, // Сохраняем DealId для вывода комиссии
 						status: 'completed',

@@ -1,26 +1,52 @@
 import { getLevelFromXP } from './calculate'
+import prisma from '@/lib/prisma'
 
 /**
- * Рассчитывает комиссию платформы на основе уровня исполнителя
+ * Рассчитывает комиссию платформы на основе уровня исполнителя и количества выполненных задач
+ * 
+ * НОВАЯ СИСТЕМА КОМИССИЙ:
+ * - Первые 3 завершённые задачи: 0% (бесплатно для исполнителя)
+ * - После 3 задач комиссия зависит от уровня:
+ *   - Уровень 1-2: 10%
+ *   - Уровень 3: 9% (-1%)
+ *   - Уровень 4: 8% (-2%)
+ *   - Уровень 5: 7% (-3%)
+ *   - Уровень 6+: 6% (-4%)
+ * 
  * @param executorXP - XP исполнителя
- * @returns Процент комиссии (от 0.12 до 0.20)
+ * @param executorId - ID исполнителя (опционально, для проверки бесплатных задач)
+ * @returns Процент комиссии (от 0 до 0.10)
  */
-export async function calculateCommissionRate(executorXP: number): Promise<number> {
+export async function calculateCommissionRate(executorXP: number, executorId?: string): Promise<number> {
+  // Проверяем, есть ли у исполнителя бесплатные задачи (первые 3)
+  if (executorId) {
+    const executor = await prisma.user.findUnique({
+      where: { id: executorId },
+      select: { completedTasksCount: true }
+    })
+    
+    // Если исполнитель выполнил менее 3 задач - комиссия 0%
+    // (текущая задача ещё не учтена, поэтому проверяем < 3)
+    if (executor && executor.completedTasksCount < 3) {
+      return 0
+    }
+  }
+
   const levelInfo = await getLevelFromXP(executorXP)
   const level = levelInfo.level
 
-  // Уровень 1-2: комиссия 20% (базовая)
+  // Уровень 1-2: комиссия 10% (базовая)
   if (level <= 2) {
-    return 0.20
+    return 0.10
   }
 
   // Начиная с 3 уровня: снижение на 1% за уровень
-  // Максимальное снижение до 12% (уровень 10+)
-  const reduction = Math.min(level - 2, 8) // Максимум 8% снижения
-  const commissionRate = 0.20 - reduction * 0.01
+  // Уровень 3: 9%, Уровень 4: 8%, Уровень 5: 7%, Уровень 6+: 6%
+  const reduction = Math.min(level - 2, 4) // Максимум 4% снижения (до 6%)
+  const commissionRate = 0.10 - reduction * 0.01
 
-  // Минимум 12%
-  return Math.max(commissionRate, 0.12)
+  // Минимум 6%
+  return Math.max(commissionRate, 0.06)
 }
 
 /**

@@ -122,8 +122,9 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		})
 		const executorXP = baseXp + passedTests * 10
 		
-		// Рассчитываем комиссию на основе уровня
-		const commissionRate = await calculateCommissionRate(executorXP)
+		// Рассчитываем комиссию на основе уровня и количества выполненных задач
+		// Первые 3 задачи - бесплатно (0%), далее 10% max с понижением за уровень
+		const commissionRate = await calculateCommissionRate(executorXP, task.executorId)
 		const commission = Math.floor(escrowNum * 100 * commissionRate) / 100 // Округляем до копеек
 		const payout = escrowNum - commission
 
@@ -280,7 +281,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				},
 			}),
 
-			// Исполнителю: начисляем выплату (80%)
+			// Исполнителю: начисляем выплату (90-100% в зависимости от комиссии)
 			// Сохраняем DealId заказчика, чтобы исполнитель мог вывести деньги через Т-Банк
 			prisma.user.update({
 				where: { id: task.executorId },
@@ -298,7 +299,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				},
 			}),
 
-			// 💰 Владельцу платформы: начисляем комиссию (20%)
+			// 💰 Владельцу платформы: начисляем комиссию (0-10% в зависимости от уровня)
 			...ownerTransactions,
 		])
 
