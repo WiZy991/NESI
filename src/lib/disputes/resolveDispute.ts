@@ -187,6 +187,7 @@ export async function resolveDisputeWithFinancials({
 					where: { id: task.executorId },
 					data: {
 						balance: { increment: payoutDecimal },
+						completedTasksCount: { increment: 1 }, // ✅ Увеличиваем счётчик для комиссии
 					},
 				})
 

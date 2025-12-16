@@ -283,10 +283,12 @@ export async function PATCH(req: NextRequest, { params }: any) {
 
 			// Исполнителю: начисляем выплату (90-100% в зависимости от комиссии)
 			// Сохраняем DealId заказчика, чтобы исполнитель мог вывести деньги через Т-Банк
+			// ✅ Увеличиваем счётчик выполненных задач для расчёта комиссии
 			prisma.user.update({
 				where: { id: task.executorId },
 				data: {
 					balance: { increment: payoutDecimal },
+					completedTasksCount: { increment: 1 }, // ✅ Увеличиваем счётчик для комиссии
 					transactions: {
 						create: {
 							amount: payoutDecimal,

@@ -130,10 +130,12 @@ export default function NewYearEffects() {
 		}
 		
 		const savedState = localStorage.getItem('newYearEffects')
+		const bannerClosed = localStorage.getItem('newYearBannerClosed')
+		
 		if (savedState === 'disabled') {
 			setEnabled(false)
-		} else {
-			// Показываем баннер при каждом заходе (с небольшой задержкой)
+		} else if (!bannerClosed) {
+			// Показываем баннер только если он не был закрыт
 			setTimeout(() => {
 				setShowBanner(true)
 			}, 500)
@@ -159,6 +161,9 @@ export default function NewYearEffects() {
 	const closeBanner = useCallback(() => {
 		// Запускаем анимацию закрытия
 		setIsClosing(true)
+		
+		// Сохраняем что баннер был закрыт
+		localStorage.setItem('newYearBannerClosed', 'true')
 		
 		// После анимации скрываем баннер
 		setTimeout(() => {
