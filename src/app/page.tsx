@@ -180,7 +180,7 @@ export default function Home() {
 							<span 
 								className='text-xs sm:text-sm font-bold tracking-wider'
 								style={{ color: '#00ffcd', letterSpacing: '2px' }}>
-								🎁 БОНУС ДЛЯ НОВЫХ ИСПОЛНИТЕЛЕЙ
+								БОНУС ДЛЯ НОВЫХ ИСПОЛНИТЕЛЕЙ
 							</span>
 						</div>
 
