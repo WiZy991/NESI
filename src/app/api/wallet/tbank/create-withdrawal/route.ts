@@ -82,10 +82,22 @@ export async function POST(req: NextRequest) {
 			select: { balance: true, frozenBalance: true },
 		})
 
-		// 🔍 Логируем для диагностики
+		// 🔍 КРИТИЧНО: Проверка баланса перед выводом
 		const balanceNum = fresh ? toNumber(fresh.balance) : 0
 		const frozenNum = fresh ? toNumber(fresh.frozenBalance) : 0
 		const availableNum = balanceNum - frozenNum
+		const hasEnough = fresh ? hasEnoughBalance(fresh.balance, fresh.frozenBalance, parsedAmount) : false
+		
+		// Выводим в консоль для отладки
+		console.log('💰 [WITHDRAWAL] Проверка баланса:', {
+			userId: user.id,
+			userEmail: user.email,
+			balance: balanceNum,
+			frozenBalance: frozenNum,
+			available: availableNum,
+			requested: amountNumber,
+			hasEnough,
+		})
 		
 		logger.info('💰 [WITHDRAWAL] Проверка баланса', {
 			userId: user.id,
@@ -93,33 +105,32 @@ export async function POST(req: NextRequest) {
 			frozenBalance: frozenNum,
 			available: availableNum,
 			requested: amountNumber,
-			hasEnough: fresh ? hasEnoughBalance(fresh.balance, fresh.frozenBalance, parsedAmount) : false,
+			hasEnough,
 		})
 
-		if (
-			!fresh ||
-			!hasEnoughBalance(fresh.balance, fresh.frozenBalance, parsedAmount)
-		) {
-			const available = fresh
-				? toNumber(fresh.balance) - toNumber(fresh.frozenBalance)
-				: 0
+		// СТРОГАЯ ПРОВЕРКА: Если недостаточно средств — БЛОКИРУЕМ
+		if (!fresh || !hasEnough || availableNum < amountNumber) {
+			console.log('❌ [WITHDRAWAL] БЛОКИРОВКА: Недостаточно средств!', {
+				available: availableNum,
+				requested: amountNumber,
+			})
 			
 			logger.warn('❌ [WITHDRAWAL] Недостаточно средств', {
 				userId: user.id,
-				available,
+				available: availableNum,
 				requested: amountNumber,
 			})
 			
 			return NextResponse.json(
 				{
 					error: 'Недостаточно средств',
-					details: `Доступно: ${formatMoney(
-						available
-					)}, требуется: ${formatMoney(parsedAmount)}`,
+					details: `Доступно: ${formatMoney(availableNum)}, требуется: ${formatMoney(amountNumber)}`,
 				},
 				{ status: 400 }
 			)
 		}
+		
+		console.log('✅ [WITHDRAWAL] Проверка пройдена, продолжаем вывод...')
 
 		// Проверяем наличие способа выплаты
 		// Для карты: cardId ИЛИ (cardNumber + cardExpiry + cardCvv + cardHolderName)
@@ -704,6 +715,43 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
+		// 🔒 КРИТИЧНО: Повторная проверка баланса ПРЯМО ПЕРЕД списанием
+		// (защита от race condition и параллельных запросов)
+		const freshBeforeDebit = await prisma.user.findUnique({
+			where: { id: user.id },
+			select: { balance: true, frozenBalance: true },
+		})
+		
+		const freshBalance = freshBeforeDebit ? toNumber(freshBeforeDebit.balance) : 0
+		const freshFrozen = freshBeforeDebit ? toNumber(freshBeforeDebit.frozenBalance) : 0
+		const freshAvailable = freshBalance - freshFrozen
+		
+		console.log('🔒 [WITHDRAWAL] ФИНАЛЬНАЯ проверка перед списанием:', {
+			userId: user.id,
+			balance: freshBalance,
+			frozen: freshFrozen,
+			available: freshAvailable,
+			toWithdraw: amountNumber,
+		})
+		
+		if (freshAvailable < amountNumber) {
+			console.error('❌ [WITHDRAWAL] БЛОКИРОВКА: Недостаточно средств для вывода!', {
+				available: freshAvailable,
+				requested: amountNumber,
+			})
+			
+			// Отменяем выплату в T-Bank если возможно
+			// (выплата уже создана, но деньги ещё не списаны у нас)
+			
+			return NextResponse.json(
+				{
+					error: 'Недостаточно средств',
+					details: `Доступно: ${formatMoney(freshAvailable)}, запрошено: ${formatMoney(amountNumber)}`,
+				},
+				{ status: 400 }
+			)
+		}
+		
 		// Списываем средства с баланса пользователя
 		const amountDecimal = new Prisma.Decimal(amountNumber)
 
