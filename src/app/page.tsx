@@ -217,7 +217,7 @@ export default function Home() {
 									Базовая комиссия
 								</div>
 								<div className='text-xs text-gray-400'>
-									После бесплатных задач
+									После задач без %
 								</div>
 							</div>
 
@@ -262,8 +262,8 @@ export default function Home() {
 
 				{/* Content Grid */}
 				<div className='grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10 w-full lg:w-[90%] mx-auto relative z-10 items-start'>
-					{/* Left Column */}
-					<div className='space-y-4 sm:space-y-6'>
+					{/* Left Column - поднят выше чтобы не перекрывать змею */}
+					<div className='space-y-4 sm:space-y-6 lg:-translate-y-32'>
 						<div
 							className='p-4 sm:p-6 rounded-xl'
 							style={{
