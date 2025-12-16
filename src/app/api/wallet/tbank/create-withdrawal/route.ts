@@ -82,6 +82,20 @@ export async function POST(req: NextRequest) {
 			select: { balance: true, frozenBalance: true },
 		})
 
+		// 🔍 Логируем для диагностики
+		const balanceNum = fresh ? toNumber(fresh.balance) : 0
+		const frozenNum = fresh ? toNumber(fresh.frozenBalance) : 0
+		const availableNum = balanceNum - frozenNum
+		
+		logger.info('💰 [WITHDRAWAL] Проверка баланса', {
+			userId: user.id,
+			balance: balanceNum,
+			frozenBalance: frozenNum,
+			available: availableNum,
+			requested: amountNumber,
+			hasEnough: fresh ? hasEnoughBalance(fresh.balance, fresh.frozenBalance, parsedAmount) : false,
+		})
+
 		if (
 			!fresh ||
 			!hasEnoughBalance(fresh.balance, fresh.frozenBalance, parsedAmount)
@@ -89,6 +103,13 @@ export async function POST(req: NextRequest) {
 			const available = fresh
 				? toNumber(fresh.balance) - toNumber(fresh.frozenBalance)
 				: 0
+			
+			logger.warn('❌ [WITHDRAWAL] Недостаточно средств', {
+				userId: user.id,
+				available,
+				requested: amountNumber,
+			})
+			
 			return NextResponse.json(
 				{
 					error: 'Недостаточно средств',

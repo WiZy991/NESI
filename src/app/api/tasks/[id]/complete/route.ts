@@ -128,6 +128,17 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		const commission = Math.floor(escrowNum * 100 * commissionRate) / 100 // Округляем до копеек
 		const payout = escrowNum - commission
 
+		// 🔍 Логируем для диагностики комиссии
+		logger.info('💰 [TASK-COMPLETE] Расчёт комиссии', {
+			taskId: task.id,
+			executorId: task.executorId,
+			executorXP,
+			escrowAmount: escrowNum,
+			commissionRate: `${Math.round(commissionRate * 100)}%`,
+			commission,
+			payout,
+		})
+
 		const commissionDecimal = new Prisma.Decimal(commission)
 		const payoutDecimal = new Prisma.Decimal(payout)
 
