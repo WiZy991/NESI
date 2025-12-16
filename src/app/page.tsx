@@ -167,97 +167,92 @@ export default function Home() {
 				</div>
 
 				{/* Commission Info Banner */}
-				<div className='w-full max-w-4xl mx-auto mb-8 sm:mb-12 relative z-10'>
+				<div className='w-full max-w-4xl mx-auto mb-16 sm:mb-24 relative z-10'>
 					<div
-						className='p-4 sm:p-6 rounded-2xl relative overflow-hidden'
+						className='p-4 sm:p-6 rounded-xl'
 						style={{
-							background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(16, 185, 129, 0.15) 100%)',
-							border: '2px solid rgba(0, 255, 205, 0.4)',
-							boxShadow: '0 0 40px rgba(0, 255, 205, 0.3), inset 0 0 60px rgba(0, 255, 205, 0.05)',
+							backgroundColor: 'transparent',
+							border: '1px solid rgba(0, 255, 205, 0.3)',
+							boxShadow: '0 0 25px rgba(0, 255, 205, 0.5)',
 						}}
 					>
-						{/* Decorative elements */}
-						<div className='absolute top-0 right-0 w-32 h-32 opacity-20 pointer-events-none'>
-							<div className='absolute inset-0 bg-gradient-to-br from-emerald-400 to-transparent rounded-full blur-2xl' />
-						</div>
-						
 						<div className='text-center mb-4'>
-							<span className='inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold'
-								style={{
-									background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.3) 0%, rgba(234, 179, 8, 0.1) 100%)',
-									border: '1px solid rgba(234, 179, 8, 0.5)',
-									color: '#fcd34d',
-								}}>
-								<span className='text-base sm:text-lg'>🎁</span>
-								БОНУС ДЛЯ НОВЫХ ИСПОЛНИТЕЛЕЙ
+							<span 
+								className='text-xs sm:text-sm font-bold tracking-wider'
+								style={{ color: '#00ffcd', letterSpacing: '2px' }}>
+								🎁 БОНУС ДЛЯ НОВЫХ ИСПОЛНИТЕЛЕЙ
 							</span>
 						</div>
 
-						<div className='grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6'>
+						<div className='grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4'>
 							{/* First 3 tasks free */}
-							<div className='text-center p-4 rounded-xl'
+							<div 
+								className='text-center p-3 sm:p-4 rounded-lg'
 								style={{
-									background: 'linear-gradient(180deg, rgba(234, 179, 8, 0.2) 0%, rgba(234, 179, 8, 0.05) 100%)',
-									border: '1px solid rgba(234, 179, 8, 0.3)',
+									border: '1px solid rgba(0, 255, 205, 0.3)',
+									boxShadow: '0 0 15px rgba(0, 255, 205, 0.2)',
 								}}>
-								<div className='text-3xl sm:text-4xl font-bold mb-2' style={{ color: '#fcd34d' }}>
+								<div className='text-2xl sm:text-3xl font-bold mb-1' style={{ color: '#00ffcd', textShadow: '0 0 10px #00ffcd' }}>
 									0%
 								</div>
-								<div className='text-sm sm:text-base font-semibold text-white mb-1'>
+								<div className='text-sm font-semibold text-white mb-1'>
 									Первые 3 задачи
 								</div>
-								<div className='text-xs sm:text-sm text-gray-400'>
-									Без комиссии! Получайте 100% оплаты
+								<div className='text-xs text-gray-400'>
+									Получайте 100% оплаты
 								</div>
 							</div>
 
 							{/* Standard commission */}
-							<div className='text-center p-4 rounded-xl'
+							<div 
+								className='text-center p-3 sm:p-4 rounded-lg'
 								style={{
-									background: 'linear-gradient(180deg, rgba(0, 255, 205, 0.15) 0%, rgba(0, 255, 205, 0.05) 100%)',
 									border: '1px solid rgba(0, 255, 205, 0.3)',
+									boxShadow: '0 0 15px rgba(0, 255, 205, 0.2)',
 								}}>
-								<div className='text-3xl sm:text-4xl font-bold mb-2' style={{ color: '#00ffcd' }}>
+								<div className='text-2xl sm:text-3xl font-bold mb-1' style={{ color: '#00ffcd', textShadow: '0 0 10px #00ffcd' }}>
 									10%
 								</div>
-								<div className='text-sm sm:text-base font-semibold text-white mb-1'>
+								<div className='text-sm font-semibold text-white mb-1'>
 									Базовая комиссия
 								</div>
-								<div className='text-xs sm:text-sm text-gray-400'>
+								<div className='text-xs text-gray-400'>
 									После бесплатных задач
 								</div>
 							</div>
 
 							{/* Level discount */}
-							<div className='text-center p-4 rounded-xl'
+							<div 
+								className='text-center p-3 sm:p-4 rounded-lg'
 								style={{
-									background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.05) 100%)',
-									border: '1px solid rgba(139, 92, 246, 0.3)',
+									border: '1px solid rgba(0, 255, 205, 0.3)',
+									boxShadow: '0 0 15px rgba(0, 255, 205, 0.2)',
 								}}>
-								<div className='text-3xl sm:text-4xl font-bold mb-2' style={{ color: '#a78bfa' }}>
+								<div className='text-2xl sm:text-3xl font-bold mb-1' style={{ color: '#00ffcd', textShadow: '0 0 10px #00ffcd' }}>
 									6%
 								</div>
-								<div className='text-sm sm:text-base font-semibold text-white mb-1'>
+								<div className='text-sm font-semibold text-white mb-1'>
 									Минимальная
 								</div>
-								<div className='text-xs sm:text-sm text-gray-400'>
-									Для высоких уровней (6+)
+								<div className='text-xs text-gray-400'>
+									Для высоких уровней
 								</div>
 							</div>
 						</div>
 
 						<div className='mt-4 text-center space-y-3'>
-							<p className='text-xs sm:text-sm text-gray-400'>
-								💡 Повышайте уровень и снижайте комиссию до 6%!
+							<p className='text-xs sm:text-sm' style={{ color: '#00ffcd', letterSpacing: '1px' }}>
+								💡 Повышайте уровень — снижайте комиссию!
 							</p>
 							<Link 
 								href='/register' 
-								className='inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm sm:text-base transition-all duration-300 hover:scale-105'
+								className='inline-flex items-center gap-2 px-5 py-2 rounded-lg font-bold text-sm transition-all duration-300 hover:translate-y-[-1px]'
 								style={{
-									background: 'linear-gradient(135deg, rgba(0, 255, 205, 0.3) 0%, rgba(16, 185, 129, 0.2) 100%)',
+									background: 'linear-gradient(0deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), linear-gradient(0deg, rgba(0, 255, 205, 0.3), rgba(0, 255, 205, 0.3))',
 									border: '1px solid rgba(0, 255, 205, 0.5)',
-									color: '#00ffcd',
-									boxShadow: '0 0 20px rgba(0, 255, 205, 0.3)',
+									color: '#ffffff',
+									boxShadow: '0 0 12px rgba(0, 255, 205, 0.3)',
+									letterSpacing: '1px',
 								}}>
 								🚀 Начать зарабатывать
 							</Link>
