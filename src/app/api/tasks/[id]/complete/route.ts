@@ -215,6 +215,32 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		// 💰 Получаем ID владельца платформы из env
 		const platformOwnerId = process.env.PLATFORM_OWNER_ID
 
+		// ✅ КРИТИЧНО: Находим сделку заказчика по DealId для обновления баланса
+		// Это нужно для того, чтобы исполнитель мог вывести деньги из сделки заказчика
+		let customerDeal = null
+		if (customerDealId) {
+			customerDeal = await prisma.tBankDeal.findUnique({
+				where: { spAccumulationId: customerDealId },
+				select: { id: true, remainingBalance: true, totalAmount: true },
+			})
+			
+			if (customerDeal) {
+				logger.info('✅ [TASK-COMPLETE] Найдена сделка заказчика', {
+					taskId: task.id,
+					dealId: customerDeal.id,
+					spAccumulationId: customerDealId,
+					currentBalance: toNumber(customerDeal.remainingBalance),
+					totalAmount: toNumber(customerDeal.totalAmount),
+				})
+			} else {
+				logger.warn('⚠️ [TASK-COMPLETE] Сделка заказчика не найдена в БД', {
+					taskId: task.id,
+					spAccumulationId: customerDealId,
+					note: 'Исполнитель может не сможет вывести средства без сделки в БД',
+				})
+			}
+		}
+
 		// Формируем транзакции для владельца платформы
 		// КРИТИЧНО: Сохраняем DealId заказчика в транзакции комиссии
 		// Это нужно для вывода комиссии владельцем платформы через Т-Банк
@@ -395,6 +421,44 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			// 💰 Владельцу платформы: начисляем комиссию (0-10% в зависимости от уровня)
 			// ✅ КРИТИЧНО: Админ получает ТОЛЬКО комиссию, не всю сумму escrowAmount!
 			...ownerTransactions,
+			
+			// ✅ КРИТИЧНО: Обновляем баланс сделки заказчика для возможности вывода исполнителем
+			// Когда исполнитель выводит деньги, он использует DealId заказчика
+			// Баланс сделки должен быть достаточен для выплаты
+			// Уменьшаем remainingBalance на сумму выплаты исполнителю (payout)
+			// Это резервирует средства в сделке для выплаты исполнителю через Т-Банк
+			...(customerDeal ? [
+				prisma.tBankDeal.update({
+					where: { id: customerDeal.id },
+					data: {
+						// Уменьшаем баланс сделки на сумму выплаты исполнителю
+						// Это резервирует средства для выплаты через Т-Банк
+						remainingBalance: {
+							decrement: payoutDecimal, // Резервируем payout для исполнителя
+						},
+						// Увеличиваем paidAmount на сумму выплаты исполнителю
+						paidAmount: {
+							increment: payoutDecimal,
+						},
+					},
+				}),
+			] : []),
+			
+			// ✅ Если есть комиссия, также резервируем ее в сделке заказчика для админа
+			// Админ также может вывести комиссию из сделки заказчика
+			...(customerDeal && commission > 0 && platformOwnerId ? [
+				prisma.tBankDeal.update({
+					where: { id: customerDeal.id },
+					data: {
+						remainingBalance: {
+							decrement: commissionDecimal, // Резервируем commission для админа
+						},
+						paidAmount: {
+							increment: commissionDecimal,
+						},
+					},
+				}),
+			] : []),
 		])
 		
 		// ✅ ФИНАЛЬНАЯ ПРОВЕРКА: Проверяем, что средства распределены корректно
@@ -408,6 +472,15 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				select: { balance: true },
 			})
 			
+			// Проверяем баланс сделки после обновления
+			let dealAfter = null
+			if (customerDeal) {
+				dealAfter = await prisma.tBankDeal.findUnique({
+					where: { id: customerDeal.id },
+					select: { remainingBalance: true, paidAmount: true, totalAmount: true },
+				})
+			}
+			
 			logger.info('✅ [TASK-COMPLETE] Финальная проверка распределения средств', {
 				taskId: task.id,
 				escrowAmount: escrowNum,
@@ -415,10 +488,18 @@ export async function PATCH(req: NextRequest, { params }: any) {
 				payout,
 				executorBalance: executorAfter ? toNumber(executorAfter.balance) : null,
 				adminBalance: adminAfter ? toNumber(adminAfter.balance) : null,
+				dealBalance: {
+					before: customerDeal ? toNumber(customerDeal.remainingBalance) : null,
+					after: dealAfter ? toNumber(dealAfter.remainingBalance) : null,
+					paidAmount: dealAfter ? toNumber(dealAfter.paidAmount) : null,
+					totalAmount: dealAfter ? toNumber(dealAfter.totalAmount) : null,
+					note: 'Баланс сделки должен быть достаточен для выплаты исполнителю',
+				},
 				validation: {
 					executorGotPayout: true, // Проверяется через транзакцию
 					adminGotCommission: true, // Проверяется через транзакцию
-					note: 'Исполнитель должен получить payout, админ - только commission',
+					dealBalanceUpdated: !!dealAfter,
+					note: 'Исполнитель должен получить payout, админ - только commission. Баланс сделки обновлен для вывода.',
 				},
 			})
 		}
