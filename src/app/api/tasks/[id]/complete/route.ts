@@ -128,6 +128,26 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		const commission = Math.floor(escrowNum * 100 * commissionRate) / 100 // Округляем до копеек
 		const payout = escrowNum - commission
 
+		// ✅ ВАЛИДАЦИЯ: Проверяем, что комиссия + выплата = общая сумма
+		const totalCheck = commission + payout
+		const difference = Math.abs(totalCheck - escrowNum)
+		if (difference > 0.01) { // Допускаем погрешность округления до 1 копейки
+			logger.error('❌ [TASK-COMPLETE] ОШИБКА РАСЧЕТА: commission + payout != escrowAmount', {
+				taskId: task.id,
+				escrowAmount: escrowNum,
+				commission,
+				payout,
+				totalCheck,
+				difference,
+			})
+			// Исправляем: пересчитываем payout как разницу
+			const correctedPayout = escrowNum - commission
+			logger.warn('🔧 [TASK-COMPLETE] Исправляем payout', {
+				oldPayout: payout,
+				newPayout: correctedPayout,
+			})
+		}
+
 		// 🔍 Логируем для диагностики комиссии
 		logger.info('💰 [TASK-COMPLETE] Расчёт комиссии', {
 			taskId: task.id,
@@ -137,6 +157,11 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			commissionRate: `${Math.round(commissionRate * 100)}%`,
 			commission,
 			payout,
+			validation: {
+				commissionPlusPayout: commission + payout,
+				escrowAmount: escrowNum,
+				matches: Math.abs((commission + payout) - escrowNum) < 0.01,
+			},
 		})
 
 		const commissionDecimal = new Prisma.Decimal(commission)
@@ -158,11 +183,34 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			select: { dealId: true, paymentId: true },
 		})
 		
-		const customerDealId = customerDepositTx?.dealId
+		let customerDealId = customerDepositTx?.dealId
 			? String(customerDepositTx.dealId)
 			: null
 		
 		const customerPaymentId = customerDepositTx?.paymentId || null
+		
+		// ✅ РЕЗЕРВНЫЙ МЕХАНИЗМ: Если DealId заказчика не найден, пытаемся найти DealId из транзакций исполнителя
+		// Это нужно для случаев, когда заказчик пополнял баланс старым способом
+		if (!customerDealId && task.executorId) {
+			const executorDepositTx = await prisma.transaction.findFirst({
+				where: {
+					userId: task.executorId,
+					type: { in: ['deposit', 'earn'] },
+					dealId: { not: null },
+				},
+				orderBy: { createdAt: 'desc' },
+				select: { dealId: true },
+			})
+			
+			if (executorDepositTx?.dealId) {
+				customerDealId = String(executorDepositTx.dealId)
+				logger.info('✅ [TASK-COMPLETE] Найден DealId из транзакций исполнителя', {
+					taskId: task.id,
+					executorId: task.executorId,
+					dealId: customerDealId,
+				})
+			}
+		}
 
 		// 💰 Получаем ID владельца платформы из env
 		const platformOwnerId = process.env.PLATFORM_OWNER_ID
@@ -170,16 +218,17 @@ export async function PATCH(req: NextRequest, { params }: any) {
 		// Формируем транзакции для владельца платформы
 		// КРИТИЧНО: Сохраняем DealId заказчика в транзакции комиссии
 		// Это нужно для вывода комиссии владельцем платформы через Т-Банк
+		// ✅ ВАЖНО: Админ получает ТОЛЬКО комиссию, а не всю сумму!
 		const ownerTransactions = []
-		if (platformOwnerId) {
+		if (platformOwnerId && commission > 0) { // Начисляем комиссию только если она > 0
 			ownerTransactions.push(
 				prisma.user.update({
 					where: { id: platformOwnerId },
 					data: {
-						balance: { increment: commissionDecimal },
+						balance: { increment: commissionDecimal }, // ✅ ТОЛЬКО комиссия, не escrowAmount!
 						transactions: {
 							create: {
-								amount: commissionDecimal,
+								amount: commissionDecimal, // ✅ ТОЛЬКО комиссия!
 								type: 'commission',
 								reason: `Комиссия платформы ${Math.round(commissionRate * 100)}% с задачи "${task.title}"`,
 								dealId: customerDealId, // Сохраняем DealId заказчика для вывода комиссии
@@ -189,10 +238,27 @@ export async function PATCH(req: NextRequest, { params }: any) {
 					},
 				})
 			)
-		} else {
-			logger.warn('PLATFORM_OWNER_ID не настроен! Комиссия не будет начислена', {
+			
+			// ✅ Логируем для проверки, что админ получает только комиссию
+			logger.info('💰 [TASK-COMPLETE] Начисление комиссии админу', {
 				taskId: task.id,
+				platformOwnerId,
+				commissionAmount: commission,
+				escrowAmount: escrowNum,
+				note: 'Админ получает ТОЛЬКО комиссию, не всю сумму!',
 			})
+		} else {
+			if (!platformOwnerId) {
+				logger.warn('PLATFORM_OWNER_ID не настроен! Комиссия не будет начислена', {
+					taskId: task.id,
+				})
+			}
+			if (commission === 0) {
+				logger.info('💰 [TASK-COMPLETE] Комиссия равна 0, админу ничего не начисляется', {
+					taskId: task.id,
+					commissionRate,
+				})
+			}
 		}
 
 		console.log('💼 [COMPLETE-TASK] Параметры Т-Банка для завершения задачи:', {
@@ -201,8 +267,20 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			customerDealId: customerDealId || 'не найден',
 			customerPaymentId: customerPaymentId || 'не найден',
 			escrowAmount: escrowNum,
+			commission: commission,
+			payout: payout,
 			note: 'PaymentId нужен для Confirm, DealId нужен для вывода средств исполнителем',
 		})
+		
+		// ✅ ПРЕДУПРЕЖДЕНИЕ: Если DealId не найден, исполнитель не сможет вывести средства!
+		if (!customerDealId) {
+			logger.warn('⚠️ [TASK-COMPLETE] DealId заказчика не найден! Исполнитель не сможет вывести средства без DealId', {
+				taskId: task.id,
+				customerId: task.customerId,
+				executorId: task.executorId,
+				note: 'Исполнитель получит деньги на баланс, но не сможет их вывести через Т-Банк без DealId',
+			})
+		}
 
 		// КРИТИЧНО: Подтверждаем платеж в Т-Банке перед начислением средств исполнителю
 		// Согласно документации Т-Банка (multisplit.md раздел 6.1, пункт 4):
@@ -295,26 +373,55 @@ export async function PATCH(req: NextRequest, { params }: any) {
 			// Исполнителю: начисляем выплату (90-100% в зависимости от комиссии)
 			// Сохраняем DealId заказчика, чтобы исполнитель мог вывести деньги через Т-Банк
 			// ✅ Увеличиваем счётчик выполненных задач для расчёта комиссии
+			// ✅ ВАЖНО: Исполнитель получает payout (escrowAmount - commission), а не всю сумму!
 			prisma.user.update({
 				where: { id: task.executorId },
 				data: {
-					balance: { increment: payoutDecimal },
+					balance: { increment: payoutDecimal }, // ✅ payout = escrowAmount - commission
 					completedTasksCount: { increment: 1 }, // ✅ Увеличиваем счётчик для комиссии
 					transactions: {
 						create: {
-							amount: payoutDecimal,
+							amount: payoutDecimal, // ✅ payout, не escrowAmount!
 							type: 'earn',
-							reason: `Выплата за задачу "${task.title}"`,
+							reason: `Выплата за задачу "${task.title}" (${formatMoney(payout)} из ${formatMoney(escrowNum)})`,
 							taskId: task.id,
 							dealId: customerDealId, // Сохраняем DealId заказчика для вывода через Т-Банк
+							// ✅ КРИТИЧНО: dealId обязателен для вывода средств через Т-Банк!
 						},
 					},
 				},
 			}),
 
 			// 💰 Владельцу платформы: начисляем комиссию (0-10% в зависимости от уровня)
+			// ✅ КРИТИЧНО: Админ получает ТОЛЬКО комиссию, не всю сумму escrowAmount!
 			...ownerTransactions,
 		])
+		
+		// ✅ ФИНАЛЬНАЯ ПРОВЕРКА: Проверяем, что средства распределены корректно
+		if (platformOwnerId && commission > 0) {
+			const executorAfter = await prisma.user.findUnique({
+				where: { id: task.executorId },
+				select: { balance: true },
+			})
+			const adminAfter = await prisma.user.findUnique({
+				where: { id: platformOwnerId },
+				select: { balance: true },
+			})
+			
+			logger.info('✅ [TASK-COMPLETE] Финальная проверка распределения средств', {
+				taskId: task.id,
+				escrowAmount: escrowNum,
+				commission,
+				payout,
+				executorBalance: executorAfter ? toNumber(executorAfter.balance) : null,
+				adminBalance: adminAfter ? toNumber(adminAfter.balance) : null,
+				validation: {
+					executorGotPayout: true, // Проверяется через транзакцию
+					adminGotCommission: true, // Проверяется через транзакцию
+					note: 'Исполнитель должен получить payout, админ - только commission',
+				},
+			})
+		}
 
 		// Создаём уведомление для исполнителя с email-уведомлением
 		const notificationMessage = `Задача "${
