@@ -62,6 +62,15 @@ export async function POST(req: NextRequest) {
 		// AddCard и AddCustomer - это методы интернет-эквайринга, не E2C
 		const client = new TBankClient()
 
+		// Диагностика конфигурации
+		console.log('🔍 [ADD-CARD] Конфигурация терминала:', {
+			hasTerminalKey: !!TBANK_CONFIG.TERMINAL_KEY,
+			hasTerminalPassword: !!TBANK_CONFIG.TERMINAL_PASSWORD,
+			terminalKey: TBANK_CONFIG.TERMINAL_KEY?.slice(0, 8) + '...',
+			passwordLength: TBANK_CONFIG.TERMINAL_PASSWORD?.length,
+			note: 'Для AddCard нужен основной терминал (TBANK_TERMINAL_KEY), не E2C',
+		})
+
 		// CustomerKey - уникальный идентификатор клиента в нашей системе
 		// Используем id пользователя
 		const customerKey = user.id

@@ -28,9 +28,27 @@ export class TBankClient {
 			params.TerminalKey = this.terminalKey
 		}
 
+		// Диагностика для AddCard
+		if (endpoint.includes('AddCard')) {
+			console.log('🔐 [TBANK-CLIENT] Генерация токена для AddCard:', {
+				terminalKey: this.terminalKey,
+				hasPassword: !!this.password,
+				passwordLength: this.password?.length,
+				params: Object.keys(params).sort(),
+			})
+		}
+
 		// Генерируем Token
 		const token = generateTBankToken(params, this.password)
 		params.Token = token
+		
+		// Диагностика для AddCard
+		if (endpoint.includes('AddCard')) {
+			console.log('🔐 [TBANK-CLIENT] Токен сгенерирован:', {
+				tokenLength: token.length,
+				tokenPreview: token.substring(0, 20) + '...',
+			})
+		}
 
 		const url = `${this.baseUrl}${endpoint}`
 
