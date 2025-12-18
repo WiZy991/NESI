@@ -1,5 +1,6 @@
 'use client'
 
+import AccountTypeBadge from '@/components/AccountTypeBadge'
 import CategoryDropdown from '@/components/CategoryDropdown'
 import DateFilter from '@/components/DateFilter'
 import EmptyState from '@/components/EmptyState'
@@ -32,7 +33,7 @@ type Task = {
 	createdAt: string
 	price?: number
 	status?: string
-	customer: { fullName?: string }
+	customer: { fullName?: string; accountType?: string }
 	subcategory?: {
 		id: string
 		name: string
@@ -1126,9 +1127,10 @@ export default function TaskCatalogPage() {
 												<span className='tracking-wide'>{task.price} ₽</span>
 											</p>
 										)}
-										<p className='text-xs sm:text-sm text-gray-400 flex items-center gap-2'>
+										<p className='text-xs sm:text-sm text-gray-400 flex items-center gap-2 flex-wrap'>
 											<span className='text-gray-500'>👤</span>
 											<span>{task.customer?.fullName || 'Без имени'}</span>
+											<AccountTypeBadge accountType={task.customer?.accountType} size="xs" />
 											<span className='text-gray-600'>•</span>
 											<span className='text-gray-500'>📅</span>
 											{task.createdAt

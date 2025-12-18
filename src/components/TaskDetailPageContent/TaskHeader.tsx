@@ -5,6 +5,7 @@ import { Link as LinkIcon } from 'lucide-react'
 import { copyToClipboard, getTaskUrl } from '@/lib/copyToClipboard'
 import { toast } from 'sonner'
 import FavoriteTaskButton from '../FavoriteTaskButton'
+import AccountTypeBadge from '../AccountTypeBadge'
 import { getUserProfileLink } from './utils'
 import type { Task } from './types'
 
@@ -59,7 +60,7 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 							</div>
 						</div>
 						<div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-400'>
-							<div className='flex items-center gap-2'>
+							<div className='flex items-center gap-2 flex-wrap'>
 								<span className='w-2 h-2 rounded-full bg-emerald-400'></span>
 								<span>Автор</span>
 								<Link
@@ -68,6 +69,7 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 								>
 									{task.customer?.fullName || 'Без имени'}
 								</Link>
+								<AccountTypeBadge accountType={task.customer.accountType} size="xs" />
 							</div>
 							<div className='flex items-center gap-2'>
 								<span className='text-gray-500'>•</span>

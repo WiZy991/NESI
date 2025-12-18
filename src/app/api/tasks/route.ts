@@ -194,6 +194,7 @@ export async function GET(req: Request) {
 					id: true,
 					fullName: true,
 					avgRating: true,
+					accountType: true,
 				},
 			},
 			executor: {

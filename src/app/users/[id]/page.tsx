@@ -1,5 +1,6 @@
 'use client'
 
+import AccountTypeBadge from '@/components/AccountTypeBadge'
 import BadgeIcon from '@/components/BadgeIcon'
 import { LevelBadge } from '@/components/LevelBadge'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -62,6 +63,7 @@ type Review = {
 type PublicUser = {
 	id: string
 	role: 'customer' | 'executor' | string
+	accountType?: string | null
 	fullName: string | null
 	email?: string | null
 	avatarUrl?: string | null
@@ -936,6 +938,7 @@ export default function UserPublicProfilePage() {
 									</div>
 									<div className='flex flex-wrap items-center gap-2 text-sm text-gray-400'>
 										<span>{getRoleName(viewUser.role)}</span>
+										<AccountTypeBadge accountType={viewUser.accountType} size="sm" />
 										{viewUser.location && (
 											<>
 												<span>•</span>

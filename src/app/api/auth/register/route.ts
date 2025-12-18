@@ -43,6 +43,11 @@ export async function POST(req: Request) {
     }
 
     const { email, password, fullName, role } = validation.data
+    
+    // Получаем accountType из body (не из валидации, т.к. это новое поле)
+    const accountType = body.accountType || 'INDIVIDUAL'
+    const validAccountTypes = ['INDIVIDUAL', 'SELF_EMPLOYED', 'SOLE_PROPRIETOR', 'COMPANY']
+    const finalAccountType = validAccountTypes.includes(accountType) ? accountType : 'INDIVIDUAL'
 
     // ищем по email без учёта регистра, чтобы не плодить дубликаты
     const existing = await prisma.user.findFirst({
@@ -63,6 +68,8 @@ export async function POST(req: Request) {
           fullName: sanitizeText(fullName.trim()),
           password: hashedPassword,
           role,
+          // @ts-ignore accountType будет доступен после миграции на сервере
+          accountType: finalAccountType,
           verified: false,
         },
         select: { id: true, email: true },

@@ -528,4 +528,118 @@ export class TBankPayoutClient {
 	}> {
 		return this.makeRequest('/a2c/sbp/GetSbpMembers', {})
 	}
+
+	/**
+	 * Создает клиента в системе T-Bank (AddCustomer)
+	 * Необходимо вызвать перед привязкой карты
+	 */
+	async addCustomer(customerKey: string, email?: string, phone?: string): Promise<{
+		Success: boolean
+		ErrorCode: string
+		CustomerKey?: string
+		Message?: string
+	}> {
+		const params: Record<string, any> = {
+			CustomerKey: customerKey,
+		}
+		if (email) params.Email = email
+		if (phone) params.Phone = phone
+		
+		return this.makeRequest('/v2/AddCustomer', params)
+	}
+
+	/**
+	 * Инициирует привязку карты к клиенту (AddCard)
+	 * Возвращает URL для перенаправления пользователя на форму привязки карты
+	 * 
+	 * @param customerKey - Идентификатор клиента в системе площадки (userId)
+	 * @param checkType - Тип проверки карты:
+	 *   - NO: без проверок (не возвращает RebillID)
+	 *   - HOLD: списание 0 руб (возвращает RebillID)
+	 *   - 3DS: проверка 3DS (возвращает RebillID)
+	 *   - 3DSHOLD: 3DS + списание 0 руб (возвращает RebillID)
+	 */
+	async addCard(params: {
+		customerKey: string
+		checkType?: 'NO' | 'HOLD' | '3DS' | '3DSHOLD'
+		successURL?: string
+		failURL?: string
+	}): Promise<{
+		Success: boolean
+		ErrorCode: string
+		PaymentURL?: string // URL для привязки карты
+		RequestKey?: string // Идентификатор запроса на привязку
+		Message?: string
+	}> {
+		const requestParams: Record<string, any> = {
+			CustomerKey: params.customerKey,
+		}
+		
+		if (params.checkType) {
+			requestParams.CheckType = params.checkType
+		}
+		
+		// URL-ы можно не передавать если они настроены в терминале
+		if (params.successURL) {
+			requestParams.SuccessURL = params.successURL
+		}
+		if (params.failURL) {
+			requestParams.FailURL = params.failURL
+		}
+		
+		return this.makeRequest('/v2/AddCard', requestParams)
+	}
+
+	/**
+	 * Получает статус привязки карты (GetAddCardState)
+	 */
+	async getAddCardState(requestKey: string): Promise<{
+		Success: boolean
+		ErrorCode: string
+		Status?: string
+		CardId?: string
+		Pan?: string
+		ExpDate?: string
+		RebillId?: string
+		Message?: string
+	}> {
+		return this.makeRequest('/v2/GetAddCardState', {
+			RequestKey: requestKey,
+		})
+	}
+
+	/**
+	 * Получает список привязанных карт клиента (GetCardList)
+	 */
+	async getCardList(customerKey: string): Promise<{
+		Success: boolean
+		ErrorCode: string
+		Message?: string
+		Cards?: Array<{
+			CardId: string
+			Pan: string // Маскированный номер карты (430000******0777)
+			ExpDate: string // MMYY
+			CardType: number // 0 - карта списания, 1 - карта пополнения, 2 - универсальная
+			Status: string // A - активна, I - неактивна, D - удалена
+			RebillId?: string
+		}>
+	}> {
+		return this.makeRequest('/v2/GetCardList', {
+			CustomerKey: customerKey,
+		})
+	}
+
+	/**
+	 * Удаляет привязанную карту (RemoveCard)
+	 */
+	async removeCard(customerKey: string, cardId: string): Promise<{
+		Success: boolean
+		ErrorCode: string
+		Message?: string
+	}> {
+		return this.makeRequest('/v2/RemoveCard', {
+			CustomerKey: customerKey,
+			CardId: cardId,
+		})
+	}
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FaCreditCard, FaMobile, FaUniversity, FaWallet } from 'react-icons/fa'
+import { FaCreditCard, FaMobile, FaUniversity, FaWallet, FaPlus, FaTrash, FaStar } from 'react-icons/fa'
 
 interface WithdrawalFormProps {
 	balance: number
@@ -14,6 +14,14 @@ interface SbpBank {
 	MemberId: string
 	MemberName: string
 	MemberNameRus: string
+}
+
+interface SavedCard {
+	id: string
+	cardId: string
+	pan: string // маскированный номер карты
+	expDate: string
+	isDefault: boolean
 }
 
 // Список популярных банков для СБП (fallback)
@@ -32,7 +40,7 @@ export default function WithdrawalForm({
 	token,
 }: WithdrawalFormProps) {
 	const [amount, setAmount] = useState(100)
-	const [method, setMethod] = useState<'sbp' | 'card'>('sbp')
+	const [method, setMethod] = useState<'sbp' | 'card' | 'saved-card'>('sbp')
 	const [phone, setPhone] = useState('')
 	const [banks, setBanks] = useState<SbpBank[]>(FALLBACK_BANKS)
 	const [selectedBank, setSelectedBank] = useState<string>('')
@@ -44,6 +52,42 @@ export default function WithdrawalForm({
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [success, setSuccess] = useState(false)
+	
+	// Привязанные карты
+	const [savedCards, setSavedCards] = useState<SavedCard[]>([])
+	const [selectedCardId, setSelectedCardId] = useState<string>('')
+	const [loadingCards, setLoadingCards] = useState(false)
+	const [addingCard, setAddingCard] = useState(false)
+
+	// Загружаем привязанные карты
+	useEffect(() => {
+		const loadCards = async () => {
+			setLoadingCards(true)
+			try {
+				const response = await fetch('/api/wallet/tbank/cards', {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				})
+				const data = await response.json()
+				if (data.success && data.cards) {
+					setSavedCards(data.cards)
+					// Выбираем дефолтную карту
+					const defaultCard = data.cards.find((c: SavedCard) => c.isDefault)
+					if (defaultCard) {
+						setSelectedCardId(defaultCard.cardId)
+					} else if (data.cards.length > 0) {
+						setSelectedCardId(data.cards[0].cardId)
+					}
+				}
+			} catch (err) {
+				console.error('Ошибка загрузки карт:', err)
+			} finally {
+				setLoadingCards(false)
+			}
+		}
+		loadCards()
+	}, [token])
 
 	// Загружаем список банков при монтировании компонента
 	useEffect(() => {
@@ -92,6 +136,84 @@ export default function WithdrawalForm({
 		loadBanks()
 	}, [token, selectedBank])
 
+	// Добавление новой карты
+	const handleAddCard = async () => {
+		setAddingCard(true)
+		setError(null)
+		try {
+			const response = await fetch('/api/wallet/tbank/add-card', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+			})
+			const data = await response.json()
+			
+			if (data.success && data.paymentURL) {
+				// Открываем страницу привязки карты T-Bank
+				window.location.href = data.paymentURL
+			} else {
+				setError(data.error || 'Не удалось начать привязку карты')
+			}
+		} catch (err) {
+			setError('Ошибка при привязке карты')
+		} finally {
+			setAddingCard(false)
+		}
+	}
+
+	// Удаление карты
+	const handleDeleteCard = async (cardId: string) => {
+		if (!confirm('Удалить эту карту?')) return
+		
+		try {
+			const response = await fetch(`/api/wallet/tbank/cards?cardId=${cardId}`, {
+				method: 'DELETE',
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			})
+			const data = await response.json()
+			
+			if (data.success) {
+				setSavedCards(cards => cards.filter(c => c.cardId !== cardId))
+				if (selectedCardId === cardId) {
+					const remaining = savedCards.filter(c => c.cardId !== cardId)
+					setSelectedCardId(remaining[0]?.cardId || '')
+				}
+			} else {
+				setError(data.error || 'Не удалось удалить карту')
+			}
+		} catch (err) {
+			setError('Ошибка при удалении карты')
+		}
+	}
+
+	// Установка дефолтной карты
+	const handleSetDefaultCard = async (cardId: string) => {
+		try {
+			const response = await fetch('/api/wallet/tbank/cards', {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ cardId }),
+			})
+			const data = await response.json()
+			
+			if (data.success) {
+				setSavedCards(cards => cards.map(c => ({
+					...c,
+					isDefault: c.cardId === cardId,
+				})))
+			}
+		} catch (err) {
+			console.error('Ошибка установки дефолтной карты:', err)
+		}
+	}
+
 	const availableBalance = balance - frozenBalance
 	const minAmount = 1
 	const maxAmount = availableBalance
@@ -120,9 +242,9 @@ export default function WithdrawalForm({
 				return
 			}
 
-			const phoneDigits = phone.trim().replace(/\D/g, '')
+			const phoneDigits = phone.replace(/\D/g, '')
 			if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
-				setError('Номер должен быть в формате +7XXXXXXXXXX (11 цифр)')
+				setError('Введите полный номер телефона (11 цифр)')
 				return
 			}
 
@@ -130,11 +252,16 @@ export default function WithdrawalForm({
 				setError('Выберите банк получателя')
 				return
 			}
+		} else if (method === 'saved-card') {
+			if (!selectedCardId) {
+				setError('Выберите карту для вывода')
+				return
+			}
 		} else if (method === 'card') {
 			// Валидация данных карты
 			const cleanCardNumber = cardNumber.replace(/\D/g, '')
-			if (cleanCardNumber.length < 16 || cleanCardNumber.length > 19) {
-				setError('Номер карты должен содержать от 16 до 19 цифр')
+			if (cleanCardNumber.length !== 16) {
+				setError('Номер карты должен содержать 16 цифр')
 				return
 			}
 
@@ -142,14 +269,27 @@ export default function WithdrawalForm({
 				setError('Срок действия должен быть в формате MM/YY')
 				return
 			}
-
-			if (cardCvv.length < 3 || cardCvv.length > 4) {
-				setError('CVV должен содержать 3 или 4 цифры')
+			
+			// Проверяем срок действия
+			const [month, year] = cardExpiry.split('/')
+			const currentDate = new Date()
+			const currentYear = currentDate.getFullYear() % 100
+			const currentMonth = currentDate.getMonth() + 1
+			const expYear = parseInt(year)
+			const expMonth = parseInt(month)
+			
+			if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+				setError('Срок действия карты истёк')
 				return
 			}
 
-			if (!cardHolderName.trim()) {
-				setError('Укажите имя держателя карты')
+			if (cardCvv.length !== 3) {
+				setError('CVV должен содержать 3 цифры')
+				return
+			}
+
+			if (!cardHolderName.trim() || cardHolderName.trim().split(' ').length < 2) {
+				setError('Укажите имя и фамилию держателя карты')
 				return
 			}
 		}
@@ -162,13 +302,18 @@ export default function WithdrawalForm({
 			}
 
 			if (method === 'sbp') {
-				const phoneDigits = phone.trim().replace(/\D/g, '')
+				// Извлекаем только цифры из форматированного телефона
+				const phoneDigits = phone.replace(/\D/g, '')
+				// Формат для API: 11 цифр начиная с 7
 				const formattedPhone = phoneDigits.startsWith('7')
 					? phoneDigits
 					: `7${phoneDigits.slice(-10)}`
 
 				requestBody.phone = formattedPhone
 				requestBody.sbpMemberId = selectedBank
+			} else if (method === 'saved-card') {
+				// Используем привязанную карту
+				requestBody.cardId = selectedCardId
 			} else if (method === 'card') {
 				// Для выплаты на карту передаем данные карты
 				// PaymentRecipientId - это телефон или номер карты
@@ -258,18 +403,38 @@ export default function WithdrawalForm({
 					<label className='block text-sm font-medium text-gray-300 mb-2'>
 						Способ выплаты
 					</label>
-					<div className='grid grid-cols-2 gap-2'>
+					<div className='grid grid-cols-3 gap-2'>
 						<button
 							type='button'
 							onClick={() => setMethod('sbp')}
-							className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition ${
+							className={`flex items-center justify-center gap-2 px-3 py-3 rounded-lg border transition text-sm ${
 								method === 'sbp'
 									? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
 									: 'border-gray-600 text-gray-400 hover:border-gray-500'
 							}`}
 						>
 							<FaMobile />
-							СБП (быстро)
+							СБП
+						</button>
+						<button
+							type='button'
+							onClick={() => {
+								setMethod('saved-card')
+								setError(null)
+							}}
+							className={`flex items-center justify-center gap-2 px-3 py-3 rounded-lg border transition text-sm ${
+								method === 'saved-card'
+									? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
+									: 'border-gray-600 text-gray-400 hover:border-gray-500'
+							}`}
+						>
+							<FaCreditCard />
+							Мои карты
+							{savedCards.length > 0 && (
+								<span className='bg-emerald-500/30 px-1.5 rounded text-xs'>
+									{savedCards.length}
+								</span>
+							)}
 						</button>
 						<button
 							type='button'
@@ -277,14 +442,14 @@ export default function WithdrawalForm({
 								setMethod('card')
 								setError(null)
 							}}
-							className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition ${
+							className={`flex items-center justify-center gap-2 px-3 py-3 rounded-lg border transition text-sm ${
 								method === 'card'
 									? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
 									: 'border-gray-600 text-gray-400 hover:border-gray-500'
 							}`}
 						>
 							<FaCreditCard />
-							На карту
+							Новая
 						</button>
 					</div>
 				</div>
@@ -300,17 +465,49 @@ export default function WithdrawalForm({
 							</label>
 							<input
 								type='tel'
+								inputMode='tel'
+								autoComplete='tel'
 								value={phone}
 								onChange={e => {
-									setPhone(e.target.value)
+									// Убираем всё кроме цифр
+									let digits = e.target.value.replace(/\D/g, '')
+									
+									// Если начинается с 8, заменяем на 7
+									if (digits.startsWith('8')) {
+										digits = '7' + digits.slice(1)
+									}
+									
+									// Ограничиваем 11 цифрами
+									digits = digits.slice(0, 11)
+									
+									// Форматируем: +7 (XXX) XXX-XX-XX
+									let formatted = ''
+									if (digits.length > 0) {
+										formatted = '+7'
+										if (digits.length > 1) {
+											formatted += ' (' + digits.slice(1, 4)
+										}
+										if (digits.length >= 4) {
+											formatted += ') ' + digits.slice(4, 7)
+										}
+										if (digits.length >= 7) {
+											formatted += '-' + digits.slice(7, 9)
+										}
+										if (digits.length >= 9) {
+											formatted += '-' + digits.slice(9, 11)
+										}
+									}
+									
+									setPhone(formatted)
 									setError(null)
 								}}
-								placeholder='+79991234567'
-								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition'
+								placeholder='+7 (999) 123-45-67'
+								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono text-lg'
 								disabled={loading}
+								maxLength={18}
 							/>
 							<p className='text-xs text-gray-400 mt-1'>
-								Введите номер в формате +7XXXXXXXXXX (11 цифр)
+								Номер привязанный к счёту СБП
 							</p>
 						</div>
 
@@ -359,7 +556,115 @@ export default function WithdrawalForm({
 					</>
 				)}
 
-				{/* Форма для выплаты на карту */}
+				{/* Форма для привязанных карт */}
+				{method === 'saved-card' && (
+					<div className='space-y-3'>
+						{loadingCards ? (
+							<div className='text-center py-4 text-gray-400'>
+								<span className='w-5 h-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin inline-block' />
+								<span className='ml-2'>Загрузка карт...</span>
+							</div>
+						) : savedCards.length === 0 ? (
+							<div className='bg-gray-800/50 rounded-lg p-4 text-center'>
+								<p className='text-gray-400 mb-3'>У вас нет привязанных карт</p>
+								<button
+									type='button'
+									onClick={handleAddCard}
+									disabled={addingCard}
+									className='inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/20 border border-emerald-500/50 rounded-lg text-emerald-400 hover:bg-emerald-500/30 transition'
+								>
+									{addingCard ? (
+										<span className='w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin' />
+									) : (
+										<FaPlus />
+									)}
+									Привязать карту
+								</button>
+							</div>
+						) : (
+							<>
+								<div className='space-y-2'>
+									{savedCards.map(card => (
+										<div
+											key={card.cardId}
+											onClick={() => setSelectedCardId(card.cardId)}
+											className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition ${
+												selectedCardId === card.cardId
+													? 'border-emerald-400 bg-emerald-400/10'
+													: 'border-gray-600 hover:border-gray-500'
+											}`}
+										>
+											<div className='flex items-center gap-3'>
+												<input
+													type='radio'
+													name='savedCard'
+													checked={selectedCardId === card.cardId}
+													onChange={() => setSelectedCardId(card.cardId)}
+													className='w-4 h-4 text-emerald-400'
+												/>
+												<div>
+													<div className='flex items-center gap-2'>
+														<FaCreditCard className='text-gray-400' />
+														<span className='font-mono text-white'>
+															{card.pan}
+														</span>
+														{card.isDefault && (
+															<FaStar className='text-yellow-400 text-xs' title='Карта по умолчанию' />
+														)}
+													</div>
+													<span className='text-xs text-gray-400'>
+														до {card.expDate.slice(0, 2)}/{card.expDate.slice(2)}
+													</span>
+												</div>
+											</div>
+											<div className='flex items-center gap-2'>
+												{!card.isDefault && (
+													<button
+														type='button'
+														onClick={(e) => {
+															e.stopPropagation()
+															handleSetDefaultCard(card.cardId)
+														}}
+														className='p-1.5 text-gray-400 hover:text-yellow-400 transition'
+														title='Сделать основной'
+													>
+														<FaStar />
+													</button>
+												)}
+												<button
+													type='button'
+													onClick={(e) => {
+														e.stopPropagation()
+														handleDeleteCard(card.cardId)
+													}}
+													className='p-1.5 text-gray-400 hover:text-red-400 transition'
+													title='Удалить карту'
+												>
+													<FaTrash />
+												</button>
+											</div>
+										</div>
+									))}
+								</div>
+								<button
+									type='button'
+									onClick={handleAddCard}
+									disabled={addingCard}
+									className='w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-800/50 border border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-emerald-500/50 hover:text-emerald-400 transition'
+								>
+									{addingCard ? (
+										<span className='w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin' />
+									) : (
+										<FaPlus />
+									)}
+									Привязать ещё карту
+								</button>
+							</>
+						)}
+					</div>
+				)}
+
+				{/* Форма для выплаты на новую карту */}
 				{method === 'card' && (
 					<>
 						{/* Номер карты */}
@@ -370,20 +675,24 @@ export default function WithdrawalForm({
 							</label>
 							<input
 								type='text'
+								inputMode='numeric'
+								autoComplete='cc-number'
 								value={cardNumber}
 								onChange={e => {
-									// Форматируем номер карты с пробелами
-									const value = e.target.value.replace(/\D/g, '').slice(0, 19)
-									const formatted = value.replace(/(.{4})/g, '$1 ').trim()
+									// Убираем всё кроме цифр и ограничиваем 16 символами
+									const digits = e.target.value.replace(/\D/g, '').slice(0, 16)
+									// Форматируем с пробелами каждые 4 цифры
+									const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ')
 									setCardNumber(formatted)
 									setError(null)
 								}}
 								placeholder='0000 0000 0000 0000'
-								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono'
+								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono text-lg tracking-wider'
 								disabled={loading}
+								maxLength={19}
 							/>
 							<p className='text-xs text-gray-400 mt-1'>
-								Введите 16-19 цифр номера карты
+								Введите 16 цифр номера карты
 							</p>
 						</div>
 
@@ -395,36 +704,53 @@ export default function WithdrawalForm({
 								</label>
 								<input
 									type='text'
+									inputMode='numeric'
+									autoComplete='cc-exp'
 									value={cardExpiry}
 									onChange={e => {
-										let value = e.target.value.replace(/\D/g, '').slice(0, 4)
-										if (value.length >= 2) {
-											value = value.slice(0, 2) + '/' + value.slice(2)
+										// Убираем всё кроме цифр
+										let digits = e.target.value.replace(/\D/g, '').slice(0, 4)
+										
+										// Валидация месяца (01-12)
+										if (digits.length >= 2) {
+											let month = parseInt(digits.slice(0, 2))
+											if (month > 12) month = 12
+											if (month < 1 && digits.slice(0, 2) !== '0') month = 1
+											digits = month.toString().padStart(2, '0') + digits.slice(2)
 										}
-										setCardExpiry(value)
+										
+										// Форматирование MM/YY
+										const formatted = digits.length >= 2 
+											? digits.slice(0, 2) + '/' + digits.slice(2)
+											: digits
+										
+										setCardExpiry(formatted)
 										setError(null)
 									}}
 									placeholder='MM/YY'
-									className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono'
+									className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono text-lg text-center tracking-wider'
 									disabled={loading}
+									maxLength={5}
 								/>
 							</div>
 							<div>
 								<label className='block text-sm font-medium text-gray-300 mb-2'>
-									CVV
+									CVV/CVC
 								</label>
 								<input
-									type='text'
+									type='password'
+									inputMode='numeric'
+									autoComplete='cc-csc'
 									value={cardCvv}
 									onChange={e => {
-										const value = e.target.value.replace(/\D/g, '').slice(0, 4)
+										const value = e.target.value.replace(/\D/g, '').slice(0, 3)
 										setCardCvv(value)
 										setError(null)
 									}}
-									placeholder='123'
-									className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono'
+									placeholder='•••'
+									className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono text-lg text-center tracking-widest'
 									disabled={loading}
-									maxLength={4}
+									maxLength={3}
 								/>
 							</div>
 						</div>
@@ -436,17 +762,24 @@ export default function WithdrawalForm({
 							</label>
 							<input
 								type='text'
+								autoComplete='cc-name'
 								value={cardHolderName}
 								onChange={e => {
-									setCardHolderName(e.target.value.toUpperCase())
+									// Только латиница, пробелы и дефисы
+									const value = e.target.value
+										.toUpperCase()
+										.replace(/[^A-Z\s\-]/g, '')
+										.replace(/\s+/g, ' ') // убираем двойные пробелы
+									setCardHolderName(value)
 									setError(null)
 								}}
 								placeholder='IVAN PETROV'
-								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition uppercase'
+								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition uppercase tracking-wide'
 								disabled={loading}
+								maxLength={50}
 							/>
 							<p className='text-xs text-gray-400 mt-1'>
-								Как указано на карте (латиница)
+								Как указано на карте (только латиница)
 							</p>
 						</div>
 					</>

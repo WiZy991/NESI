@@ -4,12 +4,15 @@ import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
+	FaBuilding,
 	FaCheckCircle,
 	FaCity,
 	FaCode,
 	FaExclamationCircle,
 	FaFileSignature,
+	FaIdCard,
 	FaImage,
+	FaMapMarkerAlt,
 	FaTimes,
 } from 'react-icons/fa'
 import { toast } from 'sonner'
@@ -635,6 +638,13 @@ export default function EditProfileModal({
 	const [validationErrors, setValidationErrors] = useState<
 		Record<string, string>
 	>({})
+	
+	// B2B/B2C поля
+	const [companyName, setCompanyName] = useState('')
+	const [inn, setInn] = useState('')
+	const [kpp, setKpp] = useState('')
+	const [ogrn, setOgrn] = useState('')
+	const [legalAddress, setLegalAddress] = useState('')
 	const locationInputRef = useRef<HTMLInputElement>(null)
 	const cityDropdownRef = useRef<HTMLDivElement>(null)
 	const citySearchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -752,6 +762,13 @@ export default function EditProfileModal({
 							.filter(Boolean)
 			)
 			if (user.avatarUrl) setAvatarPreview(user.avatarUrl)
+			
+			// B2B/B2C поля
+			setCompanyName(user.companyName || '')
+			setInn(user.inn || '')
+			setKpp(user.kpp || '')
+			setOgrn(user.ogrn || '')
+			setLegalAddress(user.legalAddress || '')
 		}
 	}, [user, isOpen])
 
@@ -783,6 +800,17 @@ export default function EditProfileModal({
 			formData.append('location', location.trim())
 			formData.append('skills', skills.join(','))
 			if (avatarFile) formData.append('avatar', avatarFile)
+			
+			// B2B/B2C поля (только если не физлицо)
+			if (user.accountType && user.accountType !== 'INDIVIDUAL') {
+				formData.append('companyName', companyName.trim())
+				formData.append('inn', inn.trim())
+				if (user.accountType === 'COMPANY') {
+					formData.append('kpp', kpp.trim())
+				}
+				formData.append('ogrn', ogrn.trim())
+				formData.append('legalAddress', legalAddress.trim())
+			}
 
 			const res = await fetch('/api/profile', {
 				method: 'PATCH',
@@ -1043,6 +1071,120 @@ export default function EditProfileModal({
 							</p>
 						</div>
 					</div>
+
+					{/* Данные компании/ИП - только для не-физлиц */}
+					{user.accountType && user.accountType !== 'INDIVIDUAL' && (
+						<div className='mb-4 space-y-3'>
+							<h3 className='text-sm sm:text-base font-semibold text-emerald-400 mb-2 pb-1.5 border-b border-emerald-500/30 flex items-center gap-2'>
+								<FaBuilding className='text-sm' />
+								{user.accountType === 'SELF_EMPLOYED' && 'Данные самозанятого'}
+								{user.accountType === 'SOLE_PROPRIETOR' && 'Данные ИП'}
+								{user.accountType === 'COMPANY' && 'Данные компании'}
+							</h3>
+
+							{/* Название компании/ИП */}
+							{(user.accountType === 'SOLE_PROPRIETOR' || user.accountType === 'COMPANY') && (
+								<div className='space-y-1.5'>
+									<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+										<FaBuilding className='text-xs sm:text-sm' />
+										{user.accountType === 'SOLE_PROPRIETOR' ? 'Название ИП' : 'Название компании'}
+									</label>
+									<input
+										type='text'
+										value={companyName}
+										onChange={e => setCompanyName(e.target.value)}
+										className='w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
+										placeholder={user.accountType === 'SOLE_PROPRIETOR' ? 'ИП Иванов Иван Иванович' : 'ООО «Название компании»'}
+									/>
+								</div>
+							)}
+
+							{/* ИНН */}
+							<div className='space-y-1.5'>
+								<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+									<FaIdCard className='text-xs sm:text-sm' /> ИНН
+									<span className='text-gray-500 text-xs ml-1.5 font-normal'>
+										({user.accountType === 'COMPANY' ? '10 цифр' : '12 цифр'})
+									</span>
+								</label>
+								<input
+									type='text'
+									value={inn}
+									onChange={e => {
+										const value = e.target.value.replace(/\D/g, '').slice(0, user.accountType === 'COMPANY' ? 10 : 12)
+										setInn(value)
+									}}
+									className='w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
+									placeholder={user.accountType === 'COMPANY' ? '1234567890' : '123456789012'}
+								/>
+							</div>
+
+							{/* КПП - только для ООО */}
+							{user.accountType === 'COMPANY' && (
+								<div className='space-y-1.5'>
+									<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+										<FaIdCard className='text-xs sm:text-sm' /> КПП
+										<span className='text-gray-500 text-xs ml-1.5 font-normal'>(9 цифр)</span>
+									</label>
+									<input
+										type='text'
+										value={kpp}
+										onChange={e => {
+											const value = e.target.value.replace(/\D/g, '').slice(0, 9)
+											setKpp(value)
+										}}
+										className='w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
+										placeholder='123456789'
+									/>
+								</div>
+							)}
+
+							{/* ОГРН / ОГРНИП */}
+							{(user.accountType === 'SOLE_PROPRIETOR' || user.accountType === 'COMPANY') && (
+								<div className='space-y-1.5'>
+									<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+										<FaIdCard className='text-xs sm:text-sm' />
+										{user.accountType === 'SOLE_PROPRIETOR' ? 'ОГРНИП' : 'ОГРН'}
+										<span className='text-gray-500 text-xs ml-1.5 font-normal'>
+											({user.accountType === 'SOLE_PROPRIETOR' ? '15 цифр' : '13 цифр'})
+										</span>
+									</label>
+									<input
+										type='text'
+										value={ogrn}
+										onChange={e => {
+											const value = e.target.value.replace(/\D/g, '').slice(0, user.accountType === 'SOLE_PROPRIETOR' ? 15 : 13)
+											setOgrn(value)
+										}}
+										className='w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
+										placeholder={user.accountType === 'SOLE_PROPRIETOR' ? '123456789012345' : '1234567890123'}
+									/>
+								</div>
+							)}
+
+							{/* Юридический адрес */}
+							{(user.accountType === 'SOLE_PROPRIETOR' || user.accountType === 'COMPANY') && (
+								<div className='space-y-1.5'>
+									<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
+										<FaMapMarkerAlt className='text-xs sm:text-sm' /> Юридический адрес
+										<span className='text-gray-500 text-xs ml-1.5 font-normal'>(необязательно)</span>
+									</label>
+									<textarea
+										value={legalAddress}
+										onChange={e => setLegalAddress(e.target.value)}
+										rows={2}
+										className='w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition resize-none'
+										placeholder='123456, г. Москва, ул. Примерная, д. 1, офис 100'
+									/>
+								</div>
+							)}
+
+							{/* Подсказка */}
+							<div className='bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-xs text-emerald-300/80'>
+								💡 Эти данные будут отображаться в вашем профиле и помогут другим пользователям идентифицировать вас как {user.accountType === 'SELF_EMPLOYED' ? 'самозанятого' : user.accountType === 'SOLE_PROPRIETOR' ? 'индивидуального предпринимателя' : 'компанию'}.
+							</div>
+						</div>
+					)}
 
 					{/* Аватар */}
 					<div className='mb-4 space-y-3'>

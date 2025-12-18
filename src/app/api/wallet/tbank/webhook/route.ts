@@ -7,6 +7,11 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * Вебхук для обработки нотификаций от Т-Банка
+ * 
+ * Обрабатывает:
+ * - Платежи (deposit) - пополнение баланса
+ * - Выплаты (withdraw) - вывод средств
+ * - Привязка карт (AttachCard) - сохранение карты для будущих выплат
  */
 
 /**
@@ -59,6 +64,107 @@ export async function POST(req: NextRequest) {
 				body: JSON.stringify(body),
 			})
 			return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
+		}
+
+		// ====================================
+		// Обработка привязки карты (AttachCard)
+		// ====================================
+		// Нотификация о привязке карты имеет RequestKey и CardId, но НЕ имеет PaymentId в обычном формате
+		if (body.RequestKey && body.CardId && body.CustomerKey) {
+			console.log('💳 [WEBHOOK] Обработка привязки карты:', {
+				customerKey: body.CustomerKey,
+				cardId: body.CardId,
+				pan: body.Pan,
+				status: body.Status,
+				success: body.Success,
+			})
+
+			const userId = body.CustomerKey
+			const cardId = body.CardId
+
+			// Проверяем успешность привязки
+			if (body.Success !== true && body.Success !== 'true') {
+				logger.warn('Привязка карты не успешна', {
+					customerKey: userId,
+					errorCode: body.ErrorCode,
+					status: body.Status,
+				})
+				return new NextResponse('OK', { status: 200 })
+			}
+
+			try {
+				// Проверяем, существует ли уже такая карта
+				// @ts-ignore - TBankCard будет доступен после миграции
+				const existingCard = await prisma.tBankCard.findUnique({
+					where: {
+						userId_cardId: {
+							userId,
+							cardId,
+						},
+					},
+				})
+
+				if (existingCard) {
+					// Обновляем существующую карту
+					// @ts-ignore
+					await prisma.tBankCard.update({
+						where: { id: existingCard.id },
+						data: {
+							pan: body.Pan || existingCard.pan,
+							expDate: body.ExpDate || existingCard.expDate,
+							status: 'A',
+							rebillId: body.RebillId || existingCard.rebillId,
+							updatedAt: new Date(),
+						},
+					})
+					console.log('✅ [WEBHOOK] Карта обновлена:', {
+						userId,
+						cardId,
+						pan: body.Pan,
+					})
+				} else {
+					// Проверяем, есть ли у пользователя другие карты
+					// @ts-ignore
+					const existingCards = await prisma.tBankCard.count({
+						where: { userId, status: 'A' },
+					})
+
+					// Создаем новую карту
+					// @ts-ignore
+					await prisma.tBankCard.create({
+						data: {
+							userId,
+							cardId,
+							pan: body.Pan || 'Unknown',
+							expDate: body.ExpDate || 'Unknown',
+							cardType: 1,
+							status: 'A',
+							rebillId: body.RebillId || null,
+							isDefault: existingCards === 0,
+						},
+					})
+					console.log('✅ [WEBHOOK] Новая карта сохранена:', {
+						userId,
+						cardId,
+						pan: body.Pan,
+						isDefault: existingCards === 0,
+					})
+				}
+
+				logger.info('Карта успешно привязана', {
+					userId,
+					cardId,
+					pan: body.Pan,
+				})
+			} catch (cardError) {
+				logger.error('Ошибка сохранения карты', cardError instanceof Error ? cardError : undefined, {
+					userId,
+					cardId,
+					error: cardError instanceof Error ? cardError.message : String(cardError),
+				})
+			}
+
+			return new NextResponse('OK', { status: 200 })
 		}
 
 		const { Status, PaymentId, OrderId, Amount, SpAccumulationId, DealId } =

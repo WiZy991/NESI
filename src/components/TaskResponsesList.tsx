@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import AssignExecutorButton from './AssignExecutorButton'
+import AccountTypeBadge from './AccountTypeBadge'
 
 type Props = {
   responses: {
@@ -13,6 +14,7 @@ type Props = {
       id: string
       fullName: string | null
       email: string
+      accountType?: string | null
     }
   }[]
   taskId: string
@@ -49,12 +51,15 @@ export default function TaskResponsesList({
           className="mb-4 border border-gray-600 p-3 rounded flex justify-between items-center"
         >
           <div>
-            <Link
-              href={`/users/${res.user.id}`}
-              className="font-semibold text-blue-400 hover:underline"
-            >
-              {res.user.fullName || res.user.email}
-            </Link>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href={`/users/${res.user.id}`}
+                className="font-semibold text-blue-400 hover:underline"
+              >
+                {res.user.fullName || res.user.email}
+              </Link>
+              <AccountTypeBadge accountType={res.user.accountType} size="xs" />
+            </div>
             <p className="text-sm text-gray-300 mt-1">{res.message}</p>
           </div>
 

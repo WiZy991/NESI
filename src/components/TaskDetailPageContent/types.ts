@@ -15,11 +15,13 @@ export type Task = {
 		id: string
 		fullName?: string | null
 		email: string
+		accountType?: string | null
 	}
 	executor?: {
 		id: string
 		fullName?: string | null
 		email: string
+		accountType?: string | null
 	} | null
 	subcategory?: {
 		id: string
@@ -45,6 +47,7 @@ export type Task = {
 			id: string
 			fullName?: string | null
 			email: string
+			accountType?: string | null
 		}
 	}>
 	review?: Array<{

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import AssignExecutorButton from '../AssignExecutorButton'
+import AccountTypeBadge from '../AccountTypeBadge'
 import { getUserProfileLink } from './utils'
 import type { Task } from './types'
 import { LevelBadge } from '../LevelBadge'
@@ -84,7 +85,7 @@ export function ResponsesSection({
 											<span className='text-lg'>{visuals.icon || '👤'}</span>
 										</div>
 										<div>
-											<div className='flex items-center gap-2'>
+											<div className='flex items-center gap-2 flex-wrap'>
 												<Link
 													href={getUserProfileLink(currentUserId, response.user.id)}
 													className='text-emerald-400 hover:text-emerald-300 font-semibold text-lg transition-colors'
@@ -92,6 +93,7 @@ export function ResponsesSection({
 													{response.user.fullName || response.user.email}
 												</Link>
 												<LevelBadge level={userLevel} size="sm" />
+												<AccountTypeBadge accountType={response.user.accountType} size="xs" />
 											</div>
 											<p className='text-sm text-gray-400'>
 												📅{' '}

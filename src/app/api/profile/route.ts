@@ -23,6 +23,7 @@ export async function GET(req: Request) {
 					email: true,
 					fullName: true,
 					role: true,
+					accountType: true,
 					description: true,
 					location: true,
 					skills: true,
@@ -32,6 +33,12 @@ export async function GET(req: Request) {
 					xp: true,
 					completedTasksCount: true,
 					createdAt: true,
+					// B2B/B2C поля
+					companyName: true,
+					inn: true,
+					kpp: true,
+					ogrn: true,
+					legalAddress: true,
 					avatarFile: {
 						select: { id: true },
 					},
@@ -356,6 +363,13 @@ export async function PATCH(req: Request) {
 			const location = formData.get('location') as string | null
 			const skills = formData.get('skills') as string | null
 			const avatar = formData.get('avatar') as File | null
+			
+			// B2B/B2C поля
+			const companyName = formData.get('companyName') as string | null
+			const inn = formData.get('inn') as string | null
+			const kpp = formData.get('kpp') as string | null
+			const ogrn = formData.get('ogrn') as string | null
+			const legalAddress = formData.get('legalAddress') as string | null
 
 			if (!fullName || !role) {
 				return NextResponse.json(
@@ -419,6 +433,47 @@ export async function PATCH(req: Request) {
 				role,
 				description: description ? sanitizeText(description.trim()) : null,
 				location: location ? sanitizeText(location.trim()) : null,
+			}
+			
+			// B2B/B2C поля (валидация и добавление)
+			if (companyName !== null) {
+				dataToUpdate.companyName = companyName.trim() || null
+			}
+			if (inn !== null) {
+				// Валидация ИНН: 10 или 12 цифр
+				const cleanInn = inn.replace(/\D/g, '')
+				if (cleanInn && cleanInn.length !== 10 && cleanInn.length !== 12) {
+					return NextResponse.json(
+						{ error: 'ИНН должен содержать 10 или 12 цифр' },
+						{ status: 400 }
+					)
+				}
+				dataToUpdate.inn = cleanInn || null
+			}
+			if (kpp !== null) {
+				// Валидация КПП: 9 цифр
+				const cleanKpp = kpp.replace(/\D/g, '')
+				if (cleanKpp && cleanKpp.length !== 9) {
+					return NextResponse.json(
+						{ error: 'КПП должен содержать 9 цифр' },
+						{ status: 400 }
+					)
+				}
+				dataToUpdate.kpp = cleanKpp || null
+			}
+			if (ogrn !== null) {
+				// Валидация ОГРН: 13 цифр (для ООО) или 15 цифр (для ИП)
+				const cleanOgrn = ogrn.replace(/\D/g, '')
+				if (cleanOgrn && cleanOgrn.length !== 13 && cleanOgrn.length !== 15) {
+					return NextResponse.json(
+						{ error: 'ОГРН должен содержать 13 цифр (ООО) или 15 цифр (ИП)' },
+						{ status: 400 }
+					)
+				}
+				dataToUpdate.ogrn = cleanOgrn || null
+			}
+			if (legalAddress !== null) {
+				dataToUpdate.legalAddress = legalAddress.trim() || null
 			}
 
 			// Обработка навыков

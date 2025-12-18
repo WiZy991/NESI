@@ -18,6 +18,7 @@ export async function GET(
 					fullName: true,
 					email: true,
 					role: true,
+					accountType: true,
 					skills: true,
 					location: true,
 					description: true,

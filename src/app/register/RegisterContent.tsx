@@ -20,6 +20,7 @@ export default function RegisterContent() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<'customer' | 'executor'>('customer')
+  const [accountType, setAccountType] = useState<'INDIVIDUAL' | 'SELF_EMPLOYED' | 'SOLE_PROPRIETOR' | 'COMPANY'>('INDIVIDUAL')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -115,7 +116,8 @@ export default function RegisterContent() {
           email, 
           password, 
           fullName, 
-          role
+          role,
+          accountType
         }),
       })
 
@@ -315,6 +317,45 @@ export default function RegisterContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </div>
+          </div>
+
+          {/* Тип аккаунта (B2B/B2C) */}
+          <div className="space-y-3">
+            <label className="text-sm text-gray-300 font-medium">
+              Вы регистрируетесь как:
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'INDIVIDUAL', label: 'Физ. лицо', icon: '👤', desc: 'Частное лицо' },
+                { value: 'SELF_EMPLOYED', label: 'Самозанятый', icon: '📱', desc: 'Плательщик НПД' },
+                { value: 'SOLE_PROPRIETOR', label: 'ИП', icon: '🏪', desc: 'Индивидуальный предприниматель' },
+                { value: 'COMPANY', label: 'ООО / Компания', icon: '🏢', desc: 'Юридическое лицо' },
+              ].map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => setAccountType(type.value as typeof accountType)}
+                  className={`p-3 rounded-lg border text-left transition-all ${
+                    accountType === type.value
+                      ? 'border-emerald-400 bg-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                      : 'border-emerald-400/30 bg-black/20 hover:border-emerald-400/60 hover:bg-emerald-500/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{type.icon}</span>
+                    <span className={`font-medium ${accountType === type.value ? 'text-emerald-300' : 'text-gray-300'}`}>
+                      {type.label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 ml-7">{type.desc}</p>
+                </button>
+              ))}
+            </div>
+            {accountType !== 'INDIVIDUAL' && (
+              <p className="text-xs text-emerald-400/80 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2">
+                💡 Данные {accountType === 'SELF_EMPLOYED' ? 'самозанятого' : accountType === 'SOLE_PROPRIETOR' ? 'ИП' : 'компании'} можно будет заполнить в профиле после регистрации
+              </p>
+            )}
           </div>
 
           {/* Плашка согласия с пользовательским соглашением */}

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { getStatusName, statusColors } from './utils'
 import type { Task } from './types'
+import AccountTypeBadge from '@/components/AccountTypeBadge'
 
 interface TaskInfoPanelProps {
 	task: Task
@@ -74,12 +75,15 @@ export function TaskInfoPanel({ task }: TaskInfoPanelProps) {
 							Исполнитель
 						</h3>
 					</div>
-					<Link
-						href={`/users/${task.executor.id}`}
-						className='text-emerald-400 font-medium hover:text-emerald-300 hover:underline transition-colors'
-					>
-						{task.executor.fullName || task.executor.email}
-					</Link>
+					<div className='flex items-center gap-2 flex-wrap'>
+						<Link
+							href={`/users/${task.executor.id}`}
+							className='text-emerald-400 font-medium hover:text-emerald-300 hover:underline transition-colors'
+						>
+							{task.executor.fullName || task.executor.email}
+						</Link>
+						<AccountTypeBadge accountType={task.executor.accountType} size="sm" />
+					</div>
 				</div>
 			) : (
 				<div className='bg-black/40 rounded-xl p-4 md:p-6 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] group'>

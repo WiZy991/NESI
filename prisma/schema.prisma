@@ -88,6 +88,25 @@ model User {
 
   // Сделки Мультирасчетов
   tBankDeals TBankDeal[]
+
+  // B2B/B2C: Тип аккаунта (физлицо, самозанятый, ИП, ООО)
+  accountType   AccountType @default(INDIVIDUAL)
+  
+  // Данные компании/ИП (заполняются в профиле)
+  companyName   String?     // "ООО «Ромашка»" или "ИП Иванов И.И."
+  inn           String?     // ИНН (10 или 12 цифр)
+  kpp           String?     // КПП (только для ООО, 9 цифр)
+  ogrn          String?     // ОГРН (13 цифр) или ОГРНИП (15 цифр)
+  legalAddress  String?     // Юридический адрес
+  
+  // Для выплат на р/с (будущая интеграция с T-Bank Partner API)
+  tbankPartnerId String?    // ID партнёра в системе T-Bank
+  bankAccount    String?    // Расчётный счёт (20 цифр)
+  bankBik        String?    // БИК банка (9 цифр)
+  bankName       String?    // Название банка
+  
+  // Привязанные карты для выплат
+  tbankCards     TBankCard[]
 }
 
 enum TaskResponseStatus {
@@ -803,6 +822,14 @@ enum Role {
   customer
 }
 
+// Тип аккаунта для B2B/B2C
+enum AccountType {
+  INDIVIDUAL      // Физическое лицо
+  SELF_EMPLOYED   // Самозанятый
+  SOLE_PROPRIETOR // ИП (Индивидуальный предприниматель)
+  COMPANY         // ООО, АО и другие юрлица
+}
+
 // ============================================
 // Мультирасчеты Т-Банк (для сделок P2P)
 // ============================================
@@ -882,4 +909,29 @@ enum DealStatus {
   OPEN // Открыта (есть подтвержденные платежи)
   PARTIAL_CANCELED // Частично отменена
   CLOSED // Закрыта (финальная выплата или closeSpDeal)
+}
+
+// ============================================
+// Привязанные карты T-Bank для выплат
+// ============================================
+
+model TBankCard {
+  id          String   @id @default(cuid())
+  userId      String
+  cardId      String   // CardId от T-Bank
+  pan         String   // Маскированный номер карты (430000******0777)
+  expDate     String   // MMYY
+  cardType    Int      @default(1) // 0 - списание, 1 - пополнение, 2 - универсальная
+  status      String   @default("A") // A - активна, I - неактивна, D - удалена
+  rebillId    String?  // Для рекуррентных платежей (если есть)
+  isDefault   Boolean  @default(false) // Карта по умолчанию для вывода
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cardId])
+  @@index([userId])
+  @@index([cardId])
+  @@index([status])
 }
