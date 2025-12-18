@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Save, Bell, Eye, EyeOff, BookOpen, Download, FileText, MessageSquare, Star } from 'lucide-react'
+import { Lock, Save, Bell, Eye, EyeOff, BookOpen, Download, FileText, MessageSquare, Star, Building2, User, Briefcase, Building } from 'lucide-react'
 import { ResetOnboardingButton } from '@/components/ResetOnboardingButton'
 import { AnimatedCheckbox } from '@/components/AnimatedCheckbox'
 import { useUser } from '@/context/UserContext'
@@ -18,6 +18,46 @@ const DEFAULT_SETTINGS = {
   notifyDesktop: true,
 }
 
+// Типы аккаунтов и их конфигурация
+type AccountType = 'INDIVIDUAL' | 'SELF_EMPLOYED' | 'SOLE_PROPRIETOR' | 'COMPANY'
+
+const ACCOUNT_TYPES: Record<AccountType, {
+  label: string
+  icon: React.ReactNode
+  description: string
+  color: string
+  upgrades: AccountType[]
+}> = {
+  INDIVIDUAL: {
+    label: 'Физическое лицо',
+    icon: <User className="w-5 h-5" />,
+    description: 'Обычный пользователь без статуса самозанятого или ИП',
+    color: 'text-gray-400',
+    upgrades: ['SELF_EMPLOYED', 'SOLE_PROPRIETOR', 'COMPANY'],
+  },
+  SELF_EMPLOYED: {
+    label: 'Самозанятый',
+    icon: <Briefcase className="w-5 h-5" />,
+    description: 'Плательщик налога на профессиональный доход (НПД)',
+    color: 'text-blue-400',
+    upgrades: ['SOLE_PROPRIETOR', 'COMPANY'],
+  },
+  SOLE_PROPRIETOR: {
+    label: 'ИП',
+    icon: <Building2 className="w-5 h-5" />,
+    description: 'Индивидуальный предприниматель',
+    color: 'text-amber-400',
+    upgrades: ['COMPANY'],
+  },
+  COMPANY: {
+    label: 'ООО / Юр. лицо',
+    icon: <Building className="w-5 h-5" />,
+    description: 'Общество с ограниченной ответственностью или другое юр. лицо',
+    color: 'text-emerald-400',
+    upgrades: [],
+  },
+}
+
 export default function SettingsPage() {
   const { user, token } = useUser()
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -29,6 +69,12 @@ export default function SettingsPage() {
   })
   const [status, setStatus] = useState<string | null>(null)
   const [exporting, setExporting] = useState<string | null>(null)
+  
+  // Тип аккаунта
+  const [accountType, setAccountType] = useState<AccountType>('INDIVIDUAL')
+  const [changingAccountType, setChangingAccountType] = useState(false)
+  const [showAccountTypeModal, setShowAccountTypeModal] = useState(false)
+  const [selectedNewType, setSelectedNewType] = useState<AccountType | null>(null)
 
   // === загрузка настроек ===
   useEffect(() => {
@@ -57,6 +103,64 @@ export default function SettingsPage() {
       }
     })()
   }, [])
+
+  // === загрузка типа аккаунта ===
+  useEffect(() => {
+    if (!token) return
+    ;(async () => {
+      try {
+        const res = await fetch('/api/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
+        if (res.ok && data.accountType) {
+          setAccountType(data.accountType as AccountType)
+        }
+      } catch {
+        // Игнорируем ошибки
+      }
+    })()
+  }, [token])
+
+  // === смена типа аккаунта ===
+  const handleChangeAccountType = async (newType: AccountType) => {
+    if (!token) {
+      toast.error('Войдите для изменения типа аккаунта')
+      return
+    }
+
+    setChangingAccountType(true)
+    try {
+      const res = await fetch('/api/settings/account-type', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ accountType: newType }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setAccountType(newType)
+        setShowAccountTypeModal(false)
+        setSelectedNewType(null)
+        toast.success(`Тип аккаунта изменён на "${ACCOUNT_TYPES[newType].label}"`, {
+          description: 'Заполните данные в профиле',
+          action: {
+            label: 'Открыть профиль',
+            onClick: () => window.location.href = '/profile',
+          },
+        })
+      } else {
+        toast.error(data.error || 'Ошибка при смене типа аккаунта')
+      }
+    } catch {
+      toast.error('Ошибка соединения с сервером')
+    } finally {
+      setChangingAccountType(false)
+    }
+  }
 
   // === смена пароля ===
   const handleChangePassword = async () => {
@@ -285,6 +389,138 @@ export default function SettingsPage() {
           <Save className="w-4 h-4" /> Сохранить настройки
         </button>
       </section>
+
+      {/* 🏢 Тип аккаунта */}
+      <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm mb-8">
+        <h2 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+          <Building2 className="w-5 h-5" /> Тип аккаунта
+        </h2>
+
+        {/* Текущий тип */}
+        <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50 mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg bg-gray-800/50 ${ACCOUNT_TYPES[accountType].color}`}>
+              {ACCOUNT_TYPES[accountType].icon}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className={`font-semibold ${ACCOUNT_TYPES[accountType].color}`}>
+                  {ACCOUNT_TYPES[accountType].label}
+                </span>
+                <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">
+                  Текущий
+                </span>
+              </div>
+              <p className="text-sm text-gray-400 mt-1">
+                {ACCOUNT_TYPES[accountType].description}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Доступные варианты для повышения */}
+        {ACCOUNT_TYPES[accountType].upgrades.length > 0 ? (
+          <>
+            <p className="text-sm text-gray-400 mb-3">
+              Вы можете сменить тип аккаунта на:
+            </p>
+            <div className="space-y-2">
+              {ACCOUNT_TYPES[accountType].upgrades.map((upgradeType) => (
+                <button
+                  key={upgradeType}
+                  onClick={() => {
+                    setSelectedNewType(upgradeType)
+                    setShowAccountTypeModal(true)
+                  }}
+                  className="w-full bg-gray-900/50 hover:bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 hover:border-emerald-500/30 transition-all flex items-center gap-3 text-left"
+                >
+                  <div className={`p-2 rounded-lg bg-gray-800/50 ${ACCOUNT_TYPES[upgradeType].color}`}>
+                    {ACCOUNT_TYPES[upgradeType].icon}
+                  </div>
+                  <div className="flex-1">
+                    <span className={`font-semibold ${ACCOUNT_TYPES[upgradeType].color}`}>
+                      {ACCOUNT_TYPES[upgradeType].label}
+                    </span>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {ACCOUNT_TYPES[upgradeType].description}
+                    </p>
+                  </div>
+                  <span className="text-emerald-400 text-sm">
+                    Выбрать →
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500 italic">
+            Это максимальный тип аккаунта. Смена недоступна.
+          </p>
+        )}
+      </section>
+
+      {/* Модальное окно подтверждения смены типа */}
+      {showAccountTypeModal && selectedNewType && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-gray-900 border border-emerald-500/30 rounded-2xl p-6 max-w-md w-full"
+          >
+            <h3 className="text-xl font-bold text-white mb-4">
+              Подтвердите смену типа аккаунта
+            </h3>
+            
+            <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 text-gray-400 mb-2">
+                <span>Текущий:</span>
+                <span className={ACCOUNT_TYPES[accountType].color}>
+                  {ACCOUNT_TYPES[accountType].label}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">Новый:</span>
+                <span className={`font-semibold ${ACCOUNT_TYPES[selectedNewType].color}`}>
+                  {ACCOUNT_TYPES[selectedNewType].label}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
+              <p className="text-sm text-amber-300">
+                ⚠️ После смены типа аккаунта вам нужно будет заполнить дополнительную информацию в профиле (ИНН, реквизиты и др.)
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowAccountTypeModal(false)
+                  setSelectedNewType(null)
+                }}
+                disabled={changingAccountType}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => handleChangeAccountType(selectedNewType)}
+                disabled={changingAccountType}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {changingAccountType ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Сохранение...
+                  </>
+                ) : (
+                  'Подтвердить'
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* 🔐 Смена пароля */}
       <section className="bg-black/50 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm">

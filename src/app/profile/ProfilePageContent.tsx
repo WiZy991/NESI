@@ -551,10 +551,15 @@ export default function ProfilePageContent() {
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
 	const [withdrawPhone, setWithdrawPhone] = useState('')
-	const [withdrawMethod] = useState<'sbp'>('sbp')
+	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'saved-card'>('sbp')
 	const [sbpBanks, setSbpBanks] = useState<Array<{MemberId: string; MemberName: string; MemberNameRus: string}>>([])
 	const [selectedBankId, setSelectedBankId] = useState<string>('')
 	const [loadingBanks, setLoadingBanks] = useState(false)
+	// Привязанные карты для вывода
+	const [savedCards, setSavedCards] = useState<Array<{id: string; cardId: string; pan: string; expDate: string; isDefault: boolean}>>([])
+	const [selectedCardId, setSelectedCardId] = useState<string>('')
+	const [loadingCards, setLoadingCards] = useState(false)
+	const [addingCard, setAddingCard] = useState(false)
 	const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false)
 	const [bankSearchQuery, setBankSearchQuery] = useState('')
 	// Состояния для данных карты
@@ -787,6 +792,120 @@ export default function ProfilePageContent() {
 		loadBanks()
 	}, [token, activeTab])
 
+	// Загрузка привязанных карт
+	useEffect(() => {
+		const loadCards = async () => {
+			if (!token || activeTab !== 'wallet') return
+			setLoadingCards(true)
+			try {
+				const res = await fetch('/api/wallet/tbank/cards', {
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				const data = await res.json()
+				if (data.success && data.cards) {
+					setSavedCards(data.cards)
+					const defaultCard = data.cards.find((c: any) => c.isDefault)
+					if (defaultCard) {
+						setSelectedCardId(defaultCard.cardId)
+					} else if (data.cards.length > 0) {
+						setSelectedCardId(data.cards[0].cardId)
+					}
+				}
+			} catch (err) {
+				console.error('Ошибка загрузки карт:', err)
+			} finally {
+				setLoadingCards(false)
+			}
+		}
+		loadCards()
+	}, [token, activeTab])
+
+	// Привязка новой карты
+	const handleAddCard = async () => {
+		setAddingCard(true)
+		setWithdrawError(null)
+		try {
+			const res = await fetch('/api/wallet/tbank/add-card', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+			})
+			const data = await res.json()
+			
+			if (data.success && data.paymentURL) {
+				window.location.href = data.paymentURL
+			} else {
+				setWithdrawError(data.error || 'Не удалось начать привязку карты')
+			}
+		} catch (err) {
+			setWithdrawError('Ошибка при привязке карты')
+		} finally {
+			setAddingCard(false)
+		}
+	}
+
+	// Удаление карты
+	const handleDeleteCard = async (cardId: string) => {
+		if (!confirm('Удалить эту карту?')) return
+		
+		try {
+			const res = await fetch(`/api/wallet/tbank/cards?cardId=${cardId}`, {
+				method: 'DELETE',
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			const data = await res.json()
+			
+			if (data.success) {
+				setSavedCards(cards => cards.filter(c => c.cardId !== cardId))
+				if (selectedCardId === cardId) {
+					const remaining = savedCards.filter(c => c.cardId !== cardId)
+					setSelectedCardId(remaining[0]?.cardId || '')
+				}
+				toast.success('Карта удалена')
+			} else {
+				toast.error(data.error || 'Не удалось удалить карту')
+			}
+		} catch (err) {
+			toast.error('Ошибка при удалении карты')
+		}
+	}
+
+	// Обработка URL параметра после привязки карты
+	useEffect(() => {
+		const urlParams = new URLSearchParams(window.location.search)
+		const cardAdded = urlParams.get('cardAdded')
+		
+		if (cardAdded === 'success') {
+			toast.success('Карта успешно привязана!')
+			// Очищаем параметр из URL
+			window.history.replaceState({}, '', window.location.pathname)
+			// Обновляем список карт
+			setWithdrawMethod('saved-card')
+			setLoadingCards(true)
+			fetch('/api/wallet/tbank/cards', {
+				headers: token ? { Authorization: `Bearer ${token}` } : {},
+			})
+				.then(res => res.json())
+				.then(data => {
+					if (data.success && data.cards) {
+						setSavedCards(data.cards)
+						const defaultCard = data.cards.find((c: any) => c.isDefault)
+						if (defaultCard) {
+							setSelectedCardId(defaultCard.cardId)
+						} else if (data.cards.length > 0) {
+							setSelectedCardId(data.cards[0].cardId)
+						}
+					}
+				})
+				.finally(() => setLoadingCards(false))
+		} else if (cardAdded === 'fail') {
+			toast.error('Не удалось привязать карту. Попробуйте еще раз.')
+			window.history.replaceState({}, '', window.location.pathname)
+		}
+	}, [token])
+
 	// Телефон будет вводиться пользователем вручную
 
 	// Функция для ручной проверки платежа
@@ -1007,19 +1126,28 @@ export default function ProfilePageContent() {
 			return
 		}
 
-		// Проверяем способ выплаты
-		if (!withdrawPhone.trim()) {
-			setWithdrawError('Укажите номер телефона для выплаты через СБП')
-			return
-		}
+		// Валидация в зависимости от способа вывода
+		if (withdrawMethod === 'sbp') {
+			if (!withdrawPhone.trim()) {
+				setWithdrawError('Укажите номер телефона для выплаты через СБП')
+				return
+			}
 
-		// Проверяем формат телефона используя функцию getPhoneDigits
-		const phoneDigits = getPhoneDigits(withdrawPhone)
-		if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
-			setWithdrawError(
-				'Номер телефона должен быть в формате +7 (XXX) XXX-XX-XX'
-			)
-			return
+			const phoneDigits = getPhoneDigits(withdrawPhone)
+			if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
+				setWithdrawError('Номер телефона должен быть в формате +7 (XXX) XXX-XX-XX')
+				return
+			}
+
+			if (!selectedBankId) {
+				setWithdrawError('Выберите банк для вывода')
+				return
+			}
+		} else if (withdrawMethod === 'saved-card') {
+			if (!selectedCardId) {
+				setWithdrawError('Выберите карту для вывода')
+				return
+			}
 		}
 
 		setWithdrawError(null)
@@ -1031,24 +1159,12 @@ export default function ProfilePageContent() {
 				amount,
 			}
 
-			// Получаем только цифры из отформатированного телефона
-			const phoneDigitsForRequest = getPhoneDigits(withdrawPhone)
-			
-			// Проверяем, что номер полный (11 цифр: 7 + 10)
-			if (phoneDigitsForRequest.length !== 11 || !phoneDigitsForRequest.startsWith('7')) {
-				setWithdrawError('Введите полный номер телефона в формате +7 (XXX) XXX-XX-XX')
-				setWithdrawLoading(false)
-				return
-			}
-
-			withdrawalData.phone = phoneDigitsForRequest
-			// Используем выбранный банк из списка
-			if (selectedBankId) {
+			if (withdrawMethod === 'sbp') {
+				const phoneDigitsForRequest = getPhoneDigits(withdrawPhone)
+				withdrawalData.phone = phoneDigitsForRequest
 				withdrawalData.sbpMemberId = selectedBankId
-			} else {
-				toast.error('Выберите банк для вывода средств')
-				setWithdrawLoading(false)
-				return
+			} else if (withdrawMethod === 'saved-card') {
+				withdrawalData.cardId = selectedCardId
 			}
 
 			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
@@ -2097,8 +2213,54 @@ export default function ProfilePageContent() {
 									))}
 								</div>
 
+								{/* Выбор способа вывода */}
+								<div className='mb-4'>
+									<label className='block text-sm text-red-300 mb-2 font-semibold'>
+										Способ вывода
+									</label>
+									<div className='grid grid-cols-2 gap-2'>
+										<button
+											type='button'
+											onClick={() => {
+												setWithdrawMethod('sbp')
+												setWithdrawError(null)
+											}}
+											disabled={withdrawLoading}
+											className={`py-3 px-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+												withdrawMethod === 'sbp'
+													? 'bg-red-500/30 text-white border-2 border-red-400'
+													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 border border-red-500/30'
+											} disabled:opacity-50`}
+										>
+											<span>📱</span>
+											СБП
+										</button>
+										<button
+											type='button'
+											onClick={() => {
+												setWithdrawMethod('saved-card')
+												setWithdrawError(null)
+											}}
+											disabled={withdrawLoading}
+											className={`py-3 px-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+												withdrawMethod === 'saved-card'
+													? 'bg-red-500/30 text-white border-2 border-red-400'
+													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 border border-red-500/30'
+											} disabled:opacity-50`}
+										>
+											<FaCreditCard />
+											На карту
+											{savedCards.length > 0 && (
+												<span className='bg-red-500/50 px-1.5 rounded text-xs'>
+													{savedCards.length}
+												</span>
+											)}
+										</button>
+									</div>
+								</div>
+
 								{/* Поля для СБП */}
-								{(
+								{withdrawMethod === 'sbp' && (
 									<>
 										{/* Выбор банка */}
 										<div className='mb-4'>
@@ -2272,6 +2434,97 @@ export default function ProfilePageContent() {
 											</p>
 										</div>
 									</>
+								)}
+
+								{/* Форма для карт */}
+								{withdrawMethod === 'saved-card' && (
+									<div className='mb-4'>
+										{loadingCards ? (
+											<div className='text-center py-6 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 border border-red-500/30 rounded-xl'>
+												<span className='w-6 h-6 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin inline-block mb-2' />
+												<p className='text-sm text-red-300/80 mt-2'>Загрузка карт...</p>
+											</div>
+										) : savedCards.length > 0 ? (
+											<>
+												<label className='block text-sm text-red-300 mb-2 font-semibold'>
+													Выберите карту
+												</label>
+												<div className='space-y-2'>
+													{savedCards.map(card => (
+														<div
+															key={card.cardId}
+															onClick={() => {
+																setSelectedCardId(card.cardId)
+																setWithdrawError(null)
+															}}
+															className={`p-3 rounded-xl cursor-pointer transition-all flex items-center justify-between ${
+																selectedCardId === card.cardId
+																	? 'bg-red-500/30 border-2 border-red-400'
+																	: 'bg-black/60 border border-red-500/30 hover:border-red-400/50'
+															}`}
+														>
+															<div className='flex items-center gap-3'>
+																<FaCreditCard className='text-red-400 text-xl' />
+																<div>
+																	<p className='text-white font-medium'>
+																		{card.pan}
+																	</p>
+																	<p className='text-xs text-gray-400'>
+																		{card.expDate?.slice(0, 2)}/{card.expDate?.slice(2)}
+																		{card.isDefault && (
+																			<span className='ml-2 text-red-400'>• Основная</span>
+																		)}
+																	</p>
+																</div>
+															</div>
+															<button
+																type='button'
+																onClick={(e) => {
+																	e.stopPropagation()
+																	handleDeleteCard(card.cardId)
+																}}
+																className='text-gray-500 hover:text-red-400 transition-colors p-1'
+																title='Удалить карту'
+															>
+																<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+																	<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+																</svg>
+															</button>
+														</div>
+													))}
+												</div>
+											</>
+										) : (
+											<div className='text-center py-6 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 border border-red-500/30 rounded-xl'>
+												<FaCreditCard className='text-3xl text-gray-500 mx-auto mb-2' />
+												<p className='text-sm text-gray-400'>Нет привязанных карт</p>
+											</div>
+										)}
+										
+										{/* Кнопка привязки новой карты */}
+										<button
+											type='button'
+											onClick={handleAddCard}
+											disabled={addingCard || withdrawLoading}
+											className='w-full mt-3 py-3 px-4 rounded-xl text-sm font-semibold transition-all bg-black/60 text-red-400 hover:bg-red-500/20 border border-red-500/30 hover:border-red-400 flex items-center justify-center gap-2 disabled:opacity-50'
+										>
+											{addingCard ? (
+												<>
+													<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
+													Открываем форму...
+												</>
+											) : (
+												<>
+													<span>+</span>
+													Привязать новую карту
+												</>
+											)}
+										</button>
+										<p className='text-xs text-red-300/60 mt-2 flex items-center gap-1'>
+											<span>💡</span>
+											<span>Привязав карту, вы сможете выводить средства мгновенно</span>
+										</p>
+									</div>
 								)}
 
 								{/* Поле ввода суммы */}
