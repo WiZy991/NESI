@@ -59,6 +59,23 @@ export function generateTBankToken(
 		.filter(v => v !== '')
 		.join('')
 
+	// Диагностика для AddCard (чтобы увидеть, что конкатенируется)
+	if (paramsWithPassword.CustomerKey && paramsWithPassword.CheckType) {
+		console.log('🔐 [GENERATE-TOKEN] Детали генерации токена для AddCard:', {
+			sortedKeys,
+			values: sortedKeys.map(key => ({
+				key,
+				value: paramsWithPassword[key],
+				stringValue: String(paramsWithPassword[key] || ''),
+			})),
+			concatenatedLength: concatenated.length,
+			concatenatedPreview: concatenated.substring(0, 100) + '...',
+			fullConcatenated: concatenated,
+			hasPassword: !!password,
+			passwordLength: password?.length,
+		})
+	}
+
 	// 5. Вычисляем SHA-256
 	const token = crypto.createHash('sha256').update(concatenated).digest('hex')
 

@@ -146,14 +146,21 @@ export async function POST(req: NextRequest) {
 				message: addCardResult.Message,
 			})
 			
-			// Специальная обработка ошибки 204 - проблема с терминалом
+			// Специальная обработка ошибки 204 - неверный токен (неправильный пароль)
 			if (addCardResult.ErrorCode === '204') {
+				console.error('❌ [ADD-CARD] Ошибка 204 - неверный токен:', {
+					terminalKey: TBANK_CONFIG.TERMINAL_KEY,
+					hasPassword: !!TBANK_CONFIG.TERMINAL_PASSWORD,
+					passwordLength: TBANK_CONFIG.TERMINAL_PASSWORD?.length,
+					message: 'Проверьте, что TBANK_TERMINAL_PASSWORD соответствует основному терминалу (не E2C)',
+				})
+				
 				return NextResponse.json(
 					{ 
-						error: 'Привязка карт временно недоступна',
-						details: 'Терминал не настроен для привязки карт. Обратитесь в поддержку.',
+						error: 'Ошибка привязки карты: неверный токен',
+						details: 'Проверьте настройки терминала. Убедитесь, что TBANK_TERMINAL_PASSWORD соответствует основному терминалу (не E2C терминалу).',
 					},
-					{ status: 503 }
+					{ status: 400 }
 				)
 			}
 			
