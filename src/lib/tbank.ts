@@ -557,14 +557,27 @@ export async function createWithdrawal(
 		},
 	})
 
-	try {
-		requestBody.Token = generateToken(requestBody, e2cPassword)
-	} catch (error: any) {
-		throw new Error(
-			`Ошибка генерации токена: ${
-				error.message || 'Проверьте настройки TBANK_E2C_TERMINAL_PASSWORD'
-			}`
-		)
+	// ВАЖНО: Когда используется CardData, Token НЕ передается
+	// CardData используется для подписи по сертификату (RSA), а не через Token
+	// Token используется только для CardId (когда данные хранятся на стороне банка)
+	if (requestBody.CardData) {
+		console.log('🔐 [TBANK] CardData используется - Token НЕ передается (используется подпись по сертификату RSA):', {
+			hasCardData: !!requestBody.CardData,
+			hasCustomerKey: !!requestBody.CustomerKey,
+			note: 'CardData требует подписи по сертификату RSA, а не Token',
+		})
+		// Не генерируем и не передаем Token при использовании CardData
+	} else {
+		// Генерируем Token только если НЕ используется CardData
+		try {
+			requestBody.Token = generateToken(requestBody, e2cPassword)
+		} catch (error: any) {
+			throw new Error(
+				`Ошибка генерации токена: ${
+					error.message || 'Проверьте настройки TBANK_E2C_TERMINAL_PASSWORD'
+				}`
+			)
+		}
 	}
 
 	// ВАЖНО: NotificationURL НЕ передается в запросах на выплату
@@ -574,7 +587,11 @@ export async function createWithdrawal(
 		requestBody: JSON.stringify(requestBody, null, 2),
 		dealId: params.dealId,
 		finalPayout: params.finalPayout,
-		note: 'FinalPayout должен быть вне блока DATA (на верхнем уровне)',
+		hasToken: !!requestBody.Token,
+		hasCardData: !!requestBody.CardData,
+		note: requestBody.CardData 
+			? 'CardData используется - Token НЕ передается (подпись по сертификату RSA)'
+			: 'FinalPayout должен быть вне блока DATA (на верхнем уровне)',
 	})
 
 	let response: Response
