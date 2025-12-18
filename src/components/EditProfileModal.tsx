@@ -645,6 +645,13 @@ export default function EditProfileModal({
 	const [kpp, setKpp] = useState('')
 	const [ogrn, setOgrn] = useState('')
 	const [legalAddress, setLegalAddress] = useState('')
+	
+	// Поиск по ИНН
+	const [innLoading, setInnLoading] = useState(false)
+	const [innError, setInnError] = useState<string | null>(null)
+	const [innFound, setInnFound] = useState<boolean | null>(null)
+	const innSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+	
 	const locationInputRef = useRef<HTMLInputElement>(null)
 	const cityDropdownRef = useRef<HTMLDivElement>(null)
 	const citySearchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -682,6 +689,95 @@ export default function EditProfileModal({
 		setLocation(city)
 		setShowCityDropdown(false)
 		setValidationErrors(prev => ({ ...prev, location: '' }))
+	}, [])
+
+	// Поиск организации по ИНН
+	const lookupInn = useCallback(async (innValue: string) => {
+		// Проверяем длину ИНН: 10 для юр.лиц, 12 для ИП
+		const expectedLength = user?.accountType === 'COMPANY' ? 10 : 12
+		if (innValue.length !== expectedLength) {
+			setInnFound(null)
+			setInnError(null)
+			return
+		}
+
+		setInnLoading(true)
+		setInnError(null)
+		setInnFound(null)
+
+		try {
+			const res = await fetch(`/api/inn/lookup?inn=${innValue}`, {
+				headers: token ? { Authorization: `Bearer ${token}` } : {},
+			})
+			const data = await res.json()
+
+			if (!res.ok) {
+				setInnError(data.error || 'Ошибка проверки ИНН')
+				setInnFound(false)
+				return
+			}
+
+			if (data.found) {
+				setInnFound(true)
+				
+				// Автозаполнение полей
+				if (data.name) {
+					setCompanyName(data.name)
+				}
+				if (data.kpp) {
+					setKpp(data.kpp)
+				}
+				if (data.ogrn) {
+					setOgrn(data.ogrn)
+				}
+				if (data.address) {
+					setLegalAddress(data.address)
+				}
+
+				// Проверяем активность
+				if (!data.isActive) {
+					setInnError(`⚠️ Организация ${data.status === 'LIQUIDATED' ? 'ликвидирована' : 'в процессе ликвидации/реорганизации'}`)
+				}
+			} else {
+				setInnFound(false)
+				setInnError(data.message || 'Организация не найдена')
+			}
+		} catch (error) {
+			setInnError('Ошибка при проверке ИНН')
+			setInnFound(false)
+		} finally {
+			setInnLoading(false)
+		}
+	}, [user?.accountType, token])
+
+	// Обработчик изменения ИНН с debounce
+	const handleInnChange = useCallback((value: string) => {
+		const cleanValue = value.replace(/\D/g, '').slice(0, user?.accountType === 'COMPANY' ? 10 : 12)
+		setInn(cleanValue)
+		setInnFound(null)
+		setInnError(null)
+
+		// Отменяем предыдущий таймер
+		if (innSearchTimeoutRef.current) {
+			clearTimeout(innSearchTimeoutRef.current)
+		}
+
+		// Запускаем поиск с задержкой 500мс
+		const expectedLength = user?.accountType === 'COMPANY' ? 10 : 12
+		if (cleanValue.length === expectedLength) {
+			innSearchTimeoutRef.current = setTimeout(() => {
+				lookupInn(cleanValue)
+			}, 500)
+		}
+	}, [user?.accountType, lookupInn])
+
+	// Очистка таймера при размонтировании
+	useEffect(() => {
+		return () => {
+			if (innSearchTimeoutRef.current) {
+				clearTimeout(innSearchTimeoutRef.current)
+			}
+		}
 	}, [])
 
 	// Валидация в реальном времени
@@ -1099,24 +1195,49 @@ export default function EditProfileModal({
 								</div>
 							)}
 
-							{/* ИНН */}
+							{/* ИНН с автозаполнением */}
 							<div className='space-y-1.5'>
 								<label className='flex items-center gap-1.5 text-emerald-400 font-medium text-xs sm:text-sm'>
 									<FaIdCard className='text-xs sm:text-sm' /> ИНН
 									<span className='text-gray-500 text-xs ml-1.5 font-normal'>
 										({user.accountType === 'COMPANY' ? '10 цифр' : '12 цифр'})
 									</span>
+									{innLoading && (
+										<span className='ml-auto flex items-center gap-1 text-xs text-gray-400'>
+											<span className='w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin' />
+											Проверка...
+										</span>
+									)}
+									{innFound === true && !innLoading && (
+										<span className='ml-auto text-xs text-emerald-400'>✓ Найдено</span>
+									)}
 								</label>
-								<input
-									type='text'
-									value={inn}
-									onChange={e => {
-										const value = e.target.value.replace(/\D/g, '').slice(0, user.accountType === 'COMPANY' ? 10 : 12)
-										setInn(value)
-									}}
-									className='w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border border-emerald-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 transition'
-									placeholder={user.accountType === 'COMPANY' ? '1234567890' : '123456789012'}
-								/>
+								<div className='relative'>
+									<input
+										type='text'
+										value={inn}
+										onChange={e => handleInnChange(e.target.value)}
+										className={`w-full px-3 sm:px-4 py-2 text-sm sm:text-base bg-black/40 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition ${
+											innFound === true 
+												? 'border-emerald-500 focus:border-emerald-400 focus:ring-emerald-400/30' 
+												: innError 
+													? 'border-amber-500/50 focus:border-amber-400 focus:ring-amber-400/30'
+													: 'border-emerald-500/30 focus:border-emerald-400 focus:ring-emerald-400/30'
+										}`}
+										placeholder={user.accountType === 'COMPANY' ? '1234567890' : '123456789012'}
+									/>
+								</div>
+								{innError && (
+									<p className='text-xs text-amber-400 mt-1'>{innError}</p>
+								)}
+								{innFound === true && companyName && (
+									<p className='text-xs text-emerald-400/80 mt-1'>
+										{companyName}
+									</p>
+								)}
+								<p className='text-xs text-gray-500 mt-1'>
+									💡 Введите ИНН — данные организации заполнятся автоматически
+								</p>
 							</div>
 
 							{/* КПП - только для ООО */}

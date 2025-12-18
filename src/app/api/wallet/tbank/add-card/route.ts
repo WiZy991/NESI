@@ -12,10 +12,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
-import { TBankPayoutClient } from '@/lib/tbank/client'
+import { TBankClient } from '@/lib/tbank/client'
 import { logger } from '@/lib/logger'
 import prisma from '@/lib/prisma'
-import { TBANK_CONFIG } from '@/lib/tbank/config'
 
 /**
  * POST /api/wallet/tbank/add-card
@@ -40,7 +39,9 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 		}
 
-		const client = new TBankPayoutClient()
+		// ВАЖНО: Используем основной клиент (TBankClient), а не E2C клиент (TBankPayoutClient)
+		// AddCard и AddCustomer - это методы интернет-эквайринга, не E2C
+		const client = new TBankClient()
 
 		// CustomerKey - уникальный идентификатор клиента в нашей системе
 		// Используем id пользователя

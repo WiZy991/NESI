@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
-import { TBankPayoutClient } from '@/lib/tbank/client'
+import { TBankClient } from '@/lib/tbank/client'
 import { logger } from '@/lib/logger'
 import prisma from '@/lib/prisma'
 
@@ -98,7 +98,8 @@ export async function DELETE(req: NextRequest) {
 		}
 
 		// Удаляем карту из T-Bank
-		const client = new TBankPayoutClient()
+		// ВАЖНО: Используем основной клиент (TBankClient), а не E2C
+		const client = new TBankClient()
 		
 		try {
 			const removeResult = await client.removeCard(user.id, cardId)
