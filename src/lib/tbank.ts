@@ -87,6 +87,15 @@ export function generateToken(
 			if (key === 'DigestValue' || key === 'SignatureValue' || key === 'X509SerialNumber') {
 				return false
 			}
+			
+			// ВАЖНО: CardData и CustomerKey НЕ участвуют в расчете Token
+			// CardData используется для подписи по сертификату (RSA), а не через Token
+			// Token используется только для CardId (когда данные хранятся на стороне банка)
+			// Согласно документации: "CardData для выплаты по зашифрованным данным карты"
+			// "Token используется для CardId, когда данные хранятся на стороне банка"
+			if (key === 'CardData' || key === 'CustomerKey') {
+				return false
+			}
 
 			const value = paramsWithPassword[key]
 			// Игнорируем пустые значения
@@ -133,8 +142,18 @@ export function generateToken(
 	// Диагностика для E2C (выплаты)
 	if (params.TerminalKey && String(params.TerminalKey).includes('E2C')) {
 		const finalPayoutValue = paramsWithPassword.FinalPayout
+		const hasCardData = !!params.CardData
+		const hasCardId = !!params.CardId
 		console.log('🔐 [GENERATE-TOKEN] Параметры для подписи E2C:', {
 			sortedKeys,
+			hasCardData,
+			hasCardId,
+			excludedFromToken: hasCardData ? ['CardData', 'CustomerKey'] : [],
+			note: hasCardData 
+				? 'CardData и CustomerKey исключены из расчета Token (используется подпись по сертификату RSA)'
+				: hasCardId
+					? 'CardId участвует в расчете Token (данные хранятся на стороне банка)'
+					: 'Используется Token для подписи запроса',
 			finalPayout: {
 				value: finalPayoutValue,
 				typeof: typeof finalPayoutValue,
@@ -478,6 +497,7 @@ export async function createWithdrawal(
 		console.log('💳 [TBANK] Используются данные карты:', {
 			hasCardData: !!params.cardData,
 			hasCustomerKey: !!params.customerKey,
+			note: 'CardData и CustomerKey НЕ участвуют в расчете Token (используется подпись по сертификату RSA)',
 		})
 	}
 
@@ -516,6 +536,14 @@ export async function createWithdrawal(
 		hasE2cPassword: !!e2cPassword,
 		e2cPasswordLength: e2cPassword?.length,
 		parametersForSignature: Object.keys(requestBody).sort(),
+		hasCardData: !!requestBody.CardData,
+		hasCardId: !!requestBody.CardId,
+		hasCustomerKey: !!requestBody.CustomerKey,
+		note: requestBody.CardData 
+			? 'CardData НЕ участвует в расчете Token (используется подпись по сертификату RSA)'
+			: requestBody.CardId 
+				? 'CardId участвует в расчете Token (данные хранятся на стороне банка)'
+				: 'Используется Token для подписи запроса',
 		finalPayout: {
 			value: requestBody.FinalPayout,
 			typeof: typeof requestBody.FinalPayout,
