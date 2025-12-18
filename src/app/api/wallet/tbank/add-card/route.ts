@@ -15,6 +15,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import { TBankClient } from '@/lib/tbank/client'
 import { logger } from '@/lib/logger'
 import prisma from '@/lib/prisma'
+import { TBANK_CONFIG } from '@/lib/tbank/config'
 
 /**
  * POST /api/wallet/tbank/add-card
@@ -24,10 +25,27 @@ import prisma from '@/lib/prisma'
  */
 export async function POST(req: NextRequest) {
 	try {
+		// Проверяем конфигурацию терминала
+		if (!TBANK_CONFIG.TERMINAL_KEY || !TBANK_CONFIG.TERMINAL_PASSWORD) {
+			logger.error('TBank terminal not configured for AddCard', undefined, {
+				hasTerminalKey: !!TBANK_CONFIG.TERMINAL_KEY,
+				hasTerminalPassword: !!TBANK_CONFIG.TERMINAL_PASSWORD,
+			})
+			return NextResponse.json(
+				{ error: 'Сервис привязки карт временно недоступен. Терминал не настроен.' },
+				{ status: 503 }
+			)
+		}
+
 		const user = await getUserFromRequest(req)
 		if (!user) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
+
+		console.log('🔗 [ADD-CARD] Начало привязки карты:', {
+			userId: user.id,
+			terminalKey: TBANK_CONFIG.TERMINAL_KEY?.slice(0, 8) + '...',
+		})
 
 		// Получаем данные пользователя (email, phone для AddCustomer)
 		const userData = await prisma.user.findUnique({
@@ -82,11 +100,20 @@ export async function POST(req: NextRequest) {
 			customerKey 
 		})
 
+		// Пробуем сначала без проверки (NO), если терминал не поддерживает 3DS
+		// NO - без проверок, HOLD - списание 0 руб, 3DS - проверка 3DS
 		const addCardResult = await client.addCard({
 			customerKey,
-			checkType: '3DS', // Проверка 3DS - получаем RebillID для выплат
+			checkType: 'NO', // Без проверки - работает на большинстве терминалов
 			successURL: `${appUrl}/profile?cardAdded=success`,
 			failURL: `${appUrl}/profile?cardAdded=fail`,
+		})
+		
+		console.log('📥 [ADD-CARD] Результат AddCard:', {
+			success: addCardResult.Success,
+			errorCode: addCardResult.ErrorCode,
+			message: addCardResult.Message,
+			hasPaymentURL: !!addCardResult.PaymentURL,
 		})
 
 		if (!addCardResult.Success) {
@@ -125,11 +152,25 @@ export async function POST(req: NextRequest) {
 		})
 
 	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error)
+		const errorStack = error instanceof Error ? error.stack : undefined
+		
 		logger.error('Add card error', error instanceof Error ? error : undefined, {
-			errorMessage: error instanceof Error ? error.message : String(error),
+			errorMessage,
+			errorStack,
 		})
+		
+		console.error('❌ [ADD-CARD] Ошибка:', {
+			message: errorMessage,
+			stack: errorStack,
+		})
+		
+		// Возвращаем более информативную ошибку
 		return NextResponse.json(
-			{ error: 'Ошибка при привязке карты' },
+			{ 
+				error: 'Ошибка при привязке карты',
+				details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+			},
 			{ status: 500 }
 		)
 	}

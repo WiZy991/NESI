@@ -1,5 +1,6 @@
 'use client'
 
+import AccountTypeBadge from '@/components/AccountTypeBadge'
 import BadgeIcon from '@/components/BadgeIcon'
 import BadgesModal from '@/components/BadgesModal'
 import EditProfileModal from '@/components/EditProfileModal'
@@ -77,6 +78,13 @@ type FullUser = {
 	xpComputed?: number
 	completedTasksCount?: number
 	avgRating?: number
+	// B2B/B2C
+	accountType?: 'INDIVIDUAL' | 'SELF_EMPLOYED' | 'SOLE_PROPRIETOR' | 'COMPANY'
+	companyName?: string
+	inn?: string
+	kpp?: string
+	ogrn?: string
+	legalAddress?: string
 	level?: {
 		id: string
 		name: string
@@ -1328,7 +1336,16 @@ export default function ProfilePageContent() {
 										{userLevel > 0 && (
 											<LevelBadge level={userLevel} size='md' />
 										)}
+										{profile.accountType && profile.accountType !== 'INDIVIDUAL' && (
+											<AccountTypeBadge accountType={profile.accountType} />
+										)}
 									</div>
+									{/* Название компании для ООО/ИП */}
+									{profile.companyName && profile.accountType !== 'INDIVIDUAL' && (
+										<p className='text-sm text-emerald-400/80 mb-1'>
+											{profile.companyName}
+										</p>
+									)}
 									<p className='text-gray-400 text-sm truncate'>
 										{profile.email}
 									</p>
