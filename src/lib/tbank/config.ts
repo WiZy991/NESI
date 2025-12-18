@@ -9,17 +9,33 @@ export const TBANK_CONFIG = {
 	TEST_URL: 'https://rest-api-test.tinkoff.ru',
 
 	// Получаем из переменных окружения
-	// ВАЖНО: Декодируем пароли, если они URL-кодированы (например, % может быть %25)
+	// ВАЖНО: Безопасно декодируем пароли, если они URL-кодированы
+	// Если декодирование не удается (например, % - это часть пароля, а не кодирование), используем исходное значение
 	TERMINAL_KEY: process.env.TBANK_TERMINAL_KEY || '',
-	TERMINAL_PASSWORD: process.env.TBANK_TERMINAL_PASSWORD 
-		? decodeURIComponent(process.env.TBANK_TERMINAL_PASSWORD) 
-		: '',
+	TERMINAL_PASSWORD: (() => {
+		const password = process.env.TBANK_TERMINAL_PASSWORD || ''
+		if (!password) return ''
+		try {
+			return decodeURIComponent(password)
+		} catch {
+			// Если декодирование не удалось, используем исходное значение
+			// (возможно, % - это часть пароля, а не URL-кодирование)
+			return password
+		}
+	})(),
 
 	// E2C терминал для выплат
 	E2C_TERMINAL_KEY: process.env.TBANK_E2C_TERMINAL_KEY || '',
-	E2C_TERMINAL_PASSWORD: process.env.TBANK_E2C_TERMINAL_PASSWORD 
-		? decodeURIComponent(process.env.TBANK_E2C_TERMINAL_PASSWORD) 
-		: '',
+	E2C_TERMINAL_PASSWORD: (() => {
+		const password = process.env.TBANK_E2C_TERMINAL_PASSWORD || ''
+		if (!password) return ''
+		try {
+			return decodeURIComponent(password)
+		} catch {
+			// Если декодирование не удалось, используем исходное значение
+			return password
+		}
+	})(),
 
 	// Режим (test или prod)
 	IS_PRODUCTION: process.env.TBANK_MODE === 'production',
