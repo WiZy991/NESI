@@ -47,10 +47,11 @@ export async function POST(req: NextRequest) {
 			terminalKey: TBANK_CONFIG.TERMINAL_KEY?.slice(0, 8) + '...',
 		})
 
-		// Получаем данные пользователя (email, phone для AddCustomer)
+		// Получаем данные пользователя (email для AddCustomer)
+		// Поле phone не существует в модели User
 		const userData = await prisma.user.findUnique({
 			where: { id: user.id },
-			select: { email: true, phone: true },
+			select: { email: true },
 		})
 
 		if (!userData) {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
 		const addCustomerResult = await client.addCustomer(
 			customerKey,
 			userData.email || undefined,
-			userData.phone || undefined
+			undefined // phone не используется
 		)
 
 		// ErrorCode "0" - успех, "99" - клиент уже существует (это тоже ОК)
