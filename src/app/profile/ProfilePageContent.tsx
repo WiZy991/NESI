@@ -1159,6 +1159,7 @@ export default function ProfilePageContent() {
 		} else if (withdrawMethod === 'new-card') {
 			const pan = cardNumber.replace(/\D/g, '')
 			const expDate = cardExpDate.replace(/\D/g, '')
+			const cvv = cardCvv.replace(/\D/g, '')
 			
 			if (pan.length < 16) {
 				setWithdrawError('Введите полный номер карты (16 цифр)')
@@ -1179,6 +1180,14 @@ export default function ProfilePageContent() {
 			}
 			if (month < 1 || month > 12) {
 				setWithdrawError('Некорректный месяц в сроке действия')
+				return
+			}
+			if (cvv.length !== 3) {
+				setWithdrawError('Введите CVV код (3 цифры)')
+				return
+			}
+			if (!cardHolder.trim()) {
+				setWithdrawError('Введите имя и фамилию держателя карты')
 				return
 			}
 		}
@@ -1202,8 +1211,8 @@ export default function ProfilePageContent() {
 				// Отправляем данные карты для выплаты (в формате, ожидаемом API)
 				withdrawalData.cardNumber = cardNumber.replace(/\D/g, '')
 				withdrawalData.cardExpiry = cardExpDate // MM/YY формат
-				withdrawalData.cardHolderName = cardHolder.trim().toUpperCase() || 'CARDHOLDER'
-				withdrawalData.cardCvv = '' // CVV не требуется для выплат
+				withdrawalData.cardHolderName = cardHolder.trim().toUpperCase()
+				withdrawalData.cardCvv = cardCvv.replace(/\D/g, '') // CVV код
 			}
 
 			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
@@ -2485,6 +2494,7 @@ export default function ProfilePageContent() {
 										
 										{/* Номер карты */}
 										<div className='relative'>
+											<label className='block text-xs text-gray-400 mb-1'>Номер карты</label>
 											<input
 												type='text'
 												inputMode='numeric'
@@ -2495,12 +2505,13 @@ export default function ProfilePageContent() {
 												disabled={withdrawLoading}
 												className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all font-mono text-lg tracking-widest placeholder:tracking-normal placeholder:font-sans'
 											/>
-											<FaCreditCard className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400/50' />
+											<FaCreditCard className='absolute right-4 top-9 text-red-400/50' />
 										</div>
 										
-										{/* Срок действия и CVV (не обязателен для выплат) */}
+										{/* Срок действия и CVV */}
 										<div className='grid grid-cols-2 gap-3'>
 											<div>
+												<label className='block text-xs text-gray-400 mb-1'>Срок действия</label>
 												<input
 													type='text'
 													inputMode='numeric'
@@ -2512,17 +2523,33 @@ export default function ProfilePageContent() {
 													className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all font-mono text-center'
 												/>
 											</div>
-											<div className='relative'>
+											<div>
+												<label className='block text-xs text-gray-400 mb-1'>CVV</label>
 												<input
-													type='text'
-													value={cardHolder}
-													onChange={e => setCardHolder(e.target.value.toUpperCase())}
-													placeholder='IVAN IVANOV'
-													maxLength={50}
+													type='password'
+													inputMode='numeric'
+													value={cardCvv}
+													onChange={e => setCardCvv(formatCardCvv(e.target.value))}
+													placeholder='123'
+													maxLength={3}
 													disabled={withdrawLoading}
-													className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-sm uppercase placeholder:normal-case'
+													className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all font-mono text-center'
 												/>
 											</div>
+										</div>
+										
+										{/* Имя и фамилия держателя карты */}
+										<div>
+											<label className='block text-xs text-gray-400 mb-1'>Имя и фамилия держателя карты</label>
+											<input
+												type='text'
+												value={cardHolder}
+												onChange={e => setCardHolder(e.target.value.toUpperCase())}
+												placeholder='IVAN IVANOV'
+												maxLength={50}
+												disabled={withdrawLoading}
+												className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-sm uppercase placeholder:normal-case'
+											/>
 										</div>
 										
 										<p className='text-xs text-red-300/60 flex items-center gap-1'>

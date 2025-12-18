@@ -109,7 +109,7 @@ export default function SettingsPage() {
     if (!token) return
     ;(async () => {
       try {
-        const res = await fetch('/api/profile', {
+        const res = await fetch('/api/settings', {
           headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()

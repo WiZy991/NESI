@@ -383,7 +383,8 @@ export interface CreateWithdrawalParams {
 	dealId: string // ID сделки (ОБЯЗАТЕЛЕН для мультирасчетов)
 	paymentRecipientId: string // Телефон получателя в формате "+79606747611"
 	cardId?: string // ID привязанной карты (если есть)
-	cardData?: string // Данные карты в формате "PAN=...;ExpDate=...;CardHolder=...;CVV=..." (будет зашифрован через RSA)
+	cardData?: string // Данные карты в формате "PAN=...;ExpDate=...;CardHolder=..."
+	customerKey?: string // CustomerKey для привязки карты при использовании CardData
 	phone?: string // Телефон для выплаты по СБП
 	sbpMemberId?: string // ID банка для СБП
 	finalPayout?: boolean // Финальная выплата (закрывает сделку)
@@ -470,8 +471,13 @@ export async function createWithdrawal(
 	} else if (params.cardData) {
 		// CardData передаётся напрямую в формате "PAN=...;ExpDate=...;CardHolder=..."
 		requestBody.CardData = params.cardData
+		// CustomerKey нужен для привязки карты при использовании CardData
+		if (params.customerKey) {
+			requestBody.CustomerKey = params.customerKey
+		}
 		console.log('💳 [TBANK] Используются данные карты:', {
 			hasCardData: !!params.cardData,
+			hasCustomerKey: !!params.customerKey,
 		})
 	}
 

@@ -594,19 +594,29 @@ export async function POST(req: NextRequest) {
 			if (hasCardData && !hasCardId) {
 				// Для выплаты на карту через CardData нужны данные карты
 				// Согласно документации E2C: CardData в формате "ключ=значение" (разделитель ";")
-				// Пример: PAN=4300000000000777;ExpDate=0523;CardHolder=IVAN PETROV
+				// Пример: PAN=4300000000000777;ExpDate=0523;CardHolder=IVAN PETROV;CVV=123
 				const cleanCardNumber = cardNumber.replace(/\D/g, '')
 				const [expMonth, expYear] = cardExpiry.split('/')
 				const expDate = expYear ? `${expMonth}${expYear}` : expMonth // MMYY
+				const cleanCvv = cardCvv ? cardCvv.replace(/\D/g, '') : ''
 				
-				// Формат CardData: "PAN=...;ExpDate=...;CardHolder=..."
-				cardDataString = `PAN=${cleanCardNumber};ExpDate=${expDate};CardHolder=${cardHolderName || 'CARDHOLDER'}`
+				// Формат CardData: "PAN=...;ExpDate=...;CardHolder=...;CVV=..."
+				const cardDataParts = [
+					`PAN=${cleanCardNumber}`,
+					`ExpDate=${expDate}`,
+					`CardHolder=${cardHolderName || 'CARDHOLDER'}`,
+				]
+				if (cleanCvv) {
+					cardDataParts.push(`CVV=${cleanCvv}`)
+				}
+				cardDataString = cardDataParts.join(';')
 				
 				console.log('💳 [CREATE-WITHDRAWAL] Сформированы данные карты:', {
 					cardNumberLength: cleanCardNumber.length,
 					hasExpiry: !!cardExpiry,
 					hasHolderName: !!cardHolderName,
-					format: 'PAN=...;ExpDate=...;CardHolder=...',
+					hasCvv: !!cleanCvv,
+					format: 'PAN=...;ExpDate=...;CardHolder=...;CVV=...',
 				})
 			}
 
@@ -618,7 +628,8 @@ export async function POST(req: NextRequest) {
 				// Передаем cardId только если он есть (привязанная карта)
 				...(finalCardId ? { cardId: finalCardId } : {}),
 				// Передаем cardData только если есть данные карты (незашифрованные данные)
-				...(cardDataString ? { cardData: cardDataString } : {}),
+				// CustomerKey нужен для привязки карты при использовании CardData
+				...(cardDataString ? { cardData: cardDataString, customerKey: user.id } : {}),
 				// Передаем phone и sbpMemberId только для СБП выплат
 				...(phoneForSbp && sbpMemberId
 					? { phone: phoneForSbp, sbpMemberId }
