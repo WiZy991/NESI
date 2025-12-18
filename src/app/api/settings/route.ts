@@ -42,6 +42,7 @@ export async function GET() {
     const defaults = buildDefaultSettings(userId)
 
     try {
+      // Получаем настройки пользователя
       let settings = await prisma.userSettings.findUnique({ where: { userId } })
       if (!settings) {
         settings = await prisma.userSettings.create({
@@ -49,9 +50,16 @@ export async function GET() {
         })
       }
 
+      // Получаем accountType из User
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { accountType: true },
+      })
+
       const normalized = {
         ...defaults,
         ...settings,
+        accountType: user?.accountType || 'INDIVIDUAL',
       }
 
       return NextResponse.json(normalized)
@@ -59,6 +67,7 @@ export async function GET() {
       console.warn('⚠️ Не удалось получить настройки из БД, возвращаем значения по умолчанию', dbError)
       return NextResponse.json({
         ...defaults,
+        accountType: 'INDIVIDUAL',
         warning: 'Настройки по умолчанию. Требуется обновить БД',
       })
     }

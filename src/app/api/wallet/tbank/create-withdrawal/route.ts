@@ -45,6 +45,17 @@ export async function POST(req: NextRequest) {
 
 		const { amount, cardId, phone, sbpMemberId, dealId, cardNumber, cardExpiry, cardCvv, cardHolderName, paymentRecipientId } = await req.json()
 
+		console.log('📋 [CREATE-WITHDRAWAL] Получены данные:', {
+			amount,
+			hasCardId: !!cardId,
+			hasCardNumber: !!cardNumber,
+			hasCardExpiry: !!cardExpiry,
+			hasCardHolderName: !!cardHolderName,
+			hasPhone: !!phone,
+			hasSbpMemberId: !!sbpMemberId,
+			withdrawMethod: cardId ? 'saved-card' : cardNumber ? 'new-card' : phone ? 'sbp' : 'unknown',
+		})
+
 		// Парсим и валидируем сумму
 		const parsedAmount = parseUserInput(amount)
 		if (!parsedAmount || !isPositiveAmount(parsedAmount)) {
@@ -133,11 +144,21 @@ export async function POST(req: NextRequest) {
 		console.log('✅ [WITHDRAWAL] Проверка пройдена, продолжаем вывод...')
 
 		// Проверяем наличие способа выплаты
-		// Для карты: cardId ИЛИ (cardNumber + cardExpiry + cardCvv + cardHolderName)
+		// Для карты: cardId ИЛИ (cardNumber + cardExpiry + cardHolderName)
+		// CVV не обязателен для выплат
 		// Для СБП: phone + sbpMemberId
 		const hasCardId = !!cardId
-		const hasCardData = !!(cardNumber && cardExpiry && cardCvv && cardHolderName)
+		const hasCardData = !!(cardNumber && cardExpiry && cardHolderName)
 		const hasSbpData = !!(phone && sbpMemberId)
+		
+		console.log('🔍 [CREATE-WITHDRAWAL] Проверка способа выплаты:', {
+			hasCardId,
+			hasCardData,
+			hasSbpData,
+			cardNumber: cardNumber ? `${cardNumber.slice(0, 4)}****` : null,
+			cardExpiry,
+			cardHolderName: cardHolderName ? '***' : null,
+		})
 		
 		if (!hasCardId && !hasCardData && !hasSbpData) {
 			return NextResponse.json(
@@ -153,6 +174,11 @@ export async function POST(req: NextRequest) {
 
 		// Создаем уникальный ID заказа
 		const orderId = `withdraw_${user.id}_${Date.now()}`
+
+		console.log('🔍 [CREATE-WITHDRAWAL] Начинаем поиск DealId...', {
+			userId: user.id,
+			dealIdFromRequest: dealId || 'не указан',
+		})
 
 		// Для выплат в рамках мультирасчетов DealId ОБЯЗАТЕЛЕН
 		// Ищем DealId из транзакций пополнения пользователя ИЛИ от заказчиков через задачи
