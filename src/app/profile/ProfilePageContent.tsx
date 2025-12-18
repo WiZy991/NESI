@@ -2495,9 +2495,40 @@ export default function ProfilePageContent() {
 								{/* Форма ввода данных новой карты */}
 								{withdrawMethod === 'new-card' && (
 									<div className='mb-4 space-y-3'>
-										<label className='block text-sm text-red-300 mb-2 font-semibold'>
-											Данные карты получателя
-										</label>
+										<div className='flex items-center justify-between mb-2'>
+											<label className='block text-sm text-red-300 font-semibold'>
+												Данные карты получателя
+											</label>
+											<button
+												type='button'
+												onClick={handleAddCard}
+												disabled={addingCard || withdrawLoading}
+												className='px-3 py-1.5 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed'
+											>
+												{addingCard ? (
+													<>
+														<span className='w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin' />
+														Привязка...
+													</>
+												) : (
+													<>
+														<FaCreditCard className='text-xs' />
+														Привязать карту
+													</>
+												)}
+											</button>
+										</div>
+										
+										{/* Информационное сообщение */}
+										<div className='bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-3'>
+											<p className='text-xs text-yellow-300/80 flex items-start gap-2'>
+												<span className='text-base mt-0.5'>💡</span>
+												<span>
+													<strong>Рекомендуется:</strong> Привяжите карту заранее, чтобы использовать её для быстрого вывода. 
+													Или используйте <strong>СБП</strong> для мгновенных выплат.
+												</span>
+											</p>
+										</div>
 										
 										{/* Номер карты */}
 										<div className='relative'>
