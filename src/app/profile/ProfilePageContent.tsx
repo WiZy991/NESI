@@ -832,7 +832,15 @@ export default function ProfilePageContent() {
 	const handleAddCard = async () => {
 		setAddingCard(true)
 		setWithdrawError(null)
+		
+		// Показываем уведомление о начале процесса
+		toast.info('Инициализация привязки карты...', {
+			duration: 2000,
+		})
+		
 		try {
+			console.log('🔗 [UI] Начало привязки карты...')
+			
 			const res = await fetch('/api/wallet/tbank/add-card', {
 				method: 'POST',
 				headers: {
@@ -840,15 +848,39 @@ export default function ProfilePageContent() {
 					Authorization: `Bearer ${token}`,
 				},
 			})
+			
 			const data = await res.json()
 			
+			console.log('🔗 [UI] Ответ от API привязки карты:', {
+				success: data.success,
+				hasPaymentURL: !!data.paymentURL,
+				error: data.error,
+			})
+			
 			if (data.success && data.paymentURL) {
-				window.location.href = data.paymentURL
+				toast.success('Перенаправление на страницу привязки карты...', {
+					duration: 2000,
+				})
+				
+				// Небольшая задержка для показа сообщения
+				setTimeout(() => {
+					window.location.href = data.paymentURL
+				}, 500)
 			} else {
-				setWithdrawError(data.error || 'Не удалось начать привязку карты')
+				const errorMessage = data.error || data.details || 'Не удалось начать привязку карты'
+				setWithdrawError(errorMessage)
+				toast.error(errorMessage, {
+					duration: 5000,
+				})
+				console.error('❌ [UI] Ошибка привязки карты:', errorMessage)
 			}
-		} catch (err) {
-			setWithdrawError('Ошибка при привязке карты')
+		} catch (err: any) {
+			const errorMessage = err?.message || 'Ошибка при привязке карты'
+			setWithdrawError(errorMessage)
+			toast.error(errorMessage, {
+				duration: 5000,
+			})
+			console.error('❌ [UI] Исключение при привязке карты:', err)
 		} finally {
 			setAddingCard(false)
 		}

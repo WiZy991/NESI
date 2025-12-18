@@ -79,8 +79,12 @@ export async function POST(req: NextRequest) {
 			undefined // phone не используется
 		)
 
-		// ErrorCode "0" - успех, "99" - клиент уже существует (это тоже ОК)
-		if (!addCustomerResult.Success && addCustomerResult.ErrorCode !== '99') {
+		// ErrorCode "0" - успех, "99" или "7" - клиент уже существует (это тоже ОК)
+		// Ошибка 7: "Неверный статус покупателя. Покупатель с таким ключом уже существует"
+		// Это означает, что покупатель уже создан, можно продолжать привязку карты
+		const isCustomerExists = addCustomerResult.ErrorCode === '99' || addCustomerResult.ErrorCode === '7'
+		
+		if (!addCustomerResult.Success && !isCustomerExists) {
 			logger.error('TBank AddCustomer failed', undefined, {
 				userId: user.id,
 				errorCode: addCustomerResult.ErrorCode,
@@ -90,6 +94,15 @@ export async function POST(req: NextRequest) {
 				{ error: addCustomerResult.Message || 'Ошибка создания клиента в T-Bank' },
 				{ status: 400 }
 			)
+		}
+		
+		// Логируем, если покупатель уже существует (это нормально)
+		if (isCustomerExists) {
+			logger.info('TBank AddCustomer: customer already exists', {
+				userId: user.id,
+				errorCode: addCustomerResult.ErrorCode,
+				message: addCustomerResult.Message,
+			})
 		}
 
 		// Шаг 2: Инициируем привязку карты
