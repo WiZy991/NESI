@@ -75,20 +75,36 @@ export function generateToken(
 	}
 
 	// Сортируем ключи и фильтруем пустые значения
+	// Согласно документации: в массив нужно добавить только параметры корневого объекта
+	// Вложенные объекты и массивы не участвуют в расчете токена
 	const sortedKeys = Object.keys(paramsWithPassword)
 		.sort()
 		.filter(key => {
 			// Исключаем Token из вычисления (он не должен участвовать в подписи)
 			if (key === 'Token') return false
+			
+			// Исключаем параметры RSA подписи (если они вдруг попадут в запрос)
+			if (key === 'DigestValue' || key === 'SignatureValue' || key === 'X509SerialNumber') {
+				return false
+			}
 
 			const value = paramsWithPassword[key]
-			// Игнорируем пустые значения, но обрабатываем объекты (включая DATA)
-			return value !== undefined && value !== null && value !== ''
+			// Игнорируем пустые значения
+			if (value === undefined || value === null || value === '') {
+				return false
+			}
+			
+			// Исключаем вложенные объекты и массивы (они не участвуют в расчете токена)
+			if (typeof value === 'object') {
+				return false
+			}
+			
+			return true
 		})
 
 	// Конкатенируем значения
-	// ВАЖНО: Согласно документации Т-Банка, объекты (включая DATA) НЕ должны включаться в подпись
-	// См. multisplit.md раздел 5.1 и vyplaty-multisplit.md раздел 3.1
+	// Согласно документации: конкатенировать значения всех пар
+	// Пример: Dfsfh56dgKl20150TestBtrue (Password, PaymentId, TerminalKey, isNeedRrn)
 	const concatenated = sortedKeys
 		.map(key => {
 			const value = paramsWithPassword[key]
@@ -102,33 +118,16 @@ export function generateToken(
 				})
 			}
 			
-			// Пропускаем null и undefined
-			if (value === null || value === undefined) {
-				return ''
-			}
-			
-			// ВАЖНО: Объекты (включая DATA, senderAccountInfo, recipientAccountInfo) НЕ включаются в подпись
-			// Согласно документации Т-Банка (multisplit.md раздел 5.1, пример запроса стр. 506-512)
-			if (typeof value === 'object' && value !== null) {
-				return ''
-			}
-			
 			// Преобразуем boolean в строку (true -> "true", false -> "false")
+			// Согласно примеру: {"isNeedRrn",true} -> конкатенируется как "true"
 			if (typeof value === 'boolean') {
 				return value.toString()
 			}
 			
 			// Преобразуем все остальные значения в строки
-			const stringValue = String(value)
-			
-			// Пропускаем пустые строки
-			if (stringValue === '') {
-				return ''
-			}
-			
-			return stringValue
+			// Числа, строки и другие примитивы преобразуются в строку
+			return String(value)
 		})
-		.filter(v => v !== '')
 		.join('')
 
 	// Диагностика для E2C (выплаты)

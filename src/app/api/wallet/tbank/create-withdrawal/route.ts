@@ -43,17 +43,14 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
 
-		const { amount, cardId, phone, sbpMemberId, dealId, cardNumber, cardExpiry, cardCvv, cardHolderName, paymentRecipientId } = await req.json()
+		const { amount, cardId, phone, sbpMemberId, dealId, paymentRecipientId } = await req.json()
 
 		console.log('📋 [CREATE-WITHDRAWAL] Получены данные:', {
 			amount,
 			hasCardId: !!cardId,
-			hasCardNumber: !!cardNumber,
-			hasCardExpiry: !!cardExpiry,
-			hasCardHolderName: !!cardHolderName,
 			hasPhone: !!phone,
 			hasSbpMemberId: !!sbpMemberId,
-			withdrawMethod: cardId ? 'saved-card' : cardNumber ? 'new-card' : phone ? 'sbp' : 'unknown',
+			withdrawMethod: cardId ? 'card' : phone ? 'sbp' : 'unknown',
 		})
 
 		// Парсим и валидируем сумму
@@ -144,28 +141,23 @@ export async function POST(req: NextRequest) {
 		console.log('✅ [WITHDRAWAL] Проверка пройдена, продолжаем вывод...')
 
 		// Проверяем наличие способа выплаты
-		// Для карты: cardId ИЛИ (cardNumber + cardExpiry + cardHolderName)
-		// CVV не обязателен для выплат
+		// Для карты: ТОЛЬКО cardId (привязанная карта) - согласно документации
 		// Для СБП: phone + sbpMemberId
 		const hasCardId = !!cardId
-		const hasCardData = !!(cardNumber && cardExpiry && cardHolderName)
 		const hasSbpData = !!(phone && sbpMemberId)
 		
 		console.log('🔍 [CREATE-WITHDRAWAL] Проверка способа выплаты:', {
 			hasCardId,
-			hasCardData,
 			hasSbpData,
-			cardNumber: cardNumber ? `${cardNumber.slice(0, 4)}****` : null,
-			cardExpiry,
-			cardHolderName: cardHolderName ? '***' : null,
+			note: 'Согласно документации, для выплат на карту используется только CardId (привязанная карта)',
 		})
 		
-		if (!hasCardId && !hasCardData && !hasSbpData) {
+		if (!hasCardId && !hasSbpData) {
 			return NextResponse.json(
 				{
 					error:
 						'Не указан способ выплаты. Укажите:\n' +
-						'• Для карты: cardId или данные карты (номер, срок, CVV, имя)\n' +
+						'• Для карты: cardId (привязанная карта)\n' +
 						'• Для СБП: phone и sbpMemberId',
 				},
 				{ status: 400 }
@@ -493,17 +485,6 @@ export async function POST(req: NextRequest) {
 			finalCardId = cardId
 			// PaymentRecipientId для карты - телефон или последние 4 цифры карты
 			finalPaymentRecipientId = paymentRecipientId || user.phone || user.id.slice(-4)
-		} else if (hasCardData) {
-			// Если указаны данные карты, CardId не используется
-			// PaymentRecipientId для CardData - используем телефон (если указан) или user.id
-			// Согласно документации, при использовании CardData карта привязывается к CustomerKey
-			if (paymentRecipientId) {
-				// Если передан paymentRecipientId (телефон), используем его
-				finalPaymentRecipientId = paymentRecipientId
-			} else {
-				// Иначе используем user.id как CustomerKey
-				finalPaymentRecipientId = user.id
-			}
 		} else {
 			// Для СБП - используем телефон
 			const userPhone = phone || user.phone || ''
