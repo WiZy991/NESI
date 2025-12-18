@@ -43,14 +43,30 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
 
-		const { amount, cardId, phone, sbpMemberId, dealId, paymentRecipientId } = await req.json()
+		const { 
+			amount, 
+			cardId, 
+			phone, 
+			sbpMemberId, 
+			dealId, 
+			paymentRecipientId,
+			// Данные новой карты (если указаны)
+			cardNumber,
+			cardExpiry,
+			cardCvv,
+			cardHolderName,
+		} = await req.json()
+
+		// Проверяем наличие данных новой карты
+		const hasCardData = !!(cardNumber && cardExpiry)
 
 		console.log('📋 [CREATE-WITHDRAWAL] Получены данные:', {
 			amount,
 			hasCardId: !!cardId,
+			hasCardData,
 			hasPhone: !!phone,
 			hasSbpMemberId: !!sbpMemberId,
-			withdrawMethod: cardId ? 'card' : phone ? 'sbp' : 'unknown',
+			withdrawMethod: cardId ? 'card' : hasCardData ? 'new-card' : phone ? 'sbp' : 'unknown',
 		})
 
 		// Парсим и валидируем сумму
@@ -141,23 +157,24 @@ export async function POST(req: NextRequest) {
 		console.log('✅ [WITHDRAWAL] Проверка пройдена, продолжаем вывод...')
 
 		// Проверяем наличие способа выплаты
-		// Для карты: ТОЛЬКО cardId (привязанная карта) - согласно документации
+		// Для карты: cardId (привязанная карта) ИЛИ данные новой карты (cardNumber + cardExpiry)
 		// Для СБП: phone + sbpMemberId
 		const hasCardId = !!cardId
 		const hasSbpData = !!(phone && sbpMemberId)
 		
 		console.log('🔍 [CREATE-WITHDRAWAL] Проверка способа выплаты:', {
 			hasCardId,
+			hasCardData,
 			hasSbpData,
-			note: 'Согласно документации, для выплат на карту используется только CardId (привязанная карта)',
+			note: 'Для выплат на карту можно использовать CardId (привязанная карта) или данные новой карты',
 		})
 		
-		if (!hasCardId && !hasSbpData) {
+		if (!hasCardId && !hasCardData && !hasSbpData) {
 			return NextResponse.json(
 				{
 					error:
 						'Не указан способ выплаты. Укажите:\n' +
-						'• Для карты: cardId (привязанная карта)\n' +
+						'• Для карты: cardId (привязанная карта) ИЛИ данные карты (cardNumber, cardExpiry)\n' +
 						'• Для СБП: phone и sbpMemberId',
 				},
 				{ status: 400 }
