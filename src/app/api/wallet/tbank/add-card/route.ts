@@ -60,16 +60,42 @@ export async function POST(req: NextRequest) {
 
 		// ВАЖНО: Используем основной клиент (TBankClient), а не E2C клиент (TBankPayoutClient)
 		// AddCard и AddCustomer - это методы интернет-эквайринга, не E2C
-		const client = new TBankClient()
+		// НО: если основной терминал не настроен, пробуем использовать E2C терминал
+		// (возможно, у пользователя один терминал для всего)
+		const useE2CTerminal = !TBANK_CONFIG.TERMINAL_KEY || !TBANK_CONFIG.TERMINAL_PASSWORD
+		
+		const terminalKey = useE2CTerminal 
+			? TBANK_CONFIG.E2C_TERMINAL_KEY 
+			: TBANK_CONFIG.TERMINAL_KEY
+		const password = useE2CTerminal 
+			? TBANK_CONFIG.E2C_TERMINAL_PASSWORD 
+			: TBANK_CONFIG.TERMINAL_PASSWORD
 
 		// Диагностика конфигурации
 		console.log('🔍 [ADD-CARD] Конфигурация терминала:', {
 			hasTerminalKey: !!TBANK_CONFIG.TERMINAL_KEY,
 			hasTerminalPassword: !!TBANK_CONFIG.TERMINAL_PASSWORD,
-			terminalKey: TBANK_CONFIG.TERMINAL_KEY?.slice(0, 8) + '...',
-			passwordLength: TBANK_CONFIG.TERMINAL_PASSWORD?.length,
-			note: 'Для AddCard нужен основной терминал (TBANK_TERMINAL_KEY), не E2C',
+			hasE2CTerminalKey: !!TBANK_CONFIG.E2C_TERMINAL_KEY,
+			hasE2CTerminalPassword: !!TBANK_CONFIG.E2C_TERMINAL_PASSWORD,
+			useE2CTerminal,
+			terminalKey: terminalKey?.slice(0, 8) + '...',
+			passwordLength: password?.length,
+			note: useE2CTerminal 
+				? 'Используется E2C терминал (основной не настроен)' 
+				: 'Используется основной терминал',
 		})
+
+		if (!terminalKey || !password) {
+			return NextResponse.json(
+				{ 
+					error: 'Терминал не настроен',
+					details: 'Настройте TBANK_TERMINAL_KEY и TBANK_TERMINAL_PASSWORD (или используйте E2C терминал)',
+				},
+				{ status: 503 }
+			)
+		}
+
+		const client = new TBankClient(terminalKey, password)
 
 		// CustomerKey - уникальный идентификатор клиента в нашей системе
 		// Используем id пользователя
@@ -152,13 +178,23 @@ export async function POST(req: NextRequest) {
 					terminalKey: TBANK_CONFIG.TERMINAL_KEY,
 					hasPassword: !!TBANK_CONFIG.TERMINAL_PASSWORD,
 					passwordLength: TBANK_CONFIG.TERMINAL_PASSWORD?.length,
+					passwordPreview: TBANK_CONFIG.TERMINAL_PASSWORD ? 
+						TBANK_CONFIG.TERMINAL_PASSWORD.substring(0, 4) + '...' + TBANK_CONFIG.TERMINAL_PASSWORD.substring(TBANK_CONFIG.TERMINAL_PASSWORD.length - 2) : 
+						'не установлен',
 					message: 'Проверьте, что TBANK_TERMINAL_PASSWORD соответствует основному терминалу (не E2C)',
+					note: 'Для AddCard нужен пароль от основного терминала интернет-эквайринга, не от E2C терминала',
 				})
 				
 				return NextResponse.json(
 					{ 
 						error: 'Ошибка привязки карты: неверный токен',
-						details: 'Проверьте настройки терминала. Убедитесь, что TBANK_TERMINAL_PASSWORD соответствует основному терминалу (не E2C терминалу).',
+						details: `Проверьте настройки терминала.\n\n` +
+							`Терминал: ${TBANK_CONFIG.TERMINAL_KEY}\n` +
+							`Пароль: ${TBANK_CONFIG.TERMINAL_PASSWORD ? 'установлен (' + TBANK_CONFIG.TERMINAL_PASSWORD.length + ' символов)' : 'НЕ УСТАНОВЛЕН'}\n\n` +
+							`Убедитесь, что:\n` +
+							`1. TBANK_TERMINAL_PASSWORD соответствует основному терминалу ${TBANK_CONFIG.TERMINAL_KEY}\n` +
+							`2. НЕ используется пароль от E2C терминала\n` +
+							`3. Пароль правильный (проверьте в личном кабинете Т-Банка)`,
 					},
 					{ status: 400 }
 				)
