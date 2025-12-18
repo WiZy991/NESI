@@ -654,6 +654,21 @@ export async function POST(req: NextRequest) {
 
 			// Проверяем успешность создания выплаты
 			if (!withdrawal.Success) {
+				// Специальная обработка ошибки 107 для CardData
+				if (withdrawal.ErrorCode === '107' && hasCardData) {
+					const errorMessage = 
+						'Вывод на карту через E2C терминал требует шифрования данных карты (RSA) или использования привязанной карты. ' +
+						'Для получения RSA ключа обратитесь в поддержку Т-Банка (acq_help@tbank.ru). ' +
+						'Альтернатива: используйте вывод через СБП (Система Быстрых Платежей).'
+					console.error('❌ [CREATE-WITHDRAWAL] Ошибка 107 - CardData не поддерживается без шифрования:', {
+						errorCode: withdrawal.ErrorCode,
+						message: withdrawal.Message,
+						details: withdrawal.Details,
+						note: 'E2C терминал требует RSA шифрование для CardData или использование CardId (привязанная карта)',
+					})
+					throw new Error(errorMessage)
+				}
+				
 				const errorMessage =
 					withdrawal.Message ||
 					`Ошибка создания выплаты: ${

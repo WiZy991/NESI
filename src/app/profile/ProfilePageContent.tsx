@@ -2293,7 +2293,7 @@ export default function ProfilePageContent() {
 													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 border border-red-500/30'
 											} disabled:opacity-50`}
 										>
-											<span>📱</span>
+											<span></span>
 											СБП
 										</button>
 										<button
