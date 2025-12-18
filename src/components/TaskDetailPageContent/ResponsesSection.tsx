@@ -93,7 +93,7 @@ export function ResponsesSection({
 													{response.user.fullName || response.user.email}
 												</Link>
 												<LevelBadge level={userLevel} size="sm" />
-												<AccountTypeBadge accountType={response.user.accountType} size="xs" />
+												<AccountTypeBadge accountType={response.user.accountType} companyName={response.user.companyName} size="xs" />
 											</div>
 											<p className='text-sm text-gray-400'>
 												📅{' '}

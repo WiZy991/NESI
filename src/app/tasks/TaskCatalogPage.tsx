@@ -33,7 +33,7 @@ type Task = {
 	createdAt: string
 	price?: number
 	status?: string
-	customer: { fullName?: string; accountType?: string }
+	customer: { fullName?: string; accountType?: string; companyName?: string }
 	subcategory?: {
 		id: string
 		name: string
@@ -1130,7 +1130,7 @@ export default function TaskCatalogPage() {
 										<p className='text-xs sm:text-sm text-gray-400 flex items-center gap-2 flex-wrap'>
 											<span className='text-gray-500'>👤</span>
 											<span>{task.customer?.fullName || 'Без имени'}</span>
-											<AccountTypeBadge accountType={task.customer?.accountType} size="xs" />
+											<AccountTypeBadge accountType={task.customer?.accountType} companyName={task.customer?.companyName} size="xs" />
 											<span className='text-gray-600'>•</span>
 											<span className='text-gray-500'>📅</span>
 											{task.createdAt

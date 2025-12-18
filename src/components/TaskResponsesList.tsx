@@ -15,6 +15,7 @@ type Props = {
       fullName: string | null
       email: string
       accountType?: string | null
+      companyName?: string | null
     }
   }[]
   taskId: string
@@ -58,7 +59,7 @@ export default function TaskResponsesList({
               >
                 {res.user.fullName || res.user.email}
               </Link>
-              <AccountTypeBadge accountType={res.user.accountType} size="xs" />
+              <AccountTypeBadge accountType={res.user.accountType} companyName={res.user.companyName} size="xs" />
             </div>
             <p className="text-sm text-gray-300 mt-1">{res.message}</p>
           </div>

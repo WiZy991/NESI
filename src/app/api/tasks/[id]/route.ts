@@ -22,11 +22,11 @@ export async function GET(
       include: {
         // автор
         customer: {
-          select: { id: true, fullName: true, email: true, accountType: true },
+          select: { id: true, fullName: true, email: true, accountType: true, companyName: true },
         },
         // исполнитель (если есть)
         executor: {
-          select: { id: true, fullName: true, email: true, accountType: true },
+          select: { id: true, fullName: true, email: true, accountType: true, companyName: true },
         },
         // отзыв (если есть)
         review: true,
@@ -50,6 +50,7 @@ export async function GET(
                 avgRating: true, // Используем предвычисленный avgRating вместо reviewsReceived
                 xp: true, // Добавляем XP для расчета уровня
                 accountType: true, // Тип аккаунта (физ. лицо, ИП, ООО)
+                companyName: true, // Название компании
               },
             },
             statusHistory: {

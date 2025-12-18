@@ -195,6 +195,7 @@ export async function GET(req: Request) {
 					fullName: true,
 					avgRating: true,
 					accountType: true,
+					companyName: true,
 				},
 			},
 			executor: {

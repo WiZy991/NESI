@@ -69,7 +69,7 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 								>
 									{task.customer?.fullName || 'Без имени'}
 								</Link>
-								<AccountTypeBadge accountType={task.customer.accountType} size="xs" />
+								<AccountTypeBadge accountType={task.customer.accountType} companyName={task.customer.companyName} size="xs" />
 							</div>
 							<div className='flex items-center gap-2'>
 								<span className='text-gray-500'>•</span>

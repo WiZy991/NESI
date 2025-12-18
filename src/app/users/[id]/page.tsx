@@ -64,6 +64,7 @@ type PublicUser = {
 	id: string
 	role: 'customer' | 'executor' | string
 	accountType?: string | null
+	companyName?: string | null
 	fullName: string | null
 	email?: string | null
 	avatarUrl?: string | null
@@ -938,7 +939,7 @@ export default function UserPublicProfilePage() {
 									</div>
 									<div className='flex flex-wrap items-center gap-2 text-sm text-gray-400'>
 										<span>{getRoleName(viewUser.role)}</span>
-										<AccountTypeBadge accountType={viewUser.accountType} size="sm" />
+										<AccountTypeBadge accountType={viewUser.accountType} companyName={viewUser.companyName} size="sm" />
 										{viewUser.location && (
 											<>
 												<span>•</span>

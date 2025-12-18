@@ -6,6 +6,7 @@ type AccountType = 'INDIVIDUAL' | 'SELF_EMPLOYED' | 'SOLE_PROPRIETOR' | 'COMPANY
 
 interface AccountTypeBadgeProps {
   accountType: AccountType | string | null | undefined
+  companyName?: string | null // Название компании для ООО/ИП
   size?: 'xs' | 'sm' | 'md'
   className?: string
   showLabel?: boolean
@@ -60,6 +61,7 @@ const sizeConfig = {
 
 export default function AccountTypeBadge({
   accountType,
+  companyName,
   size = 'sm',
   className = '',
   showLabel = true,
@@ -75,13 +77,18 @@ export default function AccountTypeBadge({
   const sizeStyles = sizeConfig[size]
   const Icon = config.icon
 
+  // Определяем что показывать в бейдже
+  // Если есть название компании — показываем его, иначе тип аккаунта
+  const displayLabel = companyName || config.shortLabel
+  const fullLabel = companyName ? `${config.label}: ${companyName}` : config.label
+
   return (
     <span
       className={`inline-flex items-center rounded-full border font-medium ${sizeStyles.container} ${config.bgColor} ${className}`}
-      title={config.label}
+      title={fullLabel}
     >
       <Icon className={sizeStyles.icon} />
-      {showLabel && <span>{config.shortLabel}</span>}
+      {showLabel && <span className='truncate max-w-[150px]'>{displayLabel}</span>}
     </span>
   )
 }

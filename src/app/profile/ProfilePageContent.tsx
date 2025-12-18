@@ -1337,15 +1337,12 @@ export default function ProfilePageContent() {
 											<LevelBadge level={userLevel} size='md' />
 										)}
 										{profile.accountType && profile.accountType !== 'INDIVIDUAL' && (
-											<AccountTypeBadge accountType={profile.accountType} />
+											<AccountTypeBadge 
+												accountType={profile.accountType} 
+												companyName={profile.companyName}
+											/>
 										)}
 									</div>
-									{/* Название компании для ООО/ИП */}
-									{profile.companyName && profile.accountType !== 'INDIVIDUAL' && (
-										<p className='text-sm text-emerald-400/80 mb-1'>
-											{profile.companyName}
-										</p>
-									)}
 									<p className='text-gray-400 text-sm truncate'>
 										{profile.email}
 									</p>

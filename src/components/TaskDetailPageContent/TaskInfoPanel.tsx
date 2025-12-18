@@ -82,7 +82,7 @@ export function TaskInfoPanel({ task }: TaskInfoPanelProps) {
 						>
 							{task.executor.fullName || task.executor.email}
 						</Link>
-						<AccountTypeBadge accountType={task.executor.accountType} size="sm" />
+						<AccountTypeBadge accountType={task.executor.accountType} companyName={task.executor.companyName} size="sm" />
 					</div>
 				</div>
 			) : (

@@ -19,6 +19,7 @@ export async function GET(
 					email: true,
 					role: true,
 					accountType: true,
+					companyName: true,
 					skills: true,
 					location: true,
 					description: true,
