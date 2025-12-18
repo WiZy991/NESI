@@ -3,11 +3,7 @@
  * 
  * POST /api/settings/account-type
  * 
- * Логика:
- * - INDIVIDUAL → может стать SELF_EMPLOYED, SOLE_PROPRIETOR, COMPANY
- * - SELF_EMPLOYED → может стать SOLE_PROPRIETOR, COMPANY
- * - SOLE_PROPRIETOR → может стать COMPANY
- * - COMPANY → нельзя сменить (конечный статус)
+ * Разрешены любые переходы между типами аккаунтов
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -15,13 +11,8 @@ import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
-// Допустимые переходы между типами аккаунтов
-const ALLOWED_UPGRADES: Record<string, string[]> = {
-  INDIVIDUAL: ['SELF_EMPLOYED', 'SOLE_PROPRIETOR', 'COMPANY'],
-  SELF_EMPLOYED: ['SOLE_PROPRIETOR', 'COMPANY'],
-  SOLE_PROPRIETOR: ['COMPANY'],
-  COMPANY: [], // Нельзя сменить
-}
+// Все доступные типы аккаунтов
+const VALID_ACCOUNT_TYPES = ['INDIVIDUAL', 'SELF_EMPLOYED', 'SOLE_PROPRIETOR', 'COMPANY']
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   INDIVIDUAL: 'Физическое лицо',
@@ -48,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Проверяем, что новый тип валидный
-    if (!ALLOWED_UPGRADES[newType] && newType !== 'COMPANY') {
+    if (!VALID_ACCOUNT_TYPES.includes(newType)) {
       return NextResponse.json(
         { error: 'Некорректный тип аккаунта' },
         { status: 400 }
@@ -70,37 +61,38 @@ export async function POST(req: NextRequest) {
 
     const currentType = currentUser.accountType || 'INDIVIDUAL'
 
-    // Проверяем, разрешён ли переход
-    const allowedUpgrades = ALLOWED_UPGRADES[currentType] || []
-    
-    if (!allowedUpgrades.includes(newType)) {
-      // Если пытаются понизить или остаться на том же уровне
-      if (currentType === newType) {
-        return NextResponse.json(
-          { error: 'Вы уже используете этот тип аккаунта' },
-          { status: 400 }
-        )
-      }
-      
+    // Проверяем, что новый тип отличается от текущего
+    if (currentType === newType) {
       return NextResponse.json(
-        { 
-          error: `Невозможно сменить тип аккаунта с "${ACCOUNT_TYPE_LABELS[currentType]}" на "${ACCOUNT_TYPE_LABELS[newType]}". Доступны только: ${allowedUpgrades.map(t => ACCOUNT_TYPE_LABELS[t]).join(', ') || 'нет доступных вариантов'}`
-        },
+        { error: 'Вы уже используете этот тип аккаунта' },
         { status: 400 }
       )
     }
 
     // Обновляем тип аккаунта
-    // При смене типа очищаем старые данные компании (они могут быть неактуальны)
     const updateData: any = {
       accountType: newType,
     }
 
-    // Если переходим на ИП или ООО, очищаем старые данные компании
-    // (пользователь должен заполнить их заново)
-    if (newType === 'SOLE_PROPRIETOR' || newType === 'COMPANY') {
-      // Не очищаем данные, если они уже были заполнены для этого типа
-      // Просто меняем тип
+    // Если переходим на физ. лицо или самозанятого - очищаем данные компании
+    if (newType === 'INDIVIDUAL' || newType === 'SELF_EMPLOYED') {
+      updateData.companyName = null
+      updateData.inn = null
+      updateData.kpp = null
+      updateData.ogrn = null
+      updateData.legalAddress = null
+      updateData.tbankPartnerId = null
+      updateData.bankAccount = null
+      updateData.bankBik = null
+      updateData.bankName = null
+    }
+    // Если переходим с ООО на ИП - очищаем КПП (у ИП нет КПП)
+    if (currentType === 'COMPANY' && newType === 'SOLE_PROPRIETOR') {
+      updateData.kpp = null
+    }
+    // Если переходим с ИП на ООО - КПП нужно будет заполнить заново
+    if (currentType === 'SOLE_PROPRIETOR' && newType === 'COMPANY') {
+      // КПП остаётся null, пользователь заполнит при необходимости
     }
 
     await prisma.user.update({

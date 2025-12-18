@@ -495,9 +495,15 @@ export async function POST(req: NextRequest) {
 			finalPaymentRecipientId = paymentRecipientId || user.phone || user.id.slice(-4)
 		} else if (hasCardData) {
 			// Если указаны данные карты, CardId не используется
-			// PaymentRecipientId - последние 4 цифры карты или телефон
-			const cleanCardNumber = cardNumber.replace(/\D/g, '')
-			finalPaymentRecipientId = paymentRecipientId || cleanCardNumber.slice(-4) || user.phone || user.id.slice(-4)
+			// PaymentRecipientId для CardData - используем телефон (если указан) или user.id
+			// Согласно документации, при использовании CardData карта привязывается к CustomerKey
+			if (paymentRecipientId) {
+				// Если передан paymentRecipientId (телефон), используем его
+				finalPaymentRecipientId = paymentRecipientId
+			} else {
+				// Иначе используем user.id как CustomerKey
+				finalPaymentRecipientId = user.id
+			}
 		} else {
 			// Для СБП - используем телефон
 			const userPhone = phone || user.phone || ''
@@ -627,8 +633,8 @@ export async function POST(req: NextRequest) {
 				paymentRecipientId: finalPaymentRecipientId,
 				// Передаем cardId только если он есть (привязанная карта)
 				...(finalCardId ? { cardId: finalCardId } : {}),
-				// Передаем cardData только если есть данные карты (незашифрованные данные)
-				// CustomerKey нужен для привязки карты при использовании CardData
+				// Передаем cardData только если есть данные карты
+				// CustomerKey нужен для привязки карты при использовании CardData (согласно документации)
 				...(cardDataString ? { cardData: cardDataString, customerKey: user.id } : {}),
 				// Передаем phone и sbpMemberId только для СБП выплат
 				...(phoneForSbp && sbpMemberId

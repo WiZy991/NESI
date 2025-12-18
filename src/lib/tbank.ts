@@ -469,9 +469,10 @@ export async function createWithdrawal(
 			cardId: params.cardId,
 		})
 	} else if (params.cardData) {
-		// CardData передаётся напрямую в формате "PAN=...;ExpDate=...;CardHolder=..."
+		// CardData передаётся напрямую в формате "PAN=...;ExpDate=...;CardHolder=...;CVV=..."
+		// Согласно документации: "Привязка карты, переданной в объекте CardData, должна происходить 
+		// в момент вызова Init к указанному CustomerKey (если он был передан)"
 		requestBody.CardData = params.cardData
-		// CustomerKey нужен для привязки карты при использовании CardData
 		if (params.customerKey) {
 			requestBody.CustomerKey = params.customerKey
 		}

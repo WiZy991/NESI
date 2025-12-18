@@ -1213,6 +1213,13 @@ export default function ProfilePageContent() {
 				withdrawalData.cardExpiry = cardExpDate // MM/YY формат
 				withdrawalData.cardHolderName = cardHolder.trim().toUpperCase()
 				withdrawalData.cardCvv = cardCvv.replace(/\D/g, '') // CVV код
+				// Телефон для PaymentRecipientId (если указан)
+				if (withdrawPhone.trim()) {
+					const phoneDigits = getPhoneDigits(withdrawPhone)
+					if (phoneDigits.length === 11 && phoneDigits.startsWith('7')) {
+						withdrawalData.paymentRecipientId = phoneDigits
+					}
+				}
 			}
 
 			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
@@ -2549,6 +2556,26 @@ export default function ProfilePageContent() {
 												maxLength={50}
 												disabled={withdrawLoading}
 												className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-sm uppercase placeholder:normal-case'
+											/>
+										</div>
+										
+										{/* Телефон получателя (для PaymentRecipientId) */}
+										<div>
+											<label className='block text-xs text-gray-400 mb-1'>
+												Телефон получателя <span className='text-gray-500'>(опционально)</span>
+											</label>
+											<input
+												type='text'
+												inputMode='tel'
+												value={withdrawPhone}
+												onChange={e => {
+													const formatted = formatPhoneNumber(e.target.value)
+													setWithdrawPhone(formatted)
+												}}
+												placeholder='+7 (999) 123-45-67'
+												maxLength={18}
+												disabled={withdrawLoading}
+												className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all'
 											/>
 										</div>
 										

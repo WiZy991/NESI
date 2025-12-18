@@ -418,45 +418,48 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Доступные варианты для повышения */}
-        {ACCOUNT_TYPES[accountType].upgrades.length > 0 ? (
-          <>
-            <p className="text-sm text-gray-400 mb-3">
-              Вы можете сменить тип аккаунта на:
-            </p>
-            <div className="space-y-2">
-              {ACCOUNT_TYPES[accountType].upgrades.map((upgradeType) => (
-                <button
-                  key={upgradeType}
-                  onClick={() => {
-                    setSelectedNewType(upgradeType)
-                    setShowAccountTypeModal(true)
-                  }}
-                  className="w-full bg-gray-900/50 hover:bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 hover:border-emerald-500/30 transition-all flex items-center gap-3 text-left"
-                >
-                  <div className={`p-2 rounded-lg bg-gray-800/50 ${ACCOUNT_TYPES[upgradeType].color}`}>
-                    {ACCOUNT_TYPES[upgradeType].icon}
-                  </div>
-                  <div className="flex-1">
-                    <span className={`font-semibold ${ACCOUNT_TYPES[upgradeType].color}`}>
-                      {ACCOUNT_TYPES[upgradeType].label}
+        {/* Доступные варианты для смены */}
+        {(() => {
+          // Получаем все типы аккаунтов, кроме текущего
+          const availableTypes = (Object.keys(ACCOUNT_TYPES) as AccountType[]).filter(
+            type => type !== accountType
+          )
+          
+          return availableTypes.length > 0 ? (
+            <>
+              <p className="text-sm text-gray-400 mb-3">
+                Вы можете сменить тип аккаунта на:
+              </p>
+              <div className="space-y-2">
+                {availableTypes.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setSelectedNewType(type)
+                      setShowAccountTypeModal(true)
+                    }}
+                    className="w-full bg-gray-900/50 hover:bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 hover:border-emerald-500/30 transition-all flex items-center gap-3 text-left"
+                  >
+                    <div className={`p-2 rounded-lg bg-gray-800/50 ${ACCOUNT_TYPES[type].color}`}>
+                      {ACCOUNT_TYPES[type].icon}
+                    </div>
+                    <div className="flex-1">
+                      <span className={`font-semibold ${ACCOUNT_TYPES[type].color}`}>
+                        {ACCOUNT_TYPES[type].label}
+                      </span>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        {ACCOUNT_TYPES[type].description}
+                      </p>
+                    </div>
+                    <span className="text-emerald-400 text-sm">
+                      Выбрать →
                     </span>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {ACCOUNT_TYPES[upgradeType].description}
-                    </p>
-                  </div>
-                  <span className="text-emerald-400 text-sm">
-                    Выбрать →
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-gray-500 italic">
-            Это максимальный тип аккаунта. Смена недоступна.
-          </p>
-        )}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null
+        })()}
       </section>
 
       {/* Модальное окно подтверждения смены типа */}
