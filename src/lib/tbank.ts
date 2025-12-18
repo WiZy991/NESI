@@ -466,49 +466,12 @@ export async function createWithdrawal(
 		requestBody.CardId = params.cardId
 		console.log('💳 [TBANK] Используется привязанная карта:', {
 			cardId: params.cardId,
-			note: 'CardId - идентификатор привязанной карты через AddCard',
 		})
 	} else if (params.cardData) {
-		// CardData должен быть зашифрован через RSA и закодирован в Base64
-		// Если передан незашифрованный CardData, шифруем его
-		let encryptedCardData = params.cardData
-		
-		// Проверяем, зашифрован ли уже CardData (Base64 строка обычно длиннее 100 символов)
-		// Если CardData не зашифрован (начинается с "PAN="), пытаемся зашифровать через RSA
-		const rsaPublicKey = process.env.TBANK_RSA_PUBLIC_KEY
-		if (!rsaPublicKey) {
-			// RSA ключ отсутствует - это не должно происходить, т.к. проверка в route.ts
-			// Но на всякий случай выбрасываем ошибку
-			throw new Error(
-				'❌ TBANK_RSA_PUBLIC_KEY не настроен.\n\n' +
-				'Для выплат на карту через CardData требуется RSA ключ.\n' +
-				'Обратитесь в поддержку Т-Банка (acq_help@tbank.ru) для получения RSA ключа.'
-			)
-		}
-		
-		// Если CardData не зашифрован (начинается с "PAN="), шифруем его
-		if (params.cardData.startsWith('PAN=') || params.cardData.includes(';ExpDate=')) {
-			try {
-				encryptedCardData = await encryptCardData(params.cardData, rsaPublicKey)
-				console.log('✅ [TBANK] CardData зашифрован через RSA')
-			} catch (encryptError: any) {
-				console.error('❌ [TBANK] Ошибка шифрования CardData:', encryptError.message)
-				throw new Error(
-					`❌ Ошибка шифрования данных карты: ${encryptError.message}\n\n` +
-					`Убедитесь, что TBANK_RSA_PUBLIC_KEY настроен правильно в переменных окружения.\n` +
-					`Обратитесь в поддержку Т-Банка (acq_help@tbank.ru) для получения корректного RSA ключа.`
-				)
-			}
-		} else {
-			// CardData уже зашифрован - используем как есть
-			console.log('✅ [TBANK] CardData уже зашифрован')
-		}
-		
-		requestBody.CardData = encryptedCardData
+		// CardData передаётся напрямую в формате "PAN=...;ExpDate=...;CardHolder=..."
+		requestBody.CardData = params.cardData
 		console.log('💳 [TBANK] Используются данные карты:', {
 			hasCardData: !!params.cardData,
-			isEncrypted: encryptedCardData !== params.cardData,
-			note: 'CardData зашифрован через RSA (X509 RSA 2048) и закодирован в Base64',
 		})
 	}
 
@@ -959,39 +922,3 @@ export function rublesToKopecks(rubles: number): number {
 	return Math.round(rubles * 100)
 }
 
-/**
- * Шифрование CardData через RSA (X509 RSA 2048) и кодирование в Base64
- * @param cardDataPlain - незашифрованные данные карты в формате "PAN=...;ExpDate=...;CardHolder=...;CVV=..."
- * @param publicKeyPem - открытый ключ RSA в формате PEM
- * @returns зашифрованная строка в Base64
- */
-async function encryptCardData(
-	cardDataPlain: string,
-	publicKeyPem: string
-): Promise<string> {
-	try {
-		// Формируем открытый ключ из PEM строки
-		const publicKey = crypto.createPublicKey({
-			key: publicKeyPem,
-			format: 'pem',
-			type: 'spki',
-		})
-
-		// Шифруем данные через RSA с PKCS1 padding
-		const encrypted = crypto.publicEncrypt(
-			{
-				key: publicKey,
-				padding: crypto.constants.RSA_PKCS1_PADDING,
-			},
-			Buffer.from(cardDataPlain, 'utf8')
-		)
-
-		// Кодируем в Base64
-		return encrypted.toString('base64')
-	} catch (error: any) {
-		throw new Error(
-			`Ошибка шифрования CardData: ${error.message}\n` +
-			`Убедитесь, что TBANK_RSA_PUBLIC_KEY содержит корректный открытый ключ RSA в формате PEM.`
-		)
-	}
-}

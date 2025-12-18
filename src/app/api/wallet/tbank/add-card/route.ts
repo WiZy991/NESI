@@ -123,6 +123,18 @@ export async function POST(req: NextRequest) {
 				errorCode: addCardResult.ErrorCode,
 				message: addCardResult.Message,
 			})
+			
+			// Специальная обработка ошибки 204 - проблема с терминалом
+			if (addCardResult.ErrorCode === '204') {
+				return NextResponse.json(
+					{ 
+						error: 'Привязка карт временно недоступна',
+						details: 'Терминал не настроен для привязки карт. Обратитесь в поддержку.',
+					},
+					{ status: 503 }
+				)
+			}
+			
 			return NextResponse.json(
 				{ error: addCardResult.Message || 'Ошибка инициализации привязки карты' },
 				{ status: 400 }

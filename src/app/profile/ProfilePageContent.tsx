@@ -559,7 +559,7 @@ export default function ProfilePageContent() {
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
 	const [withdrawPhone, setWithdrawPhone] = useState('')
-	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'saved-card'>('sbp')
+	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'saved-card' | 'new-card'>('sbp')
 	const [sbpBanks, setSbpBanks] = useState<Array<{MemberId: string; MemberName: string; MemberNameRus: string}>>([])
 	const [selectedBankId, setSelectedBankId] = useState<string>('')
 	const [loadingBanks, setLoadingBanks] = useState(false)
@@ -1156,6 +1156,31 @@ export default function ProfilePageContent() {
 				setWithdrawError('Выберите карту для вывода')
 				return
 			}
+		} else if (withdrawMethod === 'new-card') {
+			const pan = cardNumber.replace(/\D/g, '')
+			const expDate = cardExpDate.replace(/\D/g, '')
+			
+			if (pan.length < 16) {
+				setWithdrawError('Введите полный номер карты (16 цифр)')
+				return
+			}
+			if (expDate.length !== 4) {
+				setWithdrawError('Введите срок действия карты (MM/YY)')
+				return
+			}
+			// Проверяем срок действия
+			const month = parseInt(expDate.slice(0, 2), 10)
+			const year = parseInt(expDate.slice(2, 4), 10) + 2000
+			const now = new Date()
+			const expDateObj = new Date(year, month, 0) // Последний день месяца
+			if (expDateObj < now) {
+				setWithdrawError('Срок действия карты истёк')
+				return
+			}
+			if (month < 1 || month > 12) {
+				setWithdrawError('Некорректный месяц в сроке действия')
+				return
+			}
 		}
 
 		setWithdrawError(null)
@@ -1173,6 +1198,12 @@ export default function ProfilePageContent() {
 				withdrawalData.sbpMemberId = selectedBankId
 			} else if (withdrawMethod === 'saved-card') {
 				withdrawalData.cardId = selectedCardId
+			} else if (withdrawMethod === 'new-card') {
+				// Отправляем данные карты для выплаты (в формате, ожидаемом API)
+				withdrawalData.cardNumber = cardNumber.replace(/\D/g, '')
+				withdrawalData.cardExpiry = cardExpDate // MM/YY формат
+				withdrawalData.cardHolderName = cardHolder.trim().toUpperCase() || 'CARDHOLDER'
+				withdrawalData.cardCvv = '' // CVV не требуется для выплат
 			}
 
 			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
@@ -2252,23 +2283,18 @@ export default function ProfilePageContent() {
 										<button
 											type='button'
 											onClick={() => {
-												setWithdrawMethod('saved-card')
+												setWithdrawMethod('new-card')
 												setWithdrawError(null)
 											}}
 											disabled={withdrawLoading}
 											className={`py-3 px-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-												withdrawMethod === 'saved-card'
+												withdrawMethod === 'new-card'
 													? 'bg-red-500/30 text-white border-2 border-red-400'
 													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 border border-red-500/30'
 											} disabled:opacity-50`}
 										>
 											<FaCreditCard />
 											На карту
-											{savedCards.length > 0 && (
-												<span className='bg-red-500/50 px-1.5 rounded text-xs'>
-													{savedCards.length}
-												</span>
-											)}
 										</button>
 									</div>
 								</div>
@@ -2450,96 +2476,62 @@ export default function ProfilePageContent() {
 									</>
 								)}
 
-								{/* Форма для карт */}
-								{withdrawMethod === 'saved-card' && (
-									<div className='mb-4'>
-										{loadingCards ? (
-											<div className='text-center py-6 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 border border-red-500/30 rounded-xl'>
-												<span className='w-6 h-6 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin inline-block mb-2' />
-												<p className='text-sm text-red-300/80 mt-2'>Загрузка карт...</p>
-											</div>
-										) : savedCards.length > 0 ? (
-											<>
-												<label className='block text-sm text-red-300 mb-2 font-semibold'>
-													Выберите карту
-												</label>
-												<div className='space-y-2'>
-													{savedCards.map(card => (
-														<div
-															key={card.cardId}
-															onClick={() => {
-																setSelectedCardId(card.cardId)
-																setWithdrawError(null)
-															}}
-															className={`p-3 rounded-xl cursor-pointer transition-all flex items-center justify-between ${
-																selectedCardId === card.cardId
-																	? 'bg-red-500/30 border-2 border-red-400'
-																	: 'bg-black/60 border border-red-500/30 hover:border-red-400/50'
-															}`}
-														>
-															<div className='flex items-center gap-3'>
-																<FaCreditCard className='text-red-400 text-xl' />
-																<div>
-																	<p className='text-white font-medium'>
-																		{card.pan}
-																	</p>
-																	<p className='text-xs text-gray-400'>
-																		{card.expDate?.slice(0, 2)}/{card.expDate?.slice(2)}
-																		{card.isDefault && (
-																			<span className='ml-2 text-red-400'>• Основная</span>
-																		)}
-																	</p>
-																</div>
-															</div>
-															<button
-																type='button'
-																onClick={(e) => {
-																	e.stopPropagation()
-																	handleDeleteCard(card.cardId)
-																}}
-																className='text-gray-500 hover:text-red-400 transition-colors p-1'
-																title='Удалить карту'
-															>
-																<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-																	<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-																</svg>
-															</button>
-														</div>
-													))}
-												</div>
-											</>
-										) : (
-											<div className='text-center py-6 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 border border-red-500/30 rounded-xl'>
-												<FaCreditCard className='text-3xl text-gray-500 mx-auto mb-2' />
-												<p className='text-sm text-gray-400'>Нет привязанных карт</p>
-											</div>
-										)}
+								{/* Форма ввода данных новой карты */}
+								{withdrawMethod === 'new-card' && (
+									<div className='mb-4 space-y-3'>
+										<label className='block text-sm text-red-300 mb-2 font-semibold'>
+											Данные карты получателя
+										</label>
 										
-										{/* Кнопка привязки новой карты */}
-										<button
-											type='button'
-											onClick={handleAddCard}
-											disabled={addingCard || withdrawLoading}
-											className='w-full mt-3 py-3 px-4 rounded-xl text-sm font-semibold transition-all bg-black/60 text-red-400 hover:bg-red-500/20 border border-red-500/30 hover:border-red-400 flex items-center justify-center gap-2 disabled:opacity-50'
-										>
-											{addingCard ? (
-												<>
-													<span className='w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin' />
-													Открываем форму...
-												</>
-											) : (
-												<>
-													<span>+</span>
-													Привязать новую карту
-												</>
-											)}
-										</button>
-										<p className='text-xs text-red-300/60 mt-2 flex items-center gap-1'>
-											<span>💡</span>
-											<span>Привязав карту, вы сможете выводить средства мгновенно</span>
+										{/* Номер карты */}
+										<div className='relative'>
+											<input
+												type='text'
+												inputMode='numeric'
+												value={cardNumber}
+												onChange={e => setCardNumber(formatCardNumber(e.target.value))}
+												placeholder='0000 0000 0000 0000'
+												maxLength={19}
+												disabled={withdrawLoading}
+												className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all font-mono text-lg tracking-widest placeholder:tracking-normal placeholder:font-sans'
+											/>
+											<FaCreditCard className='absolute right-4 top-1/2 -translate-y-1/2 text-red-400/50' />
+										</div>
+										
+										{/* Срок действия и CVV (не обязателен для выплат) */}
+										<div className='grid grid-cols-2 gap-3'>
+											<div>
+												<input
+													type='text'
+													inputMode='numeric'
+													value={cardExpDate}
+													onChange={e => setCardExpDate(formatCardExpDate(e.target.value))}
+													placeholder='MM/YY'
+													maxLength={5}
+													disabled={withdrawLoading}
+													className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all font-mono text-center'
+												/>
+											</div>
+											<div className='relative'>
+												<input
+													type='text'
+													value={cardHolder}
+													onChange={e => setCardHolder(e.target.value.toUpperCase())}
+													placeholder='IVAN IVANOV'
+													maxLength={50}
+													disabled={withdrawLoading}
+													className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-sm uppercase placeholder:normal-case'
+												/>
+											</div>
+										</div>
+										
+										<p className='text-xs text-red-300/60 flex items-center gap-1'>
+											<span>🔒</span>
+											<span>Данные передаются через защищённое соединение</span>
 										</p>
 									</div>
 								)}
+
 
 								{/* Поле ввода суммы */}
 								<div className='mb-4'>

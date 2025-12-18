@@ -567,52 +567,20 @@ export async function POST(req: NextRequest) {
 			let cardDataString: string | undefined = undefined
 			if (hasCardData && !hasCardId) {
 				// Для выплаты на карту через CardData нужны данные карты
-				// Согласно документации (стр. 666): CardData должен быть в формате "ключ=значение" (разделитель ";"),
-				// зашифрован через RSA и закодирован в Base64
-				// Пример из документации (стр. 676): PAN=4300000000000777;ExpDate=0523;CardHolder=IVAN PETROV;CVV=
-				// ВАЖНО: CVV может быть пустым для выплат (не требуется для привязки)
+				// Согласно документации E2C: CardData в формате "ключ=значение" (разделитель ";")
+				// Пример: PAN=4300000000000777;ExpDate=0523;CardHolder=IVAN PETROV
 				const cleanCardNumber = cardNumber.replace(/\D/g, '')
 				const [expMonth, expYear] = cardExpiry.split('/')
 				const expDate = expYear ? `${expMonth}${expYear}` : expMonth // MMYY
 				
-				// Формат CardData: "PAN=...;ExpDate=...;CardHolder=...;CVV=..."
-				// Согласно примеру из документации, CVV может быть пустым
-				// ВАЖНО: CardData должен быть зашифрован через RSA и закодирован в Base64
-				// Без шифрования Т-Банк не примет данные - нужен открытый ключ от Т-Банка
-				const cardDataPlain = `PAN=${cleanCardNumber};ExpDate=${expDate};CardHolder=${cardHolderName};CVV=${cardCvv || ''}`
-				
-				// Проверяем наличие RSA ключа для шифрования
-				const rsaPublicKey = process.env.TBANK_RSA_PUBLIC_KEY
-				if (!rsaPublicKey) {
-					// БЕЗ RSA ключа CardData НЕЛЬЗЯ передавать - Т-Банк его не примет
-					// Возвращаем понятную ошибку пользователю
-					console.error('❌ [CREATE-WITHDRAWAL] TBANK_RSA_PUBLIC_KEY не настроен - CardData не может быть передан')
-					return NextResponse.json(
-						{
-							error:
-								'❌ Для выплаты на карту через CardData требуется RSA ключ.\n\n' +
-								'Проблема: Без RSA ключа Т-Банк не принимает данные карты.\n\n' +
-								'Решение:\n' +
-								'• Обратитесь в поддержку Т-Банка (acq_help@tbank.ru) для получения RSA ключа\n' +
-								'• Или используйте вывод через СБП (если доступен)\n' +
-								'• Или привяжите карту через метод AddCard (если доступен), затем используйте CardId\n\n' +
-								'Важно: Без RSA ключа выплаты на карту через CardData невозможны.',
-						},
-						{ status: 400 }
-					)
-				}
-				
-				// RSA ключ есть - передаем CardData для шифрования в lib/tbank.ts
-				cardDataString = cardDataPlain
+				// Формат CardData: "PAN=...;ExpDate=...;CardHolder=..."
+				cardDataString = `PAN=${cleanCardNumber};ExpDate=${expDate};CardHolder=${cardHolderName || 'CARDHOLDER'}`
 				
 				console.log('💳 [CREATE-WITHDRAWAL] Сформированы данные карты:', {
 					cardNumberLength: cleanCardNumber.length,
 					hasExpiry: !!cardExpiry,
-					hasCvv: !!cardCvv,
 					hasHolderName: !!cardHolderName,
-					format: 'PAN=...;ExpDate=...;CardHolder=...;CVV=...',
-					cardDataPreview: cardDataPlain.substring(0, 50) + '...',
-					note: 'CardData будет зашифрован через RSA в lib/tbank.ts',
+					format: 'PAN=...;ExpDate=...;CardHolder=...',
 				})
 			}
 
