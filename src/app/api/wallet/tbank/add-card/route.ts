@@ -58,25 +58,42 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 		}
 
-		// ВАЖНО: Используем основной клиент (TBankClient), а не E2C клиент (TBankPayoutClient)
-		// AddCard и AddCustomer - это методы интернет-эквайринга, не E2C
-		// НО: если основной терминал не работает (ошибка 204), пробуем использовать E2C терминал
-		// (возможно, у пользователя один терминал для всего, или основной терминал не настроен правильно)
-		
 		// ВАЖНО: Для AddCard нужен пароль от терминала A2C (согласно info.md)
 		// Согласно документации, для привязки карт используется пароль от терминала A2C
-		// Попробуем использовать основной терминал, но если не работает - используем E2C
-		// (возможно, E2C терминал и есть A2C терминал для привязки карт)
-		let terminalKey = TBANK_CONFIG.TERMINAL_KEY
-		// Берем пароль напрямую из process.env для основного терминала
-		let password = process.env.TBANK_TERMINAL_PASSWORD || TBANK_CONFIG.TERMINAL_PASSWORD
-		let useE2CTerminal = false
+		// E2C терминал может быть A2C терминалом для привязки карт
+		// Попробуем сначала E2C терминал (так как он работает для выплат), затем основной
+		let terminalKey = TBANK_CONFIG.E2C_TERMINAL_KEY
+		let rawPassword = process.env.TBANK_E2C_TERMINAL_PASSWORD || TBANK_CONFIG.E2C_TERMINAL_PASSWORD
+		let useE2CTerminal = true
 		
-		// Если основной терминал не настроен, используем E2C
-		if (!terminalKey || !password) {
-			terminalKey = TBANK_CONFIG.E2C_TERMINAL_KEY
-			password = process.env.TBANK_E2C_TERMINAL_PASSWORD || TBANK_CONFIG.E2C_TERMINAL_PASSWORD
-			useE2CTerminal = true
+		// Если E2C терминал не настроен, используем основной
+		if (!terminalKey || !rawPassword) {
+			terminalKey = TBANK_CONFIG.TERMINAL_KEY
+			rawPassword = process.env.TBANK_TERMINAL_PASSWORD || TBANK_CONFIG.TERMINAL_PASSWORD
+			useE2CTerminal = false
+		}
+		
+		// Декодируем пароль, если он URL-encoded (может содержать %)
+		// Пробуем декодировать, но если не получается - используем как есть
+		let password = rawPassword
+		try {
+			// Если пароль содержит % и декодируется - используем декодированный
+			if (rawPassword && rawPassword.includes('%')) {
+				const decoded = decodeURIComponent(rawPassword)
+				// Проверяем, что декодирование изменило пароль (значит был URL-encoded)
+				if (decoded !== rawPassword) {
+					password = decoded
+					console.log('🔐 [ADD-CARD] Пароль был URL-decoded:', {
+						originalLength: rawPassword.length,
+						decodedLength: password.length,
+						originalPreview: rawPassword.substring(0, 8) + '...',
+						decodedPreview: password.substring(0, 8) + '...',
+					})
+				}
+			}
+		} catch (e) {
+			// Если декодирование не удалось - используем пароль как есть
+			console.log('🔐 [ADD-CARD] Пароль не был URL-encoded, используем как есть')
 		}
 		
 		console.log('🔑 [ADD-CARD] Конфигурация для AddCard:', {
@@ -84,8 +101,9 @@ export async function POST(req: NextRequest) {
 			hasPassword: !!password,
 			passwordLength: password?.length,
 			passwordPreview: password ? password.substring(0, 8) + '...' : 'нет',
+			wasUrlEncoded: rawPassword !== password,
 			useE2CTerminal,
-			note: 'Для AddCard нужен пароль от терминала A2C (согласно info.md)',
+			note: 'Для AddCard нужен пароль от терминала A2C (согласно info.md). Сначала пробуем E2C терминал.',
 		})
 		
 		if (!terminalKey || !password) {
@@ -203,14 +221,28 @@ export async function POST(req: NextRequest) {
 				userId: user.id,
 				errorCode: addCardResult.ErrorCode,
 				message: addCardResult.Message,
+				usedTerminal: useE2CTerminal ? 'E2C' : 'Main',
 			})
 			
 			// Специальная обработка ошибки 204 - неверный токен
 			// Если использовался E2C терминал, пробуем основной терминал
-			if (addCardResult.ErrorCode === '204' && useE2CTerminal && TBANK_CONFIG.TERMINAL_KEY && TBANK_CONFIG.TERMINAL_PASSWORD) {
-				console.log('🔄 [ADD-CARD] E2C терминал не работает, пробуем основной терминал...')
+			if (addCardResult.ErrorCode === '204' && useE2CTerminal && TBANK_CONFIG.TERMINAL_KEY && (process.env.TBANK_TERMINAL_PASSWORD || TBANK_CONFIG.TERMINAL_PASSWORD)) {
+				console.log('🔄 [ADD-CARD] E2C терминал вернул ошибку 204, пробуем основной терминал...')
 				
-				const mainClient = new TBankClient(TBANK_CONFIG.TERMINAL_KEY, TBANK_CONFIG.TERMINAL_PASSWORD)
+				let mainRawPassword = process.env.TBANK_TERMINAL_PASSWORD || TBANK_CONFIG.TERMINAL_PASSWORD
+				// Декодируем пароль, если он URL-encoded
+				let mainPassword = mainRawPassword
+				try {
+					if (mainRawPassword && mainRawPassword.includes('%')) {
+						const decoded = decodeURIComponent(mainRawPassword)
+						if (decoded !== mainRawPassword) {
+							mainPassword = decoded
+						}
+					}
+				} catch (e) {
+					// Используем как есть
+				}
+				const mainClient = new TBankClient(TBANK_CONFIG.TERMINAL_KEY, mainPassword)
 				
 				// Сначала создаем/проверяем клиента с основным терминалом
 				const mainAddCustomerResult = await mainClient.addCustomer(
@@ -256,10 +288,23 @@ export async function POST(req: NextRequest) {
 			}
 			
 			// Если использовался основной терминал, пробуем E2C терминал
-			if (addCardResult.ErrorCode === '204' && !useE2CTerminal && TBANK_CONFIG.E2C_TERMINAL_KEY && TBANK_CONFIG.E2C_TERMINAL_PASSWORD) {
-				console.log('🔄 [ADD-CARD] Основной терминал не работает, пробуем E2C терминал...')
+			if (addCardResult.ErrorCode === '204' && !useE2CTerminal && TBANK_CONFIG.E2C_TERMINAL_KEY && (process.env.TBANK_E2C_TERMINAL_PASSWORD || TBANK_CONFIG.E2C_TERMINAL_PASSWORD)) {
+				console.log('🔄 [ADD-CARD] Основной терминал вернул ошибку 204, пробуем E2C терминал...')
 				
-				const e2cClient = new TBankClient(TBANK_CONFIG.E2C_TERMINAL_KEY, TBANK_CONFIG.E2C_TERMINAL_PASSWORD)
+				let e2cRawPassword = process.env.TBANK_E2C_TERMINAL_PASSWORD || TBANK_CONFIG.E2C_TERMINAL_PASSWORD
+				// Декодируем пароль, если он URL-encoded
+				let e2cPassword = e2cRawPassword
+				try {
+					if (e2cRawPassword && e2cRawPassword.includes('%')) {
+						const decoded = decodeURIComponent(e2cRawPassword)
+						if (decoded !== e2cRawPassword) {
+							e2cPassword = decoded
+						}
+					}
+				} catch (e) {
+					// Используем как есть
+				}
+				const e2cClient = new TBankClient(TBANK_CONFIG.E2C_TERMINAL_KEY, e2cPassword)
 				
 				// Сначала создаем/проверяем клиента с E2C терминалом
 				const e2cAddCustomerResult = await e2cClient.addCustomer(
