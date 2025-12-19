@@ -404,12 +404,12 @@ export async function createWithdrawal(
 		// SbpMemberId опционален - если указан, добавляем его
 		// Если не указан, Т-Банк может использовать дефолтный банк
 		if (params.sbpMemberId) {
-			// ВАЖНО: Согласно документации Т-Банка (multisplit.md стр. 1083, таблица 6.2)
-			// SbpMemberId должен быть типа Number, не String
-			// Преобразуем в число, если передана строка
-			requestBody.SbpMemberId = typeof params.sbpMemberId === 'string' 
-				? parseInt(params.sbpMemberId, 10) 
-				: params.sbpMemberId
+		// ВАЖНО: Согласно документации Т-Банка (multisplit.md стр. 1083, таблица 6.2)
+		// SbpMemberId должен быть типа Number, не String
+		// Преобразуем в число, если передана строка
+		requestBody.SbpMemberId = typeof params.sbpMemberId === 'string' 
+			? parseInt(params.sbpMemberId, 10) 
+			: params.sbpMemberId
 		}
 	}
 	// ВАЖНО: CardId и CardData - взаимоисключающие параметры
@@ -493,7 +493,7 @@ export async function createWithdrawal(
 	if (usesCardId) {
 		// CardId используется - генерируем Token (данные хранятся на стороне банка)
 		console.log('🔐 [TBANK] CardId используется - генерируем Token:', {
-			hasCardId: !!requestBody.CardId,
+		hasCardId: !!requestBody.CardId,
 			note: 'Token используется для CardId, когда данные хранятся на стороне банка',
 		})
 	} else {
@@ -505,14 +505,14 @@ export async function createWithdrawal(
 		})
 	}
 	
-	try {
-		requestBody.Token = generateToken(requestBody, e2cPassword)
-	} catch (error: any) {
-		throw new Error(
-			`Ошибка генерации токена: ${
-				error.message || 'Проверьте настройки TBANK_E2C_TERMINAL_PASSWORD'
-			}`
-		)
+		try {
+			requestBody.Token = generateToken(requestBody, e2cPassword)
+		} catch (error: any) {
+			throw new Error(
+				`Ошибка генерации токена: ${
+					error.message || 'Проверьте настройки TBANK_E2C_TERMINAL_PASSWORD'
+				}`
+			)
 	}
 
 	// ВАЖНО: NotificationURL НЕ передается в запросах на выплату

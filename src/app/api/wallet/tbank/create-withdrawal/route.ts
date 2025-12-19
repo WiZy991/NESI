@@ -163,6 +163,10 @@ export async function POST(req: NextRequest) {
 		// hasCardData уже объявлена выше (строка 61)
 		const hasSbpData = !!phone
 		
+		// cardDataString не используется для СБП - только для карт
+		// Инициализируем как undefined, чтобы избежать ошибок
+		let cardDataString: string | undefined = undefined
+		
 		// Если переданы данные новой карты, возвращаем ошибку
 		// CardData требует подписи по сертификату RSA, а НЕ Token
 		// Token используется ТОЛЬКО для CardId (когда данные хранятся на стороне банка)
@@ -447,7 +451,7 @@ export async function POST(req: NextRequest) {
 				)
 
 				let errorMessage = 'Не удалось обработать запрос на вывод средств. '
-				
+
 				if (!diagnosticInfo.hasTBankDeposits) {
 					if (isPlatformOwner) {
 						errorMessage += 'Попробуйте позже.'
@@ -573,10 +577,9 @@ export async function POST(req: NextRequest) {
 				}
 			}
 
-			// Используем CardId (привязанная карта), CardData (зашифрованные данные) или СБП
-			// CardData требует шифрования RSA для данных карты, но подпись запроса через Token
-			// cardDataString уже сформирован выше (если hasCardData && !hasCardId)
-			
+			// Используем CardId (привязанная карта) или СБП
+			// CardData не используется (требует RSA сертификат)
+
 			withdrawal = await createWithdrawal({
 				amount: amountNumber,
 				orderId,
@@ -584,9 +587,6 @@ export async function POST(req: NextRequest) {
 				paymentRecipientId: finalPaymentRecipientId,
 				// Передаем cardId только если он есть (привязанная карта)
 				...(finalCardId ? { cardId: finalCardId } : {}),
-				// Передаем cardData если есть (зашифрованные данные карты)
-				// CustomerKey нужен для автоматической привязки карты
-				...(cardDataString ? { cardData: cardDataString, customerKey: user.id } : {}),
 				// Передаем phone и sbpMemberId только для СБП выплат
 				// sbpMemberId опционален - если не указан, используется дефолтный банк
 				...(phoneForSbp
