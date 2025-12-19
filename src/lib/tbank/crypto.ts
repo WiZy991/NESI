@@ -46,15 +46,17 @@ export function generateTBankToken(
 				return ''
 			}
 
-			// Преобразуем в строку
-			const stringValue = String(value)
+		// Преобразуем в строку
+		const stringValue = String(value)
 
-			// Пропускаем пустые строки
-			if (stringValue === '') {
-				return ''
-			}
+		// Пропускаем пустые строки
+		if (stringValue === '') {
+			return ''
+		}
 
-			return stringValue
+		// ВАЖНО: Пароль используется как есть при генерации токена
+		// Декодирование (если нужно) должно происходить ДО передачи пароля в эту функцию
+		return stringValue
 		})
 		.filter(v => v !== '')
 		.join('')
