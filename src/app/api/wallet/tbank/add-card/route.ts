@@ -58,52 +58,45 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 		}
 
-		// ВАЖНО: Для AddCard нужен пароль от терминала A2C (согласно info.md)
-		// Согласно документации, для привязки карт используется пароль от терминала A2C
-		// E2C терминал может быть A2C терминалом для привязки карт
-		// Попробуем сначала E2C терминал (так как он работает для выплат), затем основной
-		let terminalKey = TBANK_CONFIG.E2C_TERMINAL_KEY
-		let rawPassword = process.env.TBANK_E2C_TERMINAL_PASSWORD || TBANK_CONFIG.E2C_TERMINAL_PASSWORD
-		let useE2CTerminal = true
+		// ВАЖНО: Согласно ответу поддержки Т-Банка:
+		// - Терминал для оплат: 1763372956356
+		// - Терминал для выплат: 1763372956356E2C
+		// - Пароли у обоих терминалов ОДИНАКОВЫЕ
+		// - Для AddCard нужно использовать терминал для оплат (основной терминал)
+		// - AddCard - это метод интернет-эквайринга, не E2C
 		
-		// Если E2C терминал не настроен, используем основной
-		if (!terminalKey || !rawPassword) {
-			terminalKey = TBANK_CONFIG.TERMINAL_KEY
-			rawPassword = process.env.TBANK_TERMINAL_PASSWORD || TBANK_CONFIG.TERMINAL_PASSWORD
-			useE2CTerminal = false
+		// Берем основной терминал и пароль НАПРЯМУЮ из process.env БЕЗ декодирования
+		// (config.ts может декодировать неправильно, если % - это часть пароля, а не URL-encoding)
+		let terminalKey = process.env.TBANK_TERMINAL_KEY || ''
+		let password = process.env.TBANK_TERMINAL_PASSWORD || ''
+		
+		// Если основной терминал не настроен, но есть E2C - используем E2C терминал
+		// (но пароль должен быть тот же, что и для основного)
+		if (!terminalKey && process.env.TBANK_E2C_TERMINAL_KEY) {
+			terminalKey = process.env.TBANK_E2C_TERMINAL_KEY
+			// Пароль берем из основного, если есть, иначе из E2C
+			password = password || process.env.TBANK_E2C_TERMINAL_PASSWORD || ''
 		}
 		
-		// Декодируем пароль, если он URL-encoded (может содержать %)
-		// Пробуем декодировать, но если не получается - используем как есть
-		let password = rawPassword
-		try {
-			// Если пароль содержит % и декодируется - используем декодированный
-			if (rawPassword && rawPassword.includes('%')) {
-				const decoded = decodeURIComponent(rawPassword)
-				// Проверяем, что декодирование изменило пароль (значит был URL-encoded)
-				if (decoded !== rawPassword) {
-					password = decoded
-					console.log('🔐 [ADD-CARD] Пароль был URL-decoded:', {
-						originalLength: rawPassword.length,
-						decodedLength: password.length,
-						originalPreview: rawPassword.substring(0, 8) + '...',
-						decodedPreview: password.substring(0, 8) + '...',
-					})
-				}
-			}
-		} catch (e) {
-			// Если декодирование не удалось - используем пароль как есть
-			console.log('🔐 [ADD-CARD] Пароль не был URL-encoded, используем как есть')
+		if (!terminalKey || !password) {
+			return NextResponse.json(
+				{ 
+					error: 'Терминал не настроен',
+					details: 'Настройте TBANK_TERMINAL_KEY и TBANK_TERMINAL_PASSWORD. Пароли для обоих терминалов одинаковые.',
+				},
+				{ status: 503 }
+			)
 		}
+		
+		const useE2CTerminal = terminalKey.includes('E2C')
 		
 		console.log('🔑 [ADD-CARD] Конфигурация для AddCard:', {
 			terminalKey: terminalKey?.slice(0, 8) + '...',
 			hasPassword: !!password,
 			passwordLength: password?.length,
 			passwordPreview: password ? password.substring(0, 8) + '...' : 'нет',
-			wasUrlEncoded: rawPassword !== password,
 			useE2CTerminal,
-			note: 'Для AddCard нужен пароль от терминала A2C (согласно info.md). Сначала пробуем E2C терминал.',
+			note: 'Для AddCard используем основной терминал (для оплат). Пароли для обоих терминалов одинаковые (согласно поддержке Т-Банка).',
 		})
 		
 		if (!terminalKey || !password) {
@@ -221,92 +214,20 @@ export async function POST(req: NextRequest) {
 				userId: user.id,
 				errorCode: addCardResult.ErrorCode,
 				message: addCardResult.Message,
-				usedTerminal: useE2CTerminal ? 'E2C' : 'Main',
+				usedTerminal: terminalKey,
 			})
 			
 			// Специальная обработка ошибки 204 - неверный токен
-			// Если использовался E2C терминал, пробуем основной терминал
-			if (addCardResult.ErrorCode === '204' && useE2CTerminal && TBANK_CONFIG.TERMINAL_KEY && (process.env.TBANK_TERMINAL_PASSWORD || TBANK_CONFIG.TERMINAL_PASSWORD)) {
-				console.log('🔄 [ADD-CARD] E2C терминал вернул ошибку 204, пробуем основной терминал...')
+			// Согласно поддержке Т-Банка, пароли одинаковые, но если не работает основной терминал,
+			// пробуем E2C терминал с тем же паролем
+			if (addCardResult.ErrorCode === '204' && !useE2CTerminal && process.env.TBANK_E2C_TERMINAL_KEY) {
+				console.log('🔄 [ADD-CARD] Основной терминал вернул ошибку 204, пробуем E2C терминал с тем же паролем...')
 				
-				let mainRawPassword = process.env.TBANK_TERMINAL_PASSWORD || TBANK_CONFIG.TERMINAL_PASSWORD
-				// Декодируем пароль, если он URL-encoded
-				let mainPassword = mainRawPassword
-				try {
-					if (mainRawPassword && mainRawPassword.includes('%')) {
-						const decoded = decodeURIComponent(mainRawPassword)
-						if (decoded !== mainRawPassword) {
-							mainPassword = decoded
-						}
-					}
-				} catch (e) {
-					// Используем как есть
-				}
-				const mainClient = new TBankClient(TBANK_CONFIG.TERMINAL_KEY, mainPassword)
+				const e2cTerminalKey = process.env.TBANK_E2C_TERMINAL_KEY
+				// Пароль тот же самый (согласно поддержке Т-Банка)
+				const e2cClient = new TBankClient(e2cTerminalKey, password)
 				
-				// Сначала создаем/проверяем клиента с основным терминалом
-				const mainAddCustomerResult = await mainClient.addCustomer(
-					customerKey,
-					userData.email || undefined,
-					undefined
-				)
-				
-				const mainIsCustomerExists = mainAddCustomerResult.ErrorCode === '99' || mainAddCustomerResult.ErrorCode === '7'
-				if (!mainAddCustomerResult.Success && !mainIsCustomerExists) {
-					console.error('❌ [ADD-CARD] Основной AddCustomer failed:', mainAddCustomerResult)
-				}
-				
-				// Пробуем AddCard с основным терминалом
-				const mainAddCardResult = await mainClient.addCard({
-					customerKey,
-					checkType: 'NO',
-					successURL: `${appUrl}/profile?cardAdded=success`,
-					failURL: `${appUrl}/profile?cardAdded=fail`,
-					notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
-				})
-				
-				console.log('📥 [ADD-CARD] Результат AddCard с основным терминалом:', {
-					success: mainAddCardResult.Success,
-					errorCode: mainAddCardResult.ErrorCode,
-					message: mainAddCardResult.Message,
-					hasPaymentURL: !!mainAddCardResult.PaymentURL,
-				})
-				
-				if (mainAddCardResult.Success && mainAddCardResult.PaymentURL) {
-					logger.info('TBank AddCard success with main terminal', {
-						userId: user.id,
-						requestKey: mainAddCardResult.RequestKey,
-						paymentURL: mainAddCardResult.PaymentURL,
-					})
-					
-					return NextResponse.json({
-						success: true,
-						paymentURL: mainAddCardResult.PaymentURL,
-						requestKey: mainAddCardResult.RequestKey,
-					})
-				}
-			}
-			
-			// Если использовался основной терминал, пробуем E2C терминал
-			if (addCardResult.ErrorCode === '204' && !useE2CTerminal && TBANK_CONFIG.E2C_TERMINAL_KEY && (process.env.TBANK_E2C_TERMINAL_PASSWORD || TBANK_CONFIG.E2C_TERMINAL_PASSWORD)) {
-				console.log('🔄 [ADD-CARD] Основной терминал вернул ошибку 204, пробуем E2C терминал...')
-				
-				let e2cRawPassword = process.env.TBANK_E2C_TERMINAL_PASSWORD || TBANK_CONFIG.E2C_TERMINAL_PASSWORD
-				// Декодируем пароль, если он URL-encoded
-				let e2cPassword = e2cRawPassword
-				try {
-					if (e2cRawPassword && e2cRawPassword.includes('%')) {
-						const decoded = decodeURIComponent(e2cRawPassword)
-						if (decoded !== e2cRawPassword) {
-							e2cPassword = decoded
-						}
-					}
-				} catch (e) {
-					// Используем как есть
-				}
-				const e2cClient = new TBankClient(TBANK_CONFIG.E2C_TERMINAL_KEY, e2cPassword)
-				
-				// Сначала создаем/проверяем клиента с E2C терминалом
+				// Сначала создаем/проверяем клиента
 				const e2cAddCustomerResult = await e2cClient.addCustomer(
 					customerKey,
 					userData.email || undefined,
@@ -349,27 +270,33 @@ export async function POST(req: NextRequest) {
 				}
 			}
 			
-			// Если E2C тоже не сработал или не был попробован, возвращаем ошибку
+			// Если ошибка 204 и ничего не помогло
 			if (addCardResult.ErrorCode === '204') {
 				console.error('❌ [ADD-CARD] Ошибка 204 - неверный токен:', {
-					terminalKey: useE2CTerminal ? TBANK_CONFIG.E2C_TERMINAL_KEY : TBANK_CONFIG.TERMINAL_KEY,
+					terminalKey: terminalKey?.slice(0, 8) + '...',
 					hasPassword: !!password,
 					passwordLength: password?.length,
-					usedE2C: useE2CTerminal,
-					message: 'Проверьте, что пароль соответствует терминалу',
+					passwordPreview: password ? password.substring(0, 8) + '...' : 'нет',
+					message: 'Проверьте, что пароль правильный. Согласно поддержке Т-Банка, пароли для обоих терминалов одинаковые.',
 				})
 				
 				return NextResponse.json(
 					{ 
 						error: 'Привязка карты временно недоступна',
-						details: `❌ Для привязки карт требуется отдельный A2C терминал.\n\n` +
-							`Проблема: Метод AddCard требует пароль от терминала A2C (согласно документации Т-Банка).\n\n` +
-							`Текущая ситуация:\n` +
-							`• Основной терминал ${TBANK_CONFIG.TERMINAL_KEY} - не является A2C терминалом для привязки карт\n` +
-							`• E2C терминал ${TBANK_CONFIG.E2C_TERMINAL_KEY} - работает для выплат, но не для привязки карт\n\n` +
+						details: `❌ Ошибка 204: Неверный токен.\n\n` +
+							`Проблема: Т-Банк вернул ошибку "Неверный токен. Проверьте пару TerminalKey/SecretKey".\n\n` +
+							`Использовано:\n` +
+							`• Терминал: ${terminalKey?.slice(0, 8)}...\n` +
+							`• Пароль: ${password ? 'установлен (' + password.length + ' символов)' : 'не установлен'}\n\n` +
+							`Согласно поддержке Т-Банка:\n` +
+							`• Терминал для оплат: 1763372956356\n` +
+							`• Терминал для выплат: 1763372956356E2C\n` +
+							`• Пароли для обоих терминалов ОДИНАКОВЫЕ\n` +
+							`• Для AddCard нужно использовать терминал для оплат\n\n` +
 							`Решение:\n` +
-							`1. Обратитесь в поддержку Т-Банка для получения отдельного A2C терминала для привязки карт\n` +
-							`2. Или уточните, является ли ваш основной терминал A2C терминалом\n\n` +
+							`1. Проверьте, что TBANK_TERMINAL_PASSWORD правильный (пароль одинаковый для обоих терминалов)\n` +
+							`2. Убедитесь, что пароль не URL-encoded (если содержит %, используйте как есть)\n` +
+							`3. Если проблема сохраняется, обратитесь в поддержку Т-Банка (acq_help@tbank.ru)\n\n` +
 							`Временное решение: Пользователи могут выводить деньги через СБП (это работает).`,
 					},
 					{ status: 400 }
