@@ -242,44 +242,69 @@ export async function POST(req: NextRequest) {
 			})
 			
 			// Специальная обработка ошибки 204 - неверный токен
-			// Если декодированный пароль не сработал, пробуем с недекодированным
-			if (addCardResult.ErrorCode === '204' && rawPassword !== password) {
-				console.log('🔄 [ADD-CARD] Основной терминал с декодированным паролем не сработал, пробуем с недекодированным паролем...')
-				
-				const mainClientRaw = new TBankClient(terminalKey, rawPassword)
-				
-				// Пробуем AddCard с недекодированным паролем
-				const mainAddCardResultRaw = await mainClientRaw.addCard({
-					customerKey,
-					checkType: 'NO',
-					successURL: `${appUrl}/profile?cardAdded=success`,
-					failURL: `${appUrl}/profile?cardAdded=fail`,
-					notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
-				})
-				
-				console.log('📥 [ADD-CARD] Результат AddCard с основным терминалом (недекодированный пароль):', {
-					success: mainAddCardResultRaw.Success,
-					errorCode: mainAddCardResultRaw.ErrorCode,
-					message: mainAddCardResultRaw.Message,
-					hasPaymentURL: !!mainAddCardResultRaw.PaymentURL,
-				})
-				
-				if (mainAddCardResultRaw.Success && mainAddCardResultRaw.PaymentURL) {
-					logger.info('TBank AddCard success with main terminal (raw password)', {
-						userId: user.id,
-						requestKey: mainAddCardResultRaw.RequestKey,
-						paymentURL: mainAddCardResultRaw.PaymentURL,
+			// Пробуем все возможные варианты обработки пароля для основного терминала
+			if (addCardResult.ErrorCode === '204') {
+				// Вариант 1: Если пароль был декодирован, пробуем с недекодированным
+				if (rawPassword !== password) {
+					console.log('🔄 [ADD-CARD] Основной терминал с декодированным паролем не сработал, пробуем с недекодированным паролем...')
+					
+					const mainClientRaw = new TBankClient(terminalKey, rawPassword)
+					
+					const mainAddCardResultRaw = await mainClientRaw.addCard({
+						customerKey,
+						checkType: 'NO',
+						successURL: `${appUrl}/profile?cardAdded=success`,
+						failURL: `${appUrl}/profile?cardAdded=fail`,
+						notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
 					})
 					
-					return NextResponse.json({
-						success: true,
-						paymentURL: mainAddCardResultRaw.PaymentURL,
-						requestKey: mainAddCardResultRaw.RequestKey,
+					console.log('📥 [ADD-CARD] Результат AddCard с основным терминалом (недекодированный пароль):', {
+						success: mainAddCardResultRaw.Success,
+						errorCode: mainAddCardResultRaw.ErrorCode,
+						hasPaymentURL: !!mainAddCardResultRaw.PaymentURL,
 					})
+					
+					if (mainAddCardResultRaw.Success && mainAddCardResultRaw.PaymentURL) {
+						return NextResponse.json({
+							success: true,
+							paymentURL: mainAddCardResultRaw.PaymentURL,
+							requestKey: mainAddCardResultRaw.RequestKey,
+						})
+					}
+					
+					// Если недекодированный тоже не сработал, пробуем с %25
+					if (mainAddCardResultRaw.ErrorCode === '204' && rawPassword.includes('%')) {
+						console.log('🔄 [ADD-CARD] Пробуем заменить % на %25 в пароле...')
+						
+						const passwordWithEncodedPercent = rawPassword.replace(/%/g, '%25')
+						const mainClientEncoded = new TBankClient(terminalKey, passwordWithEncodedPercent)
+						
+						const mainAddCardResultEncoded = await mainClientEncoded.addCard({
+							customerKey,
+							checkType: 'NO',
+							successURL: `${appUrl}/profile?cardAdded=success`,
+							failURL: `${appUrl}/profile?cardAdded=fail`,
+							notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
+						})
+						
+						console.log('📥 [ADD-CARD] Результат AddCard с основным терминалом (пароль с %25):', {
+							success: mainAddCardResultEncoded.Success,
+							errorCode: mainAddCardResultEncoded.ErrorCode,
+							hasPaymentURL: !!mainAddCardResultEncoded.PaymentURL,
+						})
+						
+						if (mainAddCardResultEncoded.Success && mainAddCardResultEncoded.PaymentURL) {
+							return NextResponse.json({
+								success: true,
+								paymentURL: mainAddCardResultEncoded.PaymentURL,
+								requestKey: mainAddCardResultEncoded.RequestKey,
+							})
+						}
+					}
 				}
 				
-				// Если и это не помогло, пробуем заменить % на %25 в пароле (URL-encoding для %)
-				if (mainAddCardResultRaw.ErrorCode === '204' && rawPassword.includes('%')) {
+				// Вариант 2: Если пароль содержит %, пробуем заменить % на %25 (даже если не был декодирован)
+				if (rawPassword.includes('%')) {
 					console.log('🔄 [ADD-CARD] Пробуем заменить % на %25 в пароле (URL-encoding для %)...')
 					
 					const passwordWithEncodedPercent = rawPassword.replace(/%/g, '%25')
@@ -296,17 +321,10 @@ export async function POST(req: NextRequest) {
 					console.log('📥 [ADD-CARD] Результат AddCard с основным терминалом (пароль с %25):', {
 						success: mainAddCardResultEncoded.Success,
 						errorCode: mainAddCardResultEncoded.ErrorCode,
-						message: mainAddCardResultEncoded.Message,
 						hasPaymentURL: !!mainAddCardResultEncoded.PaymentURL,
 					})
 					
 					if (mainAddCardResultEncoded.Success && mainAddCardResultEncoded.PaymentURL) {
-						logger.info('TBank AddCard success with main terminal (password with %25)', {
-							userId: user.id,
-							requestKey: mainAddCardResultEncoded.RequestKey,
-							paymentURL: mainAddCardResultEncoded.PaymentURL,
-						})
-						
 						return NextResponse.json({
 							success: true,
 							paymentURL: mainAddCardResultEncoded.PaymentURL,
@@ -375,7 +393,6 @@ export async function POST(req: NextRequest) {
 					
 					const e2cClientRaw = new TBankClient(e2cTerminalKey, rawPassword)
 					
-					// Пробуем AddCard с недекодированным паролем
 					const e2cAddCardResultRaw = await e2cClientRaw.addCard({
 						customerKey,
 						checkType: 'NO',
@@ -387,17 +404,10 @@ export async function POST(req: NextRequest) {
 					console.log('📥 [ADD-CARD] Результат AddCard с E2C терминалом (недекодированный пароль):', {
 						success: e2cAddCardResultRaw.Success,
 						errorCode: e2cAddCardResultRaw.ErrorCode,
-						message: e2cAddCardResultRaw.Message,
 						hasPaymentURL: !!e2cAddCardResultRaw.PaymentURL,
 					})
 					
 					if (e2cAddCardResultRaw.Success && e2cAddCardResultRaw.PaymentURL) {
-						logger.info('TBank AddCard success with E2C terminal (raw password)', {
-							userId: user.id,
-							requestKey: e2cAddCardResultRaw.RequestKey,
-							paymentURL: e2cAddCardResultRaw.PaymentURL,
-						})
-						
 						return NextResponse.json({
 							success: true,
 							paymentURL: e2cAddCardResultRaw.PaymentURL,
@@ -405,9 +415,9 @@ export async function POST(req: NextRequest) {
 						})
 					}
 					
-					// Если и это не помогло, пробуем заменить % на %25 в пароле (URL-encoding для %)
+					// Если недекодированный тоже не сработал, пробуем с %25
 					if (e2cAddCardResultRaw.ErrorCode === '204' && rawPassword.includes('%')) {
-						console.log('🔄 [ADD-CARD] Пробуем заменить % на %25 в пароле (URL-encoding для %)...')
+						console.log('🔄 [ADD-CARD] E2C терминал: пробуем заменить % на %25 в пароле...')
 						
 						const passwordWithEncodedPercent = rawPassword.replace(/%/g, '%25')
 						const e2cClientEncoded = new TBankClient(e2cTerminalKey, passwordWithEncodedPercent)
@@ -423,17 +433,10 @@ export async function POST(req: NextRequest) {
 						console.log('📥 [ADD-CARD] Результат AddCard с E2C терминалом (пароль с %25):', {
 							success: e2cAddCardResultEncoded.Success,
 							errorCode: e2cAddCardResultEncoded.ErrorCode,
-							message: e2cAddCardResultEncoded.Message,
 							hasPaymentURL: !!e2cAddCardResultEncoded.PaymentURL,
 						})
 						
 						if (e2cAddCardResultEncoded.Success && e2cAddCardResultEncoded.PaymentURL) {
-							logger.info('TBank AddCard success with E2C terminal (password with %25)', {
-								userId: user.id,
-								requestKey: e2cAddCardResultEncoded.RequestKey,
-								paymentURL: e2cAddCardResultEncoded.PaymentURL,
-							})
-							
 							return NextResponse.json({
 								success: true,
 								paymentURL: e2cAddCardResultEncoded.PaymentURL,
@@ -442,14 +445,49 @@ export async function POST(req: NextRequest) {
 						}
 					}
 				}
+				
+				// Если пароль содержит %, пробуем заменить % на %25 (даже если не был декодирован)
+				if (e2cAddCardResult.ErrorCode === '204' && rawPassword.includes('%')) {
+					console.log('🔄 [ADD-CARD] E2C терминал: пробуем заменить % на %25 в пароле (URL-encoding для %)...')
+					
+					const passwordWithEncodedPercent = rawPassword.replace(/%/g, '%25')
+					const e2cClientEncoded = new TBankClient(e2cTerminalKey, passwordWithEncodedPercent)
+					
+					const e2cAddCardResultEncoded = await e2cClientEncoded.addCard({
+						customerKey,
+						checkType: 'NO',
+						successURL: `${appUrl}/profile?cardAdded=success`,
+						failURL: `${appUrl}/profile?cardAdded=fail`,
+						notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
+					})
+					
+					console.log('📥 [ADD-CARD] Результат AddCard с E2C терминалом (пароль с %25):', {
+						success: e2cAddCardResultEncoded.Success,
+						errorCode: e2cAddCardResultEncoded.ErrorCode,
+						hasPaymentURL: !!e2cAddCardResultEncoded.PaymentURL,
+					})
+					
+					if (e2cAddCardResultEncoded.Success && e2cAddCardResultEncoded.PaymentURL) {
+						return NextResponse.json({
+							success: true,
+							paymentURL: e2cAddCardResultEncoded.PaymentURL,
+							requestKey: e2cAddCardResultEncoded.RequestKey,
+						})
+					}
+				}
 			}
 			
 			// Если ошибка 204 и ничего не помогло
 			if (addCardResult.ErrorCode === '204') {
 				const triedVariants = []
-				if (rawPassword !== password) triedVariants.push('декодированный пароль')
-				if (rawPassword === password) triedVariants.push('пароль как есть')
-				if (rawPassword.includes('%')) triedVariants.push('пароль с %25 вместо %')
+				triedVariants.push('основной терминал с паролем как есть')
+				if (rawPassword !== password) triedVariants.push('основной терминал с декодированным паролем')
+				if (rawPassword.includes('%')) triedVariants.push('основной терминал с паролем (% заменен на %25)')
+				if (process.env.TBANK_E2C_TERMINAL_KEY) {
+					triedVariants.push('E2C терминал с паролем как есть')
+					if (rawPassword !== password) triedVariants.push('E2C терминал с декодированным паролем')
+					if (rawPassword.includes('%')) triedVariants.push('E2C терминал с паролем (% заменен на %25)')
+				}
 				
 				console.error('❌ [ADD-CARD] Ошибка 204 - неверный токен после всех попыток:', {
 					terminalKey: terminalKey?.slice(0, 8) + '...',
@@ -459,7 +497,8 @@ export async function POST(req: NextRequest) {
 					rawPasswordPreview: rawPassword ? rawPassword.substring(0, 12) + '...' : 'нет',
 					passwordContainsPercent: rawPassword?.includes('%'),
 					triedVariants,
-					message: 'Все варианты обработки пароля не сработали. Возможно, пароль неправильный.',
+					totalAttempts: triedVariants.length,
+					message: `Все ${triedVariants.length} вариантов обработки пароля не сработали. Возможно, пароль неправильный или отличается от того, что в личном кабинете Т-Банка.`,
 				})
 				
 				return NextResponse.json(

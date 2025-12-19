@@ -157,18 +157,25 @@ export async function POST(req: NextRequest) {
 		console.log('✅ [WITHDRAWAL] Проверка пройдена, продолжаем вывод...')
 
 		// Проверяем наличие способа выплаты
-		// Для карты: cardId (привязанная карта) - CardData НЕ поддерживается без RSA сертификата
+		// Для карты: cardId (привязанная карта) или cardData (зашифрованные данные карты)
 		// Для СБП: phone + sbpMemberId
 		const hasCardId = !!cardId
+		const hasCardData = !!(cardNumber && cardExpiry)
 		const hasSbpData = !!(phone && sbpMemberId)
 		
-		// Если переданы данные новой карты, но нет RSA сертификата - показываем ошибку
+		// Если переданы данные новой карты, формируем CardData
+		// CardData требует шифрования RSA для данных карты, но подпись запроса через Token
 		if (hasCardData && !hasCardId) {
+			// TODO: Реализовать шифрование CardData с помощью RSA
+			// Пока возвращаем ошибку, так как нужен открытый ключ от Т-Банка для шифрования
 			return NextResponse.json(
 				{
 					error:
-						'❌ Вывод на новую карту недоступен без RSA сертификата.\n\n' +
-						'CardData требует подписи по сертификату RSA, которая не настроена.\n\n' +
+						'❌ Вывод на новую карту временно недоступен.\n\n' +
+						'Для использования CardData необходимо:\n' +
+						'1. Получить открытый ключ RSA от Т-Банка (acq_help@tbank.ru)\n' +
+						'2. Зашифровать данные карты (PAN, ExpDate, CVV, CardHolder) с помощью RSA\n' +
+						'3. Подпись запроса выполняется через Token (не RSA)\n\n' +
 						'Доступные способы вывода:\n\n' +
 						'1️⃣ **Привязанная карта (CardId)**:\n' +
 						'   • Сначала привяжите карту через раздел "Привязать карту"\n' +
@@ -187,7 +194,9 @@ export async function POST(req: NextRequest) {
 			hasCardId,
 			hasCardData,
 			hasSbpData,
-			note: 'Для выплат на карту используется только CardId (привязанная карта). CardData не поддерживается без RSA.',
+			note: hasCardData 
+				? 'CardData можно использовать с Token (подпись запроса через Token, не RSA)'
+				: 'Для выплат на карту используется CardId (привязанная карта) или CardData (зашифрованные данные)',
 		})
 		
 		if (!hasCardId && !hasSbpData) {
@@ -614,8 +623,18 @@ export async function POST(req: NextRequest) {
 				}
 			}
 
-			// CardData НЕ поддерживается без RSA сертификата
-			// Используем только CardId (привязанная карта) или СБП
+			// Используем CardId (привязанная карта), CardData (зашифрованные данные) или СБП
+			// CardData требует шифрования RSA для данных карты, но подпись запроса через Token
+			let cardDataString: string | undefined
+			if (hasCardData && !finalCardId) {
+				// TODO: Реализовать шифрование CardData с помощью RSA
+				// Формат: "PAN=...;ExpDate=...;CardHolder=...;CVV=..."
+				// Затем шифруется открытым ключом RSA и кодируется в Base64
+				// Пока возвращаем ошибку, так как нужен открытый ключ от Т-Банка
+				// Но подпись запроса будет через Token (не RSA)
+				// Для получения открытого ключа обратитесь в acq_help@tbank.ru
+			}
+			
 			withdrawal = await createWithdrawal({
 				amount: amountNumber,
 				orderId,
@@ -623,7 +642,9 @@ export async function POST(req: NextRequest) {
 				paymentRecipientId: finalPaymentRecipientId,
 				// Передаем cardId только если он есть (привязанная карта)
 				...(finalCardId ? { cardId: finalCardId } : {}),
-				// CardData НЕ передается - требует RSA сертификат
+				// Передаем cardData если есть (зашифрованные данные карты)
+				// CustomerKey нужен для автоматической привязки карты
+				...(cardDataString ? { cardData: cardDataString, customerKey: user.id } : {}),
 				// Передаем phone и sbpMemberId только для СБП выплат
 				...(phoneForSbp && sbpMemberId
 					? { phone: phoneForSbp, sbpMemberId }
