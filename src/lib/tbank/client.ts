@@ -294,12 +294,14 @@ export class TBankClient {
 	 *   - HOLD: списание 0 руб (возвращает RebillID)
 	 *   - 3DS: проверка 3DS (возвращает RebillID)
 	 *   - 3DSHOLD: 3DS + списание 0 руб (возвращает RebillID)
+	 * @param notificationURL - URL для получения уведомлений о привязке карты (ОБЯЗАТЕЛЕН)
 	 */
 	async addCard(params: {
 		customerKey: string
 		checkType?: 'NO' | 'HOLD' | '3DS' | '3DSHOLD'
 		successURL?: string
 		failURL?: string
+		notificationURL?: string
 	}): Promise<{
 		Success: boolean
 		ErrorCode: string
@@ -321,6 +323,12 @@ export class TBankClient {
 		}
 		if (params.failURL) {
 			requestParams.FailURL = params.failURL
+		}
+		
+		// ВАЖНО: NotificationURL обязателен для получения уведомлений о привязке карты
+		// Т-Банк отправит POST-запрос на этот URL после успешной привязки карты
+		if (params.notificationURL) {
+			requestParams.NotificationURL = params.notificationURL
 		}
 		
 		return this.makeRequest('/v2/AddCard', requestParams)

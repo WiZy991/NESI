@@ -157,24 +157,45 @@ export async function POST(req: NextRequest) {
 		console.log('✅ [WITHDRAWAL] Проверка пройдена, продолжаем вывод...')
 
 		// Проверяем наличие способа выплаты
-		// Для карты: cardId (привязанная карта) ИЛИ данные новой карты (cardNumber + cardExpiry)
+		// Для карты: cardId (привязанная карта) - CardData НЕ поддерживается без RSA сертификата
 		// Для СБП: phone + sbpMemberId
 		const hasCardId = !!cardId
 		const hasSbpData = !!(phone && sbpMemberId)
+		
+		// Если переданы данные новой карты, но нет RSA сертификата - показываем ошибку
+		if (hasCardData && !hasCardId) {
+			return NextResponse.json(
+				{
+					error:
+						'❌ Вывод на новую карту недоступен без RSA сертификата.\n\n' +
+						'CardData требует подписи по сертификату RSA, которая не настроена.\n\n' +
+						'Доступные способы вывода:\n\n' +
+						'1️⃣ **Привязанная карта (CardId)**:\n' +
+						'   • Сначала привяжите карту через раздел "Привязать карту"\n' +
+						'   • Затем выберите привязанную карту при выводе\n\n' +
+						'2️⃣ **СБП (Система Быстрых Платежей)**:\n' +
+						'   • Выберите способ вывода "СБП"\n' +
+						'   • Укажите номер телефона и банк\n' +
+						'   • Средства поступят мгновенно\n\n' +
+						'💡 Рекомендация: Используйте вывод через СБП или привяжите карту заранее.',
+				},
+				{ status: 400 }
+			)
+		}
 		
 		console.log('🔍 [CREATE-WITHDRAWAL] Проверка способа выплаты:', {
 			hasCardId,
 			hasCardData,
 			hasSbpData,
-			note: 'Для выплат на карту можно использовать CardId (привязанная карта) или данные новой карты',
+			note: 'Для выплат на карту используется только CardId (привязанная карта). CardData не поддерживается без RSA.',
 		})
 		
-		if (!hasCardId && !hasCardData && !hasSbpData) {
+		if (!hasCardId && !hasSbpData) {
 			return NextResponse.json(
 				{
 					error:
 						'Не указан способ выплаты. Укажите:\n' +
-						'• Для карты: cardId (привязанная карта) ИЛИ данные карты (cardNumber, cardExpiry)\n' +
+						'• Для карты: cardId (привязанная карта)\n' +
 						'• Для СБП: phone и sbpMemberId',
 				},
 				{ status: 400 }
@@ -593,37 +614,8 @@ export async function POST(req: NextRequest) {
 				}
 			}
 
-			// Формируем CardData для выплаты на карту, если указаны данные карты
-			let cardDataString: string | undefined = undefined
-			if (hasCardData && !hasCardId) {
-				// Для выплаты на карту через CardData нужны данные карты
-				// Согласно документации E2C: CardData в формате "ключ=значение" (разделитель ";")
-				// Пример: PAN=4300000000000777;ExpDate=0523;CardHolder=IVAN PETROV;CVV=123
-				const cleanCardNumber = cardNumber.replace(/\D/g, '')
-				const [expMonth, expYear] = cardExpiry.split('/')
-				const expDate = expYear ? `${expMonth}${expYear}` : expMonth // MMYY
-				const cleanCvv = cardCvv ? cardCvv.replace(/\D/g, '') : ''
-				
-				// Формат CardData: "PAN=...;ExpDate=...;CardHolder=...;CVV=..."
-				const cardDataParts = [
-					`PAN=${cleanCardNumber}`,
-					`ExpDate=${expDate}`,
-					`CardHolder=${cardHolderName || 'CARDHOLDER'}`,
-				]
-				if (cleanCvv) {
-					cardDataParts.push(`CVV=${cleanCvv}`)
-				}
-				cardDataString = cardDataParts.join(';')
-				
-				console.log('💳 [CREATE-WITHDRAWAL] Сформированы данные карты:', {
-					cardNumberLength: cleanCardNumber.length,
-					hasExpiry: !!cardExpiry,
-					hasHolderName: !!cardHolderName,
-					hasCvv: !!cleanCvv,
-					format: 'PAN=...;ExpDate=...;CardHolder=...;CVV=...',
-				})
-			}
-
+			// CardData НЕ поддерживается без RSA сертификата
+			// Используем только CardId (привязанная карта) или СБП
 			withdrawal = await createWithdrawal({
 				amount: amountNumber,
 				orderId,
@@ -631,9 +623,7 @@ export async function POST(req: NextRequest) {
 				paymentRecipientId: finalPaymentRecipientId,
 				// Передаем cardId только если он есть (привязанная карта)
 				...(finalCardId ? { cardId: finalCardId } : {}),
-				// Передаем cardData только если есть данные карты
-				// CustomerKey нужен для привязки карты при использовании CardData (согласно документации)
-				...(cardDataString ? { cardData: cardDataString, customerKey: user.id } : {}),
+				// CardData НЕ передается - требует RSA сертификат
 				// Передаем phone и sbpMemberId только для СБП выплат
 				...(phoneForSbp && sbpMemberId
 					? { phone: phoneForSbp, sbpMemberId }
@@ -652,18 +642,6 @@ export async function POST(req: NextRequest) {
 
 			// Проверяем успешность создания выплаты
 			if (!withdrawal.Success) {
-				// Специальная обработка ошибки 107 для CardData
-				// Обработка уже выполнена в createWithdrawal, но оставляем для логирования
-				if (withdrawal.ErrorCode === '107' && hasCardData) {
-					console.error('❌ [CREATE-WITHDRAWAL] Ошибка 107 - CardData не поддерживается для E2C:', {
-						errorCode: withdrawal.ErrorCode,
-						message: withdrawal.Message,
-						details: withdrawal.Details,
-						note: 'E2C терминал не поддерживает CardData без RSA шифрования. Нужно использовать CardId (привязанная карта) или СБП',
-					})
-					// Ошибка уже обработана в createWithdrawal, просто пробрасываем её дальше
-				}
-				
 				const errorMessage =
 					withdrawal.Message ||
 					`Ошибка создания выплаты: ${

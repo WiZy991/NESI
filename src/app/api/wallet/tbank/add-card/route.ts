@@ -171,9 +171,14 @@ export async function POST(req: NextRequest) {
 		// checkType: 3DS - проверка 3DS, возвращает RebillID для выплат
 		const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.work'
 		
+		// ВАЖНО: NotificationURL обязателен для получения уведомлений о привязке карты
+		// Т-Банк отправит POST-запрос на этот URL после успешной привязки карты
+		const notificationURL = `${appUrl}/api/wallet/tbank/add-card/callback`
+		
 		logger.info('TBank AddCard: initiating card binding', { 
 			userId: user.id, 
-			customerKey 
+			customerKey,
+			notificationURL,
 		})
 
 		// Пробуем сначала без проверки (NO), если терминал не поддерживает 3DS
@@ -183,6 +188,7 @@ export async function POST(req: NextRequest) {
 			checkType: 'NO', // Без проверки - работает на большинстве терминалов
 			successURL: `${appUrl}/profile?cardAdded=success`,
 			failURL: `${appUrl}/profile?cardAdded=fail`,
+			notificationURL, // URL для получения уведомлений о привязке карты
 		})
 		
 		console.log('📥 [ADD-CARD] Результат AddCard:', {
@@ -224,6 +230,7 @@ export async function POST(req: NextRequest) {
 					checkType: 'NO',
 					successURL: `${appUrl}/profile?cardAdded=success`,
 					failURL: `${appUrl}/profile?cardAdded=fail`,
+					notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
 				})
 				
 				console.log('📥 [ADD-CARD] Результат AddCard с основным терминалом:', {
@@ -272,6 +279,7 @@ export async function POST(req: NextRequest) {
 					checkType: 'NO',
 					successURL: `${appUrl}/profile?cardAdded=success`,
 					failURL: `${appUrl}/profile?cardAdded=fail`,
+					notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
 				})
 				
 				console.log('📥 [ADD-CARD] Результат AddCard с E2C терминалом:', {
