@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
 		// Для карты: cardId (привязанная карта) или cardData (зашифрованные данные карты)
 		// Для СБП: phone + sbpMemberId
 		const hasCardId = !!cardId
-		const hasCardData = !!(cardNumber && cardExpiry)
+		// hasCardData уже объявлена выше (строка 61)
 		const hasSbpData = !!(phone && sbpMemberId)
 		
 		// Если переданы данные новой карты, формируем CardData
