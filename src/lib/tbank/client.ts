@@ -28,35 +28,12 @@ export class TBankClient {
 			params.TerminalKey = this.terminalKey
 		}
 
-		// Диагностика для AddCard
-		if (endpoint.includes('AddCard')) {
-			console.log('🔐 [TBANK-CLIENT] Генерация токена для AddCard:', {
-				terminalKey: this.terminalKey,
-				hasPassword: !!this.password,
-				passwordLength: this.password?.length,
-				params: Object.keys(params).sort(),
-			})
-		}
-
 		// Генерируем Token
 		const token = generateTBankToken(params, this.password)
 		params.Token = token
-		
-		// Диагностика для AddCard
-		if (endpoint.includes('AddCard')) {
-			console.log('🔐 [TBANK-CLIENT] Токен сгенерирован:', {
-				tokenLength: token.length,
-				tokenPreview: token.substring(0, 20) + '...',
-			})
-		}
 
 		const url = `${this.baseUrl}${endpoint}`
 
-		logger.info('TBank API Request', {
-			url,
-			endpoint,
-			orderId: params.OrderId,
-		})
 
 		try {
 			const response = await fetch(url, {
@@ -70,22 +47,9 @@ export class TBankClient {
 			const data = await response.json()
 
 			if (!response.ok || !data.Success) {
-				logger.error('TBank API Error', {
-					url,
-					status: response.status,
-					statusText: response.statusText,
+				logger.error('TBank API Error', undefined, {
 					errorCode: data.ErrorCode,
 					message: data.Message,
-					details: data.Details,
-					responseData: JSON.stringify(data),
-					requestParams: JSON.stringify(params),
-				})
-			} else {
-				logger.info('TBank API Success', {
-					endpoint,
-					orderId: params.OrderId,
-					paymentId: data.PaymentId,
-					status: data.Status,
 				})
 			}
 
@@ -99,15 +63,7 @@ export class TBankClient {
 				Object.getOwnPropertyNames(error)
 			)
 
-			logger.error('TBank API Request Failed', {
-				url,
-				endpoint,
-				error: errorMessage,
-				errorStack,
-				errorString,
-				errorType: error?.constructor?.name,
-				requestParams: JSON.stringify(params),
-			})
+			logger.error('TBank API Request Failed', error instanceof Error ? error : undefined)
 			throw error
 		}
 	}
@@ -423,16 +379,6 @@ export class TBankPayoutClient {
 
 		const url = `${this.baseUrl}${endpoint}`
 
-		// Логируем запрос (без пароля и токена)
-		const logParams = { ...params }
-		delete logParams.Token
-		delete logParams.Password
-
-		logger.info('TBank E2C API Request', {
-			url,
-			endpoint,
-			params: JSON.stringify(logParams),
-		})
 
 		try {
 			const response = await fetch(url, {
@@ -450,39 +396,14 @@ export class TBankPayoutClient {
 			try {
 				data = JSON.parse(responseText)
 			} catch (parseError) {
-				logger.error(
-					'TBank E2C API Response Parse Error',
-					parseError instanceof Error ? parseError : undefined,
-					{
-						url,
-						endpoint,
-						status: response.status,
-						statusText: response.statusText,
-						responseText: responseText.substring(0, 500), // Первые 500 символов
-					}
-				)
-				throw new Error(
-					`Failed to parse API response: ${response.status} ${
-						response.statusText
-					}. Response: ${responseText.substring(0, 200)}`
-				)
+				logger.error('TBank E2C API Response Parse Error', parseError instanceof Error ? parseError : undefined)
+				throw new Error(`Failed to parse TBank E2C API response`)
 			}
 
 			if (!response.ok || !data.Success) {
 				logger.error('TBank E2C API Error', undefined, {
-					url,
-					status: response.status,
 					errorCode: data.ErrorCode,
 					message: data.Message,
-					details: data.Details,
-					fullResponse: JSON.stringify(data),
-					requestParams: JSON.stringify(logParams),
-				})
-			} else {
-				logger.info('TBank E2C API Success', {
-					endpoint,
-					orderId: params.OrderId,
-					paymentId: data.PaymentId,
 				})
 			}
 
@@ -556,19 +477,13 @@ export class TBankPayoutClient {
 		if (typeof params.dealId === 'string') {
 			dealIdNumber = parseInt(params.dealId, 10)
 			if (isNaN(dealIdNumber)) {
-				logger.error('Invalid DealId format', {
-					dealId: params.dealId,
-					type: typeof params.dealId,
-				})
+				logger.error('Invalid DealId format', undefined)
 				throw new Error(`Invalid DealId: ${params.dealId}. Must be a number.`)
 			}
 		} else if (typeof params.dealId === 'number') {
 			dealIdNumber = params.dealId
 		} else {
-			logger.error('Invalid DealId type', {
-				dealId: params.dealId,
-				type: typeof params.dealId,
-			})
+			logger.error('Invalid DealId type', undefined)
 			throw new Error(
 				`Invalid DealId type: ${typeof params.dealId}. Expected string or number.`
 			)
@@ -615,16 +530,10 @@ export class TBankPayoutClient {
 					// Дефолтный банк СБП (Т-Банк) - используется для тестирования
 					// В продакшене нужно получать через getSbpMembers или позволить пользователю выбрать
 					requestParams.SbpMemberId = 100000000004
-					logger.warn('Используется дефолтный SbpMemberId для СБП выплаты', {
-						phone,
-						sbpMemberId: requestParams.SbpMemberId,
-					})
+					logger.warn('Используется дефолтный SbpMemberId для СБП выплаты', undefined)
 				}
 			} else {
-				logger.warn('Некорректный формат телефона для СБП', {
-					original: params.recipientPhone,
-					cleaned: phone,
-				})
+				logger.warn('Некорректный формат телефона для СБП', undefined)
 			}
 		}
 
