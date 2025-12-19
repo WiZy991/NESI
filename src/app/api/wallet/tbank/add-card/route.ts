@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 		// Проверяем конфигурацию терминала
 		if (!TBANK_CONFIG.TERMINAL_KEY || !TBANK_CONFIG.TERMINAL_PASSWORD) {
 			return NextResponse.json(
-				{ error: 'Сервис привязки карт временно недоступен. Терминал не настроен.' },
+				{ error: 'Сервис привязки карт временно недоступен' },
 				{ status: 503 }
 			)
 		}
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 		
 		if (!terminalKey || !password) {
 			return NextResponse.json(
-				{ error: 'Терминал не настроен' },
+				{ error: 'Сервис привязки карт временно недоступен' },
 				{ status: 503 }
 			)
 		}
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 		if (!addCustomerResult.Success && !isCustomerExists) {
 			logger.error('TBank AddCustomer failed', undefined, { errorCode: addCustomerResult.ErrorCode })
 			return NextResponse.json(
-				{ error: addCustomerResult.Message || 'Ошибка создания клиента в T-Bank' },
+				{ error: 'Ошибка при привязке карты. Попробуйте позже' },
 				{ status: 400 }
 			)
 		}
@@ -93,20 +93,16 @@ export async function POST(req: NextRequest) {
 		})
 		
 		if (!addCardResult.Success) {
-			const errorMsg = addCardResult.ErrorCode === '204' 
-				? 'Неверный токен. Проверьте пароль в личном кабинете Т-Банка'
-				: addCardResult.Message || 'Ошибка инициализации привязки карты'
-			
 			logger.error('TBank AddCard failed', undefined, { errorCode: addCardResult.ErrorCode })
 			return NextResponse.json(
-				{ error: errorMsg },
+				{ error: 'Сервис привязки карт временно недоступен. Попробуйте позже' },
 				{ status: 400 }
 			)
 		}
 
 		if (!addCardResult.PaymentURL) {
 			return NextResponse.json(
-				{ error: 'T-Bank не вернул URL для привязки карты' },
+				{ error: 'Сервис привязки карт временно недоступен' },
 				{ status: 500 }
 			)
 		}
