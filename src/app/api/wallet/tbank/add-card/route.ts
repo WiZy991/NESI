@@ -277,6 +277,43 @@ export async function POST(req: NextRequest) {
 						requestKey: mainAddCardResultRaw.RequestKey,
 					})
 				}
+				
+				// Если и это не помогло, пробуем заменить % на %25 в пароле (URL-encoding для %)
+				if (mainAddCardResultRaw.ErrorCode === '204' && rawPassword.includes('%')) {
+					console.log('🔄 [ADD-CARD] Пробуем заменить % на %25 в пароле (URL-encoding для %)...')
+					
+					const passwordWithEncodedPercent = rawPassword.replace(/%/g, '%25')
+					const mainClientEncoded = new TBankClient(terminalKey, passwordWithEncodedPercent)
+					
+					const mainAddCardResultEncoded = await mainClientEncoded.addCard({
+						customerKey,
+						checkType: 'NO',
+						successURL: `${appUrl}/profile?cardAdded=success`,
+						failURL: `${appUrl}/profile?cardAdded=fail`,
+						notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
+					})
+					
+					console.log('📥 [ADD-CARD] Результат AddCard с основным терминалом (пароль с %25):', {
+						success: mainAddCardResultEncoded.Success,
+						errorCode: mainAddCardResultEncoded.ErrorCode,
+						message: mainAddCardResultEncoded.Message,
+						hasPaymentURL: !!mainAddCardResultEncoded.PaymentURL,
+					})
+					
+					if (mainAddCardResultEncoded.Success && mainAddCardResultEncoded.PaymentURL) {
+						logger.info('TBank AddCard success with main terminal (password with %25)', {
+							userId: user.id,
+							requestKey: mainAddCardResultEncoded.RequestKey,
+							paymentURL: mainAddCardResultEncoded.PaymentURL,
+						})
+						
+						return NextResponse.json({
+							success: true,
+							paymentURL: mainAddCardResultEncoded.PaymentURL,
+							requestKey: mainAddCardResultEncoded.RequestKey,
+						})
+					}
+				}
 			}
 			
 			// Согласно поддержке Т-Банка, пароли одинаковые, но если не работает основной терминал,
@@ -367,36 +404,89 @@ export async function POST(req: NextRequest) {
 							requestKey: e2cAddCardResultRaw.RequestKey,
 						})
 					}
+					
+					// Если и это не помогло, пробуем заменить % на %25 в пароле (URL-encoding для %)
+					if (e2cAddCardResultRaw.ErrorCode === '204' && rawPassword.includes('%')) {
+						console.log('🔄 [ADD-CARD] Пробуем заменить % на %25 в пароле (URL-encoding для %)...')
+						
+						const passwordWithEncodedPercent = rawPassword.replace(/%/g, '%25')
+						const e2cClientEncoded = new TBankClient(e2cTerminalKey, passwordWithEncodedPercent)
+						
+						const e2cAddCardResultEncoded = await e2cClientEncoded.addCard({
+							customerKey,
+							checkType: 'NO',
+							successURL: `${appUrl}/profile?cardAdded=success`,
+							failURL: `${appUrl}/profile?cardAdded=fail`,
+							notificationURL: `${appUrl}/api/wallet/tbank/add-card/callback`,
+						})
+						
+						console.log('📥 [ADD-CARD] Результат AddCard с E2C терминалом (пароль с %25):', {
+							success: e2cAddCardResultEncoded.Success,
+							errorCode: e2cAddCardResultEncoded.ErrorCode,
+							message: e2cAddCardResultEncoded.Message,
+							hasPaymentURL: !!e2cAddCardResultEncoded.PaymentURL,
+						})
+						
+						if (e2cAddCardResultEncoded.Success && e2cAddCardResultEncoded.PaymentURL) {
+							logger.info('TBank AddCard success with E2C terminal (password with %25)', {
+								userId: user.id,
+								requestKey: e2cAddCardResultEncoded.RequestKey,
+								paymentURL: e2cAddCardResultEncoded.PaymentURL,
+							})
+							
+							return NextResponse.json({
+								success: true,
+								paymentURL: e2cAddCardResultEncoded.PaymentURL,
+								requestKey: e2cAddCardResultEncoded.RequestKey,
+							})
+						}
+					}
 				}
 			}
 			
 			// Если ошибка 204 и ничего не помогло
 			if (addCardResult.ErrorCode === '204') {
-				console.error('❌ [ADD-CARD] Ошибка 204 - неверный токен:', {
+				const triedVariants = []
+				if (rawPassword !== password) triedVariants.push('декодированный пароль')
+				if (rawPassword === password) triedVariants.push('пароль как есть')
+				if (rawPassword.includes('%')) triedVariants.push('пароль с %25 вместо %')
+				
+				console.error('❌ [ADD-CARD] Ошибка 204 - неверный токен после всех попыток:', {
 					terminalKey: terminalKey?.slice(0, 8) + '...',
 					hasPassword: !!password,
 					passwordLength: password?.length,
-					passwordPreview: password ? password.substring(0, 8) + '...' : 'нет',
-					message: 'Проверьте, что пароль правильный. Согласно поддержке Т-Банка, пароли для обоих терминалов одинаковые.',
+					passwordPreview: password ? password.substring(0, 12) + '...' : 'нет',
+					rawPasswordPreview: rawPassword ? rawPassword.substring(0, 12) + '...' : 'нет',
+					passwordContainsPercent: rawPassword?.includes('%'),
+					triedVariants,
+					message: 'Все варианты обработки пароля не сработали. Возможно, пароль неправильный.',
 				})
 				
 				return NextResponse.json(
 					{ 
 						error: 'Привязка карты временно недоступна',
-						details: `❌ Ошибка 204: Неверный токен.\n\n` +
+						details: `❌ Ошибка 204: Неверный токен после всех попыток.\n\n` +
 							`Проблема: Т-Банк вернул ошибку "Неверный токен. Проверьте пару TerminalKey/SecretKey".\n\n` +
-							`Использовано:\n` +
-							`• Терминал: ${terminalKey?.slice(0, 8)}...\n` +
-							`• Пароль: ${password ? 'установлен (' + password.length + ' символов)' : 'не установлен'}\n\n` +
-							`Согласно поддержке Т-Банка:\n` +
-							`• Терминал для оплат: 1763372956356\n` +
-							`• Терминал для выплат: 1763372956356E2C\n` +
-							`• Пароли для обоих терминалов ОДИНАКОВЫЕ\n` +
-							`• Для AddCard нужно использовать терминал для оплат\n\n` +
+							`Попробовано вариантов:\n` +
+							`• Основной терминал (1763372956356) с декодированным паролем\n` +
+							`• Основной терминал с недекодированным паролем\n` +
+							`• Основной терминал с паролем, где % заменен на %25\n` +
+							`• E2C терминал (1763372956356E2C) с декодированным паролем\n` +
+							`• E2C терминал с недекодированным паролем\n` +
+							`• E2C терминал с паролем, где % заменен на %25\n\n` +
+							`Все варианты вернули ошибку 204.\n\n` +
+							`Возможные причины:\n` +
+							`1. Пароль в переменных окружения неправильный\n` +
+							`2. Пароль содержит специальные символы, которые нужно экранировать по-другому\n` +
+							`3. Для AddCard нужен отдельный пароль (не тот же, что для выплат)\n\n` +
 							`Решение:\n` +
-							`1. Проверьте, что TBANK_TERMINAL_PASSWORD правильный (пароль одинаковый для обоих терминалов)\n` +
-							`2. Убедитесь, что пароль не URL-encoded (если содержит %, используйте как есть)\n` +
-							`3. Если проблема сохраняется, обратитесь в поддержку Т-Банка (acq_help@tbank.ru)\n\n` +
+							`1. Проверьте пароль в личном кабинете Т-Банка: https://business.tbank.ru\n` +
+							`2. Убедитесь, что пароль скопирован правильно (включая все символы)\n` +
+							`3. Если пароль содержит %, попробуйте использовать его как есть (без URL-encoding)\n` +
+							`4. Обратитесь в поддержку Т-Банка (acq_help@tbank.ru) и уточните:\n` +
+							`   - Какой именно пароль нужно использовать для AddCard?\n` +
+							`   - Нужно ли экранировать символ % в пароле?\n` +
+							`   - Правильно ли настроен терминал для привязки карт?\n\n` +
 							`Временное решение: Пользователи могут выводить деньги через СБП (это работает).`,
 					},
 					{ status: 400 }
