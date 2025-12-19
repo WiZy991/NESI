@@ -158,10 +158,10 @@ export async function POST(req: NextRequest) {
 
 		// Проверяем наличие способа выплаты
 		// Для карты: cardId (привязанная карта) или cardData (зашифрованные данные карты)
-		// Для СБП: phone + sbpMemberId
+		// Для СБП: phone (sbpMemberId опционален, может быть установлен автоматически)
 		const hasCardId = !!cardId
 		// hasCardData уже объявлена выше (строка 61)
-		const hasSbpData = !!(phone && sbpMemberId)
+		const hasSbpData = !!phone
 		
 		// Если переданы данные новой карты, возвращаем ошибку
 		// CardData требует подписи по сертификату RSA, а НЕ Token
@@ -588,8 +588,12 @@ export async function POST(req: NextRequest) {
 				// CustomerKey нужен для автоматической привязки карты
 				...(cardDataString ? { cardData: cardDataString, customerKey: user.id } : {}),
 				// Передаем phone и sbpMemberId только для СБП выплат
-				...(phoneForSbp && sbpMemberId
-					? { phone: phoneForSbp, sbpMemberId }
+				// sbpMemberId опционален - если не указан, используется дефолтный банк
+				...(phoneForSbp
+					? { 
+						phone: phoneForSbp, 
+						...(sbpMemberId ? { sbpMemberId } : {})
+					}
 					: {}),
 				// НЕ используем FinalPayout для частичных выплат
 				// FinalPayout: true требует, чтобы сумма ТОЧНО совпадала с балансом сделки

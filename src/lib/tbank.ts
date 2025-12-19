@@ -118,14 +118,6 @@ export function generateToken(
 		.map(key => {
 			const value = paramsWithPassword[key]
 			
-			// Диагностика для важных параметров
-			if (key === 'FinalPayout') {
-				console.log('🔐 [GENERATE-TOKEN] FinalPayout:', {
-					value,
-					typeof: typeof value,
-					stringValue: String(value),
-				})
-			}
 			
 			// Преобразуем boolean в строку (true -> "true", false -> "false")
 			// Согласно примеру: {"isNeedRrn",true} -> конкатенируется как "true"
@@ -144,25 +136,6 @@ export function generateToken(
 		const finalPayoutValue = paramsWithPassword.FinalPayout
 		const hasCardData = !!params.CardData
 		const hasCardId = !!params.CardId
-		console.log('🔐 [GENERATE-TOKEN] Параметры для подписи E2C:', {
-			sortedKeys,
-			hasCardData,
-			hasCardId,
-			excludedFromToken: hasCardData ? ['CardData', 'CustomerKey'] : [],
-			note: hasCardData 
-				? 'CardData и CustomerKey исключены из расчета Token (используется подпись по сертификату RSA)'
-				: hasCardId
-					? 'CardId участвует в расчете Token (данные хранятся на стороне банка)'
-					: 'Используется Token для подписи запроса',
-			finalPayout: {
-				value: finalPayoutValue,
-				typeof: typeof finalPayoutValue,
-				stringValue: String(finalPayoutValue),
-			},
-			concatenatedLength: concatenated.length,
-			concatenatedPreview: concatenated.substring(0, 200) + '...',
-			fullConcatenated: concatenated,
-		})
 	}
 
 	// Вычисляем SHA-256
@@ -267,12 +240,6 @@ export async function createPayment(
 	requestBody.Token = generateToken(requestBody)
 
 	// Логируем только структуру, без полного тела запроса
-	console.log('📤 [TBANK] Отправляем запрос Init:', {
-		url: `${getApiUrl()}/v2/Init`,
-		hasCreateDealWithType: !!requestBody.CreateDealWithType,
-		hasStartSpAccumulation: !!requestBody.DATA?.StartSpAccumulation,
-		hasDATA: !!requestBody.DATA,
-	})
 
 	const response = await fetch(`${getApiUrl()}/v2/Init`, {
 		method: 'POST',
@@ -298,27 +265,12 @@ export async function createPayment(
 	try {
 		data = await response.json()
 	} catch (error: any) {
-		console.error('❌ [TBANK] Ошибка парсинга JSON ответа:', error)
 		const text = await response.text().catch(() => 'Не удалось прочитать ответ')
 		throw new Error(`Ошибка парсинга ответа от Т-Банка: ${text}`)
 	}
 
-	console.log('📥 [TBANK] Ответ от Init:', {
-		success: data.Success,
-		errorCode: data.ErrorCode,
-		message: data.Message,
-		paymentId: data.PaymentId,
-		paymentURL: data.PaymentURL ? 'есть' : 'отсутствует',
-		dealId: data.DealId,
-		spAccumulationId: data.SpAccumulationId,
-	})
 
 	if (!data.Success && data.ErrorCode !== '0') {
-		console.error('❌ [TBANK] Ошибка создания платежа:', {
-			errorCode: data.ErrorCode,
-			message: data.Message,
-			details: data.Details,
-		})
 		throw new Error(
 			data.Message || `Ошибка создания платежа: ${data.ErrorCode}`
 		)
@@ -354,10 +306,6 @@ export async function createSpDeal(): Promise<{
 
 	requestBody.Token = generateToken(requestBody, password)
 
-	console.log('🔧 [TBANK] Создаем сделку через createSpDeal:', {
-		url: `${getApiUrl()}/v2/createSpDeal`,
-		requestBody: JSON.stringify(requestBody, null, 2),
-	})
 
 	const response = await fetch(`${getApiUrl()}/v2/createSpDeal`, {
 		method: 'POST',
@@ -377,13 +325,6 @@ export async function createSpDeal(): Promise<{
 	}
 
 	const data = await response.json()
-
-	console.log('📥 [TBANK] Ответ от createSpDeal:', {
-		success: data.Success,
-		spAccumulationId: data.SpAccumulationId,
-		errorCode: data.ErrorCode,
-		fullResponse: JSON.stringify(data, null, 2),
-	})
 
 	if (!data.Success) {
 		throw new Error(data.Message || `Ошибка создания сделки: ${data.ErrorCode}`)
@@ -447,38 +388,29 @@ export async function createWithdrawal(
 	// PaymentRecipientId ВСЕГДА обязателен (согласно документации A2C_V2 стр. 15-16)
 	requestBody.PaymentRecipientId = params.paymentRecipientId
 
-	// Если выплата по СБП - дополнительно добавляем Phone + SbpMemberId
-	if (params.phone && params.sbpMemberId) {
+	// Если выплата по СБП - дополнительно добавляем Phone + SbpMemberId (если указан)
+	if (params.phone) {
 		// ВАЛИДАЦИЯ: Phone должен быть 11 цифр, начинаться с 7
 		// Согласно документации: "Формат: 11 цифр. Пример: 70123456789"
 		const phoneRegex = /^7\d{10}$/
 		if (!phoneRegex.test(params.phone)) {
-			console.error('❌ [TBANK] Некорректный формат телефона:', {
-				phone: params.phone,
-				length: params.phone.length,
-				note: 'Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789',
-			})
 			throw new Error(
 				`Некорректный формат телефона. Телефон должен быть 11 цифр, начинаться с 7. Пример: 79123456789. Получено: ${params.phone}`
 			)
 		}
 		
 		requestBody.Phone = params.phone
-		// ВАЖНО: Согласно документации Т-Банка (multisplit.md стр. 1083, таблица 6.2)
-		// SbpMemberId должен быть типа Number, не String
-		// Преобразуем в число, если передана строка
-		requestBody.SbpMemberId = typeof params.sbpMemberId === 'string' 
-			? parseInt(params.sbpMemberId, 10) 
-			: params.sbpMemberId
 		
-		console.log('✅ [TBANK] Телефон для СБП валидирован:', {
-			phone: params.phone,
-			length: params.phone.length,
-			format: '11 цифр, начинается с 7',
-			sbpMemberId: requestBody.SbpMemberId,
-			sbpMemberIdType: typeof requestBody.SbpMemberId,
-			note: 'SbpMemberId передается как Number согласно документации (multisplit.md стр. 1083)',
-		})
+		// SbpMemberId опционален - если указан, добавляем его
+		// Если не указан, Т-Банк может использовать дефолтный банк
+		if (params.sbpMemberId) {
+			// ВАЖНО: Согласно документации Т-Банка (multisplit.md стр. 1083, таблица 6.2)
+			// SbpMemberId должен быть типа Number, не String
+			// Преобразуем в число, если передана строка
+			requestBody.SbpMemberId = typeof params.sbpMemberId === 'string' 
+				? parseInt(params.sbpMemberId, 10) 
+				: params.sbpMemberId
+		}
 	}
 	// ВАЖНО: CardId и CardData - взаимоисключающие параметры
 	// CardId используется для выплаты на привязанную карту (данные хранятся на стороне банка)
@@ -518,10 +450,6 @@ export async function createWithdrawal(
 	
 	if (params.cardId) {
 		requestBody.CardId = params.cardId
-		console.log('💳 [TBANK] Используется привязанная карта (CardId):', {
-			cardId: params.cardId,
-			note: 'Token будет сгенерирован для CardId (данные хранятся на стороне банка)',
-		})
 	}
 
 	// Финальная выплата
@@ -534,20 +462,11 @@ export async function createWithdrawal(
 	// Используем Boolean согласно официальной спецификации
 	if (params.finalPayout === true) {
 		requestBody.FinalPayout = true
-		console.log('✅ [TBANK] FinalPayout установлен:', {
-			value: requestBody.FinalPayout,
-			type: typeof requestBody.FinalPayout,
-			note: 'FinalPayout передается как boolean true согласно документации (vyplaty-multisplit.md стр. 516)',
-		})
 	}
 
 	// ВАЖНО: Согласно документации и примерам запросов (стр. 896-908, 1742-1749)
 	// NotificationURL НЕ передается в запросах на выплату через e2c/v2/Init
 	// Т-Банк сам отправляет нотификации на URL, указанный в настройках терминала
-	console.log('🔧 [TBANK] Параметры запроса перед генерацией токена:', {
-		allKeysBeforeToken: Object.keys(requestBody).sort(),
-		note: 'NotificationURL НЕ передается в запросах на выплату (согласно документации)',
-	})
 
 	// Генерируем Token с паролем E2C терминала
 	const e2cPassword = process.env.TBANK_E2C_TERMINAL_PASSWORD
@@ -555,30 +474,6 @@ export async function createWithdrawal(
 		throw new Error('TBANK_E2C_TERMINAL_PASSWORD не настроен в переменных окружения')
 	}
 
-	console.log('🔐 [TBANK] Генерация подписи:', {
-		hasE2cPassword: !!e2cPassword,
-		e2cPasswordLength: e2cPassword?.length,
-		parametersForSignature: Object.keys(requestBody).sort(),
-		hasCardId: !!requestBody.CardId,
-		hasPhone: !!requestBody.Phone,
-		hasSbpMemberId: !!requestBody.SbpMemberId,
-		note: requestBody.CardId 
-			? 'CardId участвует в расчете Token (данные хранятся на стороне банка)'
-			: requestBody.Phone && requestBody.SbpMemberId
-				? 'СБП - Token используется для подписи запроса'
-				: 'Используется Token для подписи запроса',
-		finalPayout: {
-			value: requestBody.FinalPayout,
-			typeof: typeof requestBody.FinalPayout,
-			isString: typeof requestBody.FinalPayout === 'string',
-			isBoolean: typeof requestBody.FinalPayout === 'boolean',
-		},
-		sbpMemberId: {
-			value: requestBody.SbpMemberId,
-			typeof: typeof requestBody.SbpMemberId,
-			isNumber: typeof requestBody.SbpMemberId === 'number',
-		},
-	})
 
 	// ВАЖНО: Согласно документации Т-Банка:
 	// - CardId для выплаты на привязанную карту (данные хранятся на стороне банка)
@@ -623,17 +518,6 @@ export async function createWithdrawal(
 	// ВАЖНО: NotificationURL НЕ передается в запросах на выплату
 	// Т-Банк отправляет нотификации на URL, указанный в настройках терминала в личном кабинете
 
-	console.log('📤 [TBANK] Подготовка запроса на выплату:', {
-		requestBody: JSON.stringify(requestBody, null, 2),
-		dealId: params.dealId,
-		finalPayout: params.finalPayout,
-		hasToken: !!requestBody.Token,
-		hasCardData: !!requestBody.CardData,
-		hasCardId: !!requestBody.CardId,
-		note: requestBody.CardId
-			? 'CardId используется - подпись запроса через Token'
-			: 'СБП используется - подпись запроса через Token',
-	})
 
 	let response: Response
 	try {
@@ -657,7 +541,6 @@ export async function createWithdrawal(
 			body: JSON.stringify(requestBody),
 		})
 	} catch (error: any) {
-		console.error('❌ [TBANK] Ошибка сети:', error)
 		throw new Error(
 			`Ошибка сети при создании выплаты: ${
 				error.message || 'Не удалось подключиться к API Т-Банка'
@@ -669,11 +552,6 @@ export async function createWithdrawal(
 		const errorText = await response
 			.text()
 			.catch(() => 'Не удалось прочитать ответ')
-		console.error('❌ [TBANK] HTTP ошибка:', {
-			status: response.status,
-			statusText: response.statusText,
-			body: errorText,
-		})
 		throw new Error(
 			`Ошибка HTTP ${response.status} при создании выплаты: ${errorText}`
 		)
@@ -698,9 +576,7 @@ export async function createWithdrawal(
 			fullResponse: JSON.stringify(data, null, 2),
 		})
 	} catch (error: any) {
-		console.error('❌ [TBANK] Ошибка парсинга JSON:', error)
 		const text = await response.text().catch(() => 'Не удалось прочитать ответ')
-		console.error('❌ [TBANK] Raw response text:', text.substring(0, 500))
 		throw new Error(
 			`Ошибка парсинга ответа от Т-Банка: ${
 				error.message || 'Некорректный формат ответа'
@@ -709,14 +585,6 @@ export async function createWithdrawal(
 	}
 
 	if (!data.Success && data.ErrorCode !== '0') {
-		console.error('❌ [TBANK] Ошибка создания выплаты:', {
-			errorCode: data.ErrorCode,
-			message: data.Message,
-			details: data.Details,
-			amount: amountInKopecks,
-			amountInRubles: amountInKopecks / 100,
-			note: 'Проверьте детали ошибки в поле Details',
-		})
 		
 		// Обработка конкретных ошибок
 		let errorMessage = data.Message || `Ошибка создания выплаты: ${data.ErrorCode || 'неизвестная ошибка'}`
@@ -881,12 +749,6 @@ export async function getSbpMembers(): Promise<{
 		: 'https://rest-api-test.tinkoff.ru'
 	const sbpMembersUrl = `${baseUrl}/a2c/sbp/GetSbpMembers`
 
-	console.log('🔍 [TBANK] Запрос списка банков СБП (GetSbpMembers):', {
-		url: sbpMembersUrl,
-		terminalKey,
-		hasPassword: !!e2cPassword,
-		environment: process.env.NODE_ENV,
-	})
 
 	const response = await fetch(sbpMembersUrl, {
 		method: 'POST',
@@ -921,14 +783,6 @@ export async function getSbpMembers(): Promise<{
 	}
 
 	const data = await response.json()
-
-	console.log('📥 [TBANK] Ответ от GetSbpMembers:', {
-		success: data.Success,
-		errCode: data.ErrCode || data.ErrorCode,
-		message: data.Message,
-		membersCount: data.Members?.length || 0,
-		members: data.Members?.slice(0, 5), // Первые 5 банков для примера
-	})
 
 	// Возвращаем данные даже если Success = false - это информативная проверка
 	// GetSbpMembers может вернуть ошибку, но это не означает, что СБП выплаты недоступны
