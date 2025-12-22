@@ -8,6 +8,7 @@ interface HeaderUserMenuProps {
 	menuRef: React.RefObject<HTMLDivElement>
 	unreadMessagesCount: number
 	userRole: string
+	canUseGroupFeatures?: boolean
 	onLogout: () => void
 	linkStyle: string
 }
@@ -18,6 +19,7 @@ export function HeaderUserMenu({
 	menuRef,
 	unreadMessagesCount,
 	userRole,
+	canUseGroupFeatures = false,
 	onLogout,
 	linkStyle,
 }: HeaderUserMenuProps) {
@@ -86,14 +88,16 @@ export function HeaderUserMenu({
 								>
 									💼 Портфолио
 								</Link>
-								<Link
-									href='/teams'
-									className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
-									onClick={() => setMenuOpen(false)}
-									data-onboarding-target='more-menu-teams'
-								>
-									👥 Команды
-								</Link>
+								{canUseGroupFeatures && (
+									<Link
+										href='/teams'
+										className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+										onClick={() => setMenuOpen(false)}
+										data-onboarding-target='more-menu-teams'
+									>
+										👥 Команды
+									</Link>
+								)}
 							</>
 						)}
 					</div>

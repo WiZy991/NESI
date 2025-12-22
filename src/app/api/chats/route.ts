@@ -537,28 +537,36 @@ export async function GET(req: NextRequest) {
 
 				for (const team of userTeams) {
 					const lastMessage = team.teamChats[0]
-					if (lastMessage) {
-						teamChats.set(team.id, {
-							id: `team:${team.id}`,
-							type: 'team',
-							team: {
-								id: team.id,
-								name: team.name,
-								description: team.description,
+					// Создаем чат команды даже если нет сообщений
+					teamChats.set(team.id, {
+						id: `team_${team.id}`,
+						type: 'team',
+						team: {
+							id: team.id,
+							name: team.name,
+							description: team.description,
+						},
+						lastMessage: lastMessage ? {
+							id: lastMessage.id,
+							content: lastMessage.content,
+							createdAt: lastMessage.createdAt.toISOString(),
+							sender: {
+								id: lastMessage.sender.id,
+								fullName: lastMessage.sender.fullName,
+								email: lastMessage.sender.email,
 							},
-							lastMessage: {
-								id: lastMessage.id,
-								content: lastMessage.content,
-								createdAt: lastMessage.createdAt.toISOString(),
-								sender: {
-									id: lastMessage.sender.id,
-									fullName: lastMessage.sender.fullName,
-									email: lastMessage.sender.email,
-								},
+						} : {
+							id: 'empty',
+							content: '',
+							createdAt: team.createdAt.toISOString(),
+							sender: {
+								id: user.id,
+								fullName: user.fullName,
+								email: user.email,
 							},
-							unreadCount: 0, // TODO: реализовать подсчет непрочитанных
-						})
-					}
+						},
+						unreadCount: 0, // TODO: реализовать подсчет непрочитанных
+					})
 				}
 			} catch (teamChatError: any) {
 				logger.error('Ошибка загрузки командных чатов', teamChatError)
@@ -568,8 +576,6 @@ export async function GET(req: NextRequest) {
 		// Объединяем все чаты и сортируем по последнему сообщению
 		// Защита от дубликатов: используем Map для уникальности по id
 		const uniqueChatsMap = new Map<string, any>()
-		
-		// Приватные чаты убраны - больше не возвращаем их
 		
 		// Добавляем чаты задач (с проверкой на дубликаты)
 		Array.from(taskChats.values()).forEach(chat => {
@@ -586,6 +592,13 @@ export async function GET(req: NextRequest) {
 				uniqueChatsMap.set(chat.id, chat)
 			}
 		})
+		
+		// Если нет чатов задач, но есть сообщения задач, создаем чаты из них
+		if (taskChats.size === 0 && taskMessages.length > 0) {
+			logger.warn('Есть сообщения задач, но чаты не созданы', { 
+				taskMessagesCount: taskMessages.length 
+			})
+		}
 		
 		const allChats = Array.from(uniqueChatsMap.values()).sort(
 			(a, b) =>

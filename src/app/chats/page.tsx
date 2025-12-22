@@ -1601,10 +1601,11 @@ function ChatsPageContent() {
 				teamId: openTeamId,
 			})
 
-			// Ищем существующий чат команды
+			// Ищем существующий чат команды (проверяем оба формата ID)
 			const existingTeamChat = chats.find(
 				(chat: Chat) =>
-					chat.type === 'team' && chat.team?.id === openTeamId
+					chat.type === 'team' && 
+					(chat.team?.id === openTeamId || chat.id === `team_${openTeamId}` || chat.id === `team:${openTeamId}`)
 			)
 
 			if (existingTeamChat) {
@@ -1650,7 +1651,7 @@ function ChatsPageContent() {
 								createdAt: new Date().toISOString(),
 								sender: {
 									id: user.id,
-									fullName: user.fullName,
+									fullName: user.fullName || '',
 									email: user.email,
 								},
 							},

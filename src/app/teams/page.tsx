@@ -172,12 +172,59 @@ export default function TeamsPage() {
     }
   }
 
+  // Проверяем доступ к групповым функциям
+  const canUseGroupFeatures = user?.role === 'executor' && 
+    (user?.accountType === 'SOLE_PROPRIETOR' || user?.accountType === 'COMPANY') &&
+    user?.companyVerification?.innVerified === true &&
+    user?.companyVerification?.emailVerified === true
+
   if (loading) {
     return (
       <div className="min-h-screen text-white p-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Показываем предупреждение для пользователей без доступа к групповым функциям
+  if (!canUseGroupFeatures) {
+    return (
+      <div className="min-h-screen text-white p-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="rounded-2xl p-12 text-center">
+            <XCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-semibold text-white mb-4">Групповые функции недоступны</h2>
+            <p className="text-gray-400 mb-6 max-w-2xl mx-auto">
+              Групповые функции (команды) доступны только для исполнителей со статусом ИП или ООО 
+              с подтвержденной компанией. Физические лица и самозанятые не могут использовать этот функционал.
+            </p>
+            <p className="text-gray-500 text-sm mb-6">
+              Для доступа к групповым функциям необходимо:
+            </p>
+            <ul className="text-gray-400 text-sm mb-6 space-y-2 max-w-md mx-auto text-left">
+              <li className="flex items-start gap-2">
+                <span className="text-emerald-400">•</span>
+                <span>Быть исполнителем со статусом ИП или ООО</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-emerald-400">•</span>
+                <span>Подтвердить существование компании через ИНН</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-emerald-400">•</span>
+                <span>Подтвердить корпоративную почту</span>
+              </li>
+            </ul>
+            <Link
+              href="/settings"
+              className="inline-block px-6 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors"
+            >
+              Перейти в настройки
+            </Link>
           </div>
         </div>
       </div>

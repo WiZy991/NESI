@@ -1436,13 +1436,15 @@ export default function Header() {
 													>
 														Мои отклики
 													</Link>
-													<Link
-														href='/teams'
-														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
-														onClick={() => setMobileMenuOpen(false)}
-													>
-														👥 Команды
-													</Link>
+													{user?.companyVerification?.canUseGroupFeatures && (
+														<Link
+															href='/teams'
+															className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+															onClick={() => setMobileMenuOpen(false)}
+														>
+															👥 Команды
+														</Link>
+													)}
 												</>
 											)}
 											{user.role === 'customer' && (
@@ -2003,14 +2005,16 @@ export default function Header() {
 															>
 																💼 Портфолио
 															</Link>
-															<Link
-																href='/teams'
-																className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
-																onClick={() => setMenuOpen(false)}
-																data-onboarding-target='more-menu-teams'
-															>
-																👥 Команды
-															</Link>
+															{user?.companyVerification?.canUseGroupFeatures && (
+																<Link
+																	href='/teams'
+																	className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+																	onClick={() => setMenuOpen(false)}
+																	data-onboarding-target='more-menu-teams'
+																>
+																	👥 Команды
+																</Link>
+															)}
 														</>
 													)}
 												</div>

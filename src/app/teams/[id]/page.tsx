@@ -225,15 +225,22 @@ export default function TeamDetailPage() {
                 key={member.id}
                 className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700/30"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-sm font-semibold">
+                <div className="flex items-center gap-3 flex-1">
+                  <Link
+                    href={`/users/${member.user.id}`}
+                    className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-sm font-semibold hover:bg-gray-600 transition-colors cursor-pointer"
+                    title="Открыть профиль"
+                  >
                     {(member.user.fullName || member.user.email)[0].toUpperCase()}
-                  </div>
-                  <div>
+                  </Link>
+                  <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-white">
+                      <Link
+                        href={`/users/${member.user.id}`}
+                        className="font-semibold text-white hover:text-emerald-400 transition-colors cursor-pointer"
+                      >
                         {member.user.fullName || member.user.email}
-                      </span>
+                      </Link>
                       {member.role === 'ADMIN' && (
                         <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
                           Администратор
