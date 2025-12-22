@@ -35,6 +35,19 @@ export class TBankClient {
 
 		const url = `${this.baseUrl}${endpoint}`
 
+		// Детальное логирование для AddCustomer и AddCard (для отладки)
+		if (endpoint.includes('AddCustomer') || endpoint.includes('AddCard')) {
+			console.log('📤 [TBANK-CLIENT] Запрос к Т-Банку:', {
+				method: 'POST',
+				url,
+				endpoint,
+				requestBody: JSON.stringify(params, null, 2),
+				terminalKey: this.terminalKey,
+				hasPassword: !!this.password,
+				passwordLength: this.password?.length,
+				note: 'Пароль не показывается в логах по соображениям безопасности',
+			})
+		}
 
 		try {
 			const response = await httpClient.post(url, params)
