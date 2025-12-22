@@ -504,6 +504,67 @@ export async function GET(req: NextRequest) {
 				: null
 		})
 
+		// Загружаем командные чаты (только для исполнителей)
+		const teamChats = new Map<string, any>()
+		if (user.role === 'executor') {
+			try {
+				// Получаем команды пользователя
+				const userTeams = await prisma.team.findMany({
+					where: {
+						members: {
+							some: {
+								userId: user.id,
+							},
+						},
+					},
+					include: {
+						teamChats: {
+							orderBy: { createdAt: 'desc' },
+							take: 1,
+							include: {
+								sender: {
+									select: {
+										id: true,
+										fullName: true,
+										email: true,
+										avatarFileId: true,
+									},
+								},
+							},
+						},
+					},
+				})
+
+				for (const team of userTeams) {
+					const lastMessage = team.teamChats[0]
+					if (lastMessage) {
+						teamChats.set(team.id, {
+							id: `team:${team.id}`,
+							type: 'team',
+							team: {
+								id: team.id,
+								name: team.name,
+								description: team.description,
+							},
+							lastMessage: {
+								id: lastMessage.id,
+								content: lastMessage.content,
+								createdAt: lastMessage.createdAt.toISOString(),
+								sender: {
+									id: lastMessage.sender.id,
+									fullName: lastMessage.sender.fullName,
+									email: lastMessage.sender.email,
+								},
+							},
+							unreadCount: 0, // TODO: реализовать подсчет непрочитанных
+						})
+					}
+				}
+			} catch (teamChatError: any) {
+				logger.error('Ошибка загрузки командных чатов', teamChatError)
+			}
+		}
+
 		// Объединяем все чаты и сортируем по последнему сообщению
 		// Защита от дубликатов: используем Map для уникальности по id
 		const uniqueChatsMap = new Map<string, any>()
@@ -521,6 +582,13 @@ export async function GET(req: NextRequest) {
 				uniqueChatsMap.set(chat.id, chat)
 			} else {
 				logger.warn('Обнаружен дубликат чата задачи', { chatId: chat.id, taskId: chat.task?.id })
+			}
+		})
+
+		// Добавляем командные чаты
+		Array.from(teamChats.values()).forEach(chat => {
+			if (!uniqueChatsMap.has(chat.id)) {
+				uniqueChatsMap.set(chat.id, chat)
 			}
 		})
 		

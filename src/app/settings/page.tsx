@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Save, Bell, Eye, EyeOff, BookOpen, Download, FileText, MessageSquare, Star, Building2, User, Briefcase, Building } from 'lucide-react'
+import { Lock, Save, Bell, Eye, EyeOff, BookOpen, Download, FileText, MessageSquare, Star, Building2, User, Briefcase, Building, CheckCircle, XCircle, Mail, Shield } from 'lucide-react'
 import { ResetOnboardingButton } from '@/components/ResetOnboardingButton'
 import { AnimatedCheckbox } from '@/components/AnimatedCheckbox'
 import { useUser } from '@/context/UserContext'
@@ -75,6 +75,16 @@ export default function SettingsPage() {
   const [changingAccountType, setChangingAccountType] = useState(false)
   const [showAccountTypeModal, setShowAccountTypeModal] = useState(false)
   const [selectedNewType, setSelectedNewType] = useState<AccountType | null>(null)
+  
+  // Подтверждение компании
+  const [companyVerification, setCompanyVerification] = useState<{
+    innVerified: boolean
+    emailVerified: boolean
+    canUseGroupFeatures: boolean
+  } | null>(null)
+  const [verifyingInn, setVerifyingInn] = useState(false)
+  const [verifyingEmail, setVerifyingEmail] = useState(false)
+  const [corporateEmail, setCorporateEmail] = useState('')
 
   // === загрузка настроек ===
   useEffect(() => {
@@ -122,6 +132,28 @@ export default function SettingsPage() {
     })()
   }, [token])
 
+  // === загрузка статуса подтверждения компании ===
+  useEffect(() => {
+    if (!token || !user) return
+    // Загружаем только для исполнителей с ИП/ООО
+    if (user.role !== 'executor' || (user.accountType !== 'SOLE_PROPRIETOR' && user.accountType !== 'COMPANY')) {
+      return
+    }
+    ;(async () => {
+      try {
+        const res = await fetch('/api/company/verification-status', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setCompanyVerification(data)
+        }
+      } catch {
+        // Игнорируем ошибки
+      }
+    })()
+  }, [token, user])
+
   // === смена типа аккаунта ===
   const handleChangeAccountType = async (newType: AccountType) => {
     if (!token) {
@@ -159,6 +191,75 @@ export default function SettingsPage() {
       toast.error('Ошибка соединения с сервером')
     } finally {
       setChangingAccountType(false)
+    }
+  }
+
+  // === подтверждение ИНН ===
+  const handleVerifyInn = async () => {
+    if (!token || !user) return
+    
+    setVerifyingInn(true)
+    try {
+      const res = await fetch('/api/company/verify-inn', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ inn: user.inn }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Существование компании подтверждено')
+        setCompanyVerification(prev => prev ? { ...prev, innVerified: true } : { innVerified: true, emailVerified: false, canUseGroupFeatures: false })
+        // Перезагружаем статус
+        const statusRes = await fetch('/api/company/verification-status', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (statusRes.ok) {
+          const statusData = await statusRes.json()
+          setCompanyVerification(statusData)
+        }
+      } else {
+        toast.error(data.error || 'Ошибка при подтверждении ИНН')
+      }
+    } catch (error) {
+      toast.error('Ошибка соединения с сервером')
+    } finally {
+      setVerifyingInn(false)
+    }
+  }
+
+  // === подтверждение корпоративной почты ===
+  const handleVerifyEmail = async () => {
+    if (!token || !corporateEmail.trim()) {
+      toast.error('Введите корпоративную почту')
+      return
+    }
+
+    setVerifyingEmail(true)
+    try {
+      const res = await fetch('/api/company/verify-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ corporateEmail: corporateEmail.trim() }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Письмо с подтверждением отправлено на указанную почту')
+        setCorporateEmail('')
+      } else {
+        toast.error(data.error || 'Ошибка при отправке письма')
+      }
+    } catch (error) {
+      toast.error('Ошибка соединения с сервером')
+    } finally {
+      setVerifyingEmail(false)
     }
   }
 
@@ -523,6 +624,183 @@ export default function SettingsPage() {
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* Подтверждение компании (только для исполнителей ИП/ООО) */}
+      {user?.role === 'executor' && (accountType === 'SOLE_PROPRIETOR' || accountType === 'COMPANY') && (
+        <section className="bg-gray-900/50 rounded-2xl p-6 border border-gray-700/50">
+          <div className="flex items-center gap-3 mb-6">
+            <Shield className="w-6 h-6 text-emerald-400" />
+            <h2 className="text-xl font-bold text-white">Подтверждение компании</h2>
+          </div>
+
+          <p className="text-sm text-gray-400 mb-6">
+            Для доступа к групповым функциям (команды) необходимо подтвердить компанию в два этапа:
+          </p>
+
+          {/* Этап 1: Подтверждение ИНН */}
+          <div className="bg-gray-800/50 rounded-lg p-4 mb-4 border border-gray-700/50">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-1">
+                  Этап 1: Подтверждение существования компании
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Проверка ИНН через ФНС. Подтверждает, что компания существует и имеет действующий статус.
+                </p>
+              </div>
+              {companyVerification?.innVerified ? (
+                <CheckCircle className="w-6 h-6 text-emerald-400 flex-shrink-0 ml-3" />
+              ) : (
+                <XCircle className="w-6 h-6 text-gray-500 flex-shrink-0 ml-3" />
+              )}
+            </div>
+
+            {companyVerification?.innVerified ? (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                <p className="text-sm text-emerald-300">
+                  ✅ Существование компании подтверждено
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {!user.inn ? (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                    <p className="text-sm text-amber-300">
+                      ⚠️ Сначала заполните ИНН в профиле
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-gray-900/50 rounded-lg p-3">
+                      <p className="text-sm text-gray-300">
+                        ИНН: <span className="font-mono">{user.inn}</span>
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleVerifyInn}
+                      disabled={verifyingInn}
+                      className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {verifyingInn ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Проверка...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4" />
+                          Подтвердить ИНН
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Этап 2: Подтверждение корпоративной почты */}
+          <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-1">
+                  Этап 2: Подтверждение связи с компанией
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Подтверждение корпоративной почты, связанной с доменом компании. Требуется для доступа к групповым функциям.
+                </p>
+              </div>
+              {companyVerification?.emailVerified ? (
+                <CheckCircle className="w-6 h-6 text-emerald-400 flex-shrink-0 ml-3" />
+              ) : (
+                <XCircle className="w-6 h-6 text-gray-500 flex-shrink-0 ml-3" />
+              )}
+            </div>
+
+            {companyVerification?.emailVerified ? (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                <p className="text-sm text-emerald-300">
+                  ✅ Корпоративная почта подтверждена
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {!companyVerification?.innVerified ? (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                    <p className="text-sm text-amber-300">
+                      ⚠️ Сначала подтвердите существование компании (Этап 1)
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <label className="block text-sm text-gray-300">
+                        Корпоративная почта
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={corporateEmail}
+                          onChange={(e) => setCorporateEmail(e.target.value)}
+                          placeholder="email@company-domain.ru"
+                          className="flex-1 bg-black/60 border border-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+                        />
+                        <button
+                          onClick={handleVerifyEmail}
+                          disabled={verifyingEmail || !corporateEmail.trim()}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {verifyingEmail ? (
+                            <>
+                              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Отправка...
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="w-4 h-4" />
+                              Отправить
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        На указанную почту будет отправлено письмо с подтверждением
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Статус доступа к групповым функциям */}
+          {companyVerification && (
+            <div className={`mt-4 rounded-lg p-4 border ${
+              companyVerification.canUseGroupFeatures
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-gray-800/50 border-gray-700/50'
+            }`}>
+              <div className="flex items-center gap-2">
+                {companyVerification.canUseGroupFeatures ? (
+                  <>
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    <p className="text-sm text-emerald-300 font-semibold">
+                      Групповые функции доступны
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-5 h-5 text-gray-500" />
+                    <p className="text-sm text-gray-400">
+                      Групповые функции недоступны. Завершите оба этапа подтверждения.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
       {/* 🔐 Смена пароля */}

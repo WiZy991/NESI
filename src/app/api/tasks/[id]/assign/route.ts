@@ -26,15 +26,23 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 			return NextResponse.json({ error: 'Неверный формат данных' }, { status: 400 })
 		}
 
-		// Валидация executorId
-		if (!body.executorId || typeof body.executorId !== 'string' || !body.executorId.trim()) {
+		// Валидация: должен быть либо executorId, либо teamId
+		const executorId = body.executorId ? body.executorId.trim() : null
+		const teamId = body.teamId ? body.teamId.trim() : null
+
+		if (!executorId && !teamId) {
 			return NextResponse.json(
-				{ error: 'ID исполнителя обязателен' },
+				{ error: 'Необходимо указать ID исполнителя или ID команды' },
 				{ status: 400 }
 			)
 		}
 
-		const executorId = body.executorId.trim()
+		if (executorId && teamId) {
+			return NextResponse.json(
+				{ error: 'Нельзя указать одновременно исполнителя и команду' },
+				{ status: 400 }
+			)
+		}
 
 		const task = await prisma.task.findUnique({ where: { id: taskId } })
 		if (!task)
@@ -47,39 +55,94 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 			)
 		}
 
-		if (task.executorId) {
+		if (task.executorId || task.teamId) {
 			return NextResponse.json(
-				{ error: 'Исполнитель уже назначен' },
+				{ error: 'Исполнитель или команда уже назначены' },
 				{ status: 400 }
 			)
 		}
 
-		// 🔒 Проверяем лимит задач по уровню исполнителя
-		const taskLimit = await canTakeMoreTasks(executorId)
-		if (!taskLimit.canTake) {
-			return NextResponse.json(
-				{ 
-					error: `У исполнителя уже максимальное количество активных задач (${taskLimit.activeCount}/${taskLimit.maxCount}). Завершите текущие задачи, чтобы взять новые.`,
-					activeCount: taskLimit.activeCount,
-					maxCount: taskLimit.maxCount
+		let price: Prisma.Decimal
+		let actualExecutorId: string | null = null
+
+		if (teamId) {
+			// Назначение на команду
+			const team = await prisma.team.findUnique({
+				where: { id: teamId },
+				include: {
+					members: {
+						where: { role: 'ADMIN' },
+						take: 1,
+					},
 				},
-				{ status: 409 }
-			)
-		}
+			})
 
-		// Берём цену отклика по паре (taskId + executorId)
-		const response = await prisma.taskResponse.findFirst({
-			where: { taskId, userId: executorId },
-		})
+			if (!team) {
+				return NextResponse.json(
+					{ error: 'Команда не найдена' },
+					{ status: 404 }
+				)
+			}
 
-		if (!response || !response.price) {
+			// Берем цену отклика от администратора команды
+			const adminMember = team.members[0]
+			if (!adminMember) {
+				return NextResponse.json(
+					{ error: 'В команде нет администратора' },
+					{ status: 400 }
+				)
+			}
+
+			actualExecutorId = adminMember.userId
+
+			const response = await prisma.taskResponse.findFirst({
+				where: { taskId, userId: actualExecutorId },
+			})
+
+			if (!response || !response.price) {
+				return NextResponse.json(
+					{ error: 'Отклик от команды не найден. Администратор команды должен откликнуться на задачу.' },
+					{ status: 400 }
+				)
+			}
+
+			price = response.price
+		} else if (executorId) {
+			// Назначение на одного исполнителя
+			actualExecutorId = executorId
+
+			// 🔒 Проверяем лимит задач по уровню исполнителя
+			const taskLimit = await canTakeMoreTasks(executorId)
+			if (!taskLimit.canTake) {
+				return NextResponse.json(
+					{ 
+						error: `У исполнителя уже максимальное количество активных задач (${taskLimit.activeCount}/${taskLimit.maxCount}). Завершите текущие задачи, чтобы взять новые.`,
+						activeCount: taskLimit.activeCount,
+						maxCount: taskLimit.maxCount
+					},
+					{ status: 409 }
+				)
+			}
+
+			// Берём цену отклика по паре (taskId + executorId)
+			const response = await prisma.taskResponse.findFirst({
+				where: { taskId, userId: executorId },
+			})
+
+			if (!response || !response.price) {
+				return NextResponse.json(
+					{ error: 'Отклик или цена не найдены' },
+					{ status: 400 }
+				)
+			}
+
+			price = response.price
+		} else {
 			return NextResponse.json(
-				{ error: 'Отклик или цена не найдены' },
+				{ error: 'Необходимо указать ID исполнителя или ID команды' },
 				{ status: 400 }
 			)
 		}
-
-		const price = response.price
 
 		// 🔥 КРИТИЧНО: Проверяем баланс ПЕРЕД назначением исполнителя
 		const customer = await prisma.user.findUnique({
@@ -150,56 +213,60 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 				throw new Error('Задача не найдена')
 			}
 
-			if (taskCheck.executorId) {
-				throw new Error('Исполнитель уже назначен')
+			if (taskCheck.executorId || (await tx.task.findUnique({ where: { id: taskId }, select: { teamId: true } }))?.teamId) {
+				throw new Error('Исполнитель или команда уже назначены')
 			}
 
 			if (taskCheck.status !== 'open') {
 				throw new Error('Задача недоступна для назначения')
 			}
 
-			// 🔒 Проверяем лимит задач по уровню внутри транзакции
-			// Получаем данные исполнителя для расчета уровня
-			const executor = await tx.user.findUnique({
-				where: { id: executorId },
-				select: { xp: true },
-			})
+			// Проверяем лимит задач только для одного исполнителя (не для команды)
+			if (executorId && !teamId) {
+				// 🔒 Проверяем лимит задач по уровню внутри транзакции
+				// Получаем данные исполнителя для расчета уровня
+				const executor = await tx.user.findUnique({
+					where: { id: executorId },
+					select: { xp: true },
+				})
 
-			if (!executor) {
-				throw new Error('Исполнитель не найден')
-			}
+				if (!executor) {
+					throw new Error('Исполнитель не найден')
+				}
 
-			// Подсчитываем активные задачи (исключая текущую)
-			const activeTasksCount = await tx.task.count({
-				where: {
-					executorId,
-					status: 'in_progress',
-					id: { not: taskId },
-				},
-			})
+				// Подсчитываем активные задачи (исключая текущую)
+				const activeTasksCount = await tx.task.count({
+					where: {
+						executorId,
+						status: 'in_progress',
+						id: { not: taskId },
+					},
+				})
 
-			// Получаем бонусный XP за сертификации
-			const passedTests = await tx.certificationAttempt.count({
-				where: { userId: executorId, passed: true },
-			})
-			const xpComputed = (executor.xp || 0) + passedTests * 10
+				// Получаем бонусный XP за сертификации
+				const passedTests = await tx.certificationAttempt.count({
+					where: { userId: executorId, passed: true },
+				})
+				const xpComputed = (executor.xp || 0) + passedTests * 10
 
-			// Получаем уровень и лимит
-			const { getLevelFromXP } = await import('@/lib/level/calculate')
-			const { getMaxTasksForLevel } = await import('@/lib/level/rewards')
-			const levelInfo = await getLevelFromXP(xpComputed)
-			const maxCount = getMaxTasksForLevel(levelInfo.level)
+				// Получаем уровень и лимит
+				const { getLevelFromXP } = await import('@/lib/level/calculate')
+				const { getMaxTasksForLevel } = await import('@/lib/level/rewards')
+				const levelInfo = await getLevelFromXP(xpComputed)
+				const maxCount = getMaxTasksForLevel(levelInfo.level)
 
-			// Проверяем лимит (учитывая, что мы собираемся добавить еще одну задачу)
-			if (activeTasksCount >= maxCount) {
-				throw new Error(`У исполнителя уже максимальное количество активных задач (${activeTasksCount}/${maxCount})`)
+				// Проверяем лимит (учитывая, что мы собираемся добавить еще одну задачу)
+				if (activeTasksCount >= maxCount) {
+					throw new Error(`У исполнителя уже максимальное количество активных задач (${activeTasksCount}/${maxCount})`)
+				}
 			}
 
 			// Обновляем задачу
 			await tx.task.update({
 				where: { id: taskId },
 				data: {
-					executorId,
+					executorId: executorId || null,
+					teamId: teamId || null,
 					status: 'in_progress',
 					escrowAmount: priceDecimal,
 				},
@@ -223,58 +290,116 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 			})
 
 			// 🗑️ Автоматически удаляем все отклики этого исполнителя из других открытых задач
-			await tx.taskResponse.deleteMany({
-				where: {
-					userId: executorId,
-					task: {
-						status: 'open',
-						id: { not: taskId }, // Не удаляем отклик из текущей задачи
+			// (только для одного исполнителя, не для команды)
+			if (executorId && !teamId && actualExecutorId) {
+				await tx.taskResponse.deleteMany({
+					where: {
+						userId: actualExecutorId,
+						task: {
+							status: 'open',
+							id: { not: taskId }, // Не удаляем отклик из текущей задачи
+						},
 					},
-				},
+				})
+			}
+		})
+
+		// Записываем статус отклика (для одного исполнителя)
+		if (executorId && !teamId && actualExecutorId) {
+			const response = await prisma.taskResponse.findFirst({
+				where: { taskId, userId: actualExecutorId },
 			})
-		})
+			if (response) {
+				await recordTaskResponseStatus(response.id, 'hired', {
+					changedById: user.id,
+					note: 'Исполнитель назначен на задачу',
+				})
+			}
+		}
 
-		await recordTaskResponseStatus(response.id, 'hired', {
-			changedById: user.id,
-			note: 'Исполнитель назначен на задачу',
-		})
-
-		// Отправляем уведомление исполнителю о назначении на задачу
+		// Отправляем уведомления
 		try {
 			const customerName = user.fullName || user.email
-			const notificationMessage = `Вас назначили на задачу "${
-				task.title
-			}" (${formatMoney(price)})`
+			const notificationMessage = teamId
+				? `Вашу команду назначили на задачу "${task.title}" (${formatMoney(price)})`
+				: `Вас назначили на задачу "${task.title}" (${formatMoney(price)})`
 
-			// Создаем уведомление в БД
-			const dbNotification = await createNotificationWithSettings({
-				userId: executorId,
-				message: notificationMessage,
-				link: `/tasks/${taskId}`,
-				type: 'assignment',
-				emailData: {
-					customerName: customerName,
-					taskTitle: task.title,
-					taskId: taskId,
-				},
-			})
+			// Для команды отправляем уведомления всем участникам
+			if (teamId) {
+				const team = await prisma.team.findUnique({
+					where: { id: teamId },
+					include: {
+						members: {
+							include: {
+								user: {
+									select: { id: true },
+								},
+							},
+						},
+					},
+				})
 
-			// Если уведомление отключено в настройках, не отправляем SSE
-			if (dbNotification) {
-				// Отправляем SSE уведомление
-				sendNotificationToUser(executorId, {
-					id: dbNotification.id, // Включаем ID из БД для дедупликации
-				type: 'assignment',
-				title: 'Вас назначили на задачу',
-				message: notificationMessage,
-				link: `/tasks/${taskId}`,
-				playSound: true,
-			})
+				if (team) {
+					for (const member of team.members) {
+						const dbNotification = await createNotificationWithSettings({
+							userId: member.userId,
+							message: notificationMessage,
+							link: `/tasks/${taskId}`,
+							type: 'assignment',
+							emailData: {
+								customerName: customerName,
+								taskTitle: task.title,
+								taskId: taskId,
+							},
+						})
 
-			logger.debug('Уведомление о назначении отправлено исполнителю', { executorId, taskId })
-			}
+						if (dbNotification) {
+							sendNotificationToUser(member.userId, {
+								id: dbNotification.id,
+								type: 'assignment',
+								title: 'Вашу команду назначили на задачу',
+								message: notificationMessage,
+								link: `/tasks/${taskId}`,
+								playSound: true,
+							})
+						}
+					}
+					logger.debug('Уведомления о назначении отправлены участникам команды', { teamId, taskId })
+				}
+			} else if (actualExecutorId) {
+				// Для одного исполнителя
+				const dbNotification = await createNotificationWithSettings({
+					userId: actualExecutorId,
+					message: notificationMessage,
+					link: `/tasks/${taskId}`,
+					type: 'assignment',
+					emailData: {
+						customerName: customerName,
+						taskTitle: task.title,
+						taskId: taskId,
+					},
+				})
+
+				// Если уведомление отключено в настройках, не отправляем SSE
+				if (dbNotification) {
+					// Отправляем SSE уведомление
+					sendNotificationToUser(actualExecutorId, {
+						id: dbNotification.id, // Включаем ID из БД для дедупликации
+						type: 'assignment',
+						title: 'Вас назначили на задачу',
+						message: notificationMessage,
+						link: `/tasks/${taskId}`,
+						playSound: true,
+					})
+
+					logger.debug('Уведомление о назначении отправлено исполнителю', { executorId: actualExecutorId, taskId })
+				}
 		} catch (notifError) {
-			logger.error('Ошибка отправки уведомления о назначении', notifError, { executorId, taskId })
+			logger.error('Ошибка отправки уведомления о назначении', notifError, { 
+				executorId: actualExecutorId || null, 
+				teamId: teamId || null,
+				taskId 
+			})
 		}
 
 		// 🎯 Проверяем достижения для заказчика после назначения исполнителя (для uniqueExecutors)

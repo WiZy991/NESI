@@ -107,6 +107,17 @@ model User {
   
   // Привязанные карты для выплат
   tbankCards     TBankCard[]
+  
+  // Подтверждение компании
+  companyVerification CompanyVerification?
+  
+  // Команды
+  teamMemberships TeamMember[]
+  teamsCreated    Team[]                 @relation("TeamCreator")
+  teamInvitationsReceived TeamInvitation[] @relation("TeamInvitationRecipient")
+  teamInvitationsSent     TeamInvitation[] @relation("TeamInvitationInviter")
+  teamChatsSent           TeamChat[]       @relation("TeamChatSender")
+  teamChatReactions       TeamChatReaction[] @relation("TeamChatReactionUser")
 }
 
 enum TaskResponseStatus {
@@ -189,6 +200,8 @@ model Task {
   review                  Review[]
   customer                User               @relation("Customer", fields: [customerId], references: [id])
   executor                User?              @relation("Executor", fields: [executorId], references: [id])
+  teamId                  String?            // ID команды (если задача назначена на команду)
+  team                    Team?              @relation("TeamTasks", fields: [teamId], references: [id])
   subcategory             Subcategory?       @relation(fields: [subcategoryId], references: [id])
   responses               TaskResponse[]
   Transaction             Transaction[]
@@ -532,6 +545,7 @@ model File {
   messages    Message[]        @relation("MessageFile")
   privateMsgs PrivateMessage[] @relation("PrivateMessageFile")
   userAvatar  User?            @relation("UserAvatar")
+  teamChatFiles TeamChat[]     @relation("TeamChatFile")
 }
 
 model CommunityPost {
@@ -934,4 +948,144 @@ model TBankCard {
   @@index([userId])
   @@index([cardId])
   @@index([status])
+}
+
+// ============================================
+// Подтверждение компаний и команды исполнителей
+// ============================================
+
+// Подтверждение компании исполнителя
+model CompanyVerification {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  inn                   String   // ИНН компании
+  companyName           String?  // Название компании из ФНС
+  companyType           String   // "IP" или "COMPANY"
+  innVerified           Boolean  @default(false) // Этап 1: подтверждено существование через ИНН
+  innVerifiedAt         DateTime?
+  corporateEmail        String?  // Корпоративная почта
+  corporateEmailVerified Boolean @default(false) // Этап 2: подтверждена связь через почту
+  corporateEmailVerifiedAt DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([inn])
+}
+
+// Команда исполнителей
+model Team {
+  id          String   @id @default(cuid())
+  name        String   // Название команды
+  description String?  // Описание команды
+  creatorId   String   // Создатель команды (администратор)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  creator User @relation("TeamCreator", fields: [creatorId], references: [id])
+  members TeamMember[]
+  invitations TeamInvitation[]
+  teamChats TeamChat[]
+  tasks    Task[]     @relation("TeamTasks")
+  
+  @@index([creatorId])
+  @@index([createdAt])
+}
+
+// Участник команды
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      TeamRole @default(MEMBER) // ADMIN или MEMBER
+  joinedAt  DateTime @default(now())
+  
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+// Роль в команде
+enum TeamRole {
+  ADMIN   // Администратор команды
+  MEMBER  // Обычный участник
+}
+
+// Приглашение в команду
+model TeamInvitation {
+  id        String   @id @default(cuid())
+  teamId    String
+  inviterId String   // Кто пригласил
+  recipientId String // Кого пригласили
+  status    InvitationStatus @default(PENDING)
+  token     String   @unique // Токен для подтверждения
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  acceptedAt DateTime?
+  
+  team     Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviter  User @relation("TeamInvitationInviter", fields: [inviterId], references: [id])
+  recipient User @relation("TeamInvitationRecipient", fields: [recipientId], references: [id])
+  
+  @@index([teamId])
+  @@index([recipientId])
+  @@index([status])
+  @@index([token])
+}
+
+// Статус приглашения
+enum InvitationStatus {
+  PENDING   // Ожидает подтверждения
+  ACCEPTED  // Принято
+  REJECTED  // Отклонено
+  EXPIRED   // Истекло
+}
+
+// Внутренний чат команды
+model TeamChat {
+  id        String   @id @default(cuid())
+  teamId    String
+  senderId  String
+  content   String
+  fileUrl   String?
+  fileId    String?
+  replyToId String?  // ID сообщения, на которое отвечаем
+  replyTo   TeamChat? @relation("TeamChatReplies", fields: [replyToId], references: [id])
+  replies   TeamChat[] @relation("TeamChatReplies")
+  file      File?     @relation("TeamChatFile", fields: [fileId], references: [id])
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  deletedAt DateTime?
+  
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sender User @relation("TeamChatSender", fields: [senderId], references: [id])
+  
+  reactions TeamChatReaction[]
+  
+  @@index([teamId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([teamId, createdAt])
+  @@index([replyToId])
+}
+
+// Реакции на сообщения в чате команды
+model TeamChatReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  
+  message TeamChat @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User     @relation("TeamChatReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@index([userId])
 }

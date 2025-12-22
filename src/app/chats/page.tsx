@@ -33,7 +33,7 @@ type ChatPresence = {
 
 type Chat = {
 	id: string
-	type: 'private' | 'task'
+	type: 'private' | 'task' | 'team'
 	otherUser?: {
 		id: string
 		fullName?: string
@@ -44,7 +44,8 @@ type Chat = {
 		id: string
 		title: string
 		customerId: string
-		executorId: string
+		executorId: string | null
+		teamId: string | null
 		customer: {
 			id: string
 			fullName?: string
@@ -56,7 +57,16 @@ type Chat = {
 			fullName?: string
 			email: string
 			avatarUrl?: string
-		}
+		} | null
+		team?: {
+			id: string
+			name: string
+		} | null
+	}
+	team?: {
+		id: string
+		name: string
+		description: string | null
 	}
 	lastMessage: {
 		id: string
@@ -1166,6 +1176,15 @@ function ChatsPageContent() {
 				let url = ''
 				if (chatType === 'private') {
 					url = `/api/messages/${otherUserId}`
+				} else if (chatType === 'team') {
+					const teamId = selectedChat.team?.id
+					if (!teamId) {
+						if (!cancelled) {
+							setMessages([])
+						}
+						return
+					}
+					url = `/api/teams/${teamId}/chat`
 				} else {
 					url = `/api/tasks/${taskId}/messages`
 				}
@@ -2883,6 +2902,28 @@ function ChatsPageContent() {
 													<>
 														<span className='text-[9px] sm:text-[10px] md:text-xs text-emerald-300 bg-emerald-900/30 border border-emerald-500/30 px-1.5 sm:px-2 py-0.5 rounded-full'>
 															💼 Чат по задаче
+														</span>
+														{selectedChat.task?.title && (
+															<span className='text-xs sm:text-sm text-gray-300 truncate max-w-[200px] sm:max-w-[300px]'>
+																{selectedChat.task.title}
+															</span>
+														)}
+													</>
+												) : selectedChat.type === 'team' ? (
+													<>
+														<span className='text-[9px] sm:text-[10px] md:text-xs text-blue-300 bg-blue-900/30 border border-blue-500/30 px-1.5 sm:px-2 py-0.5 rounded-full'>
+															👥 Внутренний чат команды
+														</span>
+														{selectedChat.team?.name && (
+															<span className='text-xs sm:text-sm text-gray-300 truncate max-w-[200px] sm:max-w-[300px]'>
+																{selectedChat.team.name}
+															</span>
+														)}
+														<span className='text-[9px] sm:text-[10px] text-gray-500'>
+															Сообщения видны только команде
+														</span>
+													</>
+												) : null}
 														</span>
 														{selectedChat.task?.id && (
 															<Link

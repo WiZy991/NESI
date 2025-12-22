@@ -9,9 +9,10 @@ import VoicePlayer from './VoicePlayer'
 import VideoPlayer from './VideoPlayer'
 
 type MessageInputProps = {
-	chatType: 'private' | 'task'
+	chatType: 'private' | 'task' | 'team'
 	otherUserId?: string
 	taskId?: string
+	teamId?: string
 	onMessageSent: (message: any) => void
 	replyTo?: {
 		id: string
@@ -28,9 +29,10 @@ type MessageInputProps = {
 
 type TypingContext = {
 	recipientId: string
-	chatType: 'private' | 'task'
+	chatType: 'private' | 'task' | 'team'
 	chatId: string
 	taskId?: string
+	teamId?: string
 }
 
 const emojiList = [
@@ -213,6 +215,16 @@ export default function MessageInput({
 	const sendMenuButtonRef = useRef<HTMLButtonElement | null>(null)
 
 	const typingContext = useMemo<TypingContext | null>(() => {
+		if (chatType === 'team') {
+			if (!teamId) return null
+			return {
+				recipientId: '', // Для командных чатов не нужен recipientId
+				chatType,
+				chatId: `team_${teamId}`,
+				teamId,
+			}
+		}
+
 		if (!otherUserId) return null
 
 		if (chatType === 'task') {
@@ -230,7 +242,7 @@ export default function MessageInput({
 			chatType,
 			chatId: `private_${otherUserId}`,
 		}
-	}, [chatType, otherUserId, taskId])
+	}, [chatType, otherUserId, taskId, teamId])
 
 	const previousTypingContextRef = useRef<TypingContext | null>(null)
 
@@ -782,7 +794,9 @@ export default function MessageInput({
 		const url =
 			chatType === 'private'
 				? `/api/messages/send`
-				: `/api/tasks/${taskId}/messages`
+				: chatType === 'team' && teamId
+					? `/api/teams/${teamId}/chat`
+					: `/api/tasks/${taskId}/messages`
 		const baseHeaders: HeadersInit = {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`,
@@ -821,7 +835,11 @@ export default function MessageInput({
 				)
 			}
 
-			const newMessage = chatType === 'private' ? data : data.message || data
+			const newMessage = chatType === 'private' 
+				? data 
+				: chatType === 'team'
+					? data.message || data
+					: data.message || data
 			onMessageSent(newMessage)
 		}
 
