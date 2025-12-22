@@ -1,7 +1,7 @@
 // context/UserContext.tsx
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 
 type User = {
 	id: string
@@ -135,7 +135,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 		localStorage.setItem('token', token)
 	}
 
-	const refreshUser = async () => {
+	const refreshUser = useCallback(async () => {
 		const currentToken = token || localStorage.getItem('token')
 		if (!currentToken) return
 
@@ -152,7 +152,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 		} catch (err) {
 			console.error('Ошибка обновления данных пользователя:', err)
 		}
-	}
+	}, [token])
 
 	const logout = async () => {
 		const currentToken = token || localStorage.getItem('token')
