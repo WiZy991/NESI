@@ -38,14 +38,10 @@ export async function GET(
           },
         },
         creator: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-              },
-            },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
           },
         },
         _count: {
@@ -89,10 +85,10 @@ export async function GET(
           user: member.user,
         })),
         creator: {
-          userId: team.creator.userId,
-          user: team.creator.user,
+          userId: team.creator.id,
+          user: team.creator,
         },
-        isCreator: team.creator.userId === user.id,
+        isCreator: team.creator.id === user.id,
         userRole: team.members.find(m => m.userId === user.id)?.role || null,
       },
     })
@@ -185,8 +181,9 @@ export async function DELETE(
     // Проверяем, что пользователь является создателем команды
     const team = await prisma.team.findUnique({
       where: { id },
-      include: {
-        creator: true,
+      select: {
+        id: true,
+        creatorId: true,
       },
     })
 
@@ -197,7 +194,7 @@ export async function DELETE(
       )
     }
 
-    if (team.creator.userId !== user.id) {
+    if (team.creatorId !== user.id) {
       return NextResponse.json(
         { error: 'Только создатель команды может её удалить' },
         { status: 403 }

@@ -107,7 +107,7 @@ export default function TeamDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white p-4">
+      <div className="min-h-screen text-white p-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
@@ -119,7 +119,7 @@ export default function TeamDetailPage() {
 
   if (!team) {
     return (
-      <div className="min-h-screen bg-black text-white p-4">
+      <div className="min-h-screen text-white p-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center py-12">
             <p className="text-gray-400">Команда не найдена</p>
@@ -135,7 +135,7 @@ export default function TeamDetailPage() {
   const isAdmin = team.userRole === 'ADMIN'
 
   return (
-    <div className="min-h-screen bg-black text-white p-4">
+    <div className="min-h-screen text-white p-4">
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <Link
@@ -155,21 +155,21 @@ export default function TeamDetailPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-gray-900/50 rounded-2xl p-6 border border-gray-700/50">
+          <div className="rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <Users className="w-6 h-6 text-emerald-400" />
               <h3 className="text-lg font-semibold">Участники</h3>
             </div>
             <p className="text-3xl font-bold text-white">{team.memberCount}</p>
           </div>
-          <div className="bg-gray-900/50 rounded-2xl p-6 border border-gray-700/50">
+          <div className="rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <MessageSquare className="w-6 h-6 text-blue-400" />
               <h3 className="text-lg font-semibold">Задач</h3>
             </div>
             <p className="text-3xl font-bold text-white">{team.taskCount}</p>
           </div>
-          <div className="bg-gray-900/50 rounded-2xl p-6 border border-gray-700/50">
+          <div className="rounded-2xl p-6">
             <Link
               href={`/chats?teamId=${team.id}`}
               className="flex items-center gap-3 text-emerald-400 hover:text-emerald-300"
@@ -180,7 +180,7 @@ export default function TeamDetailPage() {
           </div>
         </div>
 
-          <div className="bg-gray-900/50 rounded-2xl p-6 border border-gray-700/50">
+          <div className="rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Участники команды</h2>
               {isAdmin && (

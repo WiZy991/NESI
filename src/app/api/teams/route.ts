@@ -44,14 +44,10 @@ export async function GET(req: NextRequest) {
           },
         },
         creator: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-              },
-            },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
           },
         },
         _count: {
@@ -82,10 +78,10 @@ export async function GET(req: NextRequest) {
           user: member.user,
         })),
         creator: {
-          userId: team.creator.userId,
-          user: team.creator.user,
+          userId: team.creator.id,
+          user: team.creator,
         },
-        isCreator: team.creator.userId === user.id,
+        isCreator: team.creator.id === user.id,
         userRole: team.members.find(m => m.userId === user.id)?.role || null,
       })),
     })
@@ -160,12 +156,7 @@ export async function POST(req: NextRequest) {
       data: {
         name: name.trim(),
         description: description?.trim() || null,
-        creator: {
-          create: {
-            userId: user.id,
-            role: 'ADMIN',
-          },
-        },
+        creatorId: user.id, // Создатель команды
         members: {
           create: {
             userId: user.id,
@@ -221,8 +212,8 @@ export async function POST(req: NextRequest) {
           user: member.user,
         })),
         creator: {
-          userId: team.creator.userId,
-          user: team.creator.user,
+          userId: team.creator.id,
+          user: team.creator,
         },
       },
     })

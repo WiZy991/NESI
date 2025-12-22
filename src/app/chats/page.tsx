@@ -2058,14 +2058,18 @@ function ChatsPageContent() {
 		}
 	}, [contextMenu])
 
-	// Фильтрация чатов по поиску и скрытым чатам
+	// Фильтрация чатов по типу, поиску и скрытым чатам
 	const filteredChats = chats.filter(chat => {
 		// Исключаем скрытые чаты
 		if (hiddenChats.has(chat.id)) return false
+		
+		// Фильтр по типу чата
+		if (chatTypeFilter !== 'all' && chat.type !== chatTypeFilter) return false
 
-		const searchLower = searchQuery.toLowerCase()
+		// Фильтр по поисковому запросу
 		if (!searchQuery) return true
 
+		const searchLower = searchQuery.toLowerCase()
 		if (chat.type === 'private') {
 			const name = chat.otherUser?.fullName || chat.otherUser?.email || ''
 			return name.toLowerCase().includes(searchLower)
@@ -2676,19 +2680,21 @@ function ChatsPageContent() {
 							</h1>
 							
 							{/* Табы для фильтрации по типам чатов */}
-							<div className='flex gap-2 mb-3 sm:mb-4 overflow-x-auto pb-2' style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
-								<style jsx global>{`
-									.scrollbar-hide::-webkit-scrollbar {
-										display: none;
-										width: 0;
-										height: 0;
-									}
-								`}</style>
+							<div 
+								className='flex gap-2 mb-3 sm:mb-4 overflow-x-auto pb-2 scrollbar-hide' 
+								style={{ 
+									scrollbarWidth: 'none', 
+									msOverflowStyle: 'none',
+									WebkitOverflowScrolling: 'touch',
+									overflowX: 'auto',
+									overflowY: 'hidden'
+								}}
+							>
 								{[
-									{ value: 'all' as const, label: 'Все', icon: '💬' },
-									{ value: 'private' as const, label: 'Приватные', icon: '👤' },
-									{ value: 'task' as const, label: 'Задачи', icon: '📋' },
-									{ value: 'team' as const, label: 'Команды', icon: '👥' },
+									{ value: 'all' as const, label: 'Все' },
+									{ value: 'private' as const, label: 'Приватные' },
+									{ value: 'task' as const, label: 'Задачи' },
+									{ value: 'team' as const, label: 'Команды' },
 								].map(tab => (
 									<button
 										key={tab.value}
@@ -2698,17 +2704,27 @@ function ChatsPageContent() {
 											e.stopPropagation()
 											setChatTypeFilter(tab.value)
 										}}
-										className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer touch-manipulation ${
+										className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer touch-manipulation ${
 											chatTypeFilter === tab.value
-												? 'bg-gradient-to-r from-emerald-500/30 to-emerald-600/20 text-emerald-200 border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.3)] transform scale-105'
+												? 'bg-gradient-to-r from-emerald-500/30 to-emerald-600/20 text-emerald-200 border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
 												: 'bg-slate-800/40 text-slate-300 border-2 border-slate-700/40 hover:bg-slate-800/60 hover:border-emerald-300/30 hover:text-emerald-300 active:scale-95'
 										}`}
 									>
-										<span className='text-base sm:text-lg'>{tab.icon}</span>
-										<span>{tab.label}</span>
+										{tab.label}
 									</button>
 								))}
 							</div>
+							<style jsx global>{`
+								.scrollbar-hide::-webkit-scrollbar {
+									display: none;
+									width: 0;
+									height: 0;
+								}
+								.scrollbar-hide {
+									-ms-overflow-style: none;
+									scrollbar-width: none;
+								}
+							`}</style>
 							
 							<div className='relative'>
 								<input
