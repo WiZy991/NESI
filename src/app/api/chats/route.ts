@@ -631,6 +631,15 @@ export async function GET(req: NextRequest) {
 		// Защита от дубликатов: используем Map для уникальности по id
 		const uniqueChatsMap = new Map<string, any>()
 		
+		// Добавляем приватные чаты (с проверкой на дубликаты)
+		Array.from(privateChats.values()).forEach(chat => {
+			if (!uniqueChatsMap.has(chat.id)) {
+				uniqueChatsMap.set(chat.id, chat)
+			} else {
+				logger.warn('Обнаружен дубликат приватного чата', { chatId: chat.id })
+			}
+		})
+		
 		// Добавляем чаты задач (с проверкой на дубликаты)
 		Array.from(taskChats.values()).forEach(chat => {
 			if (!uniqueChatsMap.has(chat.id)) {
