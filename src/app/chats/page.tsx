@@ -2676,7 +2676,14 @@ function ChatsPageContent() {
 							</h1>
 							
 							{/* Табы для фильтрации по типам чатов */}
-							<div className='flex gap-2 mb-3 sm:mb-4 overflow-x-auto pb-2 -mx-1 px-1'>
+							<div className='flex gap-2 mb-3 sm:mb-4 overflow-x-auto pb-2' style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
+								<style jsx global>{`
+									.scrollbar-hide::-webkit-scrollbar {
+										display: none;
+										width: 0;
+										height: 0;
+									}
+								`}</style>
 								{[
 									{ value: 'all' as const, label: 'Все', icon: '💬' },
 									{ value: 'private' as const, label: 'Приватные', icon: '👤' },
@@ -2685,15 +2692,20 @@ function ChatsPageContent() {
 								].map(tab => (
 									<button
 										key={tab.value}
-										onClick={() => setChatTypeFilter(tab.value)}
-										className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+										type="button"
+										onClick={(e) => {
+											e.preventDefault()
+											e.stopPropagation()
+											setChatTypeFilter(tab.value)
+										}}
+										className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer touch-manipulation ${
 											chatTypeFilter === tab.value
-												? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-												: 'bg-slate-800/30 text-slate-300 border border-slate-700/30 hover:bg-slate-800/50 hover:border-emerald-300/20'
+												? 'bg-gradient-to-r from-emerald-500/30 to-emerald-600/20 text-emerald-200 border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.3)] transform scale-105'
+												: 'bg-slate-800/40 text-slate-300 border-2 border-slate-700/40 hover:bg-slate-800/60 hover:border-emerald-300/30 hover:text-emerald-300 active:scale-95'
 										}`}
 									>
-										<span>{tab.icon}</span>
-										<span className='hidden sm:inline'>{tab.label}</span>
+										<span className='text-base sm:text-lg'>{tab.icon}</span>
+										<span>{tab.label}</span>
 									</button>
 								))}
 							</div>

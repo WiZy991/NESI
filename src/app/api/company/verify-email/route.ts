@@ -106,14 +106,18 @@ export async function POST(req: NextRequest) {
     })
 
     // Отправляем письмо с подтверждением
-    const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/company/verify-email/confirm?token=${token}`
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://nesi.su'
+    const verificationUrl = `${baseUrl}/api/company/verify-email/confirm?token=${token}`
     
     try {
-      await sendCompanyVerificationEmail(email, {
-        type: 'company_verification',
-        verificationUrl,
-        companyName: verification.companyName || 'компании',
-      })
+      await sendCompanyVerificationEmail(
+        email,
+        {
+          type: 'company_verification',
+          verificationUrl,
+          companyName: verification.companyName || 'компании',
+        }
+      )
     } catch (emailError) {
       logger.error('Failed to send company verification email', emailError instanceof Error ? emailError : undefined)
       return NextResponse.json(
