@@ -9,6 +9,12 @@ type User = {
 	role: 'admin' | 'executor' | 'customer'
 	fullName?: string
 	avatarUrl?: string | null
+	accountType?: string | null
+	companyVerification?: {
+		innVerified: boolean
+		corporateEmailVerified: boolean
+		canUseGroupFeatures: boolean
+	} | null
 }
 
 type UserContextType = {
@@ -20,6 +26,7 @@ type UserContextType = {
 	setUnreadCount: (count: number | ((prev: number) => number)) => void
 	login: (user: User, token: string) => void
 	logout: () => void
+	refreshUser: () => Promise<void>
 }
 
 const UserContext = createContext<UserContextType>({
@@ -31,6 +38,7 @@ const UserContext = createContext<UserContextType>({
 	setUnreadCount: () => {},
 	login: () => {},
 	logout: () => {},
+	refreshUser: async () => {},
 })
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
@@ -127,6 +135,25 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 		localStorage.setItem('token', token)
 	}
 
+	const refreshUser = async () => {
+		const currentToken = token || localStorage.getItem('token')
+		if (!currentToken) return
+
+		try {
+			const res = await fetch('/api/me', {
+				headers: {
+					Authorization: `Bearer ${currentToken}`,
+				},
+			})
+			if (res.ok) {
+				const data = await res.json()
+				setUser(data.user)
+			}
+		} catch (err) {
+			console.error('Ошибка обновления данных пользователя:', err)
+		}
+	}
+
 	const logout = async () => {
 		const currentToken = token || localStorage.getItem('token')
 		
@@ -166,6 +193,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 				setUnreadCount,
 				login,
 				logout,
+				refreshUser,
 			}}
 		>
 			{children}

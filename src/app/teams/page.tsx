@@ -172,11 +172,8 @@ export default function TeamsPage() {
     }
   }
 
-  // Проверяем доступ к групповым функциям
-  const canUseGroupFeatures = user?.role === 'executor' && 
-    (user?.accountType === 'SOLE_PROPRIETOR' || user?.accountType === 'COMPANY') &&
-    user?.companyVerification?.innVerified === true &&
-    user?.companyVerification?.corporateEmailVerified === true
+  // Проверяем доступ к групповым функциям (используем canUseGroupFeatures из контекста)
+  const canUseGroupFeatures = user?.companyVerification?.canUseGroupFeatures ?? false
 
   if (loading) {
     return (

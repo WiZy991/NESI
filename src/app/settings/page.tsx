@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Lock, Save, Bell, Eye, EyeOff, BookOpen, Download, FileText, MessageSquare, Star, Building2, User, Briefcase, Building, CheckCircle, XCircle, Mail, Shield } from 'lucide-react'
 import { ResetOnboardingButton } from '@/components/ResetOnboardingButton'
 import { AnimatedCheckbox } from '@/components/AnimatedCheckbox'
@@ -60,7 +61,7 @@ const ACCOUNT_TYPES: Record<AccountType, {
 }
 
 export default function SettingsPage() {
-  const { user, token } = useUser()
+  const { user, token, refreshUser } = useUser()
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   const [passwords, setPasswords] = useState({ old: '', new: '' })
@@ -133,9 +134,19 @@ export default function SettingsPage() {
     })()
   }, [token])
 
-  // === загрузка статуса подтверждения компании ===
+  // === обработка URL параметров и загрузка статуса подтверждения компании ===
+  const searchParams = useSearchParams()
   useEffect(() => {
     if (!token || !user) return
+    
+    // Проверяем URL параметры для обновления после подтверждения
+    const success = searchParams?.get('success')
+    if (success === 'company_verified') {
+      toast.success('Компания успешно подтверждена!')
+      // Обновляем данные пользователя
+      refreshUser()
+    }
+    
     // Загружаем только для исполнителей с ИП/ООО
     if (user.role !== 'executor' || (user.accountType !== 'SOLE_PROPRIETOR' && user.accountType !== 'COMPANY')) {
       return
@@ -153,7 +164,7 @@ export default function SettingsPage() {
         // Игнорируем ошибки
       }
     })()
-  }, [token, user])
+  }, [token, user, searchParams, refreshUser])
 
   // === смена типа аккаунта ===
   const handleChangeAccountType = async (newType: AccountType) => {
@@ -222,6 +233,8 @@ export default function SettingsPage() {
           const statusData = await statusRes.json()
           setCompanyVerification(statusData)
         }
+        // Обновляем данные пользователя в контексте
+        await refreshUser()
       } else {
         toast.error(data.error || 'Ошибка при подтверждении ИНН')
       }

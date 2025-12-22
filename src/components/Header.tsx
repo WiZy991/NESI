@@ -87,10 +87,17 @@ let globalSetMenuOpen:
 	| null = null
 
 export default function Header() {
-	const { user, token, logout, unreadCount, setUnreadCount } = useUser()
+	const { user, token, logout, unreadCount, setUnreadCount, refreshUser } = useUser()
 	const router = useRouter()
 	const pathname = usePathname()
 	const [menuOpen, setMenuOpen] = useState(false)
+	
+	// Обновляем данные пользователя при монтировании и при изменении пути (для обновления после подтверждения компании)
+	useEffect(() => {
+		if (token) {
+			refreshUser()
+		}
+	}, [token, pathname, refreshUser])
 	
 	// Закрываем мобильное меню при изменении пути
 	useEffect(() => {

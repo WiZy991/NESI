@@ -41,13 +41,53 @@ export async function GET(req: Request) {
 		return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 	}
 
+	// Загружаем companyVerification для вычисления canUseGroupFeatures
+	const fullUser = await prisma.user.findUnique({
+		where: { id: user.id },
+		select: {
+			id: true,
+			email: true,
+			fullName: true,
+			role: true,
+			accountType: true,
+			avatarFileId: true,
+			companyVerification: {
+				select: {
+					innVerified: true,
+					corporateEmailVerified: true,
+				},
+			},
+		},
+	})
+
+	if (!fullUser) {
+		return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
+	}
+
+	// Вычисляем canUseGroupFeatures
+	const canUseGroupFeatures = fullUser.role === 'executor' &&
+		(fullUser.accountType === 'SOLE_PROPRIETOR' || fullUser.accountType === 'COMPANY') &&
+		fullUser.companyVerification?.innVerified === true &&
+		fullUser.companyVerification?.corporateEmailVerified === true
+
 	// Добавляем avatarUrl для удобства фронтенда
-	const avatarUrl = user.avatarFileId ? `/api/files/${user.avatarFileId}` : null
+	const avatarUrl = fullUser.avatarFileId ? `/api/files/${fullUser.avatarFileId}` : null
+
+	// Формируем companyVerification с canUseGroupFeatures
+	const companyVerification = fullUser.companyVerification ? {
+		...fullUser.companyVerification,
+		canUseGroupFeatures,
+	} : null
 
 	return NextResponse.json({ 
 		user: {
-			...user,
-			avatarUrl
+			id: fullUser.id,
+			email: fullUser.email,
+			fullName: fullUser.fullName,
+			role: fullUser.role,
+			accountType: fullUser.accountType,
+			avatarUrl,
+			companyVerification,
 		}
 	})
 }
