@@ -1153,6 +1153,18 @@ function ChatsPageContent() {
 		const taskId = selectedChat.task?.id
 		let cancelled = false
 
+		clientLogger.debug('Загрузка сообщений для чата', {
+			chatId,
+			chatType,
+			taskId,
+			otherUserId,
+			selectedChat: {
+				id: selectedChat.id,
+				type: selectedChat.type,
+				task: selectedChat.task,
+			},
+		})
+
 		// Показываем загрузку при смене чата
 		setMessagesLoading(true)
 		// Не очищаем сообщения сразу - они будут очищены при начале загрузки новых
@@ -1188,11 +1200,48 @@ function ChatsPageContent() {
 						return
 					}
 					url = `/api/teams/${teamId}/chat`
+				} else if (chatType === 'private') {
+					if (!otherUserId) {
+						if (!cancelled) {
+							setMessages([])
+						}
+						return
+					}
+					url = `/api/messages/${otherUserId}`
 				} else {
-					url = `/api/tasks/${taskId}/messages`
+					// chatType === 'task'
+					// Пытаемся получить taskId из selectedChat.task?.id или из chatId (формат: task_${taskId})
+					let finalTaskId = taskId
+					if (!finalTaskId && chatId.startsWith('task_')) {
+						finalTaskId = chatId.replace('task_', '')
+						clientLogger.debug('Извлекли taskId из chatId', { chatId, finalTaskId })
+					}
+					
+					if (!finalTaskId) {
+						clientLogger.error('taskId не определен для чата задачи', {
+							chatId,
+							chatType,
+							taskId,
+							selectedChat: {
+								id: selectedChat.id,
+								type: selectedChat.type,
+								task: selectedChat.task,
+							},
+						})
+						if (!cancelled) {
+							setMessages([])
+						}
+						return
+					}
+					url = `/api/tasks/${finalTaskId}/messages`
 				}
 
-				clientLogger.debug('Загружаем сообщения для чата', { chatType, url })
+				clientLogger.debug('Загружаем сообщения для чата', { 
+					chatType, 
+					url, 
+					taskId,
+					chatId,
+				})
 				const res = await fetch(url, {
 					headers: { Authorization: `Bearer ${token}` },
 				})
@@ -1237,6 +1286,9 @@ function ChatsPageContent() {
 					const messagesData = data.messages || data || []
 					clientLogger.debug('Сообщения загружены', {
 						count: messagesData.length,
+						hasMessages: !!data.messages,
+						isArray: Array.isArray(data),
+						dataKeys: data && typeof data === 'object' ? Object.keys(data) : null,
 					})
 					if (messagesData.length > 0) {
 						clientLogger.debug('Первое сообщение', { message: messagesData[0] })
