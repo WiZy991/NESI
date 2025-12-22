@@ -33,7 +33,7 @@ type ChatPresence = {
 
 type Chat = {
 	id: string
-	type: 'private' | 'task' | 'team'
+	type: 'task' | 'team'
 	otherUser?: {
 		id: string
 		fullName?: string
@@ -199,8 +199,8 @@ function ChatsPageContent() {
 	const { user, token, setUnreadCount } = useUser()
 	const { confirm, Dialog } = useConfirm()
 	const searchParams = useSearchParams()
-	const openUserId = searchParams?.get('open')
 	const openTaskId = searchParams?.get('taskId')
+	const openTeamId = searchParams?.get('teamId')
 
 	const [chats, setChats] = useState<Chat[]>([])
 	const [selectedChat, setSelectedChat] = useState<Chat | null>(null)
@@ -208,7 +208,7 @@ function ChatsPageContent() {
 	const [loading, setLoading] = useState(true)
 	const [messagesLoading, setMessagesLoading] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
-	const [chatTypeFilter, setChatTypeFilter] = useState<'all' | 'private' | 'task' | 'team'>('all')
+	const [chatTypeFilter, setChatTypeFilter] = useState<'all' | 'task' | 'team'>('all')
 	const [messageSearchQuery, setMessageSearchQuery] = useState('')
 	const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
 	const [messageSearchMatches, setMessageSearchMatches] = useState<number[]>([])
@@ -674,12 +674,12 @@ function ChatsPageContent() {
 								)
 								return !realChatExists // Оставляем временный только если нет реального
 							}
-							if (tempChat.type === 'private' && tempChat.otherUser?.id) {
-								// Проверяем, есть ли реальный чат с этим пользователем
+							if (tempChat.type === 'team' && tempChat.team?.id) {
+								// Проверяем, есть ли реальный чат команды
 								const realChatExists = loadedChats.some(
 									(realChat: Chat) =>
-										realChat.type === 'private' &&
-										realChat.otherUser?.id === tempChat.otherUser?.id
+										realChat.type === 'team' &&
+										realChat.team?.id === tempChat.team?.id
 								)
 								return !realChatExists
 							}
@@ -692,10 +692,10 @@ function ChatsPageContent() {
 					clientLogger.debug('Чаты загружены', { count: loadedChats.length })
 
 					// Устанавливаем флаг для автооткрытия чата
-					if (openUserId || openTaskId) {
+					if (openTaskId || openTeamId) {
 						clientLogger.debug('Обнаружен параметр для автооткрытия', {
-							openUserId,
 							openTaskId,
+							openTeamId,
 						})
 						setShouldAutoOpen(true)
 					}
@@ -703,13 +703,7 @@ function ChatsPageContent() {
 					// Отладочная информация для аватарок
 					clientLogger.debug('Аватарки в загруженных чатах')
 					data.chats?.forEach((chat: any) => {
-						if (chat.type === 'private') {
-							clientLogger.debug(`Приватный чат с ${chat.otherUser?.id}`, {
-								fullName: chat.otherUser?.fullName,
-								email: chat.otherUser?.email,
-								avatarUrl: chat.otherUser?.avatarUrl,
-							})
-						} else if (chat.type === 'task') {
+						if (chat.type === 'task') {
 							clientLogger.debug(`Чат задачи ${chat.task?.id}`, {
 								customer: {
 									fullName: chat.task?.customer?.fullName,
@@ -778,9 +772,9 @@ function ChatsPageContent() {
 						// Добавляем новое сообщение в текущий чат, если оно относится к нему
 						if (currentSelectedChat) {
 							const isCurrentChat =
-								(data.chatType === 'private' &&
-									currentSelectedChat.type === 'private' &&
-									currentSelectedChat.otherUser?.id === data.senderId) ||
+								(data.chatType === 'team' &&
+									currentSelectedChat.type === 'team' &&
+									currentSelectedChat.team?.id === data.chatId.replace('team_', '')) ||
 								(data.chatType === 'task' &&
 									currentSelectedChat.type === 'task' &&
 									currentSelectedChat.task?.id ===
@@ -904,9 +898,9 @@ function ChatsPageContent() {
 						setChats(prev =>
 							prev.map(chat => {
 								if (
-									(data.chatType === 'private' &&
-										chat.type === 'private' &&
-										chat.otherUser?.id === data.senderId) ||
+									(data.chatType === 'team' &&
+										chat.type === 'team' &&
+										chat.team?.id === data.chatId.replace('team_', '')) ||
 									(data.chatType === 'task' &&
 										chat.type === 'task' &&
 										chat.task?.id === data.chatId.replace('task_', ''))
@@ -950,9 +944,9 @@ function ChatsPageContent() {
 
 							// Проверяем, относится ли сообщение к текущему открытому чату
 							const isCurrentChat =
-								(data.chatType === 'private' &&
-									currentSelectedChat.type === 'private' &&
-									currentSelectedChat.otherUser?.id === data.recipientId) ||
+								(data.chatType === 'team' &&
+									currentSelectedChat.type === 'team' &&
+									currentSelectedChat.team?.id === data.chatId.replace('team_', '')) ||
 								(data.chatType === 'task' &&
 									currentSelectedChat.type === 'task' &&
 									currentSelectedChat.task?.id ===
@@ -1054,9 +1048,9 @@ function ChatsPageContent() {
 								setChats(prev =>
 									prev.map(chat => {
 										if (
-											(data.chatType === 'private' &&
-												chat.type === 'private' &&
-												chat.otherUser?.id === data.recipientId) ||
+											(data.chatType === 'team' &&
+												chat.type === 'team' &&
+												chat.team?.id === data.chatId.replace('team_', '')) ||
 											(data.chatType === 'task' &&
 												chat.type === 'task' &&
 												chat.task?.id === data.chatId.replace('task_', ''))
@@ -1183,9 +1177,7 @@ function ChatsPageContent() {
 				}
 
 				let url = ''
-				if (chatType === 'private') {
-					url = `/api/messages/${otherUserId}`
-				} else if (chatType === 'team') {
+				if (chatType === 'team') {
 					const teamId = selectedChat.team?.id
 					if (!teamId) {
 						if (!cancelled) {
@@ -1611,104 +1603,97 @@ function ChatsPageContent() {
 			return
 		}
 
-		// Если открываем приватный чат
-		clientLogger.debug('Пытаемся открыть чат с пользователем', {
-			userId: openUserId,
-		})
-
-		// Ищем существующий чат
-		const existingChat = chats.find(
-			(chat: Chat) =>
-				chat.type === 'private' && chat.otherUser?.id === openUserId
-		)
-
-		if (existingChat) {
-			clientLogger.debug('Чат найден, открываем', { chat: existingChat })
-			// Используем handleSelectChat вместо прямого setSelectedChat
-			// чтобы сработала пометка как прочитанное
-			handleSelectChat(existingChat)
-			setShouldAutoOpen(false)
-			window.history.replaceState({}, '', '/chats')
-		} else {
-			// Создаем новый чат
-			clientLogger.debug('Чат не найден, создаем новый с пользователем', {
-				userId: openUserId,
+		// Если открываем чат команды
+		if (openTeamId) {
+			clientLogger.debug('Пытаемся открыть чат команды', {
+				teamId: openTeamId,
 			})
 
-			const createNewChat = async () => {
-				try {
-					const userRes = await fetch(`/api/users/${openUserId}`, {
-						headers: token ? { Authorization: `Bearer ${token}` } : {},
-					})
+			// Ищем существующий чат команды
+			const existingTeamChat = chats.find(
+				(chat: Chat) =>
+					chat.type === 'team' && chat.team?.id === openTeamId
+			)
 
-					if (!userRes.ok) {
-						clientLogger.error('Пользователь не найден', undefined, {
-							userId: openUserId,
+			if (existingTeamChat) {
+				clientLogger.debug('Чат команды найден, открываем', { chat: existingTeamChat })
+				handleSelectChat(existingTeamChat)
+				setShouldAutoOpen(false)
+				window.history.replaceState({}, '', '/chats')
+			} else {
+				// Загружаем информацию о команде и создаем чат
+				clientLogger.debug('Чат команды не найден, загружаем команду', {
+					teamId: openTeamId,
+				})
+
+				const loadTeamChat = async () => {
+					try {
+						const teamRes = await fetch(`/api/teams/${openTeamId}`, {
+							headers: token ? { Authorization: `Bearer ${token}` } : {},
+						})
+
+						if (!teamRes.ok) {
+							clientLogger.error('Команда не найдена', undefined, {
+								teamId: openTeamId,
+							})
+							toast.error('Команда не найдена')
+							setShouldAutoOpen(false)
+							return
+						}
+
+						const teamData = await teamRes.json()
+						const team = teamData.team
+
+						const tempChat: Chat = {
+							id: `team_${team.id}`,
+							type: 'team',
+							team: {
+								id: team.id,
+								name: team.name,
+								description: team.description,
+							},
+							lastMessage: {
+								id: 'temp',
+								content: '',
+								createdAt: new Date().toISOString(),
+								sender: {
+									id: user.id,
+									fullName: user.fullName,
+									email: user.email,
+								},
+							},
+							unreadCount: 0,
+						}
+
+						clientLogger.debug('Создан временный чат команды', { chat: tempChat })
+						setChats(prev => {
+							const existingChat = prev.find(
+								chat => chat.type === 'team' && chat.team?.id === team.id
+							)
+							if (existingChat) {
+								setSelectedChat(existingChat)
+								setMessages([])
+								return prev
+							}
+							setSelectedChat(tempChat)
+							setMessages([])
+							return [tempChat, ...prev]
 						})
 						setShouldAutoOpen(false)
-						return
+						window.history.replaceState({}, '', '/chats')
+					} catch (error) {
+						clientLogger.error('Ошибка создания чата команды', error, {
+							teamId: openTeamId,
+						})
+						toast.error('Ошибка при открытии чата команды')
+						setShouldAutoOpen(false)
 					}
-
-					const userData = await userRes.json()
-					const otherUser = userData.user || userData
-
-					const tempChat: Chat = {
-						id: `temp_${openUserId}`,
-						type: 'private',
-						otherUser: {
-							id: otherUser.id,
-							fullName: otherUser.fullName,
-							email: otherUser.email,
-							avatarUrl: otherUser.avatarUrl,
-						},
-						lastMessage: {
-							id: 'temp',
-							content: '',
-							createdAt: new Date().toISOString(),
-							sender: {
-								id: user.id,
-								fullName: user.fullName,
-								email: user.email,
-							},
-						},
-						unreadCount: 0,
-					}
-
-					clientLogger.debug('Создан временный чат', { chat: tempChat })
-					// Добавляем чат только если такого еще нет (защита от дубликатов)
-					setChats(prev => {
-						// Проверяем, нет ли уже чата с этим пользователем
-						const existingChat = prev.find(
-							chat => chat.type === 'private' && chat.otherUser?.id === otherUser.id
-						)
-						if (existingChat) {
-							clientLogger.debug('Приватный чат уже существует, используем его', {
-								otherUserId: otherUser.id,
-								existingChatId: existingChat.id,
-							})
-							// Выбираем существующий чат
-							setSelectedChat(existingChat)
-							setMessages([])
-							return prev
-						}
-						// Добавляем новый чат и выбираем его
-						setSelectedChat(tempChat)
-						setMessages([])
-						return [tempChat, ...prev]
-					})
-					setShouldAutoOpen(false)
-					window.history.replaceState({}, '', '/chats')
-				} catch (error) {
-					clientLogger.error('Ошибка создания чата', error, {
-						userId: openUserId,
-					})
-					setShouldAutoOpen(false)
 				}
-			}
 
-			createNewChat()
+				loadTeamChat()
+			}
 		}
-	}, [openUserId, openTaskId, shouldAutoOpen, chats, user, token])
+	}, [openTaskId, openTeamId, shouldAutoOpen, chats, user, token])
 
 	// Функция для выбора чата
 	const handleSelectChat = async (chat: Chat) => {
@@ -1724,8 +1709,8 @@ function ChatsPageContent() {
 		// Отправляем событие о том, что чат открыт (для Header)
 		if (typeof window !== 'undefined') {
 			const chatInfo =
-				chat.type === 'private'
-					? { chatType: 'private', chatId: chat.otherUser?.id }
+				chat.type === 'team'
+					? { chatType: 'team', chatId: chat.team?.id }
 					: { chatType: 'task', chatId: chat.task?.id }
 			window.dispatchEvent(new CustomEvent('chatOpened', { detail: chatInfo }))
 		}
@@ -1739,15 +1724,9 @@ function ChatsPageContent() {
 			// Помечаем сообщения как прочитанные
 			try {
 				let response
-				if (chat.type === 'private' && chat.otherUser?.id) {
-					response = await fetch('/api/chats/mark-private-read', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							Authorization: `Bearer ${token}`,
-						},
-						body: JSON.stringify({ otherUserId: chat.otherUser.id }),
-					})
+				if (chat.type === 'team' && chat.team?.id) {
+					// Для чатов команд пока не помечаем как прочитанные
+					// Можно добавить API endpoint позже
 				} else if (chat.type === 'task' && chat.task?.id) {
 					response = await fetch('/api/chats/mark-task-read', {
 						method: 'POST',
@@ -1864,14 +1843,14 @@ function ChatsPageContent() {
 								chat.type === 'task' && chat.task?.id === selectedChat.task?.id
 						)
 					} else if (
-						selectedChat.type === 'private' &&
-						selectedChat.otherUser?.id
+						selectedChat.type === 'team' &&
+						selectedChat.team?.id
 					) {
-						// Ищем приватный чат
+						// Ищем чат команды
 						realChat = loadedChats.find(
 							(chat: Chat) =>
-								chat.type === 'private' &&
-								chat.otherUser?.id === selectedChat.otherUser?.id
+								chat.type === 'team' &&
+								chat.team?.id === selectedChat.team?.id
 						)
 					}
 
@@ -1910,15 +1889,9 @@ function ChatsPageContent() {
 		// Помечаем чат как прочитанный при отправке сообщения
 		if (selectedChat) {
 			try {
-				if (selectedChat.type === 'private' && selectedChat.otherUser?.id) {
-					await fetch('/api/chats/mark-private-read', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							Authorization: `Bearer ${token}`,
-						},
-						body: JSON.stringify({ otherUserId: selectedChat.otherUser.id }),
-					})
+				if (selectedChat.type === 'team' && selectedChat.team?.id) {
+					// Для чатов команд пока не помечаем как прочитанные
+					// Можно добавить API endpoint позже
 				} else if (selectedChat.type === 'task' && selectedChat.task?.id) {
 					await fetch('/api/chats/mark-task-read', {
 						method: 'POST',
@@ -2070,10 +2043,7 @@ function ChatsPageContent() {
 		if (!searchQuery) return true
 
 		const searchLower = searchQuery.toLowerCase()
-		if (chat.type === 'private') {
-			const name = chat.otherUser?.fullName || chat.otherUser?.email || ''
-			return name.toLowerCase().includes(searchLower)
-		} else if (chat.type === 'team') {
+		if (chat.type === 'team') {
 			const teamName = chat.team?.name || ''
 			return teamName.toLowerCase().includes(searchLower)
 		} else {
@@ -2351,12 +2321,8 @@ function ChatsPageContent() {
 	)
 
 	const getChatTitle = (chat: Chat) => {
-		if (chat.type === 'private') {
-			return (
-				chat.otherUser?.fullName ||
-				chat.otherUser?.email ||
-				'Неизвестный пользователь'
-			)
+		if (chat.type === 'team') {
+			return chat.team?.name || 'Команда'
 		} else {
 			return chat.task?.title || 'Задача'
 		}
@@ -2437,7 +2403,7 @@ function ChatsPageContent() {
 
 		// Проверяем, является ли последнее сообщение голосовым
 		if (isVoiceMessage(lastMessageContent)) {
-			if (chat.type === 'private') {
+			if (chat.type === 'team') {
 				return '🎤 Голосовое сообщение'
 			} else {
 				const senderName =
@@ -2449,8 +2415,10 @@ function ChatsPageContent() {
 		// Декодируем HTML entities перед отображением
 		const decodedContent = decodeHtmlEntities(lastMessageContent)
 
-		if (chat.type === 'private') {
-			return decodedContent || 'Файл'
+		if (chat.type === 'team') {
+			const senderName =
+				chat.lastMessage.sender.fullName || chat.lastMessage.sender.email
+			return `${senderName}: ${decodedContent || 'Файл'}`
 		} else {
 			const senderName =
 				chat.lastMessage.sender.fullName || chat.lastMessage.sender.email
@@ -2675,53 +2643,9 @@ function ChatsPageContent() {
 					>
 						{/* Заголовок и поиск */}
 						<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg' style={{ overflowX: 'visible' }}>
-							<div className='flex items-center justify-between mb-3 sm:mb-5'>
-								<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent flex items-center gap-3'>
-									💬 <span>Чаты</span>
-								</h1>
-								<button
-									onClick={async () => {
-										const input = prompt('Введите ID пользователя или email для создания приватной переписки:')
-										if (input && input.trim()) {
-											try {
-												const searchParam = encodeURIComponent(input.trim())
-												// Проверяем, существует ли пользователь (по ID или email)
-												const userRes = await fetch(`/api/users/${searchParam}`, {
-													headers: token ? { Authorization: `Bearer ${token}` } : {},
-												})
-												
-												if (!userRes.ok) {
-													const errorData = await userRes.json().catch(() => ({}))
-													toast.error(errorData.error || 'Пользователь не найден')
-													return
-												}
-												
-												const userData = await userRes.json()
-												const foundUser = userData.user
-												
-												if (!foundUser || !foundUser.id) {
-													toast.error('Пользователь не найден')
-													return
-												}
-												
-												// Используем ID пользователя для открытия чата
-												toast.success('Открываем переписку...')
-												
-												// Небольшая задержка, чтобы уведомление успело показаться
-												setTimeout(() => {
-													window.location.href = `/chats?open=${foundUser.id}`
-												}, 300)
-											} catch (error) {
-												toast.error('Ошибка при создании переписки')
-											}
-										}
-									}}
-									className='p-2 bg-emerald-600/20 hover:bg-emerald-600/30 rounded-lg transition-colors border border-emerald-500/30'
-									title='Создать приватную переписку'
-								>
-									<Plus className='w-5 h-5 text-emerald-400' />
-								</button>
-							</div>
+							<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent mb-3 sm:mb-5 flex items-center gap-3'>
+								💬 <span>Чаты</span>
+							</h1>
 							
 							{/* Табы для фильтрации по типам чатов */}
 							<div 
@@ -2739,7 +2663,6 @@ function ChatsPageContent() {
 							>
 								{[
 									{ value: 'all' as const, label: 'Все' },
-									{ value: 'private' as const, label: 'Приватные' },
 									{ value: 'task' as const, label: 'Задачи' },
 									{ value: 'team' as const, label: 'Команды' },
 								].map(tab => (
@@ -2839,18 +2762,7 @@ function ChatsPageContent() {
 									>
 										<div className='flex items-center space-x-2 sm:space-x-3'>
 											{/* Аватар */}
-											{chat.type === 'private' ? (
-												<AvatarComponent
-													avatarUrl={chat.otherUser?.avatarUrl}
-													fallbackText={
-														chat.otherUser?.fullName ||
-														chat.otherUser?.email ||
-														'?'
-													}
-													size={window.innerWidth < 640 ? 44 : 48}
-													userId={chat.otherUser?.id}
-												/>
-											) : chat.type === 'team' ? (
+											{chat.type === 'team' ? (
 												<div className='w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
 													<span className='text-lg sm:text-xl'>👥</span>
 												</div>
@@ -2988,20 +2900,11 @@ function ChatsPageContent() {
 												/>
 											</svg>
 										</button>
-										{selectedChat.type === 'private' ? (
-											<div className='flex-shrink-0'>
-												<AvatarComponent
-													avatarUrl={selectedChat.otherUser?.avatarUrl}
-													fallbackText={
-														selectedChat.otherUser?.fullName ||
-														selectedChat.otherUser?.email ||
-														'?'
-													}
-													size={
-														isMobile ? 36 : window.innerWidth < 640 ? 40 : 48
-													}
-													userId={selectedChat.otherUser?.id}
-												/>
+										{selectedChat.type === 'team' ? (
+											<div className='w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
+												<span className='text-lg sm:text-xl md:text-2xl'>
+													👥
+												</span>
 											</div>
 										) : (
 											<div className='w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
@@ -3012,11 +2915,7 @@ function ChatsPageContent() {
 										)}
 										<div className='flex-1 min-w-0'>
 											<h2 className='text-white font-semibold text-xs sm:text-sm md:text-lg truncate'>
-												{selectedChat.type === 'private'
-													? selectedChat.otherUser?.fullName ||
-													  selectedChat.otherUser?.email ||
-													  'Неизвестный пользователь'
-													: getChatTitle(selectedChat)}
+												{getChatTitle(selectedChat)}
 											</h2>
 											<div className='flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap'>
 												{selectedChat.type === 'task' ? (
@@ -3333,13 +3232,7 @@ function ChatsPageContent() {
 									onClose={() => setIsAttachmentsOpen(false)}
 									chatId={selectedChat.id}
 									chatType={selectedChat.type}
-									chatTitle={
-										selectedChat.type === 'private'
-											? selectedChat.otherUser?.fullName ||
-											  selectedChat.otherUser?.email ||
-											  'Неизвестный пользователь'
-											: getChatTitle(selectedChat)
-									}
+									chatTitle={getChatTitle(selectedChat)}
 									onLocateMessage={messageId => {
 										setIsAttachmentsOpen(false)
 										setTimeout(() => scrollToMessageById(messageId), 200)
