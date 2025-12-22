@@ -121,6 +121,13 @@ export async function GET(req: Request) {
 							responses: true,
 						},
 					},
+					companyVerification: {
+						select: {
+							innVerified: true,
+							corporateEmailVerified: true,
+							canUseGroupFeatures: true,
+						},
+					},
 				},
 			}),
 			// Параллельно вычисляем avgRating через агрегацию (быстрее чем загружать все reviews)

@@ -176,7 +176,7 @@ export default function TeamsPage() {
   const canUseGroupFeatures = user?.role === 'executor' && 
     (user?.accountType === 'SOLE_PROPRIETOR' || user?.accountType === 'COMPANY') &&
     user?.companyVerification?.innVerified === true &&
-    user?.companyVerification?.emailVerified === true
+    user?.companyVerification?.corporateEmailVerified === true
 
   if (loading) {
     return (
