@@ -2680,10 +2680,30 @@ function ChatsPageContent() {
 									💬 <span>Чаты</span>
 								</h1>
 								<button
-									onClick={() => {
+									onClick={async () => {
 										const userId = prompt('Введите ID пользователя или email для создания приватной переписки:')
 										if (userId && userId.trim()) {
-											window.location.href = `/chats?open=${userId.trim()}`
+											try {
+												// Проверяем, существует ли пользователь
+												const userRes = await fetch(`/api/users/${userId.trim()}`, {
+													headers: token ? { Authorization: `Bearer ${token}` } : {},
+												})
+												
+												if (!userRes.ok) {
+													toast.error('Пользователь не найден')
+													return
+												}
+												
+												// Показываем уведомление перед переходом
+												toast.success('Открываем переписку...')
+												
+												// Небольшая задержка, чтобы уведомление успело показаться
+												setTimeout(() => {
+													window.location.href = `/chats?open=${userId.trim()}`
+												}, 300)
+											} catch (error) {
+												toast.error('Ошибка при создании переписки')
+											}
 										}
 									}}
 									className='p-2 bg-emerald-600/20 hover:bg-emerald-600/30 rounded-lg transition-colors border border-emerald-500/30'
@@ -2695,20 +2715,16 @@ function ChatsPageContent() {
 							
 							{/* Табы для фильтрации по типам чатов */}
 							<div 
-								className='flex gap-2 mb-3 sm:mb-4 pb-2 scrollbar-hide -mx-1 px-1' 
+								className='flex gap-2 mb-3 sm:mb-4 pb-2 overflow-x-auto custom-scrollbar' 
 								style={{ 
-									scrollbarWidth: 'none', 
-									msOverflowStyle: 'none',
+									scrollbarWidth: 'thin', 
+									scrollbarColor: 'rgba(16, 185, 129, 0.3) transparent',
+									msOverflowStyle: 'auto',
 									WebkitOverflowScrolling: 'touch',
 									overflowX: 'auto',
 									overflowY: 'hidden',
 									display: 'flex',
-									flexWrap: 'nowrap',
-									width: 'calc(100% + 0.5rem)',
-									marginLeft: '-0.25rem',
-									marginRight: '-0.25rem',
-									paddingLeft: '0.25rem',
-									paddingRight: '0.25rem'
+									flexWrap: 'nowrap'
 								}}
 							>
 								{[
@@ -2736,14 +2752,19 @@ function ChatsPageContent() {
 								))}
 							</div>
 							<style jsx global>{`
-								.scrollbar-hide::-webkit-scrollbar {
-									display: none;
-									width: 0;
-									height: 0;
+								.custom-scrollbar::-webkit-scrollbar {
+									height: 6px;
 								}
-								.scrollbar-hide {
-									-ms-overflow-style: none;
-									scrollbar-width: none;
+								.custom-scrollbar::-webkit-scrollbar-track {
+									background: rgba(0, 0, 0, 0.1);
+									border-radius: 3px;
+								}
+								.custom-scrollbar::-webkit-scrollbar-thumb {
+									background: rgba(16, 185, 129, 0.3);
+									border-radius: 3px;
+								}
+								.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+									background: rgba(16, 185, 129, 0.5);
 								}
 							`}</style>
 							

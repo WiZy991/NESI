@@ -185,28 +185,30 @@ export default function TeamDetailPage() {
               <h2 className="text-xl font-semibold">Участники команды</h2>
               {isAdmin && (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const email = prompt('Введите email пользователя для приглашения:')
                     if (email && email.trim()) {
-                      // Открываем модальное окно приглашения через API
-                      fetch(`/api/teams/${teamId}/invite`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({ recipientEmail: email.trim() }),
-                      })
-                        .then(res => res.json())
-                        .then(data => {
-                          if (data.error) {
-                            alert(data.error)
-                          } else {
-                            alert('Приглашение отправлено!')
-                            loadTeam()
-                          }
+                      try {
+                        const res = await fetch(`/api/teams/${teamId}/invite`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({ recipientEmail: email.trim() }),
                         })
-                        .catch(() => alert('Ошибка при отправке приглашения'))
+                        
+                        const data = await res.json()
+                        
+                        if (!res.ok || data.error) {
+                          toast.error(data.error || 'Ошибка при отправке приглашения')
+                        } else {
+                          toast.success('Приглашение успешно отправлено!')
+                          loadTeam()
+                        }
+                      } catch (error) {
+                        toast.error('Ошибка соединения с сервером')
+                      }
                     }
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors flex items-center gap-2"
