@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { httpClient } from '@/lib/httpClient'
 
 // Задержка для ожидания результата от ФНС
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -41,20 +42,21 @@ export async function GET(req: NextRequest) {
     }
 
     // Шаг 1: Отправляем запрос на поиск в ФНС
-    const searchResponse = await fetch('https://egrul.nalog.ru/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-      body: JSON.stringify({
+    const searchResponse = await httpClient.post(
+      'https://egrul.nalog.ru/',
+      {
         query: cleanInn,
         region: '',
         page: '',
         pageSize: '1',
-      }),
-    })
+      },
+      {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      }
+    )
 
     if (!searchResponse.ok) {
       logger.error('FNS search error', undefined, {
@@ -83,24 +85,28 @@ export async function GET(req: NextRequest) {
     // ФНС обрабатывает запрос асинхронно, нужно подождать
     await sleep(1500) // Ждём 1.5 секунды
 
-    const resultResponse = await fetch(`https://egrul.nalog.ru/search-result/${token}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    })
-
-    if (!resultResponse.ok) {
-      // Пробуем ещё раз с большей задержкой
-      await sleep(1500)
-      const retryResponse = await fetch(`https://egrul.nalog.ru/search-result/${token}`, {
-        method: 'GET',
+    const resultResponse = await httpClient.get(
+      `https://egrul.nalog.ru/search-result/${token}`,
+      {
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
-      })
+      }
+    )
+
+    if (!resultResponse.ok) {
+      // Пробуем ещё раз с большей задержкой
+      await sleep(1500)
+      const retryResponse = await httpClient.get(
+        `https://egrul.nalog.ru/search-result/${token}`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        }
+      )
       
       if (!retryResponse.ok) {
         logger.error('FNS result error', undefined, {

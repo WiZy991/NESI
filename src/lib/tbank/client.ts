@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { httpClient } from '@/lib/httpClient'
 import { getTBankBaseUrl, TBANK_CONFIG } from './config'
 import { generateOrderId, generateTBankToken, rublesToKopecks } from './crypto'
 
@@ -36,13 +37,7 @@ export class TBankClient {
 
 
 		try {
-			const response = await fetch(url, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(params),
-			})
+			const response = await httpClient.post(url, params)
 
 			const data = await response.json()
 
@@ -381,13 +376,7 @@ export class TBankPayoutClient {
 
 
 		try {
-			const response = await fetch(url, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(params),
-			})
+			const response = await httpClient.post(url, params)
 
 			// Получаем текст ответа для обработки ошибок парсинга JSON
 			const responseText = await response.text()

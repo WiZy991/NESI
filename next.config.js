@@ -8,6 +8,7 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {}, // ✅ оставляем, как у тебя
+    instrumentationHook: true, // Включаем instrumentation для глобальных обработчиков ошибок
   },
   eslint: {
     // ❌ отключаем ESLint при билде

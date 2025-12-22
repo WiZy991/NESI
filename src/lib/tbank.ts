@@ -4,6 +4,7 @@
  */
 
 import crypto from 'crypto'
+import { httpClient } from './httpClient'
 
 /**
  * Проверка конфигурации Т-Банка
@@ -241,13 +242,10 @@ export async function createPayment(
 
 	// Логируем только структуру, без полного тела запроса
 
-	const response = await fetch(`${getApiUrl()}/v2/Init`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(requestBody),
-	})
+	const response = await httpClient.post(
+		`${getApiUrl()}/v2/Init`,
+		requestBody
+	)
 
 	if (!response.ok) {
 		const errorText = await response
@@ -307,13 +305,10 @@ export async function createSpDeal(): Promise<{
 	requestBody.Token = generateToken(requestBody, password)
 
 
-	const response = await fetch(`${getApiUrl()}/v2/createSpDeal`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(requestBody),
-	})
+	const response = await httpClient.post(
+		`${getApiUrl()}/v2/createSpDeal`,
+		requestBody
+	)
 
 	if (!response.ok) {
 		const errorText = await response
@@ -533,13 +528,7 @@ export async function createWithdrawal(
 			finalPayout: params.finalPayout,
 		})
 
-		response = await fetch(apiUrl, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify(requestBody),
-		})
+		response = await httpClient.post(apiUrl, requestBody)
 	} catch (error: any) {
 		throw new Error(
 			`Ошибка сети при создании выплаты: ${
@@ -663,13 +652,10 @@ export async function confirmWithdrawal(
 
 	let response: Response
 	try {
-		response = await fetch(`${getApiUrl()}/e2c/v2/Payment/`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify(requestBody),
-		})
+		response = await httpClient.post(
+			`${getApiUrl()}/e2c/v2/Payment/`,
+			requestBody
+		)
 	} catch (error: any) {
 		throw new Error(
 			`Ошибка сети при подтверждении выплаты: ${
@@ -750,13 +736,7 @@ export async function getSbpMembers(): Promise<{
 	const sbpMembersUrl = `${baseUrl}/a2c/sbp/GetSbpMembers`
 
 
-	const response = await fetch(sbpMembersUrl, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(requestBody),
-	})
+	const response = await httpClient.post(sbpMembersUrl, requestBody)
 
 	if (!response.ok) {
 		const errorText = await response.text().catch(() => 'Не удалось прочитать ответ')
@@ -828,13 +808,10 @@ export async function checkPaymentStatus(
 
 	requestBody.Token = generateToken(requestBody)
 
-	const response = await fetch(`${getApiUrl()}/v2/GetState`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(requestBody),
-	})
+	const response = await httpClient.post(
+		`${getApiUrl()}/v2/GetState`,
+		requestBody
+	)
 
 	const data = await response.json()
 	return data

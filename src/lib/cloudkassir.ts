@@ -3,6 +3,8 @@
  * Документация: https://cloudpayments.ru/docs/api/kassa
  */
 
+import { httpClient } from './httpClient'
+
 const CLOUDKASSIR_API_URL = 'https://api.cloudpayments.ru'
 
 export interface CloudKassirConfig {
@@ -185,13 +187,10 @@ export async function createReceipt(
 		...(params.accountId && { accountId: params.accountId }),
 	}
 
-	const response = await fetch(url, {
-		method: 'POST',
+	const response = await httpClient.post(url, body, {
 		headers: {
-			'Content-Type': 'application/json',
 			Authorization: createAuthHeader(config.publicId, config.apiSecret),
 		},
-		body: JSON.stringify(body),
 	})
 
 	if (!response.ok) {
@@ -211,14 +210,15 @@ export async function getReceiptStatus(
 ): Promise<ReceiptStatusResponse> {
 	const url = `${CLOUDKASSIR_API_URL}/kkt/receipt/status/get`
 
-	const response = await fetch(url, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: createAuthHeader(config.publicId, config.apiSecret),
-		},
-		body: JSON.stringify({ Id: receiptId }),
-	})
+	const response = await httpClient.post(
+		url,
+		{ Id: receiptId },
+		{
+			headers: {
+				Authorization: createAuthHeader(config.publicId, config.apiSecret),
+			},
+		}
+	)
 
 	if (!response.ok) {
 		const errorText = await response.text()
@@ -237,14 +237,15 @@ export async function getReceiptData(
 ): Promise<ReceiptDataResponse> {
 	const url = `${CLOUDKASSIR_API_URL}/kkt/receipt/get`
 
-	const response = await fetch(url, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: createAuthHeader(config.publicId, config.apiSecret),
-		},
-		body: JSON.stringify({ Id: receiptId }),
-	})
+	const response = await httpClient.post(
+		url,
+		{ Id: receiptId },
+		{
+			headers: {
+				Authorization: createAuthHeader(config.publicId, config.apiSecret),
+			},
+		}
+	)
 
 	if (!response.ok) {
 		const errorText = await response.text()
