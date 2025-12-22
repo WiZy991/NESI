@@ -164,6 +164,7 @@ export default function MessageInput({
 	chatType,
 	otherUserId,
 	taskId,
+	teamId,
 	onMessageSent,
 	replyTo,
 	onCancelReply,

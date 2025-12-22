@@ -3188,6 +3188,7 @@ function ChatsPageContent() {
 											chatType={selectedChat.type}
 											otherUserId={selectedChat.otherUser?.id}
 											taskId={selectedChat.task?.id}
+											teamId={selectedChat.team?.id}
 											onMessageSent={handleNewMessage}
 											replyTo={replyTo}
 											onCancelReply={() => setReplyTo(null)}
