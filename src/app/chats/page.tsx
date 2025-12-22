@@ -653,6 +653,7 @@ function ChatsPageContent() {
 
 				clientLogger.debug('Ответ API чатов', {
 					chatsCount: data.chats?.length || 0,
+					chatTypes: data.chats?.map((c: Chat) => ({ id: c.id, type: c.type })) || [],
 				})
 				if (res.ok) {
 					const loadedChats = data.chats || []
@@ -1159,11 +1160,12 @@ function ChatsPageContent() {
 		const fetchMessages = async ({ withLoader = true } = {}) => {
 			if (withLoader) {
 				setMessagesLoading(true)
+				// Очищаем сообщения только при явной загрузке (смена чата)
+				if (!cancelled) {
+					setMessages([])
+				}
 			}
-			// Очищаем сообщения только когда начинаем загрузку новых
-			if (!cancelled) {
-				setMessages([])
-			}
+			// При обновлении без лоадера (SSE) не очищаем сообщения
 			try {
 				// Если это временный чат (только что созданный), просто показываем пустой список
 				if (chatId.startsWith('temp_')) {
@@ -1344,21 +1346,11 @@ function ChatsPageContent() {
 
 		fetchMessages()
 
-		let pollingInterval: number | null = null
-		if (typeof window !== 'undefined') {
-			pollingInterval = window.setInterval(() => {
-				if (typeof document !== 'undefined' && document.hidden) {
-					return
-				}
-				void fetchMessages({ withLoader: false })
-			}, 10000)
-		}
+		// Убрали polling - используем только SSE для обновлений в реальном времени
+		// Polling вызывал ненужные обновления каждые 10 секунд
 
 		return () => {
 			cancelled = true
-			if (pollingInterval !== null) {
-				window.clearInterval(pollingInterval)
-			}
 		}
 	}, [
 		selectedChat?.id,
@@ -2037,7 +2029,14 @@ function ChatsPageContent() {
 		if (hiddenChats.has(chat.id)) return false
 		
 		// Фильтр по типу чата
-		if (chatTypeFilter !== 'all' && chat.type !== chatTypeFilter) return false
+		if (chatTypeFilter !== 'all' && chat.type !== chatTypeFilter) {
+			clientLogger.debug('Чат отфильтрован по типу', {
+				chatId: chat.id,
+				chatType: chat.type,
+				filter: chatTypeFilter,
+			})
+			return false
+		}
 
 		// Фильтр по поисковому запросу
 		if (!searchQuery) return true

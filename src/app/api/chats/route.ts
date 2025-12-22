@@ -569,12 +569,7 @@ export async function GET(req: NextRequest) {
 		// Защита от дубликатов: используем Map для уникальности по id
 		const uniqueChatsMap = new Map<string, any>()
 		
-		// Добавляем приватные чаты
-		Array.from(privateChats.values()).forEach(chat => {
-			if (!uniqueChatsMap.has(chat.id)) {
-				uniqueChatsMap.set(chat.id, chat)
-			}
-		})
+		// Приватные чаты убраны - больше не возвращаем их
 		
 		// Добавляем чаты задач (с проверкой на дубликаты)
 		Array.from(taskChats.values()).forEach(chat => {
