@@ -125,7 +125,6 @@ export async function GET(req: Request) {
 						select: {
 							innVerified: true,
 							corporateEmailVerified: true,
-							canUseGroupFeatures: true,
 						},
 					},
 				},
@@ -155,6 +154,12 @@ export async function GET(req: Request) {
 			where: { userId: user.id, passed: true },
 		})
 		const xpComputed = (fullUser.xp ?? 0) + passedCertifications * 10
+
+		// Вычисляем canUseGroupFeatures для companyVerification
+		const canUseGroupFeatures = fullUser.role === 'executor' &&
+			(fullUser.accountType === 'SOLE_PROPRIETOR' || fullUser.accountType === 'COMPANY') &&
+			fullUser.companyVerification?.innVerified === true &&
+			fullUser.companyVerification?.corporateEmailVerified === true
 
 		// 3️⃣ Аватар
 		const avatarUrl = fullUser.avatarFileId
@@ -324,9 +329,16 @@ export async function GET(req: Request) {
 		}
 
 		// 6️⃣ Возвращаем оптимизированный ответ
+		// Вычисляем canUseGroupFeatures и добавляем в companyVerification
+		const companyVerificationWithCanUse = fullUser.companyVerification ? {
+			...fullUser.companyVerification,
+			canUseGroupFeatures,
+		} : null
+
 		return NextResponse.json({
 			user: {
 				...fullUser,
+				companyVerification: companyVerificationWithCanUse,
 				badges: filteredBadges, // Возвращаем отфильтрованные достижения
 				avatarUrl,
 				avgRating,

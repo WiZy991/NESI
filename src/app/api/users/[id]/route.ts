@@ -91,7 +91,7 @@ export async function GET(
 					},
 				},
 			}),
-		// Вычисляем avgRating через агрегацию (как в /api/profile)
+			// Вычисляем avgRating через агрегацию (как в /api/profile)
 		// Будем вычислять после получения пользователя
 		Promise.resolve(null),
 			// Получаем количество отзывов и выполненных задач

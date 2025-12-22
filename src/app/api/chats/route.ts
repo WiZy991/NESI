@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
 				latestTaskMessageIds = Array.from(taskMessagesMap.values()).map(id => ({ id }))
 			}
 		}
-		
+
 		// Если SQL запрос вернул пустой результат, но есть задачи - используем fallback
 		if (latestTaskMessageIds.length === 0) {
 			logger.debug('SQL запрос вернул пустой результат, используем fallback для получения сообщений')
