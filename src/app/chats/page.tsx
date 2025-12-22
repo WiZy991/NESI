@@ -2681,25 +2681,35 @@ function ChatsPageContent() {
 								</h1>
 								<button
 									onClick={async () => {
-										const userId = prompt('Введите ID пользователя или email для создания приватной переписки:')
-										if (userId && userId.trim()) {
+										const input = prompt('Введите ID пользователя или email для создания приватной переписки:')
+										if (input && input.trim()) {
 											try {
-												// Проверяем, существует ли пользователь
-												const userRes = await fetch(`/api/users/${userId.trim()}`, {
+												const searchParam = encodeURIComponent(input.trim())
+												// Проверяем, существует ли пользователь (по ID или email)
+												const userRes = await fetch(`/api/users/${searchParam}`, {
 													headers: token ? { Authorization: `Bearer ${token}` } : {},
 												})
 												
 												if (!userRes.ok) {
+													const errorData = await userRes.json().catch(() => ({}))
+													toast.error(errorData.error || 'Пользователь не найден')
+													return
+												}
+												
+												const userData = await userRes.json()
+												const foundUser = userData.user
+												
+												if (!foundUser || !foundUser.id) {
 													toast.error('Пользователь не найден')
 													return
 												}
 												
-												// Показываем уведомление перед переходом
+												// Используем ID пользователя для открытия чата
 												toast.success('Открываем переписку...')
 												
 												// Небольшая задержка, чтобы уведомление успело показаться
 												setTimeout(() => {
-													window.location.href = `/chats?open=${userId.trim()}`
+													window.location.href = `/chats?open=${foundUser.id}`
 												}, 300)
 											} catch (error) {
 												toast.error('Ошибка при создании переписки')

@@ -15,8 +15,8 @@ export default function TeamInvitationPage() {
 
   const [status, setStatus] = useState<'loading' | 'checking' | 'valid' | 'invalid' | 'processing'>('loading')
   const [invitation, setInvitation] = useState<{
-    team: { id: string; name: string }
-    inviter: { fullName: string | null; email: string }
+    team: { id: string; name: string; description: string | null; createdAt: string }
+    inviter: { id: string; fullName: string | null; email: string }
   } | null>(null)
 
   useEffect(() => {

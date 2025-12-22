@@ -9,10 +9,16 @@ export async function GET(
 	try {
 		const { id } = await params
 		
+		// Определяем, это ID или email (email содержит @)
+		const isEmail = id.includes('@')
+		const whereClause = isEmail 
+			? { email: id.toLowerCase().trim() }
+			: { id }
+		
 		// Вычисляем avgRating параллельно с загрузкой пользователя
 		const [user, avgRatingResult, _count] = await Promise.all([
 			prisma.user.findUnique({
-				where: { id },
+				where: whereClause,
 				select: {
 					id: true,
 					fullName: true,
@@ -85,15 +91,12 @@ export async function GET(
 					},
 				},
 			}),
-			// Вычисляем avgRating через агрегацию (как в /api/profile)
-			prisma.review.aggregate({
-				where: { toUserId: id },
-				_avg: { rating: true },
-				_count: { rating: true },
-			}),
+		// Вычисляем avgRating через агрегацию (как в /api/profile)
+		// Будем вычислять после получения пользователя
+		Promise.resolve(null),
 			// Получаем количество отзывов и выполненных задач
 			prisma.user.findUnique({
-				where: { id },
+				where: whereClause,
 				select: {
 					_count: {
 						select: {
@@ -111,14 +114,21 @@ export async function GET(
 
 		const avatarUrl = user.avatarFileId ? `/api/files/${user.avatarFileId}` : null
 		
-		// Вычисляем avgRating из результата агрегации
-		const avgRating = avgRatingResult._avg.rating && avgRatingResult._count.rating > 0
+		// Вычисляем avgRating из результата агрегации (если был получен)
+		const avgRating = avgRatingResult && avgRatingResult._avg.rating && avgRatingResult._count.rating > 0
 			? avgRatingResult._avg.rating
 			: null
 		
+		// Если avgRating не был вычислен, вычисляем его сейчас
+		const finalAvgRating = avgRating || (await prisma.review.aggregate({
+			where: { toUserId: user.id },
+			_avg: { rating: true },
+			_count: { rating: true },
+		}))._avg.rating || null
+		
 		// Вычисляем бонусный XP за сертификации (10 XP за каждую пройденную сертификацию)
 		const passedCertifications = await prisma.certificationAttempt.count({
-			where: { userId: id, passed: true }
+			where: { userId: user.id, passed: true }
 		})
 		const xpComputed = (user.xp ?? 0) + passedCertifications * 10
 
@@ -193,7 +203,7 @@ export async function GET(
 			...user,
 				badges: limitedBadges, // Отфильтрованные и ограниченные badges
 				avatarUrl,
-				avgRating, // Вычисленный рейтинг
+				avgRating: finalAvgRating, // Вычисленный рейтинг
 				xpComputed, // XP с учетом бонуса за сертификации
 				_count: _count?._count, // Добавляем _count для статистики
 				profileBackground, // Фон профиля

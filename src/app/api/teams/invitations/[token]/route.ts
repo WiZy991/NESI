@@ -31,14 +31,10 @@ export async function GET(
           },
         },
         inviter: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-              },
-            },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
           },
         },
         recipient: {
@@ -57,14 +53,8 @@ export async function GET(
       )
     }
 
-    // Если пользователь авторизован, проверяем, что приглашение адресовано ему
-    const user = await getUserFromRequest(req)
-    if (user && invitation.recipientId !== user.id) {
-      return NextResponse.json(
-        { error: 'Это приглашение адресовано другому пользователю' },
-        { status: 403 }
-      )
-    }
+    // Не проверяем авторизацию для GET запроса - пользователь может просмотреть приглашение
+    // Проверка будет при принятии приглашения (POST запрос)
 
     // Проверяем статус
     if (invitation.status !== 'PENDING') {
@@ -100,8 +90,9 @@ export async function GET(
         id: invitation.id,
         team: invitation.team,
         inviter: {
-          userId: invitation.inviter.userId,
-          user: invitation.inviter.user,
+          id: invitation.inviter.id,
+          fullName: invitation.inviter.fullName,
+          email: invitation.inviter.email,
         },
         createdAt: invitation.createdAt,
         expiresAt: invitation.expiresAt,

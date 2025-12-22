@@ -797,7 +797,7 @@ export default function MessageInput({
 				? `/api/messages/send`
 				: chatType === 'team' && teamId
 					? `/api/teams/${teamId}/chat`
-					: `/api/tasks/${taskId}/messages`
+				: `/api/tasks/${taskId}/messages`
 		const baseHeaders: HeadersInit = {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`,
