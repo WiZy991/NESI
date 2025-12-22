@@ -2671,7 +2671,7 @@ function ChatsPageContent() {
 						className={`${
 							selectedChat ? 'hidden md:flex' : 'flex'
 						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30 overflow-hidden max-w-full`}
-						style={{ overflow: 'hidden' }}
+						style={{ overflowY: 'hidden', overflowX: 'visible' }}
 					>
 						{/* Заголовок и поиск */}
 						<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg'>
@@ -2681,13 +2681,17 @@ function ChatsPageContent() {
 							
 							{/* Табы для фильтрации по типам чатов */}
 							<div 
-								className='flex gap-2 mb-3 sm:mb-4 overflow-x-auto pb-2 scrollbar-hide' 
+								className='flex gap-2 mb-3 sm:mb-4 overflow-x-scroll pb-2 scrollbar-hide' 
 								style={{ 
 									scrollbarWidth: 'none', 
 									msOverflowStyle: 'none',
 									WebkitOverflowScrolling: 'touch',
-									overflowX: 'auto',
-									overflowY: 'hidden'
+									overflowX: 'scroll',
+									overflowY: 'hidden',
+									display: 'flex',
+									flexWrap: 'nowrap',
+									width: '100%',
+									minWidth: 'max-content'
 								}}
 							>
 								{[
