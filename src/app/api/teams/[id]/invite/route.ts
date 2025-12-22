@@ -9,6 +9,7 @@ import prisma from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 import { createNotificationWithSettings } from '@/lib/notify'
+import { sendTeamInvitationEmail } from '@/lib/mail'
 
 // Лимиты для защиты от абуза
 const MAX_INVITATIONS_PER_DAY = 10
@@ -187,6 +188,10 @@ export async function POST(
       },
     })
 
+    // Формируем URL приглашения
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://nesi.su'
+    const invitationUrl = `${baseUrl}/teams/invitations/${token}`
+
     // Отправляем уведомление (не критично, если не отправится)
     try {
       await createNotificationWithSettings({
@@ -198,6 +203,22 @@ export async function POST(
     } catch (notificationError) {
       logger.error('Failed to send team invitation notification', notificationError instanceof Error ? notificationError : undefined)
       // Не прерываем процесс, если уведомление не отправилось
+    }
+
+    // Отправляем email-приглашение
+    try {
+      await sendTeamInvitationEmail(recipient.email, {
+        inviterName: user.fullName || user.email,
+        teamName: invitation.team.name,
+        invitationUrl,
+      })
+      logger.info('Team invitation email sent', {
+        recipientEmail: recipient.email,
+        teamId,
+      })
+    } catch (emailError) {
+      logger.error('Failed to send team invitation email', emailError instanceof Error ? emailError : undefined)
+      // Не прерываем процесс, если email не отправился
     }
 
     logger.info('Team invitation sent', {
