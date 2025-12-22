@@ -1481,8 +1481,8 @@ function ChatsPageContent() {
 
 	// Автоматическое открытие чата при наличии параметра open или taskId
 	useEffect(() => {
-		if ((!openUserId && !openTaskId) || !shouldAutoOpen || !user || !token) {
-			if ((openUserId || openTaskId) && shouldAutoOpen) {
+		if ((!openTaskId && !openTeamId) || !shouldAutoOpen || !user || !token) {
+			if ((openTaskId || openTeamId) && shouldAutoOpen) {
 				clientLogger.debug('Ждем загрузки данных пользователя и токена')
 			}
 			return
