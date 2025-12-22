@@ -145,8 +145,40 @@ export async function GET(req: NextRequest) {
 				latestTaskMessageIds = Array.from(taskMessagesMap.values()).map(id => ({ id }))
 			}
 		}
+		
+		// Если SQL запрос вернул пустой результат, но есть задачи - используем fallback
+		if (latestTaskMessageIds.length === 0) {
+			logger.debug('SQL запрос вернул пустой результат, используем fallback для получения сообщений')
+			const userTasks = await prisma.task.findMany({
+				where: {
+					OR: [{ customerId: user.id }, { executorId: user.id }],
+				},
+				select: { id: true },
+			})
+			const taskIds = userTasks.map(t => t.id)
+			if (taskIds.length > 0) {
+				const taskMessagesMap = new Map<string, string>()
+				for (const taskId of taskIds) {
+					const lastMessage = await prisma.message.findFirst({
+						where: { taskId },
+						select: { id: true },
+						orderBy: { createdAt: 'desc' },
+					})
+					if (lastMessage) {
+						taskMessagesMap.set(taskId, lastMessage.id)
+					}
+				}
+				latestTaskMessageIds = Array.from(taskMessagesMap.values()).map(id => ({ id }))
+			}
+		}
 
 		const latestTaskIds = latestTaskMessageIds.map(m => m.id)
+		
+		logger.debug('Получение сообщений задач', {
+			userId: user.id,
+			latestTaskMessageIdsCount: latestTaskMessageIds.length,
+			latestTaskIdsCount: latestTaskIds.length,
+		})
 
 		// Получаем только последние сообщения для чатов задач
 		const taskMessages = latestTaskIds.length > 0
@@ -198,6 +230,11 @@ export async function GET(req: NextRequest) {
 					orderBy: { createdAt: 'desc' },
 			  })
 			: []
+		
+		logger.debug('Загружены сообщения задач', {
+			userId: user.id,
+			taskMessagesCount: taskMessages.length,
+		})
 
 		// Группируем приватные сообщения по собеседникам
 		const privateChats = new Map<string, any>()
@@ -331,7 +368,7 @@ export async function GET(req: NextRequest) {
 					lastMessage: {
 						id: msg.id,
 						content: msg.content,
-						createdAt: msg.createdAt,
+						createdAt: msg.createdAt instanceof Date ? msg.createdAt.toISOString() : msg.createdAt,
 						sender: {
 							id: msg.senderId,
 							fullName: msg.sender.fullName,
@@ -340,6 +377,23 @@ export async function GET(req: NextRequest) {
 					},
 					unreadCount: 0,
 				})
+			} else {
+				// Обновляем последнее сообщение, если текущее новее
+				const existingChat = taskChats.get(taskId)
+				const existingDate = new Date(existingChat.lastMessage.createdAt)
+				const newDate = msg.createdAt instanceof Date ? msg.createdAt : new Date(msg.createdAt)
+				if (newDate > existingDate) {
+					existingChat.lastMessage = {
+						id: msg.id,
+						content: msg.content,
+						createdAt: msg.createdAt instanceof Date ? msg.createdAt.toISOString() : msg.createdAt,
+						sender: {
+							id: msg.senderId,
+							fullName: msg.sender.fullName,
+							email: msg.sender.email,
+						},
+					}
+				}
 			}
 		})
 
