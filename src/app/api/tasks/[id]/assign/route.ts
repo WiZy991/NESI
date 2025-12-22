@@ -394,6 +394,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
 					logger.debug('Уведомление о назначении отправлено исполнителю', { executorId: actualExecutorId, taskId })
 				}
+			}
 		} catch (notifError) {
 			logger.error('Ошибка отправки уведомления о назначении', notifError, { 
 				executorId: actualExecutorId || null, 

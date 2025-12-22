@@ -2924,22 +2924,6 @@ function ChatsPageContent() {
 														</span>
 													</>
 												) : null}
-														</span>
-														{selectedChat.task?.id && (
-															<Link
-																href={`/tasks/${selectedChat.task.id}`}
-																className='text-[9px] sm:text-[10px] md:text-xs text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/40 px-1.5 sm:px-2 py-0.5 rounded-full inline-block truncate max-w-full transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/20'
-																title='Перейти к задаче'
-															>
-																📋 {selectedChat.task.title}
-															</Link>
-														)}
-													</>
-												) : (
-													<span className='text-[9px] sm:text-[10px] md:text-xs text-blue-300 bg-blue-900/30 border border-blue-500/30 px-1.5 sm:px-2 py-0.5 rounded-full'>
-														👤 По запросу найма
-													</span>
-												)}
 											</div>
 											{presenceDisplay && (
 												<div
