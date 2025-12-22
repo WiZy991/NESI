@@ -11,7 +11,7 @@ import { useUser } from '@/context/UserContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { clientLogger } from '@/lib/clientLogger'
 import { useConfirm } from '@/lib/confirm'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Plus, Search } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -2670,28 +2670,38 @@ function ChatsPageContent() {
 					<div
 						className={`${
 							selectedChat ? 'hidden md:flex' : 'flex'
-						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30 overflow-hidden max-w-full`}
-						style={{ overflowY: 'hidden', overflowX: 'visible' }}
+						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30 overflow-hidden`}
+						style={{ overflowY: 'hidden' }}
 					>
 						{/* Заголовок и поиск */}
 						<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg'>
-							<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent mb-3 sm:mb-5 flex items-center gap-3'>
-								💬 <span>Чаты</span>
-							</h1>
+							<div className='flex items-center justify-between mb-3 sm:mb-5'>
+								<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent flex items-center gap-3'>
+									💬 <span>Чаты</span>
+								</h1>
+								<button
+									onClick={() => {
+										const userId = prompt('Введите ID пользователя или email для создания приватной переписки:')
+										if (userId && userId.trim()) {
+											window.location.href = `/chats?open=${userId.trim()}`
+										}
+									}}
+									className='p-2 bg-emerald-600/20 hover:bg-emerald-600/30 rounded-lg transition-colors border border-emerald-500/30'
+									title='Создать приватную переписку'
+								>
+									<Plus className='w-5 h-5 text-emerald-400' />
+								</button>
+							</div>
 							
 							{/* Табы для фильтрации по типам чатов */}
 							<div 
-								className='flex gap-2 mb-3 sm:mb-4 overflow-x-scroll pb-2 scrollbar-hide' 
+								className='flex gap-2 mb-3 sm:mb-4 overflow-x-auto pb-2 scrollbar-hide' 
 								style={{ 
 									scrollbarWidth: 'none', 
 									msOverflowStyle: 'none',
 									WebkitOverflowScrolling: 'touch',
-									overflowX: 'scroll',
-									overflowY: 'hidden',
-									display: 'flex',
-									flexWrap: 'nowrap',
-									width: '100%',
-									minWidth: 'max-content'
+									overflowX: 'auto',
+									overflowY: 'hidden'
 								}}
 							>
 								{[
