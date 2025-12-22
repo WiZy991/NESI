@@ -17,11 +17,6 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) {
-      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-    }
-
     const { token } = await params
 
     const invitation = await prisma.teamInvitation.findUnique({
@@ -62,8 +57,9 @@ export async function GET(
       )
     }
 
-    // Проверяем, что приглашение адресовано текущему пользователю
-    if (invitation.recipientId !== user.id) {
+    // Если пользователь авторизован, проверяем, что приглашение адресовано ему
+    const user = await getUserFromRequest(req)
+    if (user && invitation.recipientId !== user.id) {
       return NextResponse.json(
         { error: 'Это приглашение адресовано другому пользователю' },
         { status: 403 }

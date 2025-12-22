@@ -68,7 +68,6 @@ export default function TaskResponsesList({
             <AssignExecutorButton
               taskId={taskId}
               executorId={res.user.id}
-              currentUserId={user.id}
             />
           )}
         </div>

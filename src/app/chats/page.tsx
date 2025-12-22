@@ -208,6 +208,7 @@ function ChatsPageContent() {
 	const [loading, setLoading] = useState(true)
 	const [messagesLoading, setMessagesLoading] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
+	const [chatTypeFilter, setChatTypeFilter] = useState<'all' | 'private' | 'task' | 'team'>('all')
 	const [messageSearchQuery, setMessageSearchQuery] = useState('')
 	const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
 	const [messageSearchMatches, setMessageSearchMatches] = useState<number[]>([])
@@ -1157,9 +1158,17 @@ function ChatsPageContent() {
 		const taskId = selectedChat.task?.id
 		let cancelled = false
 
+		// Показываем загрузку при смене чата
+		setMessagesLoading(true)
+		// Не очищаем сообщения сразу - они будут очищены при начале загрузки новых
+
 		const fetchMessages = async ({ withLoader = true } = {}) => {
 			if (withLoader) {
 				setMessagesLoading(true)
+			}
+			// Очищаем сообщения только когда начинаем загрузку новых
+			if (!cancelled) {
+				setMessages([])
 			}
 			try {
 				// Если это временный чат (только что созданный), просто показываем пустой список
@@ -1364,6 +1373,7 @@ function ChatsPageContent() {
 		selectedChat?.type,
 		selectedChat?.otherUser?.id,
 		selectedChat?.task?.id,
+		selectedChat?.team?.id,
 		token,
 	])
 
@@ -1708,7 +1718,7 @@ function ChatsPageContent() {
 		}
 
 		setSelectedChat(chat)
-		setMessages([])
+		// Сообщения будут очищены в useEffect при начале загрузки
 		setMessagesLoading(true)
 
 		// Отправляем событие о том, что чат открыт (для Header)
@@ -2053,12 +2063,15 @@ function ChatsPageContent() {
 		// Исключаем скрытые чаты
 		if (hiddenChats.has(chat.id)) return false
 
+		const searchLower = searchQuery.toLowerCase()
 		if (!searchQuery) return true
 
-		const searchLower = searchQuery.toLowerCase()
 		if (chat.type === 'private') {
 			const name = chat.otherUser?.fullName || chat.otherUser?.email || ''
 			return name.toLowerCase().includes(searchLower)
+		} else if (chat.type === 'team') {
+			const teamName = chat.team?.name || ''
+			return teamName.toLowerCase().includes(searchLower)
 		} else {
 			const taskTitle = chat.task?.title || ''
 			const otherUserName =
@@ -2661,6 +2674,30 @@ function ChatsPageContent() {
 							<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent mb-3 sm:mb-5 flex items-center gap-3'>
 								💬 <span>Чаты</span>
 							</h1>
+							
+							{/* Табы для фильтрации по типам чатов */}
+							<div className='flex gap-2 mb-3 sm:mb-4 overflow-x-auto pb-2 -mx-1 px-1'>
+								{[
+									{ value: 'all' as const, label: 'Все', icon: '💬' },
+									{ value: 'private' as const, label: 'Приватные', icon: '👤' },
+									{ value: 'task' as const, label: 'Задачи', icon: '📋' },
+									{ value: 'team' as const, label: 'Команды', icon: '👥' },
+								].map(tab => (
+									<button
+										key={tab.value}
+										onClick={() => setChatTypeFilter(tab.value)}
+										className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+											chatTypeFilter === tab.value
+												? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+												: 'bg-slate-800/30 text-slate-300 border border-slate-700/30 hover:bg-slate-800/50 hover:border-emerald-300/20'
+										}`}
+									>
+										<span>{tab.icon}</span>
+										<span className='hidden sm:inline'>{tab.label}</span>
+									</button>
+								))}
+							</div>
+							
 							<div className='relative'>
 								<input
 									ref={searchInputRef}
@@ -2733,6 +2770,10 @@ function ChatsPageContent() {
 													size={window.innerWidth < 640 ? 44 : 48}
 													userId={chat.otherUser?.id}
 												/>
+											) : chat.type === 'team' ? (
+												<div className='w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
+													<span className='text-lg sm:text-xl'>👥</span>
+												</div>
 											) : (
 												<div className='w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-lg flex-shrink-0'>
 													<span className='text-lg sm:text-xl'>📋</span>
@@ -2984,7 +3025,7 @@ function ChatsPageContent() {
 												<MessageSkeleton key={i} />
 											))}
 										</div>
-									) : messages.length === 0 ? (
+									) : messages.length === 0 && !messagesLoading ? (
 										<EmptyState
 											icon={MessageSquare}
 											title='Начните общение'

@@ -6,15 +6,18 @@ import { toast } from 'sonner'
 
 type Props = {
 	taskId: string
-	executorId: string
+	executorId?: string
+	teamId?: string
 }
 
-export default function AssignExecutorButton({ taskId, executorId }: Props) {
+export default function AssignExecutorButton({ taskId, executorId, teamId }: Props) {
 	const { token } = useUser()
 	const [loading, setLoading] = useState(false)
 
 	const handleAssign = async () => {
 		if (!token) return
+		if (!executorId && !teamId) return
+		
 		setLoading(true)
 		try {
 			const res = await fetch(`/api/tasks/${taskId}/assign`, {
@@ -23,13 +26,13 @@ export default function AssignExecutorButton({ taskId, executorId }: Props) {
 					Authorization: `Bearer ${token}`,
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ executorId }),
+				body: JSON.stringify(executorId ? { executorId } : { teamId }),
 			})
 			const data = await res.json()
 			if (!res.ok) {
 				toast.error(data.error || 'Ошибка назначения')
 			} else {
-				toast.success('Исполнитель назначен')
+				toast.success(teamId ? 'Команда назначена' : 'Исполнитель назначен')
 				window.location.reload()
 			}
 		} catch {

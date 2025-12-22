@@ -1436,6 +1436,13 @@ export default function Header() {
 													>
 														Мои отклики
 													</Link>
+													<Link
+														href='/teams'
+														className='py-3 px-4 hover:bg-emerald-500/10 rounded-lg ios-transition active:scale-95'
+														onClick={() => setMobileMenuOpen(false)}
+													>
+														👥 Команды
+													</Link>
 												</>
 											)}
 											{user.role === 'customer' && (

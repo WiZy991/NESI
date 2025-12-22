@@ -102,7 +102,12 @@ export default function TeamsPage() {
         setNewTeamDescription('')
         loadTeams()
       } else {
-        toast.error(data.error || 'Ошибка при создании команды')
+        // Если ошибка связана с доступом, показываем более подробное сообщение
+        if (data.error?.includes('Групповые функции недоступны') || data.error?.includes('подтвердить компанию')) {
+          toast.error(data.error, { duration: 5000 })
+        } else {
+          toast.error(data.error || 'Ошибка при создании команды')
+        }
       }
     } catch (error) {
       toast.error('Ошибка соединения с сервером')

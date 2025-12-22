@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 import { Lock, Save, Bell, Eye, EyeOff, BookOpen, Download, FileText, MessageSquare, Star, Building2, User, Briefcase, Building, CheckCircle, XCircle, Mail, Shield } from 'lucide-react'
 import { ResetOnboardingButton } from '@/components/ResetOnboardingButton'
 import { AnimatedCheckbox } from '@/components/AnimatedCheckbox'
@@ -781,21 +782,31 @@ export default function SettingsPage() {
                 ? 'bg-emerald-500/10 border-emerald-500/30'
                 : 'bg-gray-800/50 border-gray-700/50'
             }`}>
-              <div className="flex items-center gap-2">
-                {companyVerification.canUseGroupFeatures ? (
-                  <>
-                    <CheckCircle className="w-5 h-5 text-emerald-400" />
-                    <p className="text-sm text-emerald-300 font-semibold">
-                      Групповые функции доступны
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-5 h-5 text-gray-500" />
-                    <p className="text-sm text-gray-400">
-                      Групповые функции недоступны. Завершите оба этапа подтверждения.
-                    </p>
-                  </>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {companyVerification.canUseGroupFeatures ? (
+                    <>
+                      <CheckCircle className="w-5 h-5 text-emerald-400" />
+                      <p className="text-sm text-emerald-300 font-semibold">
+                        Групповые функции доступны
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-5 h-5 text-gray-500" />
+                      <p className="text-sm text-gray-400">
+                        Групповые функции недоступны. Завершите оба этапа подтверждения.
+                      </p>
+                    </>
+                  )}
+                </div>
+                {companyVerification.canUseGroupFeatures && (
+                  <Link
+                    href="/teams"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    Управление командами →
+                  </Link>
                 )}
               </div>
             </div>

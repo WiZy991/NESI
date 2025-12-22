@@ -77,14 +77,24 @@ export function HeaderUserMenu({
 							📊 Аналитика
 						</Link>
 						{userRole === 'executor' && (
-							<Link
-								href='/portfolio'
-								className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
-								onClick={() => setMenuOpen(false)}
-								data-onboarding-target='more-menu-portfolio'
-							>
-								💼 Портфолио
-							</Link>
+							<>
+								<Link
+									href='/portfolio'
+									className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+									onClick={() => setMenuOpen(false)}
+									data-onboarding-target='more-menu-portfolio'
+								>
+									💼 Портфолио
+								</Link>
+								<Link
+									href='/teams'
+									className='block px-4 py-2.5 hover:bg-emerald-500/10 ios-transition-fast text-gray-200 hover:text-emerald-400'
+									onClick={() => setMenuOpen(false)}
+									data-onboarding-target='more-menu-teams'
+								>
+									👥 Команды
+								</Link>
+							</>
 						)}
 					</div>
 
