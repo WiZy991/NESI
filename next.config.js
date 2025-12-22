@@ -8,7 +8,7 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {}, // ✅ оставляем, как у тебя
-    instrumentationHook: true, // Включаем instrumentation для глобальных обработчиков ошибок
+    // instrumentationHook больше не нужен в Next.js 15
   },
   eslint: {
     // ❌ отключаем ESLint при билде

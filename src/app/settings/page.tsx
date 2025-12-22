@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -135,17 +135,8 @@ export default function SettingsPage() {
   }, [token])
 
   // === обработка URL параметров и загрузка статуса подтверждения компании ===
-  const searchParams = useSearchParams()
   useEffect(() => {
     if (!token || !user) return
-    
-    // Проверяем URL параметры для обновления после подтверждения
-    const success = searchParams?.get('success')
-    if (success === 'company_verified') {
-      toast.success('Компания успешно подтверждена!')
-      // Обновляем данные пользователя
-      refreshUser()
-    }
     
     // Загружаем только для исполнителей с ИП/ООО
     if (user.role !== 'executor' || (user.accountType !== 'SOLE_PROPRIETOR' && user.accountType !== 'COMPANY')) {
@@ -164,7 +155,26 @@ export default function SettingsPage() {
         // Игнорируем ошибки
       }
     })()
-  }, [token, user, searchParams, refreshUser])
+  }, [token, user])
+
+  // Компонент для обработки URL параметров (обернут в Suspense)
+  function SearchParamsHandler() {
+    const searchParams = useSearchParams()
+    
+    useEffect(() => {
+      if (!token || !user) return
+      
+      // Проверяем URL параметры для обновления после подтверждения
+      const success = searchParams?.get('success')
+      if (success === 'company_verified') {
+        toast.success('Компания успешно подтверждена!')
+        // Обновляем данные пользователя
+        refreshUser()
+      }
+    }, [token, user, searchParams, refreshUser])
+    
+    return null
+  }
 
   // === смена типа аккаунта ===
   const handleChangeAccountType = async (newType: AccountType) => {
@@ -996,6 +1006,11 @@ export default function SettingsPage() {
           {status}
         </p>
       )}
+      
+      {/* Обработка URL параметров в Suspense */}
+      <Suspense fallback={null}>
+        <SearchParamsHandler />
+      </Suspense>
     </div>
   )
 }
