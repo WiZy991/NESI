@@ -187,12 +187,18 @@ export async function POST(
       },
     })
 
-    // Отправляем уведомление
-    await createNotificationWithSettings(recipient.id, {
-      type: 'team_invitation',
-      message: `${user.fullName || user.email} пригласил вас в команду "${invitation.team.name}"`,
-      link: `/teams/invitations/${token}`,
-    })
+    // Отправляем уведомление (не критично, если не отправится)
+    try {
+      await createNotificationWithSettings({
+        userId: recipient.id,
+        type: 'team_invitation',
+        message: `${user.fullName || user.email} пригласил вас в команду "${invitation.team.name}"`,
+        link: `/teams/invitations/${token}`,
+      })
+    } catch (notificationError) {
+      logger.error('Failed to send team invitation notification', notificationError instanceof Error ? notificationError : undefined)
+      // Не прерываем процесс, если уведомление не отправилось
+    }
 
     logger.info('Team invitation sent', {
       teamId,
@@ -216,6 +222,26 @@ export async function POST(
     })
   } catch (error) {
     logger.error('Invite to team error', error instanceof Error ? error : undefined)
+    
+    // Более детальная обработка ошибок
+    if (error instanceof Error) {
+      // Если это ошибка Prisma о дубликате
+      if (error.message.includes('Unique constraint') || error.message.includes('P2002')) {
+        return NextResponse.json(
+          { error: 'Приглашение уже существует' },
+          { status: 400 }
+        )
+      }
+      
+      // Если это ошибка валидации
+      if (error.message.includes('Invalid') || error.message.includes('required')) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        )
+      }
+    }
+    
     return NextResponse.json(
       { error: 'Ошибка при отправке приглашения' },
       { status: 500 }

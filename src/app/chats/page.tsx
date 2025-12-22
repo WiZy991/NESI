@@ -2670,11 +2670,11 @@ function ChatsPageContent() {
 					<div
 						className={`${
 							selectedChat ? 'hidden md:flex' : 'flex'
-						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30 overflow-hidden`}
-						style={{ overflowY: 'hidden' }}
+						} w-full md:w-[340px] lg:w-[360px] flex-none border-r border-emerald-300/25 flex-col min-h-0 bg-slate-900/30`}
+						style={{ overflowY: 'hidden', overflowX: 'visible' }}
 					>
 						{/* Заголовок и поиск */}
-						<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg'>
+						<div className='flex-shrink-0 p-4 sm:p-6 border-b border-emerald-300/25 bg-slate-900/40 backdrop-blur-lg' style={{ overflowX: 'visible' }}>
 							<div className='flex items-center justify-between mb-3 sm:mb-5'>
 								<h1 className='text-xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent flex items-center gap-3'>
 									💬 <span>Чаты</span>
@@ -2695,13 +2695,20 @@ function ChatsPageContent() {
 							
 							{/* Табы для фильтрации по типам чатов */}
 							<div 
-								className='flex gap-2 mb-3 sm:mb-4 overflow-x-auto pb-2 scrollbar-hide' 
+								className='flex gap-2 mb-3 sm:mb-4 pb-2 scrollbar-hide -mx-1 px-1' 
 								style={{ 
 									scrollbarWidth: 'none', 
 									msOverflowStyle: 'none',
 									WebkitOverflowScrolling: 'touch',
 									overflowX: 'auto',
-									overflowY: 'hidden'
+									overflowY: 'hidden',
+									display: 'flex',
+									flexWrap: 'nowrap',
+									width: 'calc(100% + 0.5rem)',
+									marginLeft: '-0.25rem',
+									marginRight: '-0.25rem',
+									paddingLeft: '0.25rem',
+									paddingRight: '0.25rem'
 								}}
 							>
 								{[
@@ -2718,7 +2725,7 @@ function ChatsPageContent() {
 											e.stopPropagation()
 											setChatTypeFilter(tab.value)
 										}}
-										className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer touch-manipulation ${
+										className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer touch-manipulation ${
 											chatTypeFilter === tab.value
 												? 'bg-gradient-to-r from-emerald-500/30 to-emerald-600/20 text-emerald-200 border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
 												: 'bg-slate-800/40 text-slate-300 border-2 border-slate-700/40 hover:bg-slate-800/60 hover:border-emerald-300/30 hover:text-emerald-300 active:scale-95'
