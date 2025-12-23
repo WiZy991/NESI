@@ -12,8 +12,9 @@ import { NextRequest } from 'next/server'
  * Согласно документации, необходимо вернуть "OK" для успешной обработки
  */
 export async function POST(req: NextRequest) {
+	let body: any = null
 	try {
-		const body = await req.json()
+		body = await req.json()
 
 		logger.info('📥 TBank Webhook получен', {
 			status: body.Status,
@@ -50,14 +51,17 @@ export async function POST(req: NextRequest) {
 		// Определяем тип нотификации
 		const { PaymentId, Status, Success, Amount, SpAccumulationId } = body
 
-		if (!PaymentId) {
+		// Всегда приводим PaymentId к строке, так как в БД он string
+		const paymentIdStr = PaymentId ? String(PaymentId) : undefined
+
+		if (!paymentIdStr) {
 			logger.warn('Webhook без PaymentId', { body })
 			return new Response('OK', { status: 200 })
 		}
 
 		// Обработка нотификаций для платежей (пополнения)
 		let payment = await prisma.tBankPayment.findUnique({
-			where: { paymentId: PaymentId },
+			where: { paymentId: paymentIdStr },
 			include: { deal: { include: { user: true } } },
 		})
 
@@ -66,14 +70,14 @@ export async function POST(req: NextRequest) {
 			logger.warn(
 				'⚠️ Платеж не найден по paymentId в webhook, пробуем найти по orderId',
 				{
-					paymentId: PaymentId,
+					paymentId: paymentIdStr,
 					orderId: body.OrderId,
 				}
 			)
 
 			payment = await prisma.tBankPayment.findFirst({
 				where: {
-					orderId: body.OrderId || PaymentId,
+					orderId: body.OrderId || paymentIdStr,
 				},
 				include: { deal: { include: { user: true } } },
 			})

@@ -382,9 +382,19 @@ export class TBankPayoutClient {
 		}
 
 		// Генерируем Token
-		// ВАЖНО: Для E2C API используется тот же алгоритм генерации токена
-		// Параметры должны быть отсортированы по алфавиту, включая Password
-		const token = generateTBankToken(params, this.password)
+		// ВАЖНО: Для E2C AddCard подпись не должна включать SuccessURL/FailURL/NotificationURL
+		const tokenParams =
+			endpoint.includes('AddCard')
+				? (() => {
+						const copy = { ...params }
+						delete copy.SuccessURL
+						delete copy.FailURL
+						delete copy.NotificationURL
+						return copy
+				  })()
+				: params
+
+		const token = generateTBankToken(tokenParams, this.password)
 		params.Token = token
 
 		const url = `${this.baseUrl}${endpoint}`
@@ -394,9 +404,19 @@ export class TBankPayoutClient {
 			// Создаем копию params без пароля для логирования
 			const paramsForLog = { ...params }
 			delete paramsForLog.Token
-			
+
+			const paramsUsedForToken = endpoint.includes('AddCard')
+				? (() => {
+						const copy = { ...paramsForLog, Password: '***' }
+						delete copy.SuccessURL
+						delete copy.FailURL
+						delete copy.NotificationURL
+						return copy
+				  })()
+				: { ...paramsForLog, Password: '***' }
+
 			// Логируем параметры, которые используются для генерации токена
-			const sortedKeys = Object.keys({ ...paramsForLog, Password: '***' }).sort()
+			const sortedKeys = Object.keys(paramsUsedForToken).sort()
 			console.log('📤 [TBANK-E2C-CLIENT] Запрос к Т-Банку E2C:', {
 				method: 'POST',
 				url,
