@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
 				errorCode: addCustomerResult.ErrorCode,
 				message: addCustomerResult.Message,
 				details: addCustomerResult.Details,
+				customerKey,
 			})
 			return NextResponse.json(
 				{ error: 'Ошибка при привязке карты. Попробуйте позже' },
@@ -92,9 +93,27 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
+		// Логируем результат AddCustomer для отладки
+		if (isCustomerExists) {
+			logger.info('TBank E2C Customer exists or created', {
+				customerKey,
+				errorCode: addCustomerResult.ErrorCode,
+				message: addCustomerResult.Message,
+			})
+		}
+
 		// Шаг 2: Инициируем привязку карты через E2C
 		const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su'
 		const notificationURL = `${appUrl}/api/wallet/tbank/add-card/callback`
+
+		// Логируем параметры перед вызовом AddCard
+		logger.info('TBank E2C AddCard request', {
+			customerKey,
+			checkType: 'NO',
+			successURL: `${appUrl}/profile?cardAdded=success`,
+			failURL: `${appUrl}/profile?cardAdded=fail`,
+			notificationURL,
+		})
 
 		const addCardResult = await client.addCard({
 			customerKey,
@@ -108,9 +127,21 @@ export async function POST(req: NextRequest) {
 			logger.error('TBank E2C AddCard failed', undefined, { 
 				errorCode: addCardResult.ErrorCode,
 				message: addCardResult.Message,
+				customerKey,
+				// Логируем полный ответ для отладки
+				fullResponse: addCardResult,
 			})
+			
+			// Более детальное сообщение об ошибке для пользователя
+			let errorMessage = 'Сервис привязки карт временно недоступен. Попробуйте позже'
+			if (addCardResult.ErrorCode === '322') {
+				errorMessage = 'Ошибка при привязке карты. Возможно, клиент в неправильном статусе. Обратитесь в поддержку.'
+			} else if (addCardResult.Message) {
+				errorMessage = `Ошибка: ${addCardResult.Message}`
+			}
+			
 			return NextResponse.json(
-				{ error: 'Сервис привязки карт временно недоступен. Попробуйте позже' },
+				{ error: errorMessage },
 				{ status: 400 }
 			)
 		}
