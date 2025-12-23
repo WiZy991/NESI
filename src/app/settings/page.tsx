@@ -780,6 +780,8 @@ export default function SettingsPage() {
                           value={corporateEmail}
                           onChange={(e) => setCorporateEmail(e.target.value)}
                           placeholder="email@company-domain.ru"
+                          autoComplete="email"
+                          name="corporate-email"
                           className="flex-1 bg-black/60 border border-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
                         />
                         <button
@@ -865,6 +867,8 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setPasswords({ ...passwords, old: e.target.value })
               }
+              autoComplete="current-password"
+              name="old-password"
               className="p-2 pr-10 w-full bg-black/40 border border-gray-700 rounded-lg text-sm"
             />
             <button
@@ -891,6 +895,8 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setPasswords({ ...passwords, new: e.target.value })
               }
+              autoComplete="new-password"
+              name="new-password"
               className="p-2 pr-10 w-full bg-black/40 border border-gray-700 rounded-lg text-sm"
             />
             <button

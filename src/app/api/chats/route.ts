@@ -106,10 +106,10 @@ export async function GET(req: NextRequest) {
 				SELECT DISTINCT ON ("taskId") id
 				FROM "Message"
 				WHERE EXISTS (
-					SELECT 1 FROM "Task" 
-					WHERE "Task"."id" = "Message"."taskId" 
-					AND ("Task"."customerId" = ${user.id} OR "Task"."executorId" = ${user.id})
-				)
+						SELECT 1 FROM "Task" 
+						WHERE "Task"."id" = "Message"."taskId" 
+						AND ("Task"."customerId" = ${user.id} OR "Task"."executorId" = ${user.id})
+					)
 				ORDER BY "taskId", "createdAt" DESC
 			`
 		} catch (sqlError: any) {
