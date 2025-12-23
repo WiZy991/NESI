@@ -4,9 +4,10 @@ import { verifyPassword } from '@/lib/auth'
 import { signJWT } from '@/lib/jwt'
 import prisma from '@/lib/prisma'
 import { rateLimit, rateLimitConfigs } from '@/lib/rateLimit'
-import { setSecureCookie } from '@/lib/security'
+import { setSecureCookie, validateEmail } from '@/lib/security'
 import { NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
+import { validateWithZod, loginSchema } from '@/lib/validations'
 
 export async function POST(req: Request) {
 	try {
@@ -30,8 +31,28 @@ export async function POST(req: Request) {
 			)
 		}
 
-		const { email, password } = await req.json()
-		const user = await prisma.user.findUnique({ where: { email } })
+		const body = await req.json()
+		
+		// Валидация email и password
+		const validation = validateWithZod(loginSchema, body)
+		if (!validation.success) {
+			return NextResponse.json(
+				{ error: validation.errors[0] || 'Ошибка валидации данных' },
+				{ status: 400 }
+			)
+		}
+
+		const { email, password } = validation.data
+		
+		// Дополнительная проверка формата email
+		if (!validateEmail(email)) {
+			return NextResponse.json(
+				{ error: 'Некорректный формат email' },
+				{ status: 400 }
+			)
+		}
+
+		const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } })
 
 		// ❌ Нет пользователя или неверный пароль
 		if (!user || !(await verifyPassword(password, user.password))) {

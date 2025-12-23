@@ -169,7 +169,17 @@ export default function SettingsPage() {
       if (success === 'company_verified') {
         toast.success('Компания успешно подтверждена!')
         // Обновляем данные пользователя
-        refreshUser()
+        await refreshUser()
+        // Дополнительно обновляем статус подтверждения
+        if (token) {
+          const statusRes = await fetch('/api/company/verification-status', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (statusRes.ok) {
+            const statusData = await statusRes.json()
+            setCompanyVerification(statusData)
+          }
+        }
       }
     }, [token, user, searchParams, refreshUser])
     

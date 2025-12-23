@@ -105,14 +105,12 @@ export async function GET(req: NextRequest) {
 			latestTaskMessageIds = await prisma.$queryRaw<Array<{ id: string }>>`
 				SELECT DISTINCT ON ("taskId") id
 				FROM "Message"
-				WHERE "senderId" = ${user.id} 
-					OR EXISTS (
-						SELECT 1 FROM "Task" 
-						WHERE "Task"."id" = "Message"."taskId" 
-						AND ("Task"."customerId" = ${user.id} OR "Task"."executorId" = ${user.id})
-					)
+				WHERE EXISTS (
+					SELECT 1 FROM "Task" 
+					WHERE "Task"."id" = "Message"."taskId" 
+					AND ("Task"."customerId" = ${user.id} OR "Task"."executorId" = ${user.id})
+				)
 				ORDER BY "taskId", "createdAt" DESC
-				LIMIT ${limit}
 			`
 		} catch (sqlError: any) {
 			logger.error('Ошибка выполнения raw SQL для сообщений задач', sqlError, {
@@ -147,30 +145,7 @@ export async function GET(req: NextRequest) {
 		}
 
 		// Если SQL запрос вернул пустой результат, но есть задачи - используем fallback
-		if (latestTaskMessageIds.length === 0) {
-			logger.debug('SQL запрос вернул пустой результат, используем fallback для получения сообщений')
-			const userTasks = await prisma.task.findMany({
-				where: {
-					OR: [{ customerId: user.id }, { executorId: user.id }],
-				},
-				select: { id: true },
-			})
-			const taskIds = userTasks.map(t => t.id)
-			if (taskIds.length > 0) {
-				const taskMessagesMap = new Map<string, string>()
-				for (const taskId of taskIds) {
-					const lastMessage = await prisma.message.findFirst({
-						where: { taskId },
-						select: { id: true },
-						orderBy: { createdAt: 'desc' },
-					})
-					if (lastMessage) {
-						taskMessagesMap.set(taskId, lastMessage.id)
-					}
-				}
-				latestTaskMessageIds = Array.from(taskMessagesMap.values()).map(id => ({ id }))
-			}
-		}
+		// УБРАНО: дублирующий fallback, он уже есть в catch блоке выше
 
 		const latestTaskIds = latestTaskMessageIds.map(m => m.id)
 		
