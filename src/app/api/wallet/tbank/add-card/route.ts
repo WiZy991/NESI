@@ -103,24 +103,16 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Шаг 2: Инициируем привязку карты через E2C
-		const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su'
-		const notificationURL = `${appUrl}/api/wallet/tbank/add-card/callback`
-
-		// Логируем параметры перед вызовом AddCard
+		// Убираем кастомные URL, используем настройки терминала, и ставим HOLD (чаще принимается)
 		logger.info('TBank E2C AddCard request', {
 			customerKey,
-			checkType: 'NO',
-			successURL: `${appUrl}/profile?cardAdded=success`,
-			failURL: `${appUrl}/profile?cardAdded=fail`,
-			notificationURL,
+			checkType: 'HOLD',
+			note: 'SuccessURL/FailURL/NotificationURL не передаем — используем настройки терминала',
 		})
 
 		const addCardResult = await client.addCard({
 			customerKey,
-			checkType: 'NO',
-			successURL: `${appUrl}/profile?cardAdded=success`,
-			failURL: `${appUrl}/profile?cardAdded=fail`,
-			notificationURL,
+			checkType: 'HOLD',
 		})
 		
 		if (!addCardResult.Success) {
