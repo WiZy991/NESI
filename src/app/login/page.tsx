@@ -53,10 +53,31 @@ export default function LoginForm() {
     const data = await res.json()
 
     if (res.ok) {
+      // Сначала логиним с базовыми данными
       login(data.user, data.token)
+      
+      // Затем загружаем полные данные пользователя (с companyVerification и avatarUrl)
+      try {
+        const meRes = await fetch('/api/me', {
+          headers: {
+            Authorization: `Bearer ${data.token}`,
+          },
+        })
+        if (meRes.ok) {
+          const meData = await meRes.json()
+          // Обновляем пользователя с полными данными
+          login(meData.user, data.token)
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки полных данных пользователя:', err)
+        // Продолжаем с базовыми данными, если не удалось загрузить полные
+      }
 
-      if (data.user.role === 'admin') router.push('/admin')
-      else router.push('/tasks')
+      if (data.user.role === 'admin') {
+        router.push('/admin')
+      } else {
+        router.push('/tasks')
+      }
     } else {
       toast.error(data.error || 'Ошибка входа')
     }
