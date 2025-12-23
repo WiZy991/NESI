@@ -109,6 +109,50 @@ export async function POST(req: NextRequest) {
 
 				return NextResponse.json({ action: 'added', emoji })
 			}
+		} else if (chatType === 'team') {
+			const message = await prisma.teamChat.findUnique({
+				where: { id: messageId },
+			})
+
+			if (!message) {
+				return NextResponse.json(
+					{ error: 'Сообщение не найдено' },
+					{ status: 404 }
+				)
+			}
+
+			// Проверяем, есть ли уже такая реакция от этого пользователя
+			const existingReaction = await prisma.teamChatReaction.findUnique({
+				where: {
+					messageId_userId_emoji: {
+						messageId,
+						userId: user.id,
+						emoji,
+					},
+				},
+			})
+
+			if (existingReaction) {
+				// Удаляем реакцию
+				await prisma.teamChatReaction.delete({
+					where: {
+						id: existingReaction.id,
+					},
+				})
+
+				return NextResponse.json({ action: 'removed', emoji })
+			} else {
+				// Добавляем реакцию
+				await prisma.teamChatReaction.create({
+					data: {
+						messageId,
+						userId: user.id,
+						emoji,
+					},
+				})
+
+				return NextResponse.json({ action: 'added', emoji })
+			}
 		} else {
 			return NextResponse.json(
 				{ error: 'Неверный chatType' },

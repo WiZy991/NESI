@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { validateFile } from '@/lib/fileValidation'
+import { normalizeFileName, isValidFileName } from '@/lib/security'
 
 export async function GET(
   req: NextRequest,
@@ -108,16 +110,16 @@ export async function GET(
         content: msg.content,
         createdAt: msg.createdAt,
         editedAt: msg.editedAt,
-        sender: msg.sender,
-        fileUrl: msg.fileUrl,
-        file: msg.file
-          ? {
-              id: msg.file.id,
-              filename: msg.file.filename,
-              mimetype: msg.file.mimetype,
-              url: msg.file.url,
-            }
-          : null,
+        sender: {
+          id: msg.sender.id,
+          fullName: msg.sender.fullName,
+          email: msg.sender.email,
+          avatarUrl: msg.sender.avatarFileId ? `/api/files/${msg.sender.avatarFileId}` : undefined,
+        },
+        fileId: msg.file?.id || null,
+        fileName: msg.file?.filename || null,
+        fileMimetype: msg.file?.mimetype || null,
+        fileUrl: msg.file ? `/api/files/${msg.file.id}` : null,
         replyTo: msg.replyTo
           ? {
               id: msg.replyTo.id,
@@ -127,6 +129,7 @@ export async function GET(
           : null,
         reactions: msg.reactions.map(r => ({
           emoji: r.emoji,
+          userId: r.user.id,
           user: r.user,
         })),
       })),
@@ -151,17 +154,38 @@ export async function POST(
     }
 
     const { id: teamId } = await params
-    const body = await req.json()
-    const { content, fileId, replyToId } = body
+    
+    // Поддержка multipart/form-data для загрузки файлов (как в чате задач)
+    const contentType = req.headers.get('content-type') || ''
+    
+    let content = ''
+    let file: File | null = null
+    let fileId: string | null = null
+    let replyToId: string | null = null
+    
+    if (contentType.includes('application/json')) {
+      // JSON запрос с fileId (файл уже загружен)
+      const body = await req.json().catch(() => null)
+      content = typeof body?.content === 'string' ? body.content : (body?.content ? String(body.content) : '')
+      fileId = body?.fileId || null
+      replyToId = body?.replyToId || null
+    } else {
+      // Multipart запрос с файлом
+      const formData = await req.formData()
+      content = formData.get('content')?.toString() || ''
+      file = formData.get('file') as File | null
+      replyToId = formData.get('replyToId')?.toString() || null
+    }
 
-    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+    // Валидация: сообщение или файл должны быть
+    if ((!content || content.trim().length === 0) && !fileId && (!file || file.size === 0)) {
       return NextResponse.json(
-        { error: 'Сообщение не может быть пустым' },
+        { error: 'Сообщение или файл обязательны' },
         { status: 400 }
       )
     }
 
-    if (content.length > 5000) {
+    if (content && content.length > 5000) {
       return NextResponse.json(
         { error: 'Сообщение слишком длинное (максимум 5000 символов)' },
         { status: 400 }
@@ -207,13 +231,72 @@ export async function POST(
       }
     }
 
+    // Обработка файла (если передан напрямую, а не через fileId)
+    let savedFile = null
+    
+    // Если файл уже загружен (fileId), используем его
+    if (fileId) {
+      savedFile = await prisma.file.findUnique({
+        where: { id: fileId },
+      })
+      if (!savedFile) {
+        return NextResponse.json(
+          { error: 'Файл не найден' },
+          { status: 404 }
+        )
+      }
+    } else if (file && file.size > 0) {
+      try {
+        // Защита от path traversal
+        const fileName = file.name || 'file'
+        if (!isValidFileName(fileName)) {
+          return NextResponse.json(
+            { error: 'Недопустимое имя файла' },
+            { status: 400 }
+          )
+        }
+
+        // Нормализация имени файла
+        const safeFileName = normalizeFileName(fileName)
+
+        // Полная валидация файла (magic bytes, размер, тип)
+        const validation = await validateFile(file, true)
+        if (!validation.valid) {
+          return NextResponse.json(
+            { error: validation.error },
+            { status: 400 }
+          )
+        }
+
+        const buffer = Buffer.from(await file.arrayBuffer())
+
+        // Используем определенный MIME тип из валидации
+        const detectedMimeType = validation.detectedMimeType || file.type
+
+        savedFile = await prisma.file.create({
+          data: {
+            filename: safeFileName,
+            mimetype: detectedMimeType,
+            size: file.size,
+            data: buffer,
+          },
+        })
+      } catch (fileError: any) {
+        logger.error('Ошибка сохранения файла в командном чате', fileError, { teamId, userId: user.id })
+        return NextResponse.json(
+          { error: 'Ошибка сохранения файла' },
+          { status: 500 }
+        )
+      }
+    }
+
     // Создаем сообщение
     const message = await prisma.teamChat.create({
       data: {
         teamId,
         senderId: user.id,
-        content: content.trim(),
-        fileId: fileId || null,
+        content: content ? content.trim() : '',
+        fileId: savedFile ? savedFile.id : (fileId || null),
         replyToId: replyToId || null,
       },
       include: {
@@ -244,6 +327,16 @@ export async function POST(
             },
           },
         },
+        reactions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -259,15 +352,17 @@ export async function POST(
         id: message.id,
         content: message.content,
         createdAt: message.createdAt,
-        sender: message.sender,
-        file: message.file
-          ? {
-              id: message.file.id,
-              filename: message.file.filename,
-              mimetype: message.file.mimetype,
-              url: message.file.url,
-            }
-          : null,
+        editedAt: message.editedAt,
+        sender: {
+          id: message.sender.id,
+          fullName: message.sender.fullName,
+          email: message.sender.email,
+          avatarUrl: message.sender.avatarFileId ? `/api/files/${message.sender.avatarFileId}` : undefined,
+        },
+        fileId: message.file?.id || null,
+        fileName: message.file?.filename || null,
+        fileMimetype: message.file?.mimetype || null,
+        fileUrl: message.file ? `/api/files/${message.file.id}` : null,
         replyTo: message.replyTo
           ? {
               id: message.replyTo.id,
@@ -275,6 +370,11 @@ export async function POST(
               sender: message.replyTo.sender,
             }
           : null,
+        reactions: message.reactions?.map(r => ({
+          emoji: r.emoji,
+          userId: r.user.id,
+          user: r.user,
+        })) || [],
       },
     })
   } catch (error) {

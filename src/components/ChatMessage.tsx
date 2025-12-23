@@ -67,7 +67,7 @@ type Props = {
 			xp?: number | null
 		}
 	}
-	chatType: 'private' | 'task'
+	chatType: 'private' | 'task' | 'team'
 	showSenderName?: boolean // Показывать ли имя отправителя
 	isFirstInGroup?: boolean // Первое ли сообщение в группе
 	isLastInGroup?: boolean // Последнее ли сообщение в группе

@@ -3133,6 +3133,7 @@ function ChatsPageContent() {
 														>
 															<ChatMessage
 																message={msg}
+																chatType={selectedChat.type}
 																chatType={selectedChat?.type || 'private'}
 																showSenderName={showSenderName}
 																isFirstInGroup={isFirstInGroup}
