@@ -35,17 +35,17 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 
 			<div className='relative p-6 md:p-8 space-y-4 md:space-y-6'>
 				{/* Заголовок с иконкой */}
-				<div className='flex items-start gap-4'>
+				<div className='flex flex-col gap-4 sm:flex-row sm:items-start'>
 					<div className='flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg'>
 						<span className='text-2xl'>📋</span>
 					</div>
 					<div className='flex-1'>
-						<div className='flex items-start justify-between gap-4 mb-2'>
-							<h1 className='text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight flex-1'>
+						<div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-2'>
+							<h1 className='text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight flex-1 break-words'>
 								{task.title}
 							</h1>
 							{/* Кнопки действий */}
-							<div className='flex items-center gap-2 flex-shrink-0'>
+							<div className='flex items-center gap-2 flex-shrink-0 sm:self-start'>
 								{currentUserId && (
 									<FavoriteTaskButton
 										taskId={task.id}
@@ -99,7 +99,7 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 						<span>📝</span>
 						Описание задачи
 					</h3>
-					<p className='text-gray-200 text-base md:text-lg leading-relaxed whitespace-pre-line'>
+					<p className='text-gray-200 text-base md:text-lg leading-relaxed whitespace-pre-line break-words'>
 						{decodeHtmlEntities(task.description)}
 					</p>
 				</div>

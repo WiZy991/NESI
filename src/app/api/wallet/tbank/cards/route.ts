@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
-import { TBankClient } from '@/lib/tbank/client'
+import { TBankPayoutClient } from '@/lib/tbank/client'
 import { logger } from '@/lib/logger'
 import prisma from '@/lib/prisma'
 
@@ -97,15 +97,15 @@ export async function DELETE(req: NextRequest) {
 			return NextResponse.json({ error: 'Карта не найдена' }, { status: 404 })
 		}
 
-		// Удаляем карту из T-Bank
-		// ВАЖНО: Используем основной клиент (TBankClient), а не E2C
-		const client = new TBankClient()
+		// Удаляем карту из T-Bank E2C
+		// ВАЖНО: Используем E2C клиент, так как карты привязываются через E2C
+		const client = new TBankPayoutClient()
 		
 		try {
 			const removeResult = await client.removeCard(user.id, cardId)
 			
 			if (!removeResult.Success) {
-				logger.warn('TBank RemoveCard failed, but removing from DB anyway', {
+				logger.warn('TBank E2C RemoveCard failed, but removing from DB anyway', {
 					userId: user.id,
 					cardId,
 					errorCode: removeResult.ErrorCode,
@@ -114,7 +114,7 @@ export async function DELETE(req: NextRequest) {
 				// Не прерываем - удаляем из нашей БД в любом случае
 			}
 		} catch (tbankError) {
-			logger.warn('TBank RemoveCard error, but removing from DB anyway', {
+			logger.warn('TBank E2C RemoveCard error, but removing from DB anyway', {
 				userId: user.id,
 				cardId,
 				error: tbankError instanceof Error ? tbankError.message : String(tbankError),

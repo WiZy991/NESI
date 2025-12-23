@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
-import { TBankClient } from '@/lib/tbank/client'
+import { TBankPayoutClient } from '@/lib/tbank/client'
 import { logger } from '@/lib/logger'
 import prisma from '@/lib/prisma'
 import { TBANK_CONFIG } from '@/lib/tbank/config'
@@ -25,8 +25,8 @@ import { TBANK_CONFIG } from '@/lib/tbank/config'
  */
 export async function POST(req: NextRequest) {
 	try {
-		// Проверяем конфигурацию терминала
-		if (!TBANK_CONFIG.TERMINAL_KEY || !TBANK_CONFIG.TERMINAL_PASSWORD) {
+		// Проверяем конфигурацию E2C терминала (для выплат)
+		if (!TBANK_CONFIG.E2C_TERMINAL_KEY || !TBANK_CONFIG.E2C_TERMINAL_PASSWORD) {
 			return NextResponse.json(
 				{ error: 'Сервис привязки карт временно недоступен' },
 				{ status: 503 }
@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
 		}
 
-		// Берем основной терминал и пароль
-		const terminalKey = process.env.TBANK_TERMINAL_KEY || ''
-		const password = process.env.TBANK_TERMINAL_PASSWORD || ''
+		// Берем E2C терминал и пароль (для выплат)
+		const terminalKey = process.env.TBANK_E2C_TERMINAL_KEY || ''
+		const password = process.env.TBANK_E2C_TERMINAL_PASSWORD || ''
 		
 		if (!terminalKey || !password) {
 			return NextResponse.json(
@@ -59,29 +59,41 @@ export async function POST(req: NextRequest) {
 			)
 		}
 
-		const client = new TBankClient(terminalKey, password)
+		const client = new TBankPayoutClient(terminalKey, password)
 		const customerKey = user.id
 
-		// Шаг 1: Создаем/проверяем клиента в T-Bank
+		// Шаг 1: Создаем/проверяем клиента в T-Bank E2C
+		// Согласно документации: ошибка 7 "Неверный статус покупателя" означает, что клиент уже существует
+		// Ошибка 99 также означает, что клиент уже существует
 		const addCustomerResult = await client.addCustomer(
 			customerKey,
 			userData.email || undefined,
 			undefined
 		)
 
-		// ErrorCode "0" - успех, "99" или "7" - клиент уже существует (это тоже ОК)
-		const isCustomerExists = addCustomerResult.ErrorCode === '99' || addCustomerResult.ErrorCode === '7'
+		// ErrorCode "0" - успех
+		// ErrorCode "7" - "Неверный статус покупателя" (клиент уже существует, но в неправильном статусе)
+		// ErrorCode "99" - клиент уже существует
+		// Все эти случаи означают, что клиент существует, можно продолжать
+		const isCustomerExists = 
+			addCustomerResult.ErrorCode === '99' || 
+			addCustomerResult.ErrorCode === '7' ||
+			(addCustomerResult.Success && addCustomerResult.ErrorCode === '0')
 		
 		if (!addCustomerResult.Success && !isCustomerExists) {
-			logger.error('TBank AddCustomer failed', undefined, { errorCode: addCustomerResult.ErrorCode })
+			logger.error('TBank E2C AddCustomer failed', undefined, { 
+				errorCode: addCustomerResult.ErrorCode,
+				message: addCustomerResult.Message,
+				details: addCustomerResult.Details,
+			})
 			return NextResponse.json(
 				{ error: 'Ошибка при привязке карты. Попробуйте позже' },
 				{ status: 400 }
 			)
 		}
 
-		// Шаг 2: Инициируем привязку карты
-		const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.work'
+		// Шаг 2: Инициируем привязку карты через E2C
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nesi.su'
 		const notificationURL = `${appUrl}/api/wallet/tbank/add-card/callback`
 
 		const addCardResult = await client.addCard({
@@ -93,7 +105,10 @@ export async function POST(req: NextRequest) {
 		})
 		
 		if (!addCardResult.Success) {
-			logger.error('TBank AddCard failed', undefined, { errorCode: addCardResult.ErrorCode })
+			logger.error('TBank E2C AddCard failed', undefined, { 
+				errorCode: addCardResult.ErrorCode,
+				message: addCardResult.Message,
+			})
 			return NextResponse.json(
 				{ error: 'Сервис привязки карт временно недоступен. Попробуйте позже' },
 				{ status: 400 }
