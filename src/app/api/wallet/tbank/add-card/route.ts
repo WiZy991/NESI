@@ -104,9 +104,36 @@ export async function POST(req: NextRequest) {
 
 		// Шаг 2: Инициируем привязку карты через E2C
 		// Устанавливаем SuccessURL и FailURL для возврата на страницу профиля в раздел кошелька
-		const baseUrl = TBANK_CONFIG.BASE_URL
+		// ВАЖНО: T-Bank может использовать настройки терминала, если URL не переданы или неверны
+		// Используем NEXT_PUBLIC_BASE_URL или NEXT_PUBLIC_APP_URL, если они есть
+		let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || TBANK_CONFIG.BASE_URL
+		
+		// Если baseUrl все еще localhost, пытаемся получить из заголовков запроса
+		if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+			const origin = req.headers.get('origin') || req.headers.get('referer')
+			if (origin) {
+				try {
+					const url = new URL(origin)
+					baseUrl = `${url.protocol}//${url.host}`
+				} catch (e) {
+					// Игнорируем ошибку
+				}
+			}
+		}
+		
 		const successURL = `${baseUrl}/profile?tab=wallet&cardAdded=success`
 		const failURL = `${baseUrl}/profile?tab=wallet&cardAdded=fail`
+		
+		logger.info('TBank AddCard: Setting redirect URLs', {
+			baseUrl,
+			successURL,
+			failURL,
+			envBaseUrl: process.env.NEXT_PUBLIC_BASE_URL,
+			envAppUrl: process.env.NEXT_PUBLIC_APP_URL,
+			configBaseUrl: TBANK_CONFIG.BASE_URL,
+			requestOrigin: req.headers.get('origin'),
+			requestReferer: req.headers.get('referer'),
+		})
 		
 		logger.info('TBank E2C AddCard request', {
 			customerKey,

@@ -43,11 +43,27 @@ export async function GET(req: NextRequest) {
 				createdAt: true,
 			},
 		})
+		
+		logger.info('TBank GetCardList: Cards from DB before sync', {
+			userId: user.id,
+			cardsCount: cards.length,
+			cards: cards.map(c => ({ cardId: c.cardId, pan: c.pan })),
+		})
 
 		// Всегда пытаемся синхронизировать с Т-Банк (карты могли быть привязаны, но webhook не дошёл)
 		try {
 			const client = new TBankPayoutClient()
+			logger.info('TBank GetCardList: Starting sync', { userId: user.id })
 			const remote = await client.getCardList(user.id)
+
+			logger.info('TBank GetCardList: Response received', {
+				userId: user.id,
+				success: remote.Success,
+				errorCode: remote.ErrorCode,
+				message: remote.Message,
+				cardsCount: remote.Cards?.length || 0,
+				cards: remote.Cards,
+			})
 
 			if (remote.Success && remote.Cards && remote.Cards.length > 0) {
 				// Проверяем, есть ли уже дефолтные активные карты
@@ -56,6 +72,17 @@ export async function GET(req: NextRequest) {
 				})
 
 				for (const [index, rc] of remote.Cards.entries()) {
+					// Фильтруем только карты пополнения (CardType 1) и активные (Status 'A')
+					if (rc.CardType !== 1 || rc.Status !== 'A') {
+						logger.info('Skipping card (wrong type or status)', {
+							userId: user.id,
+							cardId: rc.CardId,
+							cardType: rc.CardType,
+							status: rc.Status,
+						})
+						continue
+					}
+					
 					// Проверяем, существует ли карта и не была ли она удалена пользователем
 					const existingCard = await prisma.tBankCard.findUnique({
 						where: {
@@ -73,6 +100,16 @@ export async function GET(req: NextRequest) {
 						})
 						continue
 					}
+					
+					logger.info('Syncing card', {
+						userId: user.id,
+						cardId: rc.CardId,
+						pan: rc.Pan,
+						expDate: rc.ExpDate,
+						status: rc.Status,
+						cardType: rc.CardType,
+						existingStatus: existingCard?.status,
+					})
 
 					await prisma.tBankCard.upsert({
 						where: {
@@ -120,13 +157,34 @@ export async function GET(req: NextRequest) {
 						createdAt: true,
 					},
 				})
+				
+				logger.info('TBank GetCardList: Cards after sync', {
+					userId: user.id,
+					cardsCount: cards.length,
+					cards: cards.map(c => ({ cardId: c.cardId, pan: c.pan, status: 'A' })),
+				})
+			} else {
+				logger.warn('TBank GetCardList: No cards or failed', {
+					userId: user.id,
+					success: remote.Success,
+					errorCode: remote.ErrorCode,
+					message: remote.Message,
+					cardsCount: remote.Cards?.length || 0,
+				})
 			}
 		} catch (syncError) {
-			logger.warn('TBank sync cards failed', {
+			logger.error('TBank sync cards failed', syncError instanceof Error ? syncError : undefined, {
 				userId: user.id,
 				error: syncError instanceof Error ? syncError.message : String(syncError),
+				stack: syncError instanceof Error ? syncError.stack : undefined,
 			})
 		}
+		
+		logger.info('TBank GetCardList: Final cards count', {
+			userId: user.id,
+			cardsCount: cards.length,
+			cards: cards.map(c => ({ cardId: c.cardId, pan: c.pan })),
+		})
 
 		return NextResponse.json({
 			success: true,
