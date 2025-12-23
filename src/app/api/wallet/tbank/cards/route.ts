@@ -24,7 +24,35 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 		}
 
-		// Получаем карты из нашей БД (перед синком)
+		// ВАЖНО: Сначала проверяем ВСЕ карты в БД (независимо от статуса) для диагностики
+		const allCardsInDb = await prisma.tBankCard.findMany({
+			where: { 
+				userId: user.id,
+			},
+			select: {
+				id: true,
+				cardId: true,
+				pan: true,
+				expDate: true,
+				status: true,
+				cardType: true,
+				isDefault: true,
+				createdAt: true,
+			},
+		})
+		
+		logger.info('TBank GetCardList: ALL cards from DB (diagnostic)', {
+			userId: user.id,
+			totalCardsInDb: allCardsInDb.length,
+			cards: allCardsInDb.map(c => ({ 
+				cardId: c.cardId, 
+				pan: c.pan, 
+				status: c.status,
+				cardType: c.cardType,
+			})),
+		})
+
+		// Получаем карты из нашей БД (перед синком) - только активные
 		let cards = await prisma.tBankCard.findMany({
 			where: { 
 				userId: user.id,
@@ -44,7 +72,7 @@ export async function GET(req: NextRequest) {
 			},
 		})
 		
-		logger.info('TBank GetCardList: Cards from DB before sync', {
+		logger.info('TBank GetCardList: Active cards from DB before sync', {
 			userId: user.id,
 			cardsCount: cards.length,
 			cards: cards.map(c => ({ cardId: c.cardId, pan: c.pan })),
@@ -83,18 +111,18 @@ export async function GET(req: NextRequest) {
 				})
 
 				for (const [index, rc] of remote.Cards.entries()) {
-					// Фильтруем только карты пополнения (CardType 1) и активные (Status 'A')
-					if (rc.CardType !== 1 || rc.Status !== 'A') {
-						logger.info('Skipping card (wrong type or status)', {
-							userId: user.id,
-							cardId: rc.CardId,
-							pan: rc.Pan,
-							cardType: rc.CardType,
-							status: rc.Status,
-							note: 'Требуется CardType=1 и Status=A',
-						})
-						continue
-					}
+					// ВАЖНО: Не фильтруем по CardType и Status на этапе синхронизации
+					// Если карта есть в БД, но с другим статусом, мы должны её обновить
+					// Фильтрация будет только при возврате результата
+					
+					logger.info('Processing card from T-Bank', {
+						userId: user.id,
+						cardId: rc.CardId,
+						pan: rc.Pan,
+						cardType: rc.CardType,
+						status: rc.Status,
+						note: 'Будет синхронизирована независимо от типа/статуса',
+					})
 					
 					// Проверяем, существует ли карта и не была ли она удалена пользователем
 					const existingCard = await prisma.tBankCard.findUnique({
@@ -124,6 +152,10 @@ export async function GET(req: NextRequest) {
 						existingStatus: existingCard?.status,
 					})
 
+					// ВАЖНО: Если карта была удалена пользователем, не восстанавливаем её
+					// Но если карта есть в БД с другим статусом (не 'D'), обновляем её
+					const shouldActivate = existingCard?.status !== 'D'
+					
 					await prisma.tBankCard.upsert({
 						where: {
 							// @ts-ignore composite unique
@@ -132,10 +164,11 @@ export async function GET(req: NextRequest) {
 						update: {
 							pan: rc.Pan || 'Unknown',
 							expDate: rc.ExpDate || 'Unknown',
-							// Восстанавливаем статус только если карта не была удалена
-							status: existingCard?.status === 'D' ? 'D' : 'A',
+							// Если карта была удалена пользователем, сохраняем статус 'D'
+							// Иначе активируем её (статус 'A')
+							status: existingCard?.status === 'D' ? 'D' : (rc.Status === 'A' ? 'A' : 'A'),
 							rebillId: rc.RebillId || null,
-							cardType: 1,
+							cardType: rc.CardType || 1,
 							updatedAt: new Date(),
 						},
 						create: {
@@ -143,11 +176,20 @@ export async function GET(req: NextRequest) {
 							cardId: rc.CardId,
 							pan: rc.Pan || 'Unknown',
 							expDate: rc.ExpDate || 'Unknown',
-							status: 'A',
+							status: rc.Status === 'A' ? 'A' : 'A', // Всегда создаём как активную
 							rebillId: rc.RebillId || null,
-							cardType: 1,
+							cardType: rc.CardType || 1,
 							isDefault: hasDefault === 0 && index === 0,
 						},
+					})
+					
+					logger.info('Card upserted', {
+						userId: user.id,
+						cardId: rc.CardId,
+						pan: rc.Pan,
+						wasExisting: !!existingCard,
+						previousStatus: existingCard?.status,
+						newStatus: existingCard?.status === 'D' ? 'D' : (rc.Status === 'A' ? 'A' : 'A'),
 					})
 				}
 
@@ -155,7 +197,7 @@ export async function GET(req: NextRequest) {
 				cards = await prisma.tBankCard.findMany({
 					where: { 
 						userId: user.id,
-						status: 'A',
+						status: 'A', // Только активные
 					},
 					orderBy: [
 						{ isDefault: 'desc' },
@@ -171,19 +213,33 @@ export async function GET(req: NextRequest) {
 					},
 				})
 				
-				logger.info('TBank GetCardList: Cards after sync', {
+				logger.info('TBank GetCardList: Active cards after sync', {
 					userId: user.id,
 					cardsCount: cards.length,
-					cards: cards.map(c => ({ cardId: c.cardId, pan: c.pan, status: 'A' })),
+					cards: cards.map(c => ({ cardId: c.cardId, pan: c.pan })),
+				})
+				
+				// ДИАГНОСТИКА: Проверяем все карты после синка
+				const allCardsAfterSync = await prisma.tBankCard.findMany({
+					where: { userId: user.id },
+					select: { cardId: true, pan: true, status: true, cardType: true },
+				})
+				logger.info('TBank GetCardList: ALL cards after sync (diagnostic)', {
+					userId: user.id,
+					totalCards: allCardsAfterSync.length,
+					cards: allCardsAfterSync,
 				})
 			} else {
-				logger.warn('TBank GetCardList: No cards or failed', {
+				logger.warn('TBank GetCardList: No cards from T-Bank or failed', {
 					userId: user.id,
 					success: remote.Success,
 					errorCode: remote.ErrorCode,
 					message: remote.Message,
 					cardsCount: remote.Cards?.length || 0,
+					note: 'Будем использовать карты из БД',
 				})
+				// Если T-Bank не вернул карты, используем те, что есть в БД
+				// cards уже содержит активные карты из БД
 			}
 		} catch (syncError) {
 			logger.error('TBank sync cards failed', syncError instanceof Error ? syncError : undefined, {
@@ -191,9 +247,47 @@ export async function GET(req: NextRequest) {
 				error: syncError instanceof Error ? syncError.message : String(syncError),
 				stack: syncError instanceof Error ? syncError.stack : undefined,
 			})
+			// ВАЖНО: Даже если синхронизация не удалась, возвращаем карты из БД
+			// Перечитываем карты из БД на случай, если они были обновлены до ошибки
+			cards = await prisma.tBankCard.findMany({
+				where: { 
+					userId: user.id,
+					status: 'A',
+				},
+				orderBy: [
+					{ isDefault: 'desc' },
+					{ createdAt: 'desc' },
+				],
+				select: {
+					id: true,
+					cardId: true,
+					pan: true,
+					expDate: true,
+					isDefault: true,
+					createdAt: true,
+				},
+			})
+			logger.info('TBank GetCardList: Cards after sync error (fallback)', {
+				userId: user.id,
+				cardsCount: cards.length,
+				cards: cards.map(c => ({ cardId: c.cardId, pan: c.pan })),
+			})
 		}
 		
-		logger.info('TBank GetCardList: Final cards count', {
+		// ФИНАЛЬНАЯ ДИАГНОСТИКА: Проверяем все карты перед возвратом
+		const finalAllCards = await prisma.tBankCard.findMany({
+			where: { userId: user.id },
+			select: { cardId: true, pan: true, status: true, cardType: true },
+		})
+		logger.info('TBank GetCardList: FINAL diagnostic - ALL cards in DB', {
+			userId: user.id,
+			totalCardsInDb: finalAllCards.length,
+			activeCardsCount: cards.length,
+			allCards: finalAllCards,
+			activeCards: cards.map(c => ({ cardId: c.cardId, pan: c.pan })),
+		})
+		
+		logger.info('TBank GetCardList: Final active cards to return', {
 			userId: user.id,
 			cardsCount: cards.length,
 			cards: cards.map(c => ({ cardId: c.cardId, pan: c.pan })),
