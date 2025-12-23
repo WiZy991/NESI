@@ -9,6 +9,18 @@ import AccountTypeBadge from '../AccountTypeBadge'
 import { getUserProfileLink } from './utils'
 import type { Task } from './types'
 
+function decodeHtmlEntities(text: string): string {
+	return text
+		.replace(/&quot;/g, '"')
+		.replace(/&#x2F;/g, '/')
+		.replace(/&#x2f;/g, '/')
+		.replace(/&amp;/g, '&')
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&#39;/g, "'")
+		.replace(/&apos;/g, "'")
+}
+
 interface TaskHeaderProps {
 	task: Task
 	currentUserId?: string
@@ -87,8 +99,8 @@ export function TaskHeader({ task, currentUserId }: TaskHeaderProps) {
 						<span>📝</span>
 						Описание задачи
 					</h3>
-					<p className='text-gray-200 text-base md:text-lg leading-relaxed'>
-						{task.description}
+					<p className='text-gray-200 text-base md:text-lg leading-relaxed whitespace-pre-line'>
+						{decodeHtmlEntities(task.description)}
 					</p>
 				</div>
 			</div>
