@@ -12,6 +12,7 @@ import prisma from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { generateTBankToken } from '@/lib/tbank/crypto'
 import { TBANK_CONFIG } from '@/lib/tbank/config'
+import { TBankPayoutClient } from '@/lib/tbank/client'
 
 export async function POST(req: NextRequest) {
 	try {
@@ -148,6 +149,40 @@ export async function POST(req: NextRequest) {
 				pan: body.Pan,
 				isDefault: existingCards === 0,
 			})
+		}
+
+		// Если ExpDate или PAN не пришли, пытаемся обогатить через GetCardList
+		if (!body.ExpDate || !body.Pan) {
+			try {
+				const client = new TBankPayoutClient()
+				const remote = await client.getCardList(userId)
+				if (remote.Success && remote.Cards) {
+					const remoteCard = remote.Cards.find(c => c.CardId === body.CardId)
+					if (remoteCard) {
+						// @ts-ignore
+						await prisma.tBankCard.updateMany({
+							where: { userId, cardId: remoteCard.CardId },
+							data: {
+								pan: remoteCard.Pan || body.Pan || 'Unknown',
+								expDate: remoteCard.ExpDate || body.ExpDate || 'Unknown',
+								rebillId: remoteCard.RebillId || body.RebillId || null,
+							},
+						})
+						logger.info('TBank AddCard: card enriched from GetCardList', {
+							userId,
+							cardId: remoteCard.CardId,
+							pan: remoteCard.Pan,
+							expDate: remoteCard.ExpDate,
+						})
+					}
+				}
+			} catch (enrichErr) {
+				logger.warn('TBank AddCard: enrich card data failed', {
+					userId,
+					cardId: body.CardId,
+					error: enrichErr instanceof Error ? enrichErr.message : String(enrichErr),
+				})
+			}
 		}
 
 		// T-Bank ожидает ответ "OK" для подтверждения получения нотификации

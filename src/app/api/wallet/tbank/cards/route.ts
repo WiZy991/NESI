@@ -44,8 +44,9 @@ export async function GET(req: NextRequest) {
 			},
 		})
 
-		// Если карт нет в БД — пробуем синхронизироваться с Т-Банк (GetCardList)
-		if (cards.length === 0) {
+		// Если карт нет или они неполные — пробуем синхронизироваться с Т-Банк (GetCardList)
+		const needsSync = cards.length === 0 || cards.some(c => c.expDate === 'Unknown' || c.pan === 'Unknown')
+		if (needsSync) {
 			try {
 				const client = new TBankPayoutClient()
 				const remote = await client.getCardList(user.id)
