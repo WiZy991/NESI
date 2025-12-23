@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { FaCreditCard, FaMobile, FaUniversity, FaWallet, FaPlus, FaTrash, FaStar } from 'react-icons/fa'
 
 interface WithdrawalFormProps {
@@ -59,35 +59,68 @@ export default function WithdrawalForm({
 	const [loadingCards, setLoadingCards] = useState(false)
 	const [addingCard, setAddingCard] = useState(false)
 
-	// Загружаем привязанные карты
-	useEffect(() => {
-		const loadCards = async () => {
-			setLoadingCards(true)
-			try {
-				const response = await fetch('/api/wallet/tbank/cards', {
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				})
-				const data = await response.json()
-				if (data.success && data.cards) {
-					setSavedCards(data.cards)
-					// Выбираем дефолтную карту
-					const defaultCard = data.cards.find((c: SavedCard) => c.isDefault)
-					if (defaultCard) {
-						setSelectedCardId(defaultCard.cardId)
-					} else if (data.cards.length > 0) {
-						setSelectedCardId(data.cards[0].cardId)
-					}
+	// Функция для загрузки карт
+	const loadCards = useCallback(async () => {
+		if (!token) return
+		setLoadingCards(true)
+		try {
+			const response = await fetch('/api/wallet/tbank/cards', {
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			})
+			const data = await response.json()
+			if (data.success && data.cards) {
+				setSavedCards(data.cards)
+				// Выбираем дефолтную карту
+				const defaultCard = data.cards.find((c: SavedCard) => c.isDefault)
+				if (defaultCard) {
+					setSelectedCardId(defaultCard.cardId)
+				} else if (data.cards.length > 0) {
+					setSelectedCardId(data.cards[0].cardId)
 				}
-			} catch (err) {
-				console.error('Ошибка загрузки карт:', err)
-			} finally {
-				setLoadingCards(false)
+			}
+		} catch (err) {
+			console.error('Ошибка загрузки карт:', err)
+		} finally {
+			setLoadingCards(false)
+		}
+	}, [token])
+
+	// Загружаем карты при монтировании
+	useEffect(() => {
+		loadCards()
+	}, [loadCards])
+
+	// Автоматическое обновление карт при возврате на страницу (после привязки)
+	useEffect(() => {
+		if (!token) return
+
+		// Обновляем карты при фокусе на окне (возврат со страницы привязки)
+		const handleFocus = () => {
+			// Небольшая задержка, чтобы дать время webhook'у обработаться
+			setTimeout(() => {
+				loadCards()
+			}, 1500)
+		}
+
+		// Обновляем при видимости страницы
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible') {
+				setTimeout(() => {
+					loadCards()
+				}, 1500)
 			}
 		}
-		loadCards()
-	}, [token])
+
+		window.addEventListener('focus', handleFocus)
+		document.addEventListener('visibilitychange', handleVisibilityChange)
+
+		return () => {
+			window.removeEventListener('focus', handleFocus)
+			document.removeEventListener('visibilitychange', handleVisibilityChange)
+		}
+	}, [token, loadCards])
 
 	// Загружаем список банков при монтировании компонента
 	useEffect(() => {

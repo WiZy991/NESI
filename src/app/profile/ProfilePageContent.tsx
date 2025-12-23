@@ -12,7 +12,7 @@ import { getLevelVisuals } from '@/lib/level/rewards'
 import '@/styles/level-animations.css'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
 	FaArrowDown,
@@ -800,35 +800,69 @@ export default function ProfilePageContent() {
 		loadBanks()
 	}, [token, activeTab])
 
-	// Загрузка привязанных карт
-	useEffect(() => {
-		const loadCards = async () => {
-			if (!token || activeTab !== 'wallet') return
-			setLoadingCards(true)
-			try {
-				const res = await fetch('/api/wallet/tbank/cards', {
-					headers: { Authorization: `Bearer ${token}` },
-				})
-				const data = await res.json()
-				if (data.success && data.cards) {
-					setSavedCards(data.cards)
-					const defaultCard = data.cards.find((c: any) => c.isDefault)
-					if (defaultCard) {
-						setSelectedCardId(defaultCard.cardId)
-						setWithdrawMethod('saved-card')
-					} else if (data.cards.length > 0) {
-						setSelectedCardId(data.cards[0].cardId)
-						setWithdrawMethod('saved-card')
-					}
+	// Функция для загрузки карт
+	const loadCards = useCallback(async () => {
+		if (!token || activeTab !== 'wallet') return
+		setLoadingCards(true)
+		try {
+			const res = await fetch('/api/wallet/tbank/cards', {
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			const data = await res.json()
+			if (data.success && data.cards) {
+				setSavedCards(data.cards)
+				const defaultCard = data.cards.find((c: any) => c.isDefault)
+				if (defaultCard) {
+					setSelectedCardId(defaultCard.cardId)
+					setWithdrawMethod('saved-card')
+				} else if (data.cards.length > 0) {
+					setSelectedCardId(data.cards[0].cardId)
+					setWithdrawMethod('saved-card')
 				}
-			} catch (err) {
-				console.error('Ошибка загрузки карт:', err)
-			} finally {
-				setLoadingCards(false)
+			}
+		} catch (err) {
+			console.error('Ошибка загрузки карт:', err)
+		} finally {
+			setLoadingCards(false)
+		}
+	}, [token, activeTab])
+
+	// Загружаем карты при переключении на вкладку wallet
+	useEffect(() => {
+		if (activeTab === 'wallet' && token) {
+			loadCards()
+		}
+	}, [token, activeTab, loadCards])
+
+	// Автоматическое обновление карт при возврате на страницу (после привязки)
+	useEffect(() => {
+		if (!token || activeTab !== 'wallet') return
+
+		// Обновляем карты при фокусе на окне (возврат со страницы привязки)
+		const handleFocus = () => {
+			// Небольшая задержка, чтобы дать время webhook'у обработаться
+			setTimeout(() => {
+				loadCards()
+			}, 1500)
+		}
+
+		// Обновляем при видимости страницы
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible') {
+				setTimeout(() => {
+					loadCards()
+				}, 1500)
 			}
 		}
-		loadCards()
-	}, [token, activeTab])
+
+		window.addEventListener('focus', handleFocus)
+		document.addEventListener('visibilitychange', handleVisibilityChange)
+
+		return () => {
+			window.removeEventListener('focus', handleFocus)
+			document.removeEventListener('visibilitychange', handleVisibilityChange)
+		}
+	}, [token, activeTab, loadCards])
 
 	// Привязка новой карты
 	const handleAddCard = async () => {
@@ -914,15 +948,19 @@ export default function ProfilePageContent() {
 		}
 	}
 
-	// Обработка URL параметра после привязки карты
+	// Обработка URL параметров после привязки карты и переключение на вкладку
 	useEffect(() => {
 		const urlParams = new URLSearchParams(window.location.search)
 		const cardAdded = urlParams.get('cardAdded')
+		const tabParam = urlParams.get('tab')
+		
+		// Переключаемся на вкладку из URL параметра
+		if (tabParam && ['overview', 'tasks', 'wallet', 'achievements', 'settings'].includes(tabParam)) {
+			setActiveTab(tabParam as Tab)
+		}
 		
 		if (cardAdded === 'success') {
 			toast.success('Карта успешно привязана!')
-			// Очищаем параметр из URL
-			window.history.replaceState({}, '', window.location.pathname)
 			// Обновляем список карт
 			setWithdrawMethod('saved-card')
 			setLoadingCards(true)
@@ -942,9 +980,15 @@ export default function ProfilePageContent() {
 					}
 				})
 				.finally(() => setLoadingCards(false))
+			// Очищаем параметры из URL
+			window.history.replaceState({}, '', '/profile?tab=wallet')
 		} else if (cardAdded === 'fail') {
 			toast.error('Не удалось привязать карту. Попробуйте еще раз.')
-			window.history.replaceState({}, '', window.location.pathname)
+			// Очищаем параметры из URL, но оставляем tab=wallet
+			window.history.replaceState({}, '', '/profile?tab=wallet')
+		} else if (tabParam) {
+			// Если есть только tab параметр, очищаем URL
+			window.history.replaceState({}, '', `/profile?tab=${tabParam}`)
 		}
 	}, [token])
 

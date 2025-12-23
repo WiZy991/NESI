@@ -103,23 +103,29 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Шаг 2: Инициируем привязку карты через E2C
-		// Убираем кастомные URL, используем настройки терминала, и ставим HOLD (чаще принимается)
+		// Устанавливаем SuccessURL и FailURL для возврата на страницу профиля в раздел кошелька
+		const baseUrl = TBANK_CONFIG.BASE_URL
+		const successURL = `${baseUrl}/profile?tab=wallet&cardAdded=success`
+		const failURL = `${baseUrl}/profile?tab=wallet&cardAdded=fail`
+		
 		logger.info('TBank E2C AddCard request', {
 			customerKey,
 			checkType: 'HOLD',
-			note: 'SuccessURL/FailURL/NotificationURL не передаем — используем настройки терминала',
+			successURL,
+			failURL,
 		})
 
 		const addCardResult = await client.addCard({
 			customerKey,
 			checkType: 'HOLD',
+			successURL,
+			failURL,
 		})
 		
 		if (!addCardResult.Success) {
 			logger.error('TBank E2C AddCard failed', undefined, { 
 				errorCode: addCardResult.ErrorCode,
 				message: addCardResult.Message,
-				details: addCardResult.Details,
 				customerKey,
 				// Логируем полный ответ для отладки
 				fullResponse: addCardResult,
