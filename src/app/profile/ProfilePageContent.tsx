@@ -815,8 +815,10 @@ export default function ProfilePageContent() {
 					const defaultCard = data.cards.find((c: any) => c.isDefault)
 					if (defaultCard) {
 						setSelectedCardId(defaultCard.cardId)
+						setWithdrawMethod('saved-card')
 					} else if (data.cards.length > 0) {
 						setSelectedCardId(data.cards[0].cardId)
+						setWithdrawMethod('saved-card')
 					}
 				}
 			} catch (err) {
@@ -2311,7 +2313,7 @@ export default function ProfilePageContent() {
 									<label className='block text-sm text-red-300 mb-2 font-semibold'>
 										Способ вывода
 									</label>
-									<div className='grid grid-cols-2 gap-2'>
+									<div className='grid grid-cols-3 gap-2'>
 										<button
 											type='button'
 											onClick={() => {
@@ -2331,6 +2333,22 @@ export default function ProfilePageContent() {
 										<button
 											type='button'
 											onClick={() => {
+												setWithdrawMethod('saved-card')
+												setWithdrawError(null)
+											}}
+											disabled={withdrawLoading}
+											className={`py-3 px-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+												withdrawMethod === 'saved-card'
+													? 'bg-red-500/30 text-white border-2 border-red-400'
+													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 border border-red-500/30'
+											} disabled:opacity-50`}
+										>
+											<FaCreditCard />
+											Мои карты
+										</button>
+										<button
+											type='button'
+											onClick={() => {
 												setWithdrawMethod('new-card')
 												setWithdrawError(null)
 											}}
@@ -2346,6 +2364,97 @@ export default function ProfilePageContent() {
 										</button>
 									</div>
 								</div>
+
+								{/* Выбор привязанной карты */}
+								{withdrawMethod === 'saved-card' && (
+									<div className='mb-4 space-y-3'>
+										<div className='flex items-center justify-between mb-2'>
+											<label className='block text-sm text-red-300 font-semibold'>
+												Выберите привязанную карту
+											</label>
+											<button
+												type='button'
+												onClick={handleAddCard}
+												disabled={addingCard || withdrawLoading}
+												className='px-3 py-1.5 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed'
+											>
+												{addingCard ? (
+													<>
+														<span className='w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin' />
+														Привязка...
+													</>
+												) : (
+													<>
+														<FaCreditCard className='text-xs' />
+														Привязать карту
+													</>
+												)}
+											</button>
+										</div>
+
+										{loadingCards ? (
+											<div className='text-center py-6 bg-gradient-to-br from-red-900/20 via-black/40 to-black/40 border border-red-500/30 rounded-xl'>
+												<span className='w-6 h-6 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin inline-block mb-2' />
+												<p className='text-sm text-red-300/80 mt-2'>Загрузка карт...</p>
+											</div>
+										) : savedCards.length === 0 ? (
+											<div className='bg-black/50 border border-red-500/30 rounded-xl p-4 text-sm text-red-200 space-y-2'>
+												<p>У вас нет привязанных карт. Привяжите карту, чтобы выводить на неё.</p>
+												<button
+													type='button'
+													onClick={handleAddCard}
+													disabled={addingCard || withdrawLoading}
+													className='px-3 py-2 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded-lg transition-all disabled:opacity-50'
+												>
+													Привязать карту
+												</button>
+											</div>
+										) : (
+											<div className='space-y-2'>
+												{savedCards.map(card => (
+													<div
+														key={card.cardId}
+														onClick={() => setSelectedCardId(card.cardId)}
+														className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+															selectedCardId === card.cardId
+																? 'border-emerald-400 bg-emerald-500/10'
+																: 'border-red-500/30 hover:border-emerald-400/60 hover:bg-emerald-500/5'
+														}`}
+													>
+														<div className='flex items-center gap-3'>
+															<input
+																type='radio'
+																checked={selectedCardId === card.cardId}
+																onChange={() => setSelectedCardId(card.cardId)}
+																className='accent-emerald-400'
+															/>
+															<div>
+																<div className='flex items-center gap-2 text-white font-mono'>
+																	{card.pan}
+																</div>
+																<div className='text-xs text-gray-400'>
+																	до {card.expDate.slice(0, 2)}/{card.expDate.slice(2)}
+																</div>
+															</div>
+														</div>
+														<div className='flex items-center gap-2'>
+															<button
+																type='button'
+																onClick={e => {
+																	e.stopPropagation()
+																	handleDeleteCard(card.cardId)
+																}}
+																className='px-2 py-1 text-xs text-red-300 hover:text-red-100 transition'
+															>
+																Удалить
+															</button>
+														</div>
+													</div>
+												))}
+											</div>
+										)}
+									</div>
+								)}
 
 								{/* Поля для СБП */}
 								{withdrawMethod === 'sbp' && (
