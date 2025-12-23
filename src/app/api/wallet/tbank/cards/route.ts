@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 		}
 
 		// Получаем карты из нашей БД
-		const cards = await prisma.tBankCard.findMany({
+		let cards = await prisma.tBankCard.findMany({
 			where: { 
 				userId: user.id,
 				status: 'A', // Только активные
@@ -43,6 +43,73 @@ export async function GET(req: NextRequest) {
 				createdAt: true,
 			},
 		})
+
+		// Если карт нет в БД — пробуем синхронизироваться с Т-Банк (GetCardList)
+		if (cards.length === 0) {
+			try {
+				const client = new TBankPayoutClient()
+				const remote = await client.getCardList(user.id)
+
+				if (remote.Success && remote.Cards && remote.Cards.length > 0) {
+					// Проверяем, есть ли уже дефолтные активные карты
+					const hasDefault = await prisma.tBankCard.count({
+						where: { userId: user.id, status: 'A', isDefault: true },
+					})
+
+					for (const [index, rc] of remote.Cards.entries()) {
+						await prisma.tBankCard.upsert({
+							where: {
+								// @ts-ignore composite unique
+								userId_cardId: { userId: user.id, cardId: rc.CardId },
+							},
+							update: {
+								pan: rc.Pan || 'Unknown',
+								expDate: rc.ExpDate || 'Unknown',
+								status: rc.Status === 'A' ? 'A' : 'A', // считаем активной
+								rebillId: rc.RebillId || null,
+								cardType: 1,
+								updatedAt: new Date(),
+							},
+							create: {
+								userId: user.id,
+								cardId: rc.CardId,
+								pan: rc.Pan || 'Unknown',
+								expDate: rc.ExpDate || 'Unknown',
+								status: rc.Status === 'A' ? 'A' : 'A',
+								rebillId: rc.RebillId || null,
+								cardType: 1,
+								isDefault: hasDefault === 0 && index === 0,
+							},
+						})
+					}
+
+					// Перечитываем из БД после синка
+					cards = await prisma.tBankCard.findMany({
+						where: { 
+							userId: user.id,
+							status: 'A',
+						},
+						orderBy: [
+							{ isDefault: 'desc' },
+							{ createdAt: 'desc' },
+						],
+						select: {
+							id: true,
+							cardId: true,
+							pan: true,
+							expDate: true,
+							isDefault: true,
+							createdAt: true,
+						},
+					})
+				}
+			} catch (syncError) {
+				logger.warn('TBank sync cards failed', {
+					userId: user.id,
+					error: syncError instanceof Error ? syncError.message : String(syncError),
+				})
+			}
+		}
 
 		return NextResponse.json({
 			success: true,
