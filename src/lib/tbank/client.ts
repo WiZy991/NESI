@@ -448,8 +448,11 @@ export class TBankPayoutClient {
 
 			if (!response.ok || !data.Success) {
 				logger.error('TBank E2C API Error', undefined, {
-					errorCode: data.ErrorCode,
-					message: data.Message,
+					status: response.status,
+					errorCode: data?.ErrorCode,
+					message: data?.Message,
+					details: data?.Details,
+					rawResponse: responseText?.slice(0, 500),
 				})
 			}
 

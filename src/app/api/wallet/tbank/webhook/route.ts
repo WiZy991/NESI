@@ -317,6 +317,7 @@ export async function POST(req: NextRequest) {
 			})
 
 			// Если транзакция уже существует (создана при создании платежа), обновляем ее
+			let updatedBalance = user.balance
 			if (existingTx) {
 				// Проверяем, не был ли баланс уже начислен (статус 'completed')
 				const needsBalanceIncrement = existingTx.status !== 'completed'
@@ -362,6 +363,7 @@ export async function POST(req: NextRequest) {
 					)
 				}
 
+				updatedBalance = updated.balance
 				console.log('✅ [WEBHOOK] Начисление успешно (транзакция обновлена):', {
 					userId,
 					amount,
@@ -414,6 +416,7 @@ export async function POST(req: NextRequest) {
 					},
 					select: { balance: true },
 				})
+				updatedBalance = updated.balance
 
 				console.log('✅ [WEBHOOK] Начисление успешно (транзакция создана):', {
 					userId,
@@ -523,7 +526,7 @@ export async function POST(req: NextRequest) {
 				paymentId: PaymentId,
 				dealId: finalDealId || 'NULL',
 				oldBalance: user.balance.toString(),
-				newBalance: updated.balance.toString(),
+				newBalance: updatedBalance.toString(),
 			})
 		} else if (operationType === 'withdraw') {
 			// Вывод средств - обрабатываем изменения статуса

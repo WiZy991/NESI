@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
 			logger.error('TBank E2C AddCard failed', undefined, { 
 				errorCode: addCardResult.ErrorCode,
 				message: addCardResult.Message,
+				details: addCardResult.Details,
 				customerKey,
 				// Логируем полный ответ для отладки
 				fullResponse: addCardResult,
