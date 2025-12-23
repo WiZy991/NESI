@@ -22,12 +22,30 @@ export function TaskFiles({ files }: TaskFilesProps) {
 					const isImage = file.mimetype.startsWith('image/')
 					return isImage ? (
 						<div key={file.id} className='flex items-center gap-3'>
-							<img
-								src={`/api/files/${file.id}`}
-								alt={file.filename}
-								className='w-16 h-16 rounded-lg object-cover border border-slate-700/60'
-							/>
-							<p className='text-sm text-gray-300 font-medium'>{file.filename}</p>
+							<a
+								href={`/api/files/${file.id}?download=true`}
+								download={file.filename}
+								target='_blank'
+								rel='noopener noreferrer'
+								className='block'
+							>
+								<img
+									src={`/api/files/${file.id}`}
+									alt={file.filename}
+									className='w-16 h-16 rounded-lg object-cover border border-slate-700/60 hover:opacity-80 transition-opacity cursor-pointer'
+								/>
+							</a>
+							<div className='flex-1'>
+								<a
+									href={`/api/files/${file.id}?download=true`}
+									download={file.filename}
+									className='text-sm text-emerald-300 hover:text-emerald-200 font-medium transition-colors block'
+									target='_blank'
+									rel='noopener noreferrer'
+								>
+									{file.filename}
+								</a>
+							</div>
 						</div>
 					) : (
 						<div key={file.id} className='flex items-center gap-3'>
@@ -36,9 +54,11 @@ export function TaskFiles({ files }: TaskFilesProps) {
 							</div>
 							<div className='flex-1'>
 								<a
-									href={`/api/files/${file.id}`}
+									href={`/api/files/${file.id}?download=true`}
 									download={file.filename}
 									className='text-emerald-300 hover:text-emerald-200 font-medium transition-colors block'
+									target='_blank'
+									rel='noopener noreferrer'
 								>
 									{file.filename}
 								</a>

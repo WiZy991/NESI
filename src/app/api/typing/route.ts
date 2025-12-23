@@ -151,13 +151,13 @@ export async function POST(req: NextRequest) {
 					// sendNotificationToUser не используется для командного чата
 					// Вместо этого используется broadcast через SSE
 				} else if (recipientId) {
-					sendNotificationToUser(recipientId, {
-						type: 'stoppedTyping',
-						senderId: user.id,
-						sender: senderName,
-						chatType,
-						chatId: broadcastChatId,
-					})
+				sendNotificationToUser(recipientId, {
+					type: 'stoppedTyping',
+					senderId: user.id,
+					sender: senderName,
+					chatType,
+					chatId: broadcastChatId,
+				})
 				}
 			}
 
@@ -182,13 +182,13 @@ export async function POST(req: NextRequest) {
 					// sendNotificationToUser не используется для командного чата
 					// Вместо этого используется broadcast через SSE
 				} else if (recipientId) {
-					sendNotificationToUser(recipientId, {
-						type: 'typing',
-						senderId: user.id,
-						sender: senderName,
-						chatType,
-						chatId: broadcastChatId,
-					})
+				sendNotificationToUser(recipientId, {
+					type: 'typing',
+					senderId: user.id,
+					sender: senderName,
+					chatType,
+					chatId: broadcastChatId,
+				})
 				}
 
 				logger.debug('Событие набора отправлено', {
