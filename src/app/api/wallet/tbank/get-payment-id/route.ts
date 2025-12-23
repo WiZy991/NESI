@@ -39,13 +39,9 @@ export async function GET(req: NextRequest) {
 			},
 		})
 
-		// Извлекаем PaymentId из reason, если он там есть
+		// Извлекаем PaymentId из поля paymentId транзакции
 		const paymentIds = recentTransactions
-			.map(tx => {
-				// Пытаемся извлечь PaymentId из reason
-				const paymentIdMatch = tx.reason.match(/PaymentId:\s*(\d+)/i)
-				return paymentIdMatch ? paymentIdMatch[1] : tx.paymentId || null
-			})
+			.map(tx => tx.paymentId)
 			.filter(Boolean)
 
 		return NextResponse.json({

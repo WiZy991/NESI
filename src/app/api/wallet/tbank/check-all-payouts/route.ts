@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 										create: {
 											amount: payout.amount,
 											type: 'refund',
-											reason: `Возврат средств: выплата отклонена Т-Банком (PaymentId: ${payout.paymentId})`,
+											reason: 'Возврат средств: выплата отклонена Т-Банком',
 											paymentId: payout.paymentId,
 										},
 									},

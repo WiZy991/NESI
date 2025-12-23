@@ -308,7 +308,7 @@ async function handlePaymentNotification(
 							create: {
 								amount: new Prisma.Decimal(amountRubles),
 								type: 'deposit',
-								reason: `Пополнение через Т-Банк Мультирасчеты (PaymentId: ${payment.paymentId})`,
+								reason: 'Пополнение через Т-Банк',
 							},
 						},
 					},

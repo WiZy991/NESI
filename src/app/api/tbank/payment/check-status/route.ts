@@ -246,7 +246,7 @@ export async function POST(req: NextRequest) {
 							create: {
 								amount: new Prisma.Decimal(amountRubles),
 								type: 'deposit',
-								reason: `Пополнение через Т-Банк Мультирасчеты (PaymentId: ${payment.paymentId})`,
+								reason: 'Пополнение через Т-Банк',
 							},
 						},
 					},

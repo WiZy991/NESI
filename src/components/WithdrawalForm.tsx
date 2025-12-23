@@ -40,7 +40,7 @@ export default function WithdrawalForm({
 	token,
 }: WithdrawalFormProps) {
 	const [amount, setAmount] = useState(100)
-	const [method, setMethod] = useState<'sbp' | 'card' | 'saved-card'>('sbp')
+	const [method, setMethod] = useState<'sbp' | 'saved-card'>('sbp')
 	const [phone, setPhone] = useState('')
 	const [banks, setBanks] = useState<SbpBank[]>(FALLBACK_BANKS)
 	const [selectedBank, setSelectedBank] = useState<string>('')
@@ -257,36 +257,7 @@ export default function WithdrawalForm({
 				setError('Выберите карту для вывода')
 				return
 			}
-		} else if (method === 'card') {
-			// Валидация данных карты
-			const cleanCardNumber = cardNumber.replace(/\D/g, '')
-			if (cleanCardNumber.length !== 16) {
-				setError('Номер карты должен содержать 16 цифр')
-				return
-			}
-
-			if (!cardExpiry.match(/^\d{2}\/\d{2}$/)) {
-				setError('Срок действия должен быть в формате MM/YY')
-				return
-			}
-			
-			// Проверяем срок действия
-			const [month, year] = cardExpiry.split('/')
-			const currentDate = new Date()
-			const currentYear = currentDate.getFullYear() % 100
-			const currentMonth = currentDate.getMonth() + 1
-			const expYear = parseInt(year)
-			const expMonth = parseInt(month)
-			
-			if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
-				setError('Срок действия карты истёк')
-				return
-			}
-
-			if (cardCvv.length !== 3) {
-				setError('CVV должен содержать 3 цифры')
-				return
-			}
+		}
 
 			if (!cardHolderName.trim() || cardHolderName.trim().split(' ').length < 2) {
 				setError('Укажите имя и фамилию держателя карты')
@@ -314,16 +285,6 @@ export default function WithdrawalForm({
 			} else if (method === 'saved-card') {
 				// Используем привязанную карту
 				requestBody.cardId = selectedCardId
-			} else if (method === 'card') {
-				// Для выплаты на карту передаем данные карты
-				// PaymentRecipientId - это телефон или номер карты
-				const cleanCardNumber = cardNumber.replace(/\D/g, '')
-				requestBody.cardNumber = cleanCardNumber
-				requestBody.cardExpiry = cardExpiry
-				requestBody.cardCvv = cardCvv
-				requestBody.cardHolderName = cardHolderName.trim()
-				// PaymentRecipientId - последние 4 цифры номера карты или полный номер
-				requestBody.paymentRecipientId = cleanCardNumber.slice(-4)
 			}
 
 			const response = await fetch('/api/wallet/tbank/create-withdrawal', {
@@ -414,7 +375,7 @@ export default function WithdrawalForm({
 					<label className='block text-sm font-medium text-gray-300 mb-2'>
 						Способ выплаты
 					</label>
-					<div className='grid grid-cols-3 gap-2'>
+					<div className='grid grid-cols-2 gap-2'>
 						<button
 							type='button'
 							onClick={() => setMethod('sbp')}
@@ -440,26 +401,12 @@ export default function WithdrawalForm({
 							}`}
 						>
 							<FaCreditCard />
-							Мои карты
+							Картой
 							{savedCards.length > 0 && (
 								<span className='bg-emerald-500/30 px-1.5 rounded text-xs'>
 									{savedCards.length}
 								</span>
 							)}
-						</button>
-						<button
-							type='button'
-							onClick={() => {
-								setError('Вывод на новую карту временно недоступен. Используйте привязанную карту или СБП')
-								// Не переключаем метод, оставляем текущий
-							}}
-							disabled
-							className='flex items-center justify-center gap-2 px-3 py-3 rounded-lg border border-gray-600 text-gray-500 cursor-not-allowed opacity-50'
-							title='Вывод на новую карту временно недоступен'
-						>
-							<FaCreditCard />
-							Новая
-							<span className='text-xs bg-red-500/30 px-1 rounded'>Недоступно</span>
 						</button>
 					</div>
 				</div>
@@ -672,127 +619,6 @@ export default function WithdrawalForm({
 							</>
 						)}
 					</div>
-				)}
-
-				{/* Форма для выплаты на новую карту */}
-				{method === 'card' && (
-					<>
-						{/* Номер карты */}
-						<div>
-							<label className='block text-sm font-medium text-gray-300 mb-2'>
-								<FaCreditCard className='inline mr-2' />
-								Номер карты
-							</label>
-							<input
-								type='text'
-								inputMode='numeric'
-								autoComplete='cc-number'
-								value={cardNumber}
-								onChange={e => {
-									// Убираем всё кроме цифр и ограничиваем 16 символами
-									const digits = e.target.value.replace(/\D/g, '').slice(0, 16)
-									// Форматируем с пробелами каждые 4 цифры
-									const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ')
-									setCardNumber(formatted)
-									setError(null)
-								}}
-								placeholder='0000 0000 0000 0000'
-								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono text-lg tracking-wider'
-								disabled={loading}
-								maxLength={19}
-							/>
-							<p className='text-xs text-gray-400 mt-1'>
-								Введите 16 цифр номера карты
-							</p>
-						</div>
-
-						{/* Срок действия и CVV */}
-						<div className='grid grid-cols-2 gap-4'>
-							<div>
-								<label className='block text-sm font-medium text-gray-300 mb-2'>
-									Срок действия
-								</label>
-								<input
-									type='text'
-									inputMode='numeric'
-									autoComplete='cc-exp'
-									value={cardExpiry}
-									onChange={e => {
-										// Убираем всё кроме цифр
-										let digits = e.target.value.replace(/\D/g, '').slice(0, 4)
-										
-										// Валидация месяца (01-12)
-										if (digits.length >= 2) {
-											let month = parseInt(digits.slice(0, 2))
-											if (month > 12) month = 12
-											if (month < 1 && digits.slice(0, 2) !== '0') month = 1
-											digits = month.toString().padStart(2, '0') + digits.slice(2)
-										}
-										
-										// Форматирование MM/YY
-										const formatted = digits.length >= 2 
-											? digits.slice(0, 2) + '/' + digits.slice(2)
-											: digits
-										
-										setCardExpiry(formatted)
-										setError(null)
-									}}
-									placeholder='MM/YY'
-									className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono text-lg text-center tracking-wider'
-									disabled={loading}
-									maxLength={5}
-								/>
-							</div>
-							<div>
-								<label className='block text-sm font-medium text-gray-300 mb-2'>
-									CVV/CVC
-								</label>
-								<input
-									type='password'
-									inputMode='numeric'
-									autoComplete='cc-csc'
-									value={cardCvv}
-									onChange={e => {
-										const value = e.target.value.replace(/\D/g, '').slice(0, 3)
-										setCardCvv(value)
-										setError(null)
-									}}
-									placeholder='•••'
-									className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition font-mono text-lg text-center tracking-widest'
-									disabled={loading}
-									maxLength={3}
-								/>
-							</div>
-						</div>
-
-						{/* Имя держателя карты */}
-						<div>
-							<label className='block text-sm font-medium text-gray-300 mb-2'>
-								Имя держателя карты
-							</label>
-							<input
-								type='text'
-								autoComplete='cc-name'
-								value={cardHolderName}
-								onChange={e => {
-									// Только латиница, пробелы и дефисы
-									const value = e.target.value
-										.toUpperCase()
-										.replace(/[^A-Z\s\-]/g, '')
-										.replace(/\s+/g, ' ') // убираем двойные пробелы
-									setCardHolderName(value)
-									setError(null)
-								}}
-								placeholder='IVAN PETROV'
-								className='w-full bg-black/60 border border-emerald-500/30 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 transition uppercase tracking-wide'
-								disabled={loading}
-								maxLength={50}
-							/>
-							<p className='text-xs text-gray-400 mt-1'>
-								Как указано на карте (только латиница)
-							</p>
-						</div>
-					</>
 				)}
 
 				{/* Сумма */}

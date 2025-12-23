@@ -724,7 +724,7 @@ export async function POST(req: NextRequest) {
 					create: {
 						amount: new Prisma.Decimal(-amountNumber),
 						type: 'withdraw',
-						reason: `Вывод средств (PaymentId: ${withdrawal.PaymentId})`,
+						reason: 'Вывод средств',
 						dealId: finalDealId,
 						paymentId: withdrawal.PaymentId || null,
 						status: 'completed',

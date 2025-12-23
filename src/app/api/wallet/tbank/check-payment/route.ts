@@ -151,9 +151,7 @@ export async function POST(req: NextRequest) {
 							create: {
 								amount: amountDecimal,
 								type: 'deposit',
-								reason: `Пополнение через Т-Банк (ручная проверка, PaymentId: ${paymentId}, DealId: ${
-									finalDealId || 'N/A'
-								})`,
+								reason: 'Пополнение через Т-Банк',
 								dealId: finalDealId,
 								paymentId: paymentId,
 								status: 'completed',

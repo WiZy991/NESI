@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 						userId: user.id,
 						amount: amountDecimal,
 						type: 'deposit',
-						reason: `Пополнение через Т-Банк (PaymentId: ${payment.PaymentId}${dealId ? `, DealId: ${dealId}` : ''})`,
+						reason: 'Пополнение через Т-Банк',
 						paymentId: String(payment.PaymentId),
 						dealId: dealId ? String(dealId) : null,
 						status: 'pending', // Статус 'pending' - баланс НЕ начисляется до подтверждения

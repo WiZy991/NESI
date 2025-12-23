@@ -37,7 +37,7 @@ export class TBankClient {
 
 		// Детальное логирование для AddCustomer и AddCard (для отладки)
 		if (endpoint.includes('AddCustomer') || endpoint.includes('AddCard')) {
-			console.log('📤 [TBANK-CLIENT] Запрос к Т-Банку:', {
+			console.log('[TBANK-CLIENT] Запрос к Т-Банку:', {
 				method: 'POST',
 				url,
 				endpoint,
@@ -417,7 +417,7 @@ export class TBankPayoutClient {
 
 			// Логируем параметры, которые используются для генерации токена
 			const sortedKeys = Object.keys(paramsUsedForToken).sort()
-			console.log('📤 [TBANK-E2C-CLIENT] Запрос к Т-Банку E2C:', {
+			console.log('[TBANK-E2C-CLIENT] Запрос к Т-Банку E2C:', {
 				method: 'POST',
 				url,
 				endpoint,

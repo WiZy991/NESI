@@ -56,6 +56,24 @@ export async function GET(req: NextRequest) {
 				})
 
 				for (const [index, rc] of remote.Cards.entries()) {
+					// Проверяем, существует ли карта и не была ли она удалена пользователем
+					const existingCard = await prisma.tBankCard.findUnique({
+						where: {
+							// @ts-ignore composite unique
+							userId_cardId: { userId: user.id, cardId: rc.CardId },
+						},
+						select: { status: true },
+					})
+
+					// Если карта была удалена пользователем (status: 'D'), не восстанавливаем её
+					if (existingCard && existingCard.status === 'D') {
+						logger.info('Skipping sync for user-deleted card', {
+							userId: user.id,
+							cardId: rc.CardId,
+						})
+						continue
+					}
+
 					await prisma.tBankCard.upsert({
 						where: {
 							// @ts-ignore composite unique
@@ -64,7 +82,8 @@ export async function GET(req: NextRequest) {
 						update: {
 							pan: rc.Pan || 'Unknown',
 							expDate: rc.ExpDate || 'Unknown',
-							status: 'A', // считаем активной
+							// Восстанавливаем статус только если карта не была удалена
+							status: existingCard?.status === 'D' ? 'D' : 'A',
 							rebillId: rc.RebillId || null,
 							cardType: 1,
 							updatedAt: new Date(),

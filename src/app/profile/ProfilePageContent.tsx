@@ -559,7 +559,7 @@ export default function ProfilePageContent() {
 	const [withdrawError, setWithdrawError] = useState<string | null>(null)
 	const [withdrawLoading, setWithdrawLoading] = useState(false)
 	const [withdrawPhone, setWithdrawPhone] = useState('')
-	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'saved-card' | 'new-card'>('sbp')
+	const [withdrawMethod, setWithdrawMethod] = useState<'sbp' | 'saved-card'>('sbp')
 	const [sbpBanks, setSbpBanks] = useState<Array<{MemberId: string; MemberName: string; MemberNameRus: string}>>([])
 	const [selectedBankId, setSelectedBankId] = useState<string>('')
 	const [loadingBanks, setLoadingBanks] = useState(false)
@@ -1190,40 +1190,6 @@ export default function ProfilePageContent() {
 				setWithdrawError('Выберите карту для вывода')
 				return
 			}
-		} else if (withdrawMethod === 'new-card') {
-			const pan = cardNumber.replace(/\D/g, '')
-			const expDate = cardExpDate.replace(/\D/g, '')
-			const cvv = cardCvv.replace(/\D/g, '')
-			
-			if (pan.length < 16) {
-				setWithdrawError('Введите полный номер карты (16 цифр)')
-				return
-			}
-			if (expDate.length !== 4) {
-				setWithdrawError('Введите срок действия карты (MM/YY)')
-				return
-			}
-			// Проверяем срок действия
-			const month = parseInt(expDate.slice(0, 2), 10)
-			const year = parseInt(expDate.slice(2, 4), 10) + 2000
-			const now = new Date()
-			const expDateObj = new Date(year, month, 0) // Последний день месяца
-			if (expDateObj < now) {
-				setWithdrawError('Срок действия карты истёк')
-				return
-			}
-			if (month < 1 || month > 12) {
-				setWithdrawError('Некорректный месяц в сроке действия')
-				return
-			}
-			if (cvv.length !== 3) {
-				setWithdrawError('Введите CVV код (3 цифры)')
-				return
-			}
-			if (!cardHolder.trim()) {
-				setWithdrawError('Введите имя и фамилию держателя карты')
-				return
-			}
 		}
 
 		setWithdrawError(null)
@@ -1241,19 +1207,6 @@ export default function ProfilePageContent() {
 				withdrawalData.sbpMemberId = selectedBankId
 			} else if (withdrawMethod === 'saved-card') {
 				withdrawalData.cardId = selectedCardId
-			} else if (withdrawMethod === 'new-card') {
-				// Отправляем данные карты для выплаты (в формате, ожидаемом API)
-				withdrawalData.cardNumber = cardNumber.replace(/\D/g, '')
-				withdrawalData.cardExpiry = cardExpDate // MM/YY формат
-				withdrawalData.cardHolderName = cardHolder.trim().toUpperCase()
-				withdrawalData.cardCvv = cardCvv.replace(/\D/g, '') // CVV код
-				// Телефон для PaymentRecipientId (если указан)
-				if (withdrawPhone.trim()) {
-					const phoneDigits = getPhoneDigits(withdrawPhone)
-					if (phoneDigits.length === 11 && phoneDigits.startsWith('7')) {
-						withdrawalData.paymentRecipientId = phoneDigits
-					}
-				}
 			}
 
 			const res = await fetch('/api/wallet/tbank/create-withdrawal', {
@@ -2313,7 +2266,7 @@ export default function ProfilePageContent() {
 									<label className='block text-sm text-red-300 mb-2 font-semibold'>
 										Способ вывода
 									</label>
-									<div className='grid grid-cols-3 gap-2'>
+									<div className='grid grid-cols-2 gap-2'>
 										<button
 											type='button'
 											onClick={() => {
@@ -2344,23 +2297,7 @@ export default function ProfilePageContent() {
 											} disabled:opacity-50`}
 										>
 											<FaCreditCard />
-											Мои карты
-										</button>
-										<button
-											type='button'
-											onClick={() => {
-												setWithdrawMethod('new-card')
-												setWithdrawError(null)
-											}}
-											disabled={withdrawLoading}
-											className={`py-3 px-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-												withdrawMethod === 'new-card'
-													? 'bg-red-500/30 text-white border-2 border-red-400'
-													: 'bg-black/60 text-gray-300 hover:bg-red-500/20 border border-red-500/30'
-											} disabled:opacity-50`}
-										>
-											<FaCreditCard />
-											На карту
+											Картой
 										</button>
 									</div>
 								</div>
@@ -2632,132 +2569,6 @@ export default function ProfilePageContent() {
 										</div>
 									</>
 								)}
-
-								{/* Форма ввода данных новой карты */}
-								{withdrawMethod === 'new-card' && (
-									<div className='mb-4 space-y-3'>
-										<div className='flex items-center justify-between mb-2'>
-											<label className='block text-sm text-red-300 font-semibold'>
-												Данные карты получателя
-											</label>
-											<button
-												type='button'
-												onClick={handleAddCard}
-												disabled={addingCard || withdrawLoading}
-												className='px-3 py-1.5 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed'
-											>
-												{addingCard ? (
-													<>
-														<span className='w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin' />
-														Привязка...
-													</>
-												) : (
-													<>
-														<FaCreditCard className='text-xs' />
-														Привязать карту
-													</>
-												)}
-											</button>
-										</div>
-										
-										{/* Информационное сообщение */}
-										<div className='bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-3'>
-											<p className='text-xs text-yellow-300/80 flex items-start gap-2'>
-												<span className='text-base mt-0.5'>💡</span>
-												<span>
-													<strong>Рекомендуется:</strong> Привяжите карту заранее, чтобы использовать её для быстрого вывода. 
-													Или используйте <strong>СБП</strong> для мгновенных выплат.
-												</span>
-											</p>
-										</div>
-										
-										{/* Номер карты */}
-										<div className='relative'>
-											<label className='block text-xs text-gray-400 mb-1'>Номер карты</label>
-											<input
-												type='text'
-												inputMode='numeric'
-												value={cardNumber}
-												onChange={e => setCardNumber(formatCardNumber(e.target.value))}
-												placeholder='0000 0000 0000 0000'
-												maxLength={19}
-												disabled={withdrawLoading}
-												className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all font-mono text-lg tracking-widest placeholder:tracking-normal placeholder:font-sans'
-											/>
-											<FaCreditCard className='absolute right-4 top-9 text-red-400/50' />
-										</div>
-										
-										{/* Срок действия и CVV */}
-										<div className='grid grid-cols-2 gap-3'>
-											<div>
-												<label className='block text-xs text-gray-400 mb-1'>Срок действия</label>
-												<input
-													type='text'
-													inputMode='numeric'
-													value={cardExpDate}
-													onChange={e => setCardExpDate(formatCardExpDate(e.target.value))}
-													placeholder='MM/YY'
-													maxLength={5}
-													disabled={withdrawLoading}
-													className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all font-mono text-center'
-												/>
-											</div>
-											<div>
-												<label className='block text-xs text-gray-400 mb-1'>CVV</label>
-												<input
-													type='password'
-													inputMode='numeric'
-													value={cardCvv}
-													onChange={e => setCardCvv(formatCardCvv(e.target.value))}
-													placeholder='123'
-													maxLength={3}
-													disabled={withdrawLoading}
-													className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all font-mono text-center'
-												/>
-											</div>
-										</div>
-										
-										{/* Имя и фамилия держателя карты */}
-										<div>
-											<label className='block text-xs text-gray-400 mb-1'>Имя и фамилия держателя карты</label>
-											<input
-												type='text'
-												value={cardHolder}
-												onChange={e => setCardHolder(e.target.value.toUpperCase())}
-												placeholder='IVAN IVANOV'
-												maxLength={50}
-												disabled={withdrawLoading}
-												className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all text-sm uppercase placeholder:normal-case'
-											/>
-										</div>
-										
-										{/* Телефон получателя (для PaymentRecipientId) */}
-										<div>
-											<label className='block text-xs text-gray-400 mb-1'>
-												Телефон получателя <span className='text-gray-500'>(опционально)</span>
-											</label>
-											<input
-												type='text'
-												inputMode='tel'
-												value={withdrawPhone}
-												onChange={e => {
-													const formatted = formatPhoneNumber(e.target.value)
-													setWithdrawPhone(formatted)
-												}}
-												placeholder='+7 (999) 123-45-67'
-												maxLength={18}
-												disabled={withdrawLoading}
-												className='w-full bg-black/60 border border-red-500/30 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all'
-											/>
-										</div>
-										
-										<p className='text-xs text-red-300/60 flex items-center gap-1'>
-											<span>🔒</span>
-											<span>Данные передаются через защищённое соединение</span>
-										</p>
-									</div>
-								)}
-
 
 								{/* Поле ввода суммы */}
 								<div className='mb-4'>

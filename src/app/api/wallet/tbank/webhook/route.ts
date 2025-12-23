@@ -328,9 +328,7 @@ export async function POST(req: NextRequest) {
 					data: {
 						dealId: finalDealId || existingTx.dealId,
 						status: 'completed',
-						reason: `Пополнение через Т-Банк (PaymentId: ${PaymentId}, DealId: ${
-							finalDealId || 'N/A'
-						})`,
+						reason: 'Пополнение через Т-Банк',
 					},
 				})
 				console.log('✅ [WEBHOOK] Обновлена существующая транзакция:', {
@@ -405,9 +403,7 @@ export async function POST(req: NextRequest) {
 							create: {
 								amount: amountDecimal,
 								type: 'deposit',
-								reason: `Пополнение через Т-Банк (PaymentId: ${PaymentId}, DealId: ${
-									finalDealId || 'N/A'
-								})`,
+								reason: 'Пополнение через Т-Банк',
 								dealId: finalDealId || null,
 								paymentId: paymentIdString,
 								status: 'completed',

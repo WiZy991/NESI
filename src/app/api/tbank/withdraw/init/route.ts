@@ -361,7 +361,7 @@ export async function POST(req: NextRequest) {
 								create: {
 									amount: new Prisma.Decimal(-amountNumber),
 									type: 'withdraw',
-									reason: `Вывод средств через Т-Банк (PaymentId: ${result.PaymentId})`,
+									reason: 'Вывод средств',
 								},
 							},
 						},
