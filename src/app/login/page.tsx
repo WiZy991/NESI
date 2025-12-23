@@ -18,7 +18,7 @@ export default function LoginForm() {
   const validateEmail = (value: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!value) {
-      setEmailError('Email обязателен')
+      setEmailError('')
       return false
     }
     if (!emailRegex.test(value)) {
@@ -32,13 +32,17 @@ export default function LoginForm() {
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setEmail(value)
-    if (value && emailError) {
-      validateEmail(value)
-    }
+    // Валидируем сразу при вводе
+    validateEmail(value)
   }
 
   const handleEmailBlur = () => {
-    validateEmail(email)
+    // При потере фокуса проверяем, что поле не пустое
+    if (!email) {
+      setEmailError('Email обязателен')
+    } else {
+      validateEmail(email)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,12 +122,12 @@ export default function LoginForm() {
                     <X className="w-4 h-4 text-red-500" />
                     <span className="text-red-400">{emailError}</span>
                   </>
-                ) : (
+                ) : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? (
                   <>
                     <Check className="w-4 h-4 text-emerald-500" />
                     <span className="text-emerald-400">Email корректен</span>
                   </>
-                )}
+                ) : null}
               </div>
             )}
           </div>

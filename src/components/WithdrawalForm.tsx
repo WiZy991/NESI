@@ -338,7 +338,18 @@ export default function WithdrawalForm({
 			const data = await response.json()
 
 			if (!response.ok) {
-				setError(data.error || data.details || 'Не удалось создать выплату')
+				// Показываем понятное сообщение об ошибке
+				let errorMessage = data.error || data.details || 'Не удалось создать выплату'
+				
+				// Если это ошибка о выводе на новую карту, предлагаем альтернативы
+				if (errorMessage.includes('новая карта') || errorMessage.includes('CardData')) {
+					errorMessage = 'Вывод на новую карту временно недоступен.\n\n' +
+						'Доступные варианты:\n' +
+						'• Привяжите карту заранее через кнопку "Привязать карту"\n' +
+						'• Используйте вывод через СБП (Система быстрых платежей)'
+				}
+				
+				setError(errorMessage)
 				return
 			}
 
@@ -439,17 +450,16 @@ export default function WithdrawalForm({
 						<button
 							type='button'
 							onClick={() => {
-								setMethod('card')
-								setError(null)
+								setError('Вывод на новую карту временно недоступен. Используйте привязанную карту или СБП')
+								// Не переключаем метод, оставляем текущий
 							}}
-							className={`flex items-center justify-center gap-2 px-3 py-3 rounded-lg border transition text-sm ${
-								method === 'card'
-									? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
-									: 'border-gray-600 text-gray-400 hover:border-gray-500'
-							}`}
+							disabled
+							className='flex items-center justify-center gap-2 px-3 py-3 rounded-lg border border-gray-600 text-gray-500 cursor-not-allowed opacity-50'
+							title='Вывод на новую карту временно недоступен'
 						>
 							<FaCreditCard />
 							Новая
+							<span className='text-xs bg-red-500/30 px-1 rounded'>Недоступно</span>
 						</button>
 					</div>
 				</div>

@@ -44,14 +44,20 @@ function PaymentSuccessContent() {
 
 			const data = await res.json()
 
-			if (data.success && !data.alreadyProcessed) {
+			if (data.success) {
+				// Если платеж уже обработан или только что обработан - это успех!
 				setCheckResult('success')
 				// Очищаем localStorage
 				if (typeof window !== 'undefined') {
 					localStorage.removeItem('lastTBankPaymentId')
 				}
 			} else if (data.alreadyProcessed) {
-				setCheckResult('already_processed')
+				// Платеж уже обработан вебхуком - это тоже успех!
+				setCheckResult('success')
+				// Очищаем localStorage
+				if (typeof window !== 'undefined') {
+					localStorage.removeItem('lastTBankPaymentId')
+				}
 			} else {
 				setCheckResult('failed')
 			}
@@ -103,13 +109,6 @@ function PaymentSuccessContent() {
 					</div>
 				)}
 
-				{checkResult === 'already_processed' && (
-					<div className='mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg'>
-						<p className='text-blue-400 text-sm'>
-							ℹ️ Платеж уже был обработан ранее
-						</p>
-					</div>
-				)}
 
 				{checkResult === 'failed' && (
 					<div className='mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg'>
