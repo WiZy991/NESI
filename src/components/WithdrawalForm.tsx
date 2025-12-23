@@ -87,38 +87,10 @@ export default function WithdrawalForm({
 		}
 	}, [token])
 
-	// Загружаем карты при монтировании
+	// Загружаем карты только при монтировании
 	useEffect(() => {
-		loadCards()
-	}, [loadCards])
-
-	// Автоматическое обновление карт при возврате на страницу (после привязки)
-	useEffect(() => {
-		if (!token) return
-
-		// Обновляем карты при фокусе на окне (возврат со страницы привязки)
-		const handleFocus = () => {
-			// Небольшая задержка, чтобы дать время webhook'у обработаться
-			setTimeout(() => {
-				loadCards()
-			}, 1500)
-		}
-
-		// Обновляем при видимости страницы
-		const handleVisibilityChange = () => {
-			if (document.visibilityState === 'visible') {
-				setTimeout(() => {
-					loadCards()
-				}, 1500)
-			}
-		}
-
-		window.addEventListener('focus', handleFocus)
-		document.addEventListener('visibilitychange', handleVisibilityChange)
-
-		return () => {
-			window.removeEventListener('focus', handleFocus)
-			document.removeEventListener('visibilitychange', handleVisibilityChange)
+		if (token) {
+			loadCards()
 		}
 	}, [token, loadCards])
 

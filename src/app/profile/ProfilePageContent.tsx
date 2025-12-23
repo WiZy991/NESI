@@ -839,49 +839,12 @@ export default function ProfilePageContent() {
 		}
 	}, [token, activeTab])
 
-	// Загружаем карты при переключении на вкладку wallet ИЛИ при монтировании
-	useEffect(() => {
-		if (token) {
-			loadCards()
-		}
-	}, [token, loadCards])
-	
-	// Дополнительно загружаем при переключении на wallet
+	// Загружаем карты только при переключении на вкладку wallet
 	useEffect(() => {
 		if (activeTab === 'wallet' && token) {
 			loadCards()
 		}
 	}, [activeTab, token, loadCards])
-
-	// Автоматическое обновление карт при возврате на страницу (после привязки)
-	useEffect(() => {
-		if (!token || activeTab !== 'wallet') return
-
-		// Обновляем карты при фокусе на окне (возврат со страницы привязки)
-		const handleFocus = () => {
-			// Небольшая задержка, чтобы дать время webhook'у обработаться
-			setTimeout(() => {
-				loadCards()
-			}, 1500)
-		}
-
-		// Обновляем при видимости страницы
-		const handleVisibilityChange = () => {
-			if (document.visibilityState === 'visible') {
-				setTimeout(() => {
-					loadCards()
-				}, 1500)
-			}
-		}
-
-		window.addEventListener('focus', handleFocus)
-		document.addEventListener('visibilitychange', handleVisibilityChange)
-
-		return () => {
-			window.removeEventListener('focus', handleFocus)
-			document.removeEventListener('visibilitychange', handleVisibilityChange)
-		}
-	}, [token, activeTab, loadCards])
 
 	// Привязка новой карты
 	const handleAddCard = async () => {
