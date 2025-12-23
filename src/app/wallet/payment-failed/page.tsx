@@ -24,7 +24,7 @@ export default function PaymentFailedPage() {
 	}, [router])
 
 	return (
-		<div className='min-h-screen flex items-center justify-center px-4 bg-[#0a0f0e]'>
+		<div className='min-h-screen flex items-center justify-center px-4'>
 			<div className='max-w-md w-full bg-black/40 border border-red-500/30 rounded-2xl p-8 text-center shadow-[0_0_30px_rgba(239,68,68,0.3)]'>
 				<div className='text-6xl mb-4'>❌</div>
 				<h1 className='text-2xl font-bold text-red-400 mb-4'>Ошибка оплаты</h1>
