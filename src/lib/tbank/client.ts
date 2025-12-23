@@ -407,7 +407,7 @@ export class TBankPayoutClient {
 
 			const paramsUsedForToken = endpoint.includes('AddCard')
 				? (() => {
-						const copy = { ...paramsForLog, Password: '***' }
+						const copy: Record<string, any> = { ...paramsForLog, Password: '***' }
 						delete copy.SuccessURL
 						delete copy.FailURL
 						delete copy.NotificationURL
@@ -446,7 +446,21 @@ export class TBankPayoutClient {
 				throw new Error(`Failed to parse TBank E2C API response`)
 			}
 
-			if (!response.ok || !data.Success) {
+			// GetCardList возвращает массив карт напрямую (статус 200), а не объект с Success
+			// Если ответ - массив, это успех
+			const isGetCardList = endpoint.includes('GetCardList')
+			const isArrayResponse = Array.isArray(data)
+			
+			if (isGetCardList && isArrayResponse && response.ok) {
+				// Возвращаем в формате, ожидаемом кодом
+				return {
+					Success: true,
+					ErrorCode: '0',
+					Cards: data,
+				} as T
+			}
+
+			if (!response.ok || (!isArrayResponse && !data.Success)) {
 				logger.error('TBank E2C API Error', undefined, {
 					status: response.status,
 					errorCode: data?.ErrorCode,
