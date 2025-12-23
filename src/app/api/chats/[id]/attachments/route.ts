@@ -164,7 +164,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 					senderId: msg.senderId,
 				}
 			})
-		} else {
+		} else if (chatType === 'task') {
 			const task = await prisma.task.findUnique({
 				where: { id: identifier },
 				select: {
