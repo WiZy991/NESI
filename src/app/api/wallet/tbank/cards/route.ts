@@ -66,6 +66,17 @@ export async function GET(req: NextRequest) {
 			})
 
 			if (remote.Success && remote.Cards && remote.Cards.length > 0) {
+				logger.info('TBank GetCardList: Processing cards from T-Bank', {
+					userId: user.id,
+					totalCards: remote.Cards.length,
+					cards: remote.Cards.map(c => ({
+						cardId: c.CardId,
+						pan: c.Pan,
+						cardType: c.CardType,
+						status: c.Status,
+					})),
+				})
+				
 				// Проверяем, есть ли уже дефолтные активные карты
 				const hasDefault = await prisma.tBankCard.count({
 					where: { userId: user.id, status: 'A', isDefault: true },
@@ -77,8 +88,10 @@ export async function GET(req: NextRequest) {
 						logger.info('Skipping card (wrong type or status)', {
 							userId: user.id,
 							cardId: rc.CardId,
+							pan: rc.Pan,
 							cardType: rc.CardType,
 							status: rc.Status,
+							note: 'Требуется CardType=1 и Status=A',
 						})
 						continue
 					}

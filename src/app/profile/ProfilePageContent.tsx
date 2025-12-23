@@ -802,37 +802,56 @@ export default function ProfilePageContent() {
 
 	// Функция для загрузки карт
 	const loadCards = useCallback(async () => {
-		if (!token || activeTab !== 'wallet') return
+		if (!token) return
 		setLoadingCards(true)
 		try {
+			console.log('🔄 [ProfilePageContent] Загрузка карт...', { activeTab })
 			const res = await fetch('/api/wallet/tbank/cards', {
 				headers: { Authorization: `Bearer ${token}` },
 			})
 			const data = await res.json()
+			console.log('📋 [ProfilePageContent] Ответ от API карт:', {
+				success: data.success,
+				cardsCount: data.cards?.length || 0,
+				cards: data.cards,
+			})
 			if (data.success && data.cards) {
 				setSavedCards(data.cards)
 				const defaultCard = data.cards.find((c: any) => c.isDefault)
 				if (defaultCard) {
 					setSelectedCardId(defaultCard.cardId)
-					setWithdrawMethod('saved-card')
+					if (activeTab === 'wallet') {
+						setWithdrawMethod('saved-card')
+					}
 				} else if (data.cards.length > 0) {
 					setSelectedCardId(data.cards[0].cardId)
-					setWithdrawMethod('saved-card')
+					if (activeTab === 'wallet') {
+						setWithdrawMethod('saved-card')
+					}
 				}
+			} else {
+				console.error('❌ [ProfilePageContent] Ошибка загрузки карт:', data.error || 'Unknown error')
 			}
 		} catch (err) {
-			console.error('Ошибка загрузки карт:', err)
+			console.error('❌ [ProfilePageContent] Исключение при загрузке карт:', err)
 		} finally {
 			setLoadingCards(false)
 		}
 	}, [token, activeTab])
 
-	// Загружаем карты при переключении на вкладку wallet
+	// Загружаем карты при переключении на вкладку wallet ИЛИ при монтировании
+	useEffect(() => {
+		if (token) {
+			loadCards()
+		}
+	}, [token, loadCards])
+	
+	// Дополнительно загружаем при переключении на wallet
 	useEffect(() => {
 		if (activeTab === 'wallet' && token) {
 			loadCards()
 		}
-	}, [token, activeTab, loadCards])
+	}, [activeTab, token, loadCards])
 
 	// Автоматическое обновление карт при возврате на страницу (после привязки)
 	useEffect(() => {
