@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
 						note: 'Будет синхронизирована независимо от типа/статуса',
 					})
 					
-					// Проверяем, существует ли карта и не была ли она удалена пользователем
+					// Проверяем, существует ли карта
 					const existingCard = await prisma.tBankCard.findUnique({
 						where: {
 							// @ts-ignore composite unique
@@ -133,11 +133,25 @@ export async function GET(req: NextRequest) {
 						select: { status: true },
 					})
 
-					// Если карта была удалена пользователем (status: 'D'), не восстанавливаем её
-					if (existingCard && existingCard.status === 'D') {
-						logger.info('Skipping sync for user-deleted card', {
+					// ВАЖНО: Если карта есть в T-Bank со статусом 'A', восстанавливаем её
+					// даже если она была помечена как удаленная в БД
+					// Это нужно, чтобы карты не терялись при случайном удалении
+					if (existingCard && existingCard.status === 'D' && rc.Status === 'A') {
+						logger.info('Restoring card from T-Bank (was deleted in DB but active in T-Bank)', {
 							userId: user.id,
 							cardId: rc.CardId,
+							pan: rc.Pan,
+							tbankStatus: rc.Status,
+							dbStatus: existingCard.status,
+						})
+						// Продолжаем синхронизацию, чтобы восстановить карту
+					} else if (existingCard && existingCard.status === 'D' && rc.Status !== 'A') {
+						// Если карта удалена в БД и неактивна в T-Bank, пропускаем
+						logger.info('Skipping sync for deleted card (inactive in T-Bank)', {
+							userId: user.id,
+							cardId: rc.CardId,
+							tbankStatus: rc.Status,
+							dbStatus: existingCard.status,
 						})
 						continue
 					}
@@ -152,9 +166,10 @@ export async function GET(req: NextRequest) {
 						existingStatus: existingCard?.status,
 					})
 
-					// ВАЖНО: Если карта была удалена пользователем, не восстанавливаем её
-					// Но если карта есть в БД с другим статусом (не 'D'), обновляем её
-					const shouldActivate = existingCard?.status !== 'D'
+					// ВАЖНО: Если карта активна в T-Bank (Status: 'A'), восстанавливаем её
+					// даже если она была помечена как удаленная в БД
+					const shouldRestore = rc.Status === 'A'
+					const newStatus = shouldRestore ? 'A' : (existingCard?.status === 'D' ? 'D' : 'A')
 					
 					await prisma.tBankCard.upsert({
 						where: {
@@ -164,9 +179,9 @@ export async function GET(req: NextRequest) {
 						update: {
 							pan: rc.Pan || 'Unknown',
 							expDate: rc.ExpDate || 'Unknown',
-							// Если карта была удалена пользователем, сохраняем статус 'D'
-							// Иначе активируем её (статус 'A')
-							status: existingCard?.status === 'D' ? 'D' : (rc.Status === 'A' ? 'A' : 'A'),
+							// Если карта активна в T-Bank, восстанавливаем её (статус 'A')
+							// Иначе сохраняем текущий статус
+							status: newStatus,
 							rebillId: rc.RebillId || null,
 							cardType: rc.CardType || 1,
 							updatedAt: new Date(),
@@ -189,7 +204,9 @@ export async function GET(req: NextRequest) {
 						pan: rc.Pan,
 						wasExisting: !!existingCard,
 						previousStatus: existingCard?.status,
-						newStatus: existingCard?.status === 'D' ? 'D' : (rc.Status === 'A' ? 'A' : 'A'),
+						tbankStatus: rc.Status,
+						newStatus: newStatus,
+						restored: shouldRestore && existingCard?.status === 'D',
 					})
 				}
 
