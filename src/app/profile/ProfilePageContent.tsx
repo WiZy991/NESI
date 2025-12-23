@@ -820,14 +820,10 @@ export default function ProfilePageContent() {
 				const defaultCard = data.cards.find((c: any) => c.isDefault)
 				if (defaultCard) {
 					setSelectedCardId(defaultCard.cardId)
-					if (activeTab === 'wallet') {
-						setWithdrawMethod('saved-card')
-					}
+					// НЕ переключаем метод вывода автоматически - оставляем пользователю выбор
 				} else if (data.cards.length > 0) {
 					setSelectedCardId(data.cards[0].cardId)
-					if (activeTab === 'wallet') {
-						setWithdrawMethod('saved-card')
-					}
+					// НЕ переключаем метод вывода автоматически - оставляем пользователю выбор
 				}
 			} else {
 				console.error('❌ [ProfilePageContent] Ошибка загрузки карт:', data.error || 'Unknown error')
