@@ -57,12 +57,13 @@ export async function POST(req: NextRequest) {
 			cardHolderName,
 		} = await req.json()
 
-		// Проверяем наличие данных новой карты
+		// Проверяем наличие данных новой карты и привязанной карты
+		const hasCardId = !!cardId
 		const hasCardData = !!(cardNumber && cardExpiry)
 
 		console.log('📋 [CREATE-WITHDRAWAL] Получены данные:', {
 			amount,
-			hasCardId: !!cardId,
+			hasCardId,
 			hasCardData,
 			hasPhone: !!phone,
 			hasSbpMemberId: !!sbpMemberId,
@@ -171,8 +172,7 @@ export async function POST(req: NextRequest) {
 		// Проверяем наличие способа выплаты
 		// Для карты: cardId (привязанная карта)
 		// Для СБП: phone (sbpMemberId опционален, может быть установлен автоматически)
-		const hasCardId = !!cardId
-		// hasCardData уже объявлена выше (строка 61)
+		// hasCardId и hasCardData уже объявлены выше (строки 61-62)
 		const hasSbpData = !!phone
 		
 		// ПРИМЕЧАНИЕ: Вывод на новую карту (CardData) уже заблокирован выше
