@@ -68,6 +68,7 @@ type Props = {
 		}
 	}
 	chatType: 'private' | 'task' | 'team'
+	teamId?: string // ID команды для командного чата
 	showSenderName?: boolean // Показывать ли имя отправителя
 	isFirstInGroup?: boolean // Первое ли сообщение в группе
 	isLastInGroup?: boolean // Последнее ли сообщение в группе
@@ -85,6 +86,7 @@ type VoiceMessagePayload = {
 export default function ChatMessage({
 	message,
 	chatType,
+	teamId,
 	showSenderName = true,
 	isFirstInGroup = true,
 	isLastInGroup = true,
@@ -1052,10 +1054,14 @@ export default function ChatMessage({
 		}
 
 		try {
-			const endpoint =
-				chatType === 'private'
-					? `/api/private-messages/edit/${message.id}`
-					: `/api/messages/edit/${message.id}`
+			let endpoint = ''
+			if (chatType === 'private') {
+				endpoint = `/api/private-messages/edit/${message.id}`
+			} else if (chatType === 'team' && teamId) {
+				endpoint = `/api/teams/${teamId}/chat/${message.id}`
+			} else {
+				endpoint = `/api/messages/edit/${message.id}`
+			}
 
 			const res = await fetch(endpoint, {
 				method: 'PATCH',
@@ -1088,10 +1094,14 @@ export default function ChatMessage({
 			cancelText: 'Отмена',
 			onConfirm: async () => {
 		try {
-			const endpoint =
-				chatType === 'private'
-					? `/api/private-messages/delete/${message.id}`
-					: `/api/messages/delete/${message.id}`
+			let endpoint = ''
+			if (chatType === 'private') {
+				endpoint = `/api/private-messages/delete/${message.id}`
+			} else if (chatType === 'team' && teamId) {
+				endpoint = `/api/teams/${teamId}/chat/${message.id}`
+			} else {
+				endpoint = `/api/messages/delete/${message.id}`
+			}
 
 			const res = await fetch(endpoint, {
 				method: 'DELETE',

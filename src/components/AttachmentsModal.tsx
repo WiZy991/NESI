@@ -32,7 +32,7 @@ type AttachmentsModalProps = {
 	isOpen: boolean
 	onClose: () => void
 	chatId: string
-	chatType: 'private' | 'task'
+	chatType: 'private' | 'task' | 'team'
 	chatTitle: string
 	onLocateMessage?: (messageId: string) => void
 }
@@ -290,7 +290,11 @@ export default function AttachmentsModal({
 							<span>Вложения чата</span>
 						</h2>
 						<p className='text-sm text-slate-300/80 mt-1 truncate'>
-							{chatType === 'private' ? 'Приватный чат' : 'Чат задачи'} · {chatTitle}
+							{chatType === 'private' 
+								? 'Приватный чат' 
+								: chatType === 'team' 
+									? 'Чат команды' 
+									: 'Чат задачи'} · {chatTitle}
 						</p>
 					</div>
 					<button

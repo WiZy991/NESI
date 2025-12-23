@@ -105,21 +105,41 @@ export async function GET(
     })
 
     return NextResponse.json({
-      messages: messages.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        createdAt: msg.createdAt,
-        editedAt: msg.editedAt,
-        sender: {
-          id: msg.sender.id,
-          fullName: msg.sender.fullName,
-          email: msg.sender.email,
-          avatarUrl: msg.sender.avatarFileId ? `/api/files/${msg.sender.avatarFileId}` : undefined,
-        },
-        fileId: msg.file?.id || null,
-        fileName: msg.file?.filename || null,
-        fileMimetype: msg.file?.mimetype || null,
-        fileUrl: msg.file ? `/api/files/${msg.file.id}` : null,
+      messages: messages.map((msg: any) => {
+        // Получаем fileId из связи или напрямую из сообщения
+        const fileId = msg.file?.id || (msg as any).fileId || null
+        const fileName = msg.file?.filename || null
+        const fileMimetype = msg.file?.mimetype || null
+        // Формируем fileUrl: сначала из связи file, потом из fileUrl в сообщении, потом из fileId
+        const fileUrl = msg.file 
+          ? `/api/files/${msg.file.id}` 
+          : ((msg as any).fileUrl || (fileId ? `/api/files/${fileId}` : null))
+        
+        logger.debug('Team chat message file data', {
+          messageId: msg.id,
+          hasFile: !!msg.file,
+          fileId: msg.fileId,
+          fileFromRelation: msg.file?.id,
+          fileName,
+          fileMimetype,
+          fileUrl,
+        })
+        
+        return {
+          id: msg.id,
+          content: msg.content,
+          createdAt: msg.createdAt.toISOString(),
+          editedAt: msg.editedAt?.toISOString() || null,
+          sender: {
+            id: msg.sender.id,
+            fullName: msg.sender.fullName,
+            email: msg.sender.email,
+            avatarUrl: msg.sender.avatarFileId ? `/api/files/${msg.sender.avatarFileId}` : undefined,
+          },
+          fileId,
+          fileName,
+          fileMimetype,
+          fileUrl,
         replyTo: msg.replyTo
           ? {
               id: msg.replyTo.id,
@@ -132,7 +152,8 @@ export async function GET(
           userId: r.user.id,
           user: r.user,
         })),
-      })),
+        }
+      }),
     })
   } catch (error) {
     logger.error('Get team chat error', error instanceof Error ? error : undefined)
@@ -351,8 +372,8 @@ export async function POST(
       message: {
         id: message.id,
         content: message.content,
-        createdAt: message.createdAt,
-        editedAt: message.editedAt,
+        createdAt: message.createdAt.toISOString(),
+        editedAt: message.editedAt?.toISOString() || null,
         sender: {
           id: message.sender.id,
           fullName: message.sender.fullName,

@@ -61,7 +61,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 		const rawSearch = url.searchParams.get('search')?.trim()
 		const search = rawSearch && rawSearch.length > 0 ? rawSearch : null
 
-		let chatType: 'private' | 'task'
+		let chatType: 'private' | 'task' | 'team'
 		let identifier: string
 
 		if (id.startsWith('private_')) {
@@ -70,6 +70,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 		} else if (id.startsWith('task_')) {
 			chatType = 'task'
 			identifier = id.slice('task_'.length)
+		} else if (id.startsWith('team_')) {
+			chatType = 'team'
+			identifier = id.slice('team_'.length)
 		} else {
 			return NextResponse.json({ error: 'Неверный формат идентификатора чата' }, { status: 400 })
 		}
@@ -200,6 +203,80 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 			}
 
 			const messages = await prisma.message.findMany({
+				where: { AND: whereClauses },
+				orderBy: { createdAt: 'desc' },
+				include: {
+					file: {
+						select: {
+							id: true,
+							filename: true,
+							mimetype: true,
+							size: true,
+							url: true,
+						},
+					},
+				},
+				take: ATTACHMENTS_LIMIT,
+			})
+
+			attachments = messages.map(msg => {
+				const fileRecord = msg.file
+				const fileId = fileRecord?.id ?? msg.fileId ?? extractFileIdFromUrl(msg.fileUrl ?? undefined)
+				const fileName = fileRecord?.filename ?? null
+				const mimeType = fileRecord?.mimetype ?? null
+				const size =
+				typeof fileRecord?.size === 'number' ? fileRecord.size : null
+				const downloadUrl = buildDownloadUrl(fileId, fileRecord?.url ?? msg.fileUrl ?? null)
+				const isImage = isImageAttachment(mimeType, fileName)
+				const thumbnailUrl = isImage ? downloadUrl : null
+
+				return {
+					messageId: msg.id,
+					fileId,
+					fileName,
+					mimeType,
+					size,
+					downloadUrl,
+					thumbnailUrl,
+					createdAt: msg.createdAt,
+					senderId: msg.senderId,
+				}
+			})
+		} else if (chatType === 'team') {
+			// Проверяем, что пользователь является участником команды
+			const teamMember = await prisma.teamMember.findUnique({
+				where: {
+					teamId_userId: {
+						teamId: identifier,
+						userId: user.id,
+					},
+				},
+			})
+
+			if (!teamMember) {
+				return NextResponse.json({ error: 'Вы не являетесь участником этой команды' }, { status: 403 })
+			}
+
+			const whereClauses: Prisma.TeamChatWhereInput[] = [
+				{
+					teamId: identifier,
+					deletedAt: null,
+				},
+				{
+					OR: [{ fileId: { not: null } }, { fileUrl: { not: null } }],
+				},
+			]
+
+			if (search) {
+				whereClauses.push({
+					OR: [
+						{ fileUrl: { contains: search, mode: 'insensitive' } },
+						{ file: { filename: { contains: search, mode: 'insensitive' } } },
+					],
+				})
+			}
+
+			const messages = await prisma.teamChat.findMany({
 				where: { AND: whereClauses },
 				orderBy: { createdAt: 'desc' },
 				include: {
