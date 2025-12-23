@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import { toast } from 'sonner'
-import { Users, Trash2, MessageSquare, ArrowLeft, UserMinus, Mail } from 'lucide-react'
+import { Users, Trash2, MessageSquare, ArrowLeft, UserMinus, Mail, ClipboardList, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 type TeamMember = {
@@ -40,6 +40,31 @@ type Team = {
   userRole: 'ADMIN' | 'MEMBER' | null
 }
 
+type TeamTask = {
+  id: string
+  title: string
+  description: string | null
+  price: string | null
+  status: string
+  deadline: string | null
+  createdAt: string
+  updatedAt: string
+  completedAt: string | null
+  customer: {
+    id: string
+    fullName: string | null
+    email: string
+    avatarUrl: string | null
+  } | null
+  executor: {
+    id: string
+    fullName: string | null
+    email: string
+  } | null
+  messagesCount: number
+  responsesCount: number
+}
+
 export default function TeamDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -49,10 +74,13 @@ export default function TeamDetailPage() {
   const [team, setTeam] = useState<Team | null>(null)
   const [loading, setLoading] = useState(true)
   const [removingMember, setRemovingMember] = useState<string | null>(null)
+  const [tasks, setTasks] = useState<TeamTask[]>([])
+  const [loadingTasks, setLoadingTasks] = useState(false)
 
   useEffect(() => {
     if (!token || !teamId) return
     loadTeam()
+    loadTasks()
   }, [token, teamId])
 
   const loadTeam = async () => {
@@ -76,6 +104,29 @@ export default function TeamDetailPage() {
       toast.error('Ошибка соединения с сервером')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadTasks = async () => {
+    if (!token) return
+    setLoadingTasks(true)
+    try {
+      const res = await fetch(`/api/teams/${teamId}/tasks`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setTasks(data.tasks || [])
+      } else {
+        // Игнорируем ошибки, если нет доступа или задач нет
+        if (res.status !== 403) {
+          console.error('Ошибка загрузки задач команды')
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка соединения при загрузке задач', error)
+    } finally {
+      setLoadingTasks(false)
     }
   }
 
@@ -274,6 +325,117 @@ export default function TeamDetailPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Задачи команды */}
+        <div className="rounded-2xl p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-emerald-400" />
+              Задачи команды
+            </h2>
+            {isAdmin && (
+              <button
+                onClick={async () => {
+                  const taskId = prompt('Введите ID задачи для привязки к команде:')
+                  if (taskId && taskId.trim()) {
+                    try {
+                      const res = await fetch(`/api/teams/${teamId}/link-task`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ taskId: taskId.trim() }),
+                      })
+                      
+                      const data = await res.json()
+                      
+                      if (!res.ok || data.error) {
+                        toast.error(data.error || 'Ошибка при привязке задачи')
+                      } else {
+                        toast.success('Задача успешно привязана к команде!')
+                        loadTasks()
+                      }
+                    } catch (error) {
+                      toast.error('Ошибка соединения с сервером')
+                    }
+                  }
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors flex items-center gap-2 text-sm"
+              >
+                <ClipboardList className="w-4 h-4" />
+                Привязать задачу
+              </button>
+            )}
+          </div>
+
+          {loadingTasks ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>У команды пока нет задач</p>
+              <p className="text-sm mt-2">Задачи появятся здесь, когда они будут назначены на команду</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tasks.map((task) => (
+                <Link
+                  key={task.id}
+                  href={`/tasks/${task.id}`}
+                  className="block p-4 bg-gray-800/50 rounded-lg border border-gray-700/30 hover:border-emerald-500/50 hover:bg-gray-800/70 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-white hover:text-emerald-400 transition-colors">
+                          {task.title}
+                        </h3>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          task.status === 'open' ? 'bg-yellow-500/20 text-yellow-400' :
+                          task.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
+                          task.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {task.status === 'open' ? 'Открыта' :
+                           task.status === 'in_progress' ? 'В работе' :
+                           task.status === 'completed' ? 'Завершена' :
+                           task.status}
+                        </span>
+                      </div>
+                      {task.description && (
+                        <p className="text-sm text-gray-400 mb-2 line-clamp-2">
+                          {task.description}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        {task.price && (
+                          <span className="text-emerald-400 font-medium">
+                            {parseFloat(task.price).toLocaleString('ru-RU')} ₽
+                          </span>
+                        )}
+                        {task.deadline && (
+                          <span>
+                            Дедлайн: {new Date(task.deadline).toLocaleDateString('ru-RU')}
+                          </span>
+                        )}
+                        {task.messagesCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3" />
+                            {task.messagesCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <ExternalLink className="w-5 h-5 text-gray-400 flex-shrink-0 mt-1" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
