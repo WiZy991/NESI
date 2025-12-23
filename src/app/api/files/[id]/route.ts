@@ -119,6 +119,7 @@ export async function GET(
     const [
       inTaskMessage,
       inPrivateMessage,
+      inTeamChat,
       inTask,
       inPortfolio,
     ] = await Promise.all([
@@ -152,6 +153,19 @@ export async function GET(
         select: {
           senderId: true,
           recipientId: true,
+        },
+      }),
+      // Файл в командном чате - проверяем через fileId и fileUrl
+      prisma.teamChat.findFirst({
+        where: {
+          OR: [
+            { fileId: id },
+            { fileUrl: { contains: id } },
+            { fileUrl: { contains: `/api/files/${id}` } },
+          ],
+        },
+        select: {
+          teamId: true,
         },
       }),
       // Файл в задачах (прикрепленные файлы)
@@ -193,6 +207,17 @@ export async function GET(
         inPrivateMessage.senderId === user.id ||
         inPrivateMessage.recipientId === user.id ||
         user.role === "admin";
+    } else if (inTeamChat) {
+      // Проверяем, что пользователь является участником команды
+      const teamMember = await prisma.teamMember.findUnique({
+        where: {
+          teamId_userId: {
+            teamId: inTeamChat.teamId,
+            userId: user.id,
+          },
+        },
+      });
+      hasAccess = !!teamMember || user.role === "admin";
     } else if (inTask) {
       // Файлы задач доступны всем авторизованным пользователям
       hasAccess = true;

@@ -11,15 +11,25 @@ export function getTaskChatKey(taskId: string) {
 	return taskId
 }
 
+export function getTeamChatKey(teamId: string) {
+	return teamId
+}
+
 export function getChatKey(
 	chatType: ChatType,
 	options:
 		| { chatType: 'private'; userA: string; userB: string }
 		| { chatType: 'task'; taskId: string }
+		| { chatType: 'team'; teamId: string }
 ) {
 	if (chatType === 'private') {
 		const { userA, userB } = options as { chatType: 'private'; userA: string; userB: string }
 		return getPrivateChatKey(userA, userB)
+	}
+
+	if (chatType === 'team') {
+		const { teamId } = options as { chatType: 'team'; teamId: string }
+		return getTeamChatKey(teamId)
 	}
 
 	const { taskId } = options as { chatType: 'task'; taskId: string }

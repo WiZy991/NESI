@@ -58,7 +58,13 @@ export async function GET(
         teamId,
         deletedAt: null,
       },
-      include: {
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        editedAt: true,
+        fileId: true,
+        fileUrl: true,
         sender: {
           select: {
             id: true,
@@ -76,7 +82,9 @@ export async function GET(
           },
         },
         replyTo: {
-          include: {
+          select: {
+            id: true,
+            content: true,
             sender: {
               select: {
                 id: true,
@@ -87,7 +95,8 @@ export async function GET(
           },
         },
         reactions: {
-          include: {
+          select: {
+            emoji: true,
             user: {
               select: {
                 id: true,
@@ -107,19 +116,23 @@ export async function GET(
     return NextResponse.json({
       messages: messages.map((msg: any) => {
         // Получаем fileId из связи или напрямую из сообщения
-        const fileId = msg.file?.id || (msg as any).fileId || null
+        const fileIdFromRelation = msg.file?.id
+        const fileIdFromMessage = msg.fileId
+        const fileId = fileIdFromRelation || fileIdFromMessage || null
         const fileName = msg.file?.filename || null
         const fileMimetype = msg.file?.mimetype || null
         // Формируем fileUrl: сначала из связи file, потом из fileUrl в сообщении, потом из fileId
-        const fileUrl = msg.file 
-          ? `/api/files/${msg.file.id}` 
-          : ((msg as any).fileUrl || (fileId ? `/api/files/${fileId}` : null))
+        const fileUrl = fileIdFromRelation
+          ? `/api/files/${fileIdFromRelation}` 
+          : (msg.fileUrl || (fileId ? `/api/files/${fileId}` : null))
         
         logger.debug('Team chat message file data', {
           messageId: msg.id,
           hasFile: !!msg.file,
-          fileId: msg.fileId,
-          fileFromRelation: msg.file?.id,
+          fileIdFromRelation,
+          fileIdFromMessage,
+          fileId,
+          fileUrlFromMessage: msg.fileUrl,
           fileName,
           fileMimetype,
           fileUrl,
@@ -380,10 +393,12 @@ export async function POST(
           email: message.sender.email,
           avatarUrl: message.sender.avatarFileId ? `/api/files/${message.sender.avatarFileId}` : undefined,
         },
-        fileId: message.file?.id || null,
+        fileId: message.file?.id || (message as any).fileId || null,
         fileName: message.file?.filename || null,
         fileMimetype: message.file?.mimetype || null,
-        fileUrl: message.file ? `/api/files/${message.file.id}` : null,
+        fileUrl: message.file 
+          ? `/api/files/${message.file.id}` 
+          : ((message as any).fileUrl || ((message as any).fileId ? `/api/files/${(message as any).fileId}` : null)),
         replyTo: message.replyTo
           ? {
               id: message.replyTo.id,

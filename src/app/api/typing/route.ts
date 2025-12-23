@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendNotificationToUser } from '../notifications/stream/route'
 import { logger } from '@/lib/logger'
 
-type ChatType = 'private' | 'task'
+type ChatType = 'private' | 'task' | 'team'
 
 type TypingState = {
 	isTyping: boolean
@@ -34,6 +34,7 @@ function resolveChatIdentifiers(
 		recipientId: string
 		rawChatId?: string
 		taskId?: string | null
+		teamId?: string | null
 	}
 ) {
 	if (chatType === 'private') {
@@ -45,6 +46,25 @@ function resolveChatIdentifiers(
 		})
 
 		return { broadcastChatId, normalizedChatId }
+	}
+
+	if (chatType === 'team') {
+		const resolvedTeamId =
+			(params.teamId && typeof params.teamId === 'string'
+				? params.teamId
+				: undefined) ??
+			(params.rawChatId?.startsWith('team_')
+				? params.rawChatId.slice('team_'.length)
+				: params.rawChatId)
+
+		if (!resolvedTeamId) {
+			throw new Error('Не указан teamId для чата команды')
+		}
+
+		return {
+			broadcastChatId: `team_${resolvedTeamId}`,
+			normalizedChatId: getChatKey('team', { chatType: 'team', teamId: resolvedTeamId }),
+		}
 	}
 
 	const resolvedTaskId =
@@ -75,23 +95,26 @@ export async function POST(req: NextRequest) {
 		const body = await req.json()
 		const recipientId: string | undefined = body?.recipientId
 		const rawChatType: string = body?.chatType || 'private'
-		const chatType: ChatType = rawChatType === 'task' ? 'task' : 'private'
+		const chatType: ChatType = rawChatType === 'team' ? 'team' : (rawChatType === 'task' ? 'task' : 'private')
 		const rawChatId: string | undefined = body?.chatId || undefined
 		const taskId: string | undefined = body?.taskId || undefined
+		const teamId: string | undefined = body?.teamId || undefined
 		const isTyping: boolean = Boolean(body?.isTyping)
 
-		if (!recipientId) {
+		// Для командного чата recipientId не обязателен
+		if (chatType !== 'team' && !recipientId) {
 			return NextResponse.json(
-				{ error: 'recipientId обязателен' },
+				{ error: 'recipientId обязателен для приватных чатов и чатов задач' },
 				{ status: 400 }
 			)
 		}
 
 		const { broadcastChatId, normalizedChatId } = resolveChatIdentifiers(chatType, {
 			currentUserId: user.id,
-			recipientId,
+			recipientId: recipientId || '',
 			rawChatId,
 			taskId,
+			teamId,
 		})
 
 		const typingStates = getTypingStatesMap()
@@ -122,13 +145,20 @@ export async function POST(req: NextRequest) {
 					reason,
 				})
 
-				sendNotificationToUser(recipientId, {
-					type: 'stoppedTyping',
-					senderId: user.id,
-					sender: senderName,
-					chatType,
-					chatId: broadcastChatId,
-				})
+				// Для командного чата отправляем уведомление через SSE всем участникам
+				if (chatType === 'team' && teamId) {
+					// Уведомления для командного чата отправляются через SSE по chatId
+					// sendNotificationToUser не используется для командного чата
+					// Вместо этого используется broadcast через SSE
+				} else if (recipientId) {
+					sendNotificationToUser(recipientId, {
+						type: 'stoppedTyping',
+						senderId: user.id,
+						sender: senderName,
+						chatType,
+						chatId: broadcastChatId,
+					})
+				}
 			}
 
 			await updateChatActivity({
@@ -146,13 +176,20 @@ export async function POST(req: NextRequest) {
 				now - (existingState?.lastSent ?? 0) >= TYPING_DEBOUNCE_MS
 
 			if (shouldBroadcast) {
-				sendNotificationToUser(recipientId, {
-					type: 'typing',
-					senderId: user.id,
-					sender: senderName,
-					chatType,
-					chatId: broadcastChatId,
-				})
+				// Для командного чата отправляем уведомление через SSE всем участникам
+				if (chatType === 'team' && teamId) {
+					// Уведомления для командного чата отправляются через SSE по chatId
+					// sendNotificationToUser не используется для командного чата
+					// Вместо этого используется broadcast через SSE
+				} else if (recipientId) {
+					sendNotificationToUser(recipientId, {
+						type: 'typing',
+						senderId: user.id,
+						sender: senderName,
+						chatType,
+						chatId: broadcastChatId,
+					})
+				}
 
 				logger.debug('Событие набора отправлено', {
 					senderId: user.id,
