@@ -474,7 +474,7 @@ export async function sendAdminMailingEmail(
 
   try {
     const data = await resendClient.emails.send({
-      from: `NESI <info.nesi@bk.ru>`,
+      from: `NESI <no-reply@nesi.su>`,
       to,
       subject: params.subject,
       html,
