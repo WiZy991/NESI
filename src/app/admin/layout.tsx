@@ -19,6 +19,7 @@ const menuItems = [
 	{ href: '/admin/antifraud', label: 'Anti-Fraud', icon: '🛡️' },
 	{ href: '/admin/reports', label: 'Жалобы', icon: '🚨' },
 	{ href: '/admin/feedback', label: 'Обратная связь', icon: '💬' },
+	{ href: '/admin/mailing', label: 'Рассылки', icon: '📧' },
 ]
 
 export default function AdminLayout({

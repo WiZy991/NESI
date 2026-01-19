@@ -425,3 +425,64 @@ async function sendEmail(to: string, subject: string, html: string) {
     console.error('❌ Ошибка отправки email:', error.message || error)
   }
 }
+
+/**
+ * Отправка рассылки от администратора от имени info.nesi@bk.ru
+ */
+export async function sendAdminMailingEmail(
+  to: string,
+  params: {
+    subject: string
+    message: string
+    recipientName?: string
+  }
+) {
+  const html = `
+    <div style="font-family: 'Segoe UI', Roboto, sans-serif; background-color: #0a0a0a; color: #e5e5e5; padding: 30px;">
+      <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #0d0d0d 0%, #0f2010 100%);
+        border-radius: 16px; box-shadow: 0 0 25px rgba(0, 255, 100, 0.15); overflow: hidden; border: 1px solid rgba(0,255,100,0.1)">
+        
+        <div style="background: radial-gradient(circle at top left, rgba(0,255,120,0.15), transparent);
+            padding: 24px 30px; text-align: center;">
+          <h1 style="margin: 0; color: #00ff88; letter-spacing: 1px;">NESI</h1>
+        </div>
+
+        <div style="padding: 35px;">
+          <h2 style="color: #00ff88; font-size: 22px; margin-bottom: 20px;">${params.subject}</h2>
+          <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 20px 0; white-space: pre-wrap;">
+            ${params.message}
+          </p>
+          
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <p style="font-size: 13px; color: #666; margin: 0;">
+              С уважением,<br/>
+              Команда NESI<br/>
+              <a href="mailto:info.nesi@bk.ru" style="color: #00ff88; text-decoration: none;">info.nesi@bk.ru</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+
+  const resendClient = getResend()
+  
+  if (!resendClient) {
+    console.warn('⚠️ RESEND_API_KEY не настроен, email рассылки не отправлен')
+    return
+  }
+
+  try {
+    const data = await resendClient.emails.send({
+      from: `NESI <info.nesi@bk.ru>`,
+      to,
+      subject: params.subject,
+      html,
+    })
+
+    console.log('✅ Email рассылки отправлен:', params.subject, 'to', to)
+  } catch (error: any) {
+    console.error('❌ Ошибка при отправке email рассылки:', error.message || error)
+    throw error
+  }
+}
